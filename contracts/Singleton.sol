@@ -15,6 +15,9 @@ contract Singleton {
         bytes signature;
     }
     
+    event SuccessfulUserOperation(UserOperation op, bytes status);
+    event FailedUserOperation(UserOperation op, bytes status);
+    
     function handleOps(UserOperation[] calldata ops, uint256 minimumGasPrice) public {
         //require(msg.sender == block.coinbase);
         uint256 savedBalance = address(this).balance;
@@ -23,7 +26,16 @@ contract Singleton {
             if (gasleft() <= op.callGas + op.postCallGas + MAX_CHECK_GAS + POST_CALL_GAS_OVERHEAD){
                 break;
             }
-            handleOp(op, minimumGasPrice);
+            (bool success, bytes memory status) = address(this).call(
+                abi.encodeWithSelector(this.handleOp.selector, op, minimumGasPrice)
+            );
+            if (success) {s
+                emit SuccessfulUserOperation(op, status);
+            }
+            else {
+                emit FailedUserOperation(op, status);
+            }
+            
         }
         payable(address(msg.sender)).transfer(address(this).balance-savedBalance);
     }
