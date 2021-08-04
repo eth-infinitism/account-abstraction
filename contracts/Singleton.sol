@@ -1,21 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.7.0 <0.9.0;
 
-struct UserOperation {
+struct OpData {
     address target;
-    address paymaster;
     uint256 nonce;
-    uint64 callGas;
-    uint64 postCallGas;
-    uint64 gasPrice;
     bytes callData;
+    uint64 callGas;
+}
+
+struct PayData {
+    uint maxGasFee;
+    uint priorityFee;
+    address paymaster;
+}
+
+struct UserOperation {
+    OpData opData;
+    PayData payData;
+    address signer;
     bytes signature;
 }
 
 library UserOperationLib {
     function requiredPreFund(UserOperation calldata userOp) internal returns (uint) {
         //TODO: does paymaster has extra gas?
-        return userOp.callGas * userOp.gasPrice;
+        return userOp.opData.callGas * userOp.payData.gasPrice;
     }
 
     function clientPrePay(UserOperation calldata userOp) internal returns (uint){
@@ -25,7 +34,7 @@ library UserOperationLib {
     }
 
     function hasPaymaster(UserOperation calldata userOp) internal returns (bool) {
-        return userOp.paymaster != address(0);
+        return userOp.payData.paymaster != address(0);
     }
 }
 
@@ -88,6 +97,7 @@ contract Singleton {
 
         for (uint i = 0; i < ops.length; i++) {
             UserOperation calldata op = ops[i];
+            validateGas(ops[i]);
 
             uint preGas = gasleft();
             validatePrepayment(op);
@@ -97,10 +107,13 @@ contract Singleton {
         for (uint i = 0; i < ops.length; i++) {
             uint preGas = gasleft();
             UserOperation calldata op = ops[i];
-            (bool success, bytes memory status) = address(this).call(abi.encodeWithSelector(this.handleSingleOp, op));
+            (bool success, bytes memory status) = address(this).call(abi.encodeWithSelector(this.handleSingleOp, op, savedGas[i]));
             //TODO: capture original context
-            bytes memory context = "";
-            handlePostOp(false, context, preGas-gasleft()+savedGas[i]);
+            if (!success) {
+                actualGasCost = preGas - gasleft();
+                bytes memory context = "";
+                handlePostOp(true, context, preGas-gasleft()+savedGas[i], actualGasCost + savedGas[i]);
+            }
 
             savedGas[i] += preGas-gasleft();
         }
@@ -108,60 +121,67 @@ contract Singleton {
         payable(address(msg.sender)).transfer(address(this).balance - savedBalance);
     }
 
-    function handleSingleOp(UserOperation calldata op) external {
+    function handleSingleOp(UserOperation calldata op, uint preOpCost) external {
         require(msg.sender == address(this));
 
-        (bool success, bytes memory status) = address(op.target).call{gas : op.callGas}(op.callData);
+        uint preGas = gasleft();
+        (bool success, bytes memory status) = address(op.opData.target).call{gas : op.opData.callGas}(op.opData.callData);
         if (success) {
             emit SuccessfulUserOperation(op, status);
         }
         else {
             emit FailedUserOperation(op, status);
         }
-
-        if ( op.hasPaymaster()) {
-            handlePostOp(op);
-        }
+        uint actualGasCost = preGas - gasleft() + preOpCost;
+        bytes memory context="";
+        handlePostOp(false, context, actualGasCost);
     }
 
     //validate it doesn't revert (paymaster, wallet validate request)
     //  has payment (from wallet: from paymaster we only make sure stake is enough)
     // accesslist should be used collected.
     function simulateOp(UserOperation calldata op) external {
+        validateGas(op);
         validatePrepayment(op);
+    }
+
+    uint tx_basefee = 0;
+    function validateGas(UserOperation op) internal {
+        const minerTip = tx.gasprice - tx_basefee;
     }
 
     function validatePrepayment(UserOperation calldata op) private {
 
         if (!op.hasPaymaster()) {
             preBalance = address(this).balance;
-            IWallet(op.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
+            IWallet(op.opData.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
             require(address(this).balance - preBalance >= op.requiredPreFund(), "wallet didn't pay prefund");
         } else {
-            IWallet(op.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
-            require(isValidStake(op.paymaster), "not enough stake");
+            IWallet(op.opData.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
+            require(isValidStake(op.payData.paymaster), "not enough stake");
             //no pre-pay from paymaster
-            IPaymaster(op.paymaster).payForOp{gas:MAX_CHECK_GAS}(op);
+            IPaymaster(op.payData.paymaster).payForOp{gas:MAX_CHECK_GAS}(op);
         }
     }
 
-    function handlePostOp(bytes memory context, uint actualGasCost) private {
+    function handlePostOp(bool postRevert, bytes memory context, uint actualGasCost) private {
         if (!op.hasPaymaster()) {
+            //TODO: do we need postRevert for wallet?
             //NOTE: deliberately ignoring revert: wallet should accept refund.
-            address(this).send(op.target, actualGasCost-op.requiredPreFund());
+            address(this).send(op.opData.target, actualGasCost-op.requiredPreFund());
         } else {
             //paymaster balance known to be high enough, and to be locked for this block
-            stakes[op.paymaster] -= actualGasCost;
+            stakes[op.payData.paymaster] -= actualGasCost;
             if (context.length>0) {
-                IPaymaster(op.paymaster).postOp(context, actualGasCost);
+                IPaymaster(op.payData.paymaster).postOp(postRevert, context, actualGasCost);
             }
         }
     }
 
     function isValidStake(UserOperation calldata op) internal returns (bool) {
-        if (canWithdrawStake(op.paymaster))
+        if (canWithdrawStake(op.payData.paymaster))
             return false;
-        return stakes[op.paymaster] > op.requiredPreFund();
+        return stakes[op.payData.paymaster] > op.requiredPreFund();
     }
 
     function canWithdrawStake(address paymaster) returns (bool) {
