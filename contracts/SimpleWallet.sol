@@ -39,7 +39,6 @@ contract SimpleWallet is IWallet {
 
     function payForSelfOp(UserOperation calldata userOp) external override {
         require(msg.sender == singleton, "not from Singleton");
-        require(owner == userOp.signer, "not owner");
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
         uint prepay = UserOperationLib.clientPrePay(userOp);
@@ -60,7 +59,9 @@ contract SimpleWallet is IWallet {
         require(nonce++ == userOp.opData.nonce, "invalid nonce");
     }
 
-    function _validateSignature(UserOperation calldata userOp) internal pure {
+    function _validateSignature(UserOperation calldata userOp) internal view {
+
+        require(owner == userOp.signer, "not owner");
         bytes32 hash = userOp.hash();
         (bytes32 r, bytes32 s) = abi.decode(userOp.signature, (bytes32, bytes32));
         uint8 v = uint8(userOp.signature[64]);

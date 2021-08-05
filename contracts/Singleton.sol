@@ -22,6 +22,10 @@ contract Singleton is StakeManager {
 
     event UserOperationEvent(address indexed from, address indexed to, address indexed paymaster, uint actualGasGost, bool success);
 
+    //handleOps reverts with this error struct, to mark the offending op
+    // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
+    error FailedOp(uint op, string reason);
+
     receive() external payable {}
 
     function handleOps(UserOperation[] calldata ops) public {
@@ -33,7 +37,7 @@ contract Singleton is StakeManager {
 
         for (uint i = 0; i < opslen; i++) {
             UserOperation calldata op = ops[i];
-            validateGas(ops[i]);
+            validateGas(op);
 
             uint preGas = gasleft();
             contexts[i] = validatePrepayment(i, op);
@@ -77,19 +81,17 @@ contract Singleton is StakeManager {
     }
 
     function tx_basefee() internal pure returns (uint ret){
+        //TODO: needed solidity with basefee support (at least in assembly, better with tx.basefee)
         assembly {
-            // ret := basefee()
+        // ret := basefee()
             ret := 0
         }
     }
 
     function validateGas(UserOperation calldata userOp) internal view {
-        require(userOp.payData.maxGasFee <= tx.gasprice);
         uint priorityFee = tx.gasprice - tx_basefee();
-        require(userOp.payData.priorityFee >= priorityFee);
+        require(userOp.payData.maxPriorityFeePerGas <= priorityFee);
     }
-
-    error FailedOp(uint op, string reason);
 
     function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (bytes32 context){
 
@@ -114,8 +116,13 @@ contract Singleton is StakeManager {
         }
     }
 
+    function min(uint a, uint b) internal pure returns (uint) {
+        return a < b ? a : b;
+    }
+
     function handlePostOp(bool postRevert, UserOperation calldata op, bytes32 context, uint actualGas) private {
-        uint actualGasCost = actualGas * tx.gasprice;
+        uint gasPrice = min(op.payData.maxPriorityFeePerGas + tx_basefee(), tx.gasprice);
+        uint actualGasCost = actualGas * gasPrice;
         if (!op.hasPaymaster()) {
             //TODO: do we need postRevert for wallet?
             //NOTE: deliberately ignoring revert: wallet should accept refund.

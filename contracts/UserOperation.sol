@@ -9,8 +9,9 @@ struct OpData {
 }
 
 struct PayData {
-    uint maxGasFee;
-    uint priorityFee;
+    uint maxFeePerGas;
+    uint maxPriorityFeePerGas;
+
     address paymaster;
 }
 
@@ -25,7 +26,7 @@ library UserOperationLib {
     //TODO: compiler crashes when changing param to "calldata"
     function requiredPreFund(UserOperation memory userOp) internal pure returns (uint) {
         //TODO: does paymaster has extra gas?
-        return userOp.opData.callGas * userOp.payData.maxGasFee;
+        return userOp.opData.callGas * userOp.payData.maxFeePerGas;
     }
 
     function clientPrePay(UserOperation calldata userOp) internal pure returns (uint){
