@@ -43,8 +43,16 @@ contract TokenPaymaster is Ownable, IPaymaster {
     // verify that the user has enough tokens.
     function payForOp(UserOperation calldata userOp) external view override returns (bytes32 context) {
         uint tokenPrefund = ethToToken(UserOperationLib.requiredPreFund(userOp));
-        require(token.allowance(userOp.signer, address(this))>=tokenPrefund, "not enough allowance");
         require(token.balanceOf(userOp.signer) > tokenPrefund, "not enough balance");
+        if ( bytes4(userOp.opData.callData[0:4]) == IERC20.approve.selector ) {
+            //special case: its the "approve" operation, so we know that after
+            // its executed, we'll be able to get refunded
+            (address spender, uint amount) = abi.decode(userOp.opData.callData[4:68], (address, uint));
+            if ( spender == address(this) && amount>= tokenPrefund ) {
+                return bytes32(uint(1));
+            }
+        }
+        require(token.allowance(userOp.signer, address(this))>=tokenPrefund, "not enough allowance");
         return bytes32(uint(1)); //we do need the postOp
     }
 
