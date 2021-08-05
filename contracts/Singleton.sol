@@ -21,6 +21,7 @@ contract Singleton is StakeManager {
     uint256 POST_CALL_GAS_OVERHEAD = 50_000;
 
     event UserOperationEvent(address indexed from, address indexed to, address indexed paymaster, uint actualGasGost, bool success);
+    event UserOperationRevertReason(bytes revertReason);
 
     //handleOps reverts with this error struct, to mark the offending op
     // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
@@ -35,9 +36,11 @@ contract Singleton is StakeManager {
         uint256[] memory savedGas = new uint256[](opslen);
         bytes32[] memory contexts = new bytes32[](opslen);
 
+        uint priorityFee = tx.gasprice - tx_basefee();
+
         for (uint i = 0; i < opslen; i++) {
             UserOperation calldata op = ops[i];
-            validateGas(op);
+            validateGas(op, priorityFee);
 
             uint preGas = gasleft();
             contexts[i] = validatePrepayment(i, op);
@@ -49,10 +52,9 @@ contract Singleton is StakeManager {
             UserOperation calldata op = ops[i];
             bytes32 context = contexts[i];
             (bool success,) = address(this).call(abi.encodeWithSelector(this.handleSingleOp.selector, op, context, savedGas[i]));
-            //TODO: capture original context
             if (!success) {
                 uint actualGas = preGas - gasleft();
-                handlePostOp(true, op, context, actualGas + savedGas[i]);
+                handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas + savedGas[i]);
             }
 
             savedGas[i] += preGas - gasleft();
@@ -65,9 +67,14 @@ contract Singleton is StakeManager {
         require(msg.sender == address(this));
 
         uint preGas = gasleft();
-        (bool success,) = address(op.opData.target).call{gas : op.opData.callGas}(op.opData.callData);
+        (bool success,bytes memory result) = address(op.opData.target).call{gas : op.opData.callGas}(op.opData.callData);
+        if (!success && result.length > 0) {
+            emit UserOperationRevertReason(result);
+        }
+        IPaymaster.PostOpMode mode = success ? IPaymaster.PostOpMode.opSucceeded : IPaymaster.PostOpMode.opReverted;
+
         uint actualGasCost = preGas - gasleft() + preOpCost;
-        handlePostOp(false, op, context, actualGasCost);
+        handlePostOp(mode, op, context, actualGasCost);
         emit UserOperationEvent(op.signer, op.opData.target, op.payData.paymaster, actualGasCost, success);
     }
 
@@ -88,8 +95,7 @@ contract Singleton is StakeManager {
         }
     }
 
-    function validateGas(UserOperation calldata userOp) internal view {
-        uint priorityFee = tx.gasprice - tx_basefee();
+    function validateGas(UserOperation calldata userOp, uint priorityFee) internal pure {
         require(userOp.payData.maxPriorityFeePerGas <= priorityFee);
     }
 
@@ -120,18 +126,19 @@ contract Singleton is StakeManager {
         return a < b ? a : b;
     }
 
-    function handlePostOp(bool postRevert, UserOperation calldata op, bytes32 context, uint actualGas) private {
+    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas) private {
         uint gasPrice = min(op.payData.maxPriorityFeePerGas + tx_basefee(), tx.gasprice);
         uint actualGasCost = actualGas * gasPrice;
         if (!op.hasPaymaster()) {
             //TODO: do we need postRevert for wallet?
             //NOTE: deliberately ignoring revert: wallet should accept refund.
-            payable(op.opData.target).send(op.requiredPreFund() - actualGasCost);
+            bool sendOk = payable(op.opData.target).send(op.requiredPreFund() - actualGasCost);
+            (sendOk);
         } else {
             //paymaster balance known to be high enough, and to be locked for this block
             stakes[op.payData.paymaster].stake -= uint112(actualGasCost);
             if (context != bytes32(0)) {
-                IPaymaster(op.payData.paymaster).postOp(postRevert, context, actualGasCost);
+                IPaymaster(op.payData.paymaster).postOp(mode, op, context, actualGasCost);
             }
         }
     }
