@@ -61,7 +61,7 @@ contract SimpleWallet is IWallet {
     }
 
     function _validateAndIncrementNonce(UserOperation calldata userOp) internal {
-        require(nonce++ == userOp.opData.nonce, "wallet: invalid nonce");
+        require(nonce++ == userOp.nonce, "wallet: invalid nonce");
     }
 
     function _validateSignature(UserOperation calldata userOp) internal view {

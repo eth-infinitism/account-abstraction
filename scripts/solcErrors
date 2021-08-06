@@ -1,0 +1,11 @@
+export LC_CTYPE=
+#solc error ( unrecognized by idea
+#  --> contracts/UserOperation.sol:57:9:
+#js error (recognized)
+#      at SimpleWallet._validateSignature (contracts/samples/SimpleWallet.sol:76)
+
+perl -pe 's/--> (\S+):(\d+):(\d+):/at ($1:$2)/;' \
+    -e "s/^\s*$//;" \
+    -e "s/\s*at .*node_modules.*\s*//;" \
+    -e "s/.*HH600.*\s*//"
+

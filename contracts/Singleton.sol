@@ -67,7 +67,7 @@ contract Singleton is StakeManager {
         require(msg.sender == address(this));
 
         uint preGas = gasleft();
-        (bool success,bytes memory result) = address(op.opData.target).call{gas : op.opData.callGas}(op.opData.callData);
+        (bool success,bytes memory result) = address(op.target).call{gas : op.callGas}(op.callData);
         if (!success && result.length > 0) {
             emit UserOperationRevertReason(result);
         }
@@ -75,7 +75,7 @@ contract Singleton is StakeManager {
 
         uint actualGasCost = preGas - gasleft() + preOpCost;
         handlePostOp(mode, op, context, actualGasCost);
-        emit UserOperationEvent(op.signer, op.opData.target, op.payData.paymaster, actualGasCost, success);
+        emit UserOperationEvent(op.signer, op.target, op.paymaster, actualGasCost, success);
     }
 
     //validate it doesn't revert (paymaster, wallet validate request)
@@ -96,21 +96,21 @@ contract Singleton is StakeManager {
     }
 
     function validateGas(UserOperation calldata userOp, uint priorityFee) internal pure {
-        require(userOp.payData.maxPriorityFeePerGas <= priorityFee);
+        require(userOp.maxPriorityFeePerGas <= priorityFee);
     }
 
     // get the target address, or use "create2" to create it.
     // note that the gas allocation for this creation is deterministic (by the size of callData),
     // so it is not checked on-chain, and adds to the gas used by payForSelfOp
     function _getOrCreateTarget(UserOperation calldata op) internal returns (address target) {
-        target = op.opData.target;
+        target = op.target;
         if (target == address(0)) {
             //its a create operation. run the create2
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
-            bytes memory createData = op.opData.callData;
+            bytes memory createData = op.callData;
             //nonce is meaningless during create, so we re-purpose it as salt
-            uint salt = op.opData.nonce;
+            uint salt = op.nonce;
             assembly {
                 target := create2(0, add(createData, 32), mload(createData), salt)
             }
@@ -135,10 +135,10 @@ contract Singleton is StakeManager {
                 revert FailedOp(opIndex, "");
             }
         } else {
-            IWallet(op.opData.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
+            IWallet(op.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
             require(isValidStake(op), "not enough stake");
             //no pre-pay from paymaster
-            context = IPaymaster(op.payData.paymaster).payForOp{gas : MAX_CHECK_GAS}(op);
+            context = IPaymaster(op.paymaster).payForOp{gas : MAX_CHECK_GAS}(op);
         }
     }
 
@@ -147,25 +147,25 @@ contract Singleton is StakeManager {
     }
 
     function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas) private {
-        uint gasPrice = min(op.payData.maxPriorityFeePerGas + tx_basefee(), tx.gasprice);
+        uint gasPrice = min(op.maxPriorityFeePerGas + tx_basefee(), tx.gasprice);
         uint actualGasCost = actualGas * gasPrice;
         if (!op.hasPaymaster()) {
             //TODO: do we need postRevert for wallet?
             //NOTE: deliberately ignoring revert: wallet should accept refund.
-            bool sendOk = payable(op.opData.target).send(op.requiredPreFund() - actualGasCost);
+            bool sendOk = payable(op.target).send(op.requiredPreFund() - actualGasCost);
             (sendOk);
         } else {
             //paymaster balance known to be high enough, and to be locked for this block
-            stakes[op.payData.paymaster].stake -= uint112(actualGasCost);
+            stakes[op.paymaster].stake -= uint112(actualGasCost);
             if (context != bytes32(0)) {
-                IPaymaster(op.payData.paymaster).postOp(mode, op, context, actualGasCost);
+                IPaymaster(op.paymaster).postOp(mode, op, context, actualGasCost);
             }
         }
     }
 
 
     function isValidStake(UserOperation calldata op) internal view returns (bool) {
-        return isPaymasterStaked(op.payData.paymaster, STAKE_LOCK_BLOCKS + op.requiredPreFund());
+        return isPaymasterStaked(op.paymaster, STAKE_LOCK_BLOCKS + op.requiredPreFund());
     }
 }
 
