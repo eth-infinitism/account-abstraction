@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.4;
 
-import "./IWallet.sol";
+import "../IWallet.sol";
 
 //minimal wallet
 // this is sample minimal wallet.
@@ -15,13 +15,18 @@ contract SimpleWallet is IWallet {
 
     receive() external payable {}
 
+    constructor(address _singleton, address _owner) {
+        singleton = _singleton;
+        owner = _owner;
+    }
+
     modifier onlyThroughSingleton() {
         _onlyThroughSingleton();
         _;
     }
 
     function _onlyThroughSingleton() internal view {
-        require(msg.sender == address(this));
+        require(msg.sender == address(this) || msg.sender == owner, "wallet: only through singleton or owner");
     }
 
     function transfer(address payable dest, uint amount) external onlyThroughSingleton {
@@ -38,7 +43,7 @@ contract SimpleWallet is IWallet {
     }
 
     function payForSelfOp(UserOperation calldata userOp) external override {
-        require(msg.sender == singleton, "not from Singleton");
+        require(msg.sender == singleton, "wallet: not from Singleton");
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
         uint prepay = UserOperationLib.clientPrePay(userOp);
@@ -56,15 +61,16 @@ contract SimpleWallet is IWallet {
     }
 
     function _validateAndIncrementNonce(UserOperation calldata userOp) internal {
-        require(nonce++ == userOp.opData.nonce, "invalid nonce");
+        require(nonce++ == userOp.opData.nonce, "wallet: invalid nonce");
     }
 
     function _validateSignature(UserOperation calldata userOp) internal view {
 
-        require(owner == userOp.signer, "not owner");
+        require(owner == userOp.signer, "wallet: not owner");
         bytes32 hash = userOp.hash();
+        require(userOp.signature.length==65, "wallet: invalid signature length");
         (bytes32 r, bytes32 s) = abi.decode(userOp.signature, (bytes32, bytes32));
         uint8 v = uint8(userOp.signature[64]);
-        require(userOp.signer == ecrecover(hash, v, r, s));
+        require(userOp.signer == ecrecover(hash, v, r, s), "wallet: wrong signature");
     }
 }
