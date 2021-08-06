@@ -99,11 +99,31 @@ contract Singleton is StakeManager {
         require(userOp.payData.maxPriorityFeePerGas <= priorityFee);
     }
 
+    // get the target address, or use "create2" to create it.
+    // note that the gas allocation for this creation is deterministic (by the size of callData),
+    // so it is not checked on-chain, and adds to the gas used by payForSelfOp
+    function _getOrCreateTarget(UserOperation calldata op) internal returns (address target) {
+        target = op.opData.target;
+        if (target == address(0)) {
+            //its a create operation. run the create2
+            // note that we're still under the gas limit of validate, so probably
+            // this create2 creates a proxy account.
+            bytes memory createData = op.opData.callData;
+            //nonce is meaningless during create, so we re-purpose it as salt
+            uint salt = op.opData.nonce;
+            assembly {
+                target := create2(0, add(createData, 32), mload(createData), salt)
+            }
+            require(target != address(0));
+        }
+    }
+
     function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (bytes32 context){
 
         if (!op.hasPaymaster()) {
             uint preBalance = address(this).balance;
-            try IWallet(op.opData.target).payForSelfOp{gas : MAX_CHECK_GAS}(op) {
+            IWallet target = IWallet(_getOrCreateTarget(op));
+            try target.payForSelfOp{gas : MAX_CHECK_GAS}(op) {
                 //note: this "revert" doesn't get catched below
                 if (address(this).balance - preBalance < op.requiredPreFund()) {
                     revert FailedOp(opIndex, "wallet didn't pay prefund");
