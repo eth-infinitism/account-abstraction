@@ -20,7 +20,7 @@ contract Singleton is StakeManager {
     uint256 MAX_CHECK_GAS = 100_000;
     uint256 POST_CALL_GAS_OVERHEAD = 50_000;
 
-    event UserOperationEvent(address indexed from, address indexed to, address indexed paymaster, uint actualGasGost, bool success);
+    event UserOperationEvent(address indexed from, address indexed to, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
     event UserOperationRevertReason(bytes revertReason);
 
     //handleOps reverts with this error struct, to mark the offending op
@@ -29,14 +29,14 @@ contract Singleton is StakeManager {
 
     receive() external payable {}
 
-    function handleOps(UserOperation[] calldata ops) public {
+    function handleOps(UserOperation[] calldata ops, address payable redeemer) public {
 
         uint256 savedBalance = address(this).balance;
         uint opslen = ops.length;
         uint256[] memory savedGas = new uint256[](opslen);
         bytes32[] memory contexts = new bytes32[](opslen);
 
-        uint priorityFee = tx.gasprice - tx_basefee();
+        uint priorityFee = tx.gasprice - UserOperationLib.tx_basefee();
 
         for (uint i = 0; i < opslen; i++) {
             UserOperation calldata op = ops[i];
@@ -44,7 +44,8 @@ contract Singleton is StakeManager {
 
             uint preGas = gasleft();
             contexts[i] = validatePrepayment(i, op);
-            savedGas[i] = preGas - gasleft();
+            uint gasUsed = preGas - gasleft();
+            savedGas[i] = gasUsed;
         }
 
         for (uint i = 0; i < ops.length; i++) {
@@ -54,16 +55,14 @@ contract Singleton is StakeManager {
             (bool success,) = address(this).call(abi.encodeWithSelector(this.handleSingleOp.selector, op, context, savedGas[i]));
             if (!success) {
                 uint actualGas = preGas - gasleft();
-                handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas + savedGas[i]);
+                handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas + savedGas[i], false);
             }
-
-            savedGas[i] += preGas - gasleft();
         }
 
-        payable(address(msg.sender)).transfer(address(this).balance - savedBalance);
+        redeemer.transfer(address(this).balance - savedBalance);
     }
 
-    function handleSingleOp(UserOperation calldata op, bytes32 context, uint preOpCost) external {
+    function handleSingleOp(UserOperation calldata op, bytes32 context, uint preOpGas) external {
         require(msg.sender == address(this));
 
         uint preGas = gasleft();
@@ -73,9 +72,8 @@ contract Singleton is StakeManager {
         }
         IPaymaster.PostOpMode mode = success ? IPaymaster.PostOpMode.opSucceeded : IPaymaster.PostOpMode.opReverted;
 
-        uint actualGasCost = preGas - gasleft() + preOpCost;
-        handlePostOp(mode, op, context, actualGasCost);
-        emit UserOperationEvent(op.signer, op.target, op.paymaster, actualGasCost, success);
+        uint actualGas = preGas - gasleft() + preOpGas;
+        handlePostOp(mode, op, context, actualGas, success);
     }
 
     //validate it doesn't revert (paymaster, wallet validate request)
@@ -87,16 +85,8 @@ contract Singleton is StakeManager {
         validatePrepayment(0, op);
     }
 
-    function tx_basefee() internal pure returns (uint ret){
-        //TODO: needed solidity with basefee support (at least in assembly, better with tx.basefee)
-        assembly {
-        // ret := basefee()
-            ret := 0
-        }
-    }
-
     function validateGas(UserOperation calldata userOp, uint priorityFee) internal pure {
-        require(userOp.maxPriorityFeePerGas <= priorityFee);
+        require(userOp.maxPriorityFeePerGas <= priorityFee, "actual priorityFee too low");
     }
 
     // get the target address, or use "create2" to create it.
@@ -114,8 +104,23 @@ contract Singleton is StakeManager {
             assembly {
                 target := create2(0, add(createData, 32), mload(createData), salt)
             }
-            require(target != address(0));
+            require(target != address(0), "create2 failed");
         }
+    }
+
+    //get counterfactual account address.
+    function getAccountAddress(bytes memory bytecode, uint _salt) public view returns (address) {
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                bytes1(0xff),
+                address(this),
+                _salt,
+                keccak256(bytecode)
+            )
+        );
+
+        // NOTE: cast last 20 bytes of hash to address
+        return address(uint160(uint256(hash)));
     }
 
     function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (bytes32 context){
@@ -142,12 +147,8 @@ contract Singleton is StakeManager {
         }
     }
 
-    function min(uint a, uint b) internal pure returns (uint) {
-        return a < b ? a : b;
-    }
-
-    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas) private {
-        uint gasPrice = min(op.maxPriorityFeePerGas + tx_basefee(), tx.gasprice);
+    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas, bool success) private {
+        uint gasPrice = UserOperationLib.gasPrice(op);
         uint actualGasCost = actualGas * gasPrice;
         if (!op.hasPaymaster()) {
             //TODO: do we need postRevert for wallet?
@@ -161,6 +162,7 @@ contract Singleton is StakeManager {
                 IPaymaster(op.paymaster).postOp(mode, op, context, actualGasCost);
             }
         }
+        emit UserOperationEvent(op.signer, op.target, op.paymaster, actualGasCost, gasPrice, success);
     }
 
 

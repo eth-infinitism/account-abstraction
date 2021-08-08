@@ -1,8 +1,8 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
-import {BigNumberish, Signer, Wallet} from "ethers";
+import {BigNumberish, Contract, Signer, Wallet} from "ethers";
 import {AddressZero} from "./testutils";
 import {BytesLike} from "@ethersproject/bytes";
-import {ecsign, toRpcSig} from "ethereumjs-util";
+import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {waffle} from "hardhat";
 
 //define the same types as used by typechain/ethers
@@ -50,26 +50,61 @@ export const ZeroUserOp: UserOperation = {
   target: AddressZero,
   nonce: 0,
   callData: '0x',
-  callGas: 1,
-  maxFeePerGas: 2,
+  callGas: 0,
+  maxFeePerGas: 0,
   maxPriorityFeePerGas: 3,
   paymaster: AddressZero,
   signer: AddressZero,
   signature: '0x'
 }
 
-export async function signUserOp(op: UserOperation, signer: Wallet): Promise<UserOperation> {
+export function signUserOp(op: UserOperation, signer: Wallet): UserOperation {
   let packed = packUserOp(op);
-  let message =  Buffer.from(arrayify(keccak256(packed)));
-  const sig = ecsign(message, Buffer.from(arrayify(signer.privateKey)))
+  let message = Buffer.from(arrayify(keccak256(packed)));
+  let msg1 = Buffer.concat([
+    Buffer.from("\x19Ethereum Signed Message:\n32", 'ascii'),
+    message
+  ])
+
+  const sig = ecsign(keccak256_buffer(msg1), Buffer.from(arrayify(signer.privateKey)))
+  // that's equivalent of:  await signer.signMessage(message);
+  // (but without "async"
+  let signedMessage1 = toRpcSig(sig.v, sig.r, sig.s);
   return {
     ...op,
-    signer: await signer.getAddress(),
-    signature: await signer.signMessage(message)
+    signer: signer.address,
+    signature: signedMessage1
   }
 }
 
 export function fillUserOp(op: Partial<UserOperation>, defaults = ZeroUserOp): UserOperation {
   const filled = {...defaults, ...op}
   return filled
+}
+
+export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet): Promise<UserOperation> {
+  let op1 = {...op}
+  let provider = signer.provider;
+  if (op1.nonce == null) {
+    if ( op.target==AddressZero) {
+      op1.nonce = 0
+    } else {
+      const c = new Contract(op.target!, ['function nonce() view returns(address)'], provider)
+      op1.nonce = await c.nonce()
+    }
+  }
+  if ( op1.callGas==null ) {
+    const gasEtimated =  await provider.estimateGas({from:signer.address, to: op1.target, data: op1.callData})
+    //estimateGas assumes direct call from owner. add wrapper cost.
+    op1.callGas = gasEtimated.add(45000)
+  }
+  if (op1.maxFeePerGas == null) {
+    op1.maxFeePerGas = await provider.getGasPrice()
+  }
+  if (op1.maxPriorityFeePerGas == null) {
+    let block = await provider.getBlock('latest');
+    op1.maxPriorityFeePerGas = block.baseFeePerGas ?? op1.maxFeePerGas
+  }
+  let op2 = fillUserOp(op1);
+  return signUserOp(op2, signer)
 }

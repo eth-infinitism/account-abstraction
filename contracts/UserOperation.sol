@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.4;
 
+import "hardhat/console.sol";
+
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
     struct UserOperation {
 
@@ -23,10 +25,25 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
     }
 
 library UserOperationLib {
+
+    //relayer/miner might submit the TX with higher priorityFee, but the user should not
+    // pay above what he signed for.
+    function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
+        return min(userOp.maxFeePerGas, min(userOp.maxPriorityFeePerGas + tx_basefee(), tx.gasprice));
+    }
+
+    function requiredGas(UserOperation memory userOp) internal view returns (uint prefund) {
+        uint callgas = userOp.callGas;
+        if ( userOp.target == address (0) ) {
+            uint create2gas = 32000 + 200 * userOp.callData.length;
+            callgas += create2gas;
+        }
+        return callgas;
+    }
+
     //TODO: compiler crashes when changing param to "calldata"
-    function requiredPreFund(UserOperation memory userOp) internal view returns (uint) {
-        //TODO: does paymaster has extra gas?
-        return userOp.callGas * userOp.maxFeePerGas;
+    function requiredPreFund(UserOperation memory userOp) internal view returns (uint prefund) {
+        return requiredGas(userOp) * userOp.maxFeePerGas;
     }
 
     function clientPrePay(UserOperation calldata userOp) internal view returns (uint){
@@ -57,4 +74,19 @@ library UserOperationLib {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32",
             keccak256(pack(userOp))));
     }
+
+    function min(uint a, uint b) internal pure returns (uint) {
+        return a < b ? a : b;
+    }
+
+
+    function tx_basefee() internal view returns (uint ret){
+        //TODO: needed solidity with basefee support (at least in assembly, better with tx.basefee)
+        assembly {
+        // ret := basefee()
+        }
+        ret = tx.gasprice * 0;
+    }
+
+
 }

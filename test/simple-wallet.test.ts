@@ -1,5 +1,5 @@
 import {describe} from 'mocha'
-import {BigNumber, BigNumberish, Wallet} from "ethers";
+import {Wallet} from "ethers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
@@ -8,7 +8,7 @@ import {
   TestUtil,
   TestUtil__factory
 } from "../typechain";
-import {AddressZero, ONE_ETH, tostr} from "./testutils";
+import {AddressZero, createWalletOwner, getBalance, ONE_ETH, tostr} from "./testutils";
 import {fillUserOp, packUserOp, signUserOp, UserOperation, ZeroUserOp} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import exp from "constants";
@@ -16,7 +16,7 @@ import exp from "constants";
 
 describe("SimpleWallet", function () {
 
-  const singleton = AddressZero
+  const singleton = '0x'.padEnd(42, '2')
   let accounts: string[]
   let testUtil: TestUtil
   let walletOwner: Wallet
@@ -25,16 +25,18 @@ describe("SimpleWallet", function () {
   before(async () => {
     accounts = await ethers.provider.listAccounts()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    walletOwner = ethers.Wallet.createRandom()
+    walletOwner = createWalletOwner('2')
   })
 
   it('owner should be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
+    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy()
+    await wallet.init(singleton, accounts[0])
     await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('10')})
     await wallet.transfer(accounts[2], ONE_ETH)
   });
   it('other account should not be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
+    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy()
+    await wallet.init(singleton, accounts[0])
     await expect(wallet.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
       .to.be.revertedWith('only through')
   });
@@ -45,10 +47,6 @@ describe("SimpleWallet", function () {
     expect(await testUtil.packUserOp(op)).to.equal(packed)
   });
 
-  async function getBalance(address: string): Promise<number> {
-    return await ethers.provider.getBalance(address).then(x => parseFloat(x.toString()))
-  }
-
   describe('#payForSelfOp', () => {
     let wallet: SimpleWallet
     let userOp: UserOperation
@@ -58,12 +56,12 @@ describe("SimpleWallet", function () {
     before(async () => {
       //that's the account of ethersSigner
       const singleton = accounts[2]
-      wallet = await new SimpleWallet__factory(await ethers.getSigner(singleton))
-        .deploy(singleton, walletOwner.address)
+      wallet = await new SimpleWallet__factory(await ethers.getSigner(singleton)).deploy()
+      await wallet.init(singleton, walletOwner.address)
       await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('0.2')})
       const callGas = 5
       const maxFeePerGas = 3e9
-      userOp = await signUserOp(fillUserOp({target: wallet.address, callGas, maxFeePerGas}), walletOwner)
+      userOp = signUserOp(fillUserOp({target: wallet.address, callGas, maxFeePerGas}), walletOwner)
       expectedPay = maxFeePerGas * callGas
       preBalance = await getBalance(wallet.address)
       const ret = await wallet.payForSelfOp(userOp)

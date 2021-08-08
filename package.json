@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "compile": "hardhat compile 2| ./scripts/solcErrors",
+    "compile": "hardhat compile 2>&1 | ./scripts/solcErrors",
     "test": "hardhat test"
   },
   "keywords": [],

@@ -13,9 +13,13 @@ contract SimpleWallet is IWallet {
     address public owner;
     address public singleton;
 
+    event SingletonChanged(address oldSingleton, address newSingleton);
+
     receive() external payable {}
 
-    constructor(address _singleton, address _owner) {
+    function init(address _singleton, address _owner) external {
+        require(singleton == address(0), "wallet: already initialized");
+        require(_singleton != address(0), "wallet: cannot have null singleton");
         singleton = _singleton;
         owner = _owner;
     }
@@ -23,6 +27,14 @@ contract SimpleWallet is IWallet {
     modifier onlyThroughSingleton() {
         _onlyThroughSingleton();
         _;
+    }
+
+    //complete wallet creation: set singleton and pay for creation.
+    // can only be called directly after creation, while singleton is not set
+    function payForCreation(address payable target, uint amount, address _singleton) external {
+        require(singleton == address(0), "singleton already set");
+        singleton = _singleton;
+        target.transfer(amount);
     }
 
     function _onlyThroughSingleton() internal view {
@@ -39,16 +51,21 @@ contract SimpleWallet is IWallet {
     }
 
     function updateSingleton(address _singleton) external onlyThroughSingleton {
+        emit SingletonChanged(singleton, _singleton);
         singleton = _singleton;
     }
 
     function payForSelfOp(UserOperation calldata userOp) external override {
-        require(msg.sender == singleton, "wallet: not from Singleton");
+        require(singleton == address(0) || msg.sender == singleton, "wallet: not from Singleton");
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
+
+        //TODO: should use:  prepay = userOp.clientPrePay();
+        //  but fails with: InternalCompilerError: Internal compiler error (/Users/distiller/project/libsolidity/codegen/CompilerUtils.cpp:1135)
         uint prepay = UserOperationLib.clientPrePay(userOp);
+
         if (prepay != 0) {
-            payable(msg.sender).transfer(prepay);
+            require(payable(msg.sender).send(prepay), "failed to prepay");
         }
     }
 
@@ -66,9 +83,9 @@ contract SimpleWallet is IWallet {
 
     function _validateSignature(UserOperation calldata userOp) internal view {
 
-        require(owner == userOp.signer, "wallet: not owner");
+        require(owner == address(0) || owner == userOp.signer, "wallet: not owner");
         bytes32 hash = userOp.hash();
-        require(userOp.signature.length==65, "wallet: invalid signature length");
+        require(userOp.signature.length == 65, "wallet: invalid signature length");
         (bytes32 r, bytes32 s) = abi.decode(userOp.signature, (bytes32, bytes32));
         uint8 v = uint8(userOp.signature[64]);
         require(userOp.signer == ecrecover(hash, v, r, s), "wallet: wrong signature");
