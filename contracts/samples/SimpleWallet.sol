@@ -17,7 +17,7 @@ contract SimpleWallet is IWallet {
 
     receive() external payable {}
 
-    function init(address _singleton, address _owner) external {
+    function init(address _singleton, address _owner) public virtual {
         require(singleton == address(0), "wallet: already initialized");
         require(_singleton != address(0), "wallet: cannot have null singleton");
         singleton = _singleton;
@@ -38,7 +38,7 @@ contract SimpleWallet is IWallet {
     }
 
     function _onlyThroughSingleton() internal view {
-        require(msg.sender == address(this) || msg.sender == owner, "wallet: only through singleton or owner");
+        require(msg.sender == singleton || msg.sender == owner, "wallet: only through singleton or owner");
     }
 
     function transfer(address payable dest, uint amount) external onlyThroughSingleton {

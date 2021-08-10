@@ -9,17 +9,12 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
         //    struct OpData {
         address target;
         uint256 nonce;
+        bytes initCode;
         bytes callData;
         uint64 callGas;
-        //    }
-
-        //    struct {
         uint maxFeePerGas;
         uint maxPriorityFeePerGas;
-
         address paymaster;
-        //    }
-
         address signer;
         bytes signature;
     }
@@ -32,9 +27,9 @@ library UserOperationLib {
         return min(userOp.maxFeePerGas, min(userOp.maxPriorityFeePerGas + tx_basefee(), tx.gasprice));
     }
 
-    function requiredGas(UserOperation memory userOp) internal view returns (uint prefund) {
+    function requiredGas(UserOperation memory userOp) internal pure returns (uint prefund) {
         uint callgas = userOp.callGas;
-        if ( userOp.target == address (0) ) {
+        if (userOp.initCode.length > 0) {
             uint create2gas = 32000 + 200 * userOp.callData.length;
             callgas += create2gas;
         }
@@ -53,11 +48,11 @@ library UserOperationLib {
         return requiredPreFund(userOp);
     }
 
-    function hasPaymaster(UserOperation memory userOp) internal view returns (bool) {
+    function hasPaymaster(UserOperation memory userOp) internal pure returns (bool) {
         return userOp.paymaster != address(0);
     }
 
-    function pack(UserOperation memory userOp) internal view returns (bytes memory) {
+    function pack(UserOperation memory userOp) internal pure returns (bytes memory) {
         //TODO: eip712-style ?
         return abi.encode(
             userOp.target,

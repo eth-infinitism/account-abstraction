@@ -21,6 +21,7 @@
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
+    "sourceMap": true,
     "jsx": "react-jsx"
   }
 }

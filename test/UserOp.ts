@@ -4,7 +4,8 @@ import {AddressZero} from "./testutils";
 import {BytesLike} from "@ethersproject/bytes";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {waffle} from "hardhat";
-
+import {Singleton} from '../typechain'
+import assert from "assert";
 //define the same types as used by typechain/ethers
 type address = string
 type uint256 = BigNumberish
@@ -15,6 +16,7 @@ type bytes = BytesLike
 export interface UserOperation {
   target: address
   nonce: uint256
+  initCode: bytes
   callData: bytes
   callGas: uint64
 
@@ -49,6 +51,7 @@ export function packUserOp(op: UserOperation): string {
 export const ZeroUserOp: UserOperation = {
   target: AddressZero,
   nonce: 0,
+  initCode: '0x',
   callData: '0x',
   callGas: 0,
   maxFeePerGas: 0,
@@ -82,21 +85,25 @@ export function fillUserOp(op: Partial<UserOperation>, defaults = ZeroUserOp): U
   return filled
 }
 
-export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet): Promise<UserOperation> {
+//singleton param is only required to fill in "target address when specifying "initCode"
+export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, singleton?: Singleton): Promise<UserOperation> {
   let op1 = {...op}
   let provider = signer.provider;
-  if (op1.nonce == null) {
-    if ( op.target==AddressZero) {
-      op1.nonce = 0
-    } else {
-      const c = new Contract(op.target!, ['function nonce() view returns(address)'], provider)
-      op1.nonce = await c.nonce()
+  if (op.initCode != null) {
+    op1.nonce = 0
+    if (op1.target == null) {
+      assert(singleton != null, 'must have singleton when using initCode')
+      op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce)
     }
   }
-  if ( op1.callGas==null ) {
-    const gasEtimated =  await provider.estimateGas({from:signer.address, to: op1.target, data: op1.callData})
+  if (op1.nonce == null) {
+    const c = new Contract(op.target!, ['function nonce() view returns(address)'], provider)
+    op1.nonce = await c.nonce()
+  }
+  if (op1.callGas == null) {
+    const gasEtimated = await provider.estimateGas({from: signer.address, to: op1.target, data: op1.callData})
     //estimateGas assumes direct call from owner. add wrapper cost.
-    op1.callGas = gasEtimated.add(45000)
+    op1.callGas = gasEtimated.add(55000)
   }
   if (op1.maxFeePerGas == null) {
     op1.maxFeePerGas = await provider.getGasPrice()

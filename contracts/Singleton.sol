@@ -6,7 +6,6 @@ import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
 
-
 contract Singleton is StakeManager {
 
     using UserOperationLib for UserOperation;
@@ -20,7 +19,7 @@ contract Singleton is StakeManager {
     uint256 MAX_CHECK_GAS = 100_000;
     uint256 POST_CALL_GAS_OVERHEAD = 50_000;
 
-    event UserOperationEvent(address indexed from, address indexed to, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
+    event UserOperationEvent(address indexed account, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
     event UserOperationRevertReason(bytes revertReason);
 
     //handleOps reverts with this error struct, to mark the offending op
@@ -48,21 +47,28 @@ contract Singleton is StakeManager {
             savedGas[i] = gasUsed;
         }
 
+        uint valueFromStake = 0;
         for (uint i = 0; i < ops.length; i++) {
             uint preGas = gasleft();
             UserOperation calldata op = ops[i];
             bytes32 context = contexts[i];
-            (bool success,) = address(this).call(abi.encodeWithSelector(this.handleSingleOp.selector, op, context, savedGas[i]));
-            if (!success) {
+            (bool success, bytes memory ret) = address(this).call(abi.encodeWithSelector(this.handleSingleOp.selector, op, context, savedGas[i]));
+            uint valueFromPaymaster;
+            if (success) {
+                (valueFromPaymaster) = abi.decode(ret, (uint));
+            } else {
                 uint actualGas = preGas - gasleft();
-                handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas + savedGas[i], false);
+                valueFromPaymaster = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas + savedGas[i], false);
             }
+            valueFromStake += valueFromPaymaster;
         }
 
-        redeemer.transfer(address(this).balance - savedBalance);
+        uint collected = address(this).balance - savedBalance + valueFromStake;
+
+        redeemer.transfer(collected);
     }
 
-    function handleSingleOp(UserOperation calldata op, bytes32 context, uint preOpGas) external {
+    function handleSingleOp(UserOperation calldata op, bytes32 context, uint preOpGas) external returns (uint valueFromPaymaster) {
         require(msg.sender == address(this));
 
         uint preGas = gasleft();
@@ -73,7 +79,7 @@ contract Singleton is StakeManager {
         IPaymaster.PostOpMode mode = success ? IPaymaster.PostOpMode.opSucceeded : IPaymaster.PostOpMode.opReverted;
 
         uint actualGas = preGas - gasleft() + preOpGas;
-        handlePostOp(mode, op, context, actualGas, success);
+        return handlePostOp(mode, op, context, actualGas, success);
     }
 
     //validate it doesn't revert (paymaster, wallet validate request)
@@ -94,17 +100,19 @@ contract Singleton is StakeManager {
     // so it is not checked on-chain, and adds to the gas used by payForSelfOp
     function _getOrCreateTarget(UserOperation calldata op) internal returns (address target) {
         target = op.target;
-        if (target == address(0)) {
+        if (op.initCode.length!=0) {
             //its a create operation. run the create2
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
-            bytes memory createData = op.callData;
+            bytes memory createData = op.initCode;
             //nonce is meaningless during create, so we re-purpose it as salt
             uint salt = op.nonce;
+            address target1;
             assembly {
-                target := create2(0, add(createData, 32), mload(createData), salt)
+                target1 := create2(0, add(createData, 32), mload(createData), salt)
             }
-            require(target != address(0), "create2 failed");
+            require(target1 != address(0), "create2 failed");
+            require(target1==target, "target doesn't match create2 address");
         }
     }
 
@@ -125,9 +133,9 @@ contract Singleton is StakeManager {
 
     function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (bytes32 context){
 
+        IWallet target = IWallet(_getOrCreateTarget(op));
         if (!op.hasPaymaster()) {
             uint preBalance = address(this).balance;
-            IWallet target = IWallet(_getOrCreateTarget(op));
             try target.payForSelfOp{gas : MAX_CHECK_GAS}(op) {
                 //note: this "revert" doesn't get catched below
                 if (address(this).balance - preBalance < op.requiredPreFund()) {
@@ -140,14 +148,21 @@ contract Singleton is StakeManager {
                 revert FailedOp(opIndex, "");
             }
         } else {
-            IWallet(op.target).payForSelfOp{gas : MAX_CHECK_GAS}(op);
+            target.payForSelfOp{gas : MAX_CHECK_GAS}(op);
             require(isValidStake(op), "not enough stake");
             //no pre-pay from paymaster
             context = IPaymaster(op.paymaster).payForOp{gas : MAX_CHECK_GAS}(op);
         }
     }
 
-    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas, bool success) private {
+    function getPaymastersStake(address[] calldata paymasters) external view returns(uint[] memory _stakes) {
+        _stakes = new uint[](paymasters.length);
+        for ( uint i=0; i<paymasters.length; i++ ) {
+            _stakes[i] = stakes[paymasters[i]].stake;
+        }
+    }
+
+    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas, bool success) private returns (uint valueFromPaymaster) {
         uint gasPrice = UserOperationLib.gasPrice(op);
         uint actualGasCost = actualGas * gasPrice;
         if (!op.hasPaymaster()) {
@@ -155,14 +170,22 @@ contract Singleton is StakeManager {
             //NOTE: deliberately ignoring revert: wallet should accept refund.
             bool sendOk = payable(op.target).send(op.requiredPreFund() - actualGasCost);
             (sendOk);
+            //charged wallet directly.
+            valueFromPaymaster = 0;
         } else {
             //paymaster balance known to be high enough, and to be locked for this block
             stakes[op.paymaster].stake -= uint112(actualGasCost);
+            valueFromPaymaster = actualGasCost;
             if (context != bytes32(0)) {
+                //TODO: what to do if one paymaster reverts here?
+                // - revert entire handleOps
+                // - revert with the special FailedOp, to blame the paymaster.
+                // - continue with the rest of the ops (paymaster pays from stake anyway)
+                // - emit a message (just for sake of debugging of this poor paymaster)
                 IPaymaster(op.paymaster).postOp(mode, op, context, actualGasCost);
             }
         }
-        emit UserOperationEvent(op.signer, op.target, op.paymaster, actualGasCost, gasPrice, success);
+        emit UserOperationEvent(op.target, op.paymaster, actualGasCost, gasPrice, success);
     }
 
 
