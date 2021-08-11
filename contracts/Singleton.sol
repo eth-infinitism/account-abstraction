@@ -50,11 +50,10 @@ contract Singleton is StakeManager {
             uint preGas = gasleft();
             UserOperation calldata op = ops[i];
             bytes32 context = contexts[i];
-            (bool success, bytes memory ret) = address(this).call(abi.encodeWithSelector(this.handleSingleOp.selector, op, context, savedGas[i], prefunds[i]));
             uint valueFromPaymaster;
-            if (success) {
-                (valueFromPaymaster) = abi.decode(ret, (uint));
-            } else {
+            try this.handleSingleOp(op, context, savedGas[i], prefunds[i]) returns (uint _valueFromPaymaster) {
+                valueFromPaymaster = _valueFromPaymaster;
+            } catch {
                 uint actualGas = preGas - gasleft() + savedGas[i];
                 valueFromPaymaster = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas, prefunds[i], false);
             }
