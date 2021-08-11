@@ -4,16 +4,17 @@ pragma solidity ^0.8.4;
 import "hardhat/console.sol";
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
     struct UserOperation {
 
-        //    struct OpData {
         address target;
         uint256 nonce;
         bytes initCode;
         bytes callData;
         uint64 callGas;
-        uint maxFeePerGas;
-        uint maxPriorityFeePerGas;
+        uint64 maxCheckGas;
+        uint64 maxFeePerGas;
+        uint64 maxPriorityFeePerGas;
         address paymaster;
         address signer;
         bytes signature;
@@ -37,11 +38,11 @@ library UserOperationLib {
     }
 
     //TODO: compiler crashes when changing param to "calldata"
-    function requiredPreFund(UserOperation memory userOp) internal view returns (uint prefund) {
+    function requiredPreFund(UserOperation memory userOp) internal pure returns (uint prefund) {
         return requiredGas(userOp) * userOp.maxFeePerGas;
     }
 
-    function clientPrePay(UserOperation calldata userOp) internal view returns (uint){
+    function clientPrePay(UserOperation calldata userOp) internal pure returns (uint){
         if (hasPaymaster(userOp)) {
             return 0;
         }
@@ -57,15 +58,17 @@ library UserOperationLib {
         return abi.encode(
             userOp.target,
             userOp.nonce,
+            userOp.initCode,
             userOp.callData,
             userOp.callGas,
+            userOp.maxCheckGas,
             userOp.maxFeePerGas,
             userOp.maxPriorityFeePerGas,
             userOp.paymaster
         );
     }
 
-    function hash(UserOperation memory userOp) internal view returns (bytes32) {
+    function hash(UserOperation memory userOp) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32",
             keccak256(pack(userOp))));
     }

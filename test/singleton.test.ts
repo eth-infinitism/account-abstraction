@@ -11,7 +11,8 @@ import {
   TestUtil__factory,
 } from "../typechain";
 import {AddressZero, createWalletOwner, fund, getBalance} from "./testutils";
-import {fillAndSign, UserOperation} from "./UserOp";
+import {fillAndSign} from "./UserOp";
+import {UserOperation} from "./UserOperation";
 
 describe("Singleton", function () {
 
@@ -91,7 +92,7 @@ describe("Singleton", function () {
       });
       it('should succeed to create account after prefund', async () => {
 
-        const preAddr = await singleton.getAccountAddress(walletConstructor, 0)
+        const preAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
         await fund(preAddr)
         createOp = await fillAndSign({
           initCode: walletConstructor,

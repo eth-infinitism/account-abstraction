@@ -7,11 +7,11 @@ import "../IWallet.sol";
 contract TestUtil {
     using UserOperationLib for UserOperation;
 
-    function packUserOp(UserOperation calldata op) external view returns (bytes memory){
+    function packUserOp(UserOperation calldata op) external pure returns (bytes memory){
         return op.pack();
     }
 
-    function prefund(UserOperation calldata op) public view returns (uint) {
+    function prefund(UserOperation calldata op) public pure returns (uint) {
         return op.requiredPreFund();
     }
 

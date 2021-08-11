@@ -1,47 +1,29 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
-import {BigNumberish, Contract, Signer, Wallet} from "ethers";
+import {Contract, Wallet} from "ethers";
 import {AddressZero} from "./testutils";
-import {BytesLike} from "@ethersproject/bytes";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
-import {waffle} from "hardhat";
 import {Singleton} from '../typechain'
 import assert from "assert";
-//define the same types as used by typechain/ethers
-type address = string
-type uint256 = BigNumberish
-type uint = BigNumberish
-type uint64 = BigNumberish
-type bytes = BytesLike
-
-export interface UserOperation {
-  target: address
-  nonce: uint256
-  initCode: bytes
-  callData: bytes
-  callGas: uint64
-
-  maxFeePerGas: uint
-  maxPriorityFeePerGas: uint
-  paymaster: address
-
-  signer: address
-  signature: bytes
-}
+import {UserOperation} from "./UserOperation";
 
 export function packUserOp(op: UserOperation): string {
   return defaultAbiCoder.encode([
     'address', // target
     'uint256', // nonce
+    'bytes', // initCode
     'bytes', // callData
     'uint64', // callGas
-    'uint', // maxFeePerGas
-    'uint', // maxPriorityFeePerGas
+    'uint64', // maxCheckGas
+    'uint64', // maxFeePerGas
+    'uint64', // maxPriorityFeePerGas
     'address', // paymaster
   ], [
     op.target,
     op.nonce,
+    op.initCode,
     op.callData,
     op.callGas,
+    op.maxCheckGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
     op.paymaster
@@ -54,8 +36,9 @@ export const ZeroUserOp: UserOperation = {
   initCode: '0x',
   callData: '0x',
   callGas: 0,
+  maxCheckGas: 500000,
   maxFeePerGas: 0,
-  maxPriorityFeePerGas: 3,
+  maxPriorityFeePerGas: 0,
   paymaster: AddressZero,
   signer: AddressZero,
   signature: '0x'
@@ -93,7 +76,7 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, si
     op1.nonce = 0
     if (op1.target == null) {
       assert(singleton != null, 'must have singleton when using initCode')
-      op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce)
+      op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce, signer.address)
     }
   }
   if (op1.nonce == null) {

@@ -5,7 +5,6 @@ import {expect} from "chai";
 import {
   SimpleWallet,
   SimpleWallet__factory,
-  SimpleWalletForTokens,
   SimpleWalletForTokens__factory,
   Singleton,
   Singleton__factory,
@@ -17,9 +16,9 @@ import {
   TokenPaymaster__factory
 } from "../typechain";
 import {AddressZero, createWalletOwner, fund, getBalance, getTokenBalance} from "./testutils";
-import {fillAndSign, UserOperation} from "./UserOp";
-import exp from "constants";
+import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
+import {UserOperation} from "./UserOperation";
 
 
 describe("Singleton with paymaster", function () {
@@ -30,8 +29,6 @@ describe("Singleton with paymaster", function () {
   let ethersSigner = ethers.provider.getSigner();
   let wallet: SimpleWallet
   let redeemerAddress = '0x'.padEnd(42, '1')
-
-  const privkey = '0x'.padEnd(66, '9')
 
   before(async function () {
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
@@ -48,7 +45,7 @@ describe("Singleton with paymaster", function () {
     before(async () => {
       tst = await new TestToken__factory(ethersSigner).deploy()
       paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(singleton.address, tst.address)
-      paymaster.addStake({value: parseEther('1')})
+      paymaster.addStake({value: parseEther('2')})
     })
 
     describe('#handleOps', () => {
@@ -97,7 +94,6 @@ describe("Singleton with paymaster", function () {
     describe('create account', () => {
       const walletConstructor = SimpleWalletForTokens__factory.bytecode
       let createOp: UserOperation
-      let preGas: number
       let created = false
       const redeemerAddress = Wallet.createRandom().address
 
@@ -110,8 +106,7 @@ describe("Singleton with paymaster", function () {
       });
 
       it('should succeed to create account with tokens', async () => {
-        const preAddr = await singleton.getAccountAddress(walletConstructor, 0)
-        console.log('preaddr=', preAddr)
+        const preAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
         await tst.mint(preAddr, parseEther('1'))
 
         //TODO: find a better way to encode SimpleWalletForTokens.init() to get its ABI:
@@ -138,9 +133,8 @@ describe("Singleton with paymaster", function () {
         const ethRedeemed = await getBalance(redeemerAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const walletAddr = await singleton.getAccountAddress(walletConstructor, 0)
+        const walletAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
         const postBalance = await getTokenBalance(tst, walletAddr)
-        console.log('post=', postBalance)
         expect(1e18-postBalance).to.above(10000)
       });
 
