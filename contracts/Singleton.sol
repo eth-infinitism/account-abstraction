@@ -19,6 +19,8 @@ contract Singleton is StakeManager {
     event UserOperationEvent(address indexed account, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
     event UserOperationRevertReason(bytes revertReason);
 
+    event PaymasterPostOpFailed(address paymaster, address target, bytes reason);
+
     //handleOps reverts with this error struct, to mark the offending op
     // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
     error FailedOp(uint op, string reason);
@@ -33,7 +35,7 @@ contract Singleton is StakeManager {
         bytes32[] memory contexts = new bytes32[](opslen);
         uint256[] memory prefunds = new uint256[](opslen);
 
-        uint priorityFee = tx.gasprice - UserOperationLib.tx_basefee();
+        uint priorityFee = tx.gasprice - block.basefee;
 
         for (uint i = 0; i < opslen; i++) {
             UserOperation calldata op = ops[i];
@@ -170,6 +172,7 @@ contract Singleton is StakeManager {
 
     function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas, uint prefund, bool success) private returns (uint valueFromPaymaster) {
         uint gasPrice = UserOperationLib.gasPrice(op);
+        uint preGas = gasleft();
         uint actualGasCost = actualGas * gasPrice;
         if (!op.hasPaymaster()) {
             //NOTE: deliberately ignoring revert: wallet should accept refund.
@@ -178,18 +181,22 @@ contract Singleton is StakeManager {
             //charged wallet directly.
             valueFromPaymaster = 0;
         } else {
-            //paymaster balance known to be high enough, and to be locked for this block
-            stakes[op.paymaster].stake -= uint112(actualGasCost);
-            valueFromPaymaster = actualGasCost;
             if (context != bytes32(0)) {
                 //TODO: what to do if one paymaster reverts here?
                 // - revert entire handleOps
                 // - revert with the special FailedOp, to blame the paymaster.
                 // - continue with the rest of the ops (paymaster pays from stake anyway)
                 // - emit a message (just for sake of debugging of this poor paymaster)
-                (bool ok,) = op.paymaster.call(abi.encodeWithSelector(IPaymaster.postOp.selector, mode, op, context, actualGasCost));
-                (ok);
+                try IPaymaster(op.paymaster).postOp(mode, op, context, actualGasCost) {}
+                catch (bytes memory errdata) {
+                    emit PaymasterPostOpFailed(op.paymaster, op.target, errdata);
+                }
             }
+            //paymaster pays for full gas, including for postOp (and revert event)
+            actualGasCost += (preGas - gasleft()) * gasPrice;
+            //paymaster balance known to be high enough, and to be locked for this block
+            stakes[op.paymaster].stake -= uint112(actualGasCost);
+            valueFromPaymaster = actualGasCost;
         }
         emit UserOperationEvent(op.target, op.paymaster, actualGasCost, gasPrice, success);
     }

@@ -18,6 +18,8 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
         address paymaster;
         address signer;
         bytes signature;
+        uint verificationGas;
+        address[] verificationAccessList;
     }
 
 library UserOperationLib {
@@ -25,7 +27,7 @@ library UserOperationLib {
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
     function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
-        return min(userOp.maxFeePerGas, min(userOp.maxPriorityFeePerGas + tx_basefee(), tx.gasprice));
+        return min(userOp.maxFeePerGas, min(userOp.maxPriorityFeePerGas + block.basefee, tx.gasprice));
     }
 
     function requiredGas(UserOperation memory userOp) internal pure returns (uint prefund) {
@@ -76,15 +78,4 @@ library UserOperationLib {
     function min(uint a, uint b) internal pure returns (uint) {
         return a < b ? a : b;
     }
-
-
-    function tx_basefee() internal view returns (uint ret){
-        //TODO: needed solidity with basefee support (at least in assembly, better with tx.basefee)
-        assembly {
-        // ret := basefee()
-        }
-        ret = tx.gasprice * 0;
-    }
-
-
 }
