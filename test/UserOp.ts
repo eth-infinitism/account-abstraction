@@ -1,6 +1,6 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
 import {Contract, Wallet} from "ethers";
-import {AddressZero} from "./testutils";
+import {AddressZero, HashZero} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {Singleton} from '../typechain'
 import assert from "assert";
@@ -13,20 +13,22 @@ export function packUserOp(op: UserOperation): string {
     'bytes', // initCode
     'bytes', // callData
     'uint64', // callGas
-    'uint64', // maxCheckGas
+    'uint', // verificationGas
     'uint64', // maxFeePerGas
     'uint64', // maxPriorityFeePerGas
     'address', // paymaster
+    'bytes32', // verificationAccessListHash
   ], [
     op.target,
     op.nonce,
     op.initCode,
     op.callData,
     op.callGas,
-    op.maxCheckGas,
+    op.verificationGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
-    op.paymaster
+    op.paymaster,
+    op.verificationAccessListHash
   ])
 }
 
@@ -36,10 +38,11 @@ export const ZeroUserOp: UserOperation = {
   initCode: '0x',
   callData: '0x',
   callGas: 0,
-  maxCheckGas: 500000,
+  verificationGas: 500000,
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 0,
   paymaster: AddressZero,
+  verificationAccessListHash: HashZero,
   signer: AddressZero,
   signature: '0x'
 }

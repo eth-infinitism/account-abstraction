@@ -3,6 +3,7 @@ import {parseEther} from "ethers/lib/utils";
 import {Contract, Wallet} from "ethers";
 import { IERC20}from '../typechain'
 export const AddressZero = ethers.constants.AddressZero
+export const HashZero = ethers.constants.HashZero
 export const ONE_ETH = parseEther('1');
 
 export const tostr = (x: any) => x != null ? x.toString() : 'null'

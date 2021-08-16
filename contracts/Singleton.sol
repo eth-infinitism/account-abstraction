@@ -136,7 +136,7 @@ contract Singleton is StakeManager {
         IWallet target = IWallet(_getOrCreateTarget(op));
         uint preBalance = address(this).balance;
         uint preGas = gasleft();
-        try target.payForSelfOp{gas : op.maxCheckGas}(op) {
+        try target.payForSelfOp{gas : op.verificationGas}(op) {
         } catch Error(string memory message) {
             revert FailedOp(opIndex, message);
         } catch {
@@ -158,7 +158,7 @@ contract Singleton is StakeManager {
                 revert FailedOp(opIndex, "not enough stake");
             }
             //no pre-pay from paymaster
-            context = IPaymaster(op.paymaster).payForOp{gas : op.maxCheckGas - payForSelfOp_gasUsed}(op);
+            context = IPaymaster(op.paymaster).payForOp{gas : op.verificationGas - payForSelfOp_gasUsed}(op);
             prefund = 0;
         }
     }

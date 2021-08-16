@@ -12,14 +12,13 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
         bytes initCode;
         bytes callData;
         uint64 callGas;
-        uint64 maxCheckGas;
+        uint verificationGas;
         uint64 maxFeePerGas;
         uint64 maxPriorityFeePerGas;
         address paymaster;
+        bytes32 verificationAccessListHash;
         address signer;
         bytes signature;
-        uint verificationGas;
-        address[] verificationAccessList;
     }
 
 library UserOperationLib {
@@ -63,10 +62,11 @@ library UserOperationLib {
             userOp.initCode,
             userOp.callData,
             userOp.callGas,
-            userOp.maxCheckGas,
+            userOp.verificationGas,
             userOp.maxFeePerGas,
             userOp.maxPriorityFeePerGas,
-            userOp.paymaster
+            userOp.paymaster,
+            userOp.verificationAccessListHash
         );
     }
 

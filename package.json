@@ -20,7 +20,7 @@
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
     "ethers": "^5.4.2",
-    "hardhat": "^2.5.0",
+    "hardhat": "^2.6.0",
     "ts-generator": "^0.1.1",
     "ts-node": "^10.1.0",
     "typechain": "^5.1.2"
