@@ -23,7 +23,12 @@ contract Singleton is StakeManager {
 
     //handleOps reverts with this error struct, to mark the offending op
     // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
-    error FailedOp(uint op, string reason);
+    // @param opIndex - index into the array of ops to the failed one (in simulateOp, this is always zero)
+    // @param paymaster - if paymaster.payForOp fails, this will be the paymaster's address. if payForSelfOp failed,
+    //      this value will be zero (since it failed before accessing the paymaster)
+    // @param reason - revert reason
+    //  only to aid troubleshooting of wallet/paymaster reverts
+    error FailedOp(uint opIndex, address paymaster, string reason);
 
     receive() external payable {}
 
@@ -137,29 +142,35 @@ contract Singleton is StakeManager {
         uint preBalance = address(this).balance;
         uint preGas = gasleft();
         try target.payForSelfOp{gas : op.verificationGas}(op) {
-        } catch Error(string memory message) {
-            revert FailedOp(opIndex, message);
+        } catch Error(string memory revertReason) {
+            revert FailedOp(opIndex, address(0), revertReason);
         } catch {
-            revert FailedOp(opIndex, "");
+            revert FailedOp(opIndex, address(0), "");
         }
         uint payForSelfOp_gasUsed = preGas - gasleft();
         prefund = address(this).balance - preBalance;
 
         if (!op.hasPaymaster()) {
             if (prefund < op.requiredPreFund()) {
-                revert FailedOp(opIndex, "wallet didn't pay prefund");
+                revert FailedOp(opIndex, address(0), "wallet didn't pay prefund");
             }
             context = bytes32(0);
         } else {
             if (prefund != 0) {
-                revert FailedOp(opIndex, "has paymaster but wallet paid");
+                revert FailedOp(opIndex, address(0), "has paymaster but wallet paid");
             }
             if (!isValidStake(op)) {
-                revert FailedOp(opIndex, "not enough stake");
+                revert FailedOp(opIndex, op.paymaster, "not enough stake");
             }
             //no pre-pay from paymaster
-            context = IPaymaster(op.paymaster).payForOp{gas : op.verificationGas - payForSelfOp_gasUsed}(op);
-            prefund = 0;
+            try IPaymaster(op.paymaster).payForOp{gas : op.verificationGas - payForSelfOp_gasUsed}(op) returns (bytes32 _context){
+                context = _context;
+                prefund = 0;
+            } catch Error(string memory revertReason) {
+                revert FailedOp(opIndex, op.paymaster, revertReason);
+            } catch {
+                revert FailedOp(opIndex, op.paymaster, "");
+            }
         }
     }
 
