@@ -7,12 +7,15 @@ import {
   SimpleWallet__factory,
   Singleton,
   Singleton__factory,
+  TestCounter,
+  TestCounter__factory,
   TestUtil,
   TestUtil__factory,
 } from "../typechain";
 import {AddressZero, createWalletOwner, fund, getBalance} from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
+import {PopulatedTransaction} from "ethers/lib/ethers";
 
 describe("Singleton", function () {
 
@@ -55,16 +58,26 @@ describe("Singleton", function () {
   describe('without paymaster (account pays in eth)', () => {
     describe('#handleOps', () => {
       const redeemerAddress = Wallet.createRandom().address
+      let counter: TestCounter
+      let call: PopulatedTransaction
+      before(async () => {
+        counter = await new TestCounter__factory(ethersSigner).deploy()
+        const count = await counter.populateTransaction.count()
+        call = await wallet.populateTransaction.exec(counter.address, count.data!)
+      })
 
       it('wallet should pay for tx', async function () {
-        const call = await wallet.populateTransaction.updateSingleton(AddressZero)
 
         const op = await fillAndSign({
           target: wallet.address,
           callData: call.data
         }, walletOwner)
 
+        const countBefore = await counter.counters(wallet.address)
         const rcpt = await singleton.handleOps([op], redeemerAddress).then(t => t.wait())
+        const countAfter = await counter.counters(wallet.address)
+        expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
+        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString())
 
         const actualGas = await rcpt.gasUsed
         const logs = await singleton.queryFilter(singleton.filters.UserOperationEvent())
@@ -74,6 +87,20 @@ describe("Singleton", function () {
         console.log('\t== calculated gasUsed=', calculatedGasUsed)
         console.log('\t== gasDiff', actualGas.toNumber() - calculatedGasUsed)
         expect(await getBalance(redeemerAddress)).to.eq(actualGasCost.toNumber())
+      });
+
+      it('#handleOp (single)', async () => {
+        const op = await fillAndSign({
+          target: wallet.address,
+          callData: call.data
+        }, walletOwner)
+
+        const countBefore = await counter.counters(wallet.address)
+        const rcpt = await singleton.handleOps([op], redeemerAddress).then(t => t.wait())
+        const countAfter = await counter.counters(wallet.address)
+        expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
+
+        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString())
       });
     })
 

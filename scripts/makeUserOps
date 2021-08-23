@@ -1,0 +1,6 @@
+#convert UserOperations.sol into UserOperations.ts
+perl -ne 'next unless /struct UserOperation/../}/; \
+        s/\s*struct/import * as typ from ".\/solidityTypes";\n\nexport interface/; \
+        s/\s*(\w+)\s+(\w+);/  $2: typ.$1/; \
+        s/\s*}/}/; \
+        print' contracts/UserOperation.sol > test/UserOperation.ts

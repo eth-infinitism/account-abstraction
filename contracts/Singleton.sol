@@ -32,11 +32,40 @@ contract Singleton is StakeManager {
 
     receive() external payable {}
 
+    /**
+     * Execute the given UserOperation.
+     * @param op the operation to execute
+     * @param redeemer the contract to redeem the fee
+     */
+    function handleOp(UserOperation calldata op, address payable redeemer) public {
+
+        uint256 savedBalance = address(this).balance;
+
+        uint priorityFee = tx.gasprice - block.basefee;
+
+        validateGas(op, priorityFee);
+
+        uint preGas = gasleft();
+        (uint256 prefund, bytes32 context) = validatePrepayment(0, op);
+        uint preOpGas = preGas - gasleft();
+
+        uint valueFromPaymaster;
+        try this.internalHandleOp(op, context, preOpGas, prefund) returns (uint _valueFromPaymaster) {
+            valueFromPaymaster = _valueFromPaymaster;
+        } catch {
+            uint actualGas = preGas - gasleft() + preOpGas;
+            valueFromPaymaster = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas, prefund, false);
+        }
+        uint collected = address(this).balance - savedBalance + valueFromPaymaster;
+
+        redeemer.transfer(collected);
+    }
+
     function handleOps(UserOperation[] calldata ops, address payable redeemer) public {
 
         uint256 savedBalance = address(this).balance;
         uint opslen = ops.length;
-        uint256[] memory savedGas = new uint256[](opslen);
+        uint256[] memory preOpGas = new uint256[](opslen);
         bytes32[] memory contexts = new bytes32[](opslen);
         uint256[] memory prefunds = new uint256[](opslen);
 
@@ -48,8 +77,7 @@ contract Singleton is StakeManager {
 
             uint preGas = gasleft();
             (prefunds[i], contexts[i]) = validatePrepayment(i, op);
-            uint gasUsed = preGas - gasleft();
-            savedGas[i] = gasUsed;
+            preOpGas[i] = preGas - gasleft();
         }
 
         uint valueFromStake = 0;
@@ -58,10 +86,10 @@ contract Singleton is StakeManager {
             UserOperation calldata op = ops[i];
             bytes32 context = contexts[i];
             uint valueFromPaymaster;
-            try this.handleSingleOp(op, context, savedGas[i], prefunds[i]) returns (uint _valueFromPaymaster) {
+            try this.internalHandleOp(op, context, preOpGas[i], prefunds[i]) returns (uint _valueFromPaymaster) {
                 valueFromPaymaster = _valueFromPaymaster;
             } catch {
-                uint actualGas = preGas - gasleft() + savedGas[i];
+                uint actualGas = preGas - gasleft() + preOpGas[i];
                 valueFromPaymaster = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas, prefunds[i], false);
             }
             valueFromStake += valueFromPaymaster;
@@ -72,7 +100,7 @@ contract Singleton is StakeManager {
         redeemer.transfer(collected);
     }
 
-    function handleSingleOp(UserOperation calldata op, bytes32 context, uint preOpGas, uint prefund) external returns (uint valueFromPaymaster) {
+    function internalHandleOp(UserOperation calldata op, bytes32 context, uint preOpGas, uint prefund) external returns (uint valueFromPaymaster) {
         require(msg.sender == address(this));
 
         uint preGas = gasleft();
