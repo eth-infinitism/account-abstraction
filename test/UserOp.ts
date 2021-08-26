@@ -12,10 +12,10 @@ export function packUserOp(op: UserOperation): string {
     'uint256', // nonce
     'bytes', // initCode
     'bytes', // callData
-    'uint64', // callGas
+    'uint256', // callGas
     'uint', // verificationGas
-    'uint64', // maxFeePerGas
-    'uint64', // maxPriorityFeePerGas
+    'uint256', // maxFeePerGas
+    'uint256', // maxPriorityFeePerGas
     'address', // paymaster
     'bytes', // paymasterData
   ], [
@@ -40,7 +40,7 @@ export const ZeroUserOp: UserOperation = {
   callGas: 0,
   verificationGas: 500000,
   maxFeePerGas: 0,
-  maxPriorityFeePerGas: 0,
+  maxPriorityFeePerGas: 1e9,
   paymaster: AddressZero,
   paymasterData: '0x',
   signer: AddressZero,
@@ -92,11 +92,8 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, si
     op1.callGas = gasEtimated.add(55000)
   }
   if (op1.maxFeePerGas == null) {
-    op1.maxFeePerGas = await provider.getGasPrice()
-  }
-  if (op1.maxPriorityFeePerGas == null) {
-    let block = await provider.getBlock('latest');
-    op1.maxPriorityFeePerGas = block.baseFeePerGas ?? op1.maxFeePerGas
+    const block = await provider.getBlock('latest');
+    op1.maxFeePerGas =block.baseFeePerGas!.add(op1.maxPriorityFeePerGas ?? ZeroUserOp.maxPriorityFeePerGas)
   }
   let op2 = fillUserOp(op1);
   return signUserOp(op2, signer)

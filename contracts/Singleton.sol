@@ -41,12 +41,8 @@ contract Singleton is StakeManager {
 
         uint256 savedBalance = address(this).balance;
 
-        uint priorityFee = tx.gasprice - block.basefee;
-
-        validateGas(op, priorityFee);
-
         uint preGas = gasleft();
-        (uint256 prefund, bytes32 context) = validatePrepayment(0, op);
+        (uint256 prefund, bytes memory context) = validatePrepayment(0, op);
         uint preOpGas = preGas - gasleft();
 
         uint valueFromPaymaster;
@@ -69,14 +65,15 @@ contract Singleton is StakeManager {
         bytes32[] memory contexts = new bytes32[](opslen);
         uint256[] memory prefunds = new uint256[](opslen);
 
-        uint priorityFee = tx.gasprice - block.basefee;
-
         for (uint i = 0; i < opslen; i++) {
             UserOperation calldata op = ops[i];
-            validateGas(op, priorityFee);
 
             uint preGas = gasleft();
-            (prefunds[i], contexts[i]) = validatePrepayment(i, op);
+            bytes memory context;
+            bytes32 contextOffset;
+            (prefunds[i], context) = validatePrepayment(i, op);
+            assembly {contextOffset := context}
+            contexts[i] = contextOffset;
             preOpGas[i] = preGas - gasleft();
         }
 
@@ -84,7 +81,9 @@ contract Singleton is StakeManager {
         for (uint i = 0; i < ops.length; i++) {
             uint preGas = gasleft();
             UserOperation calldata op = ops[i];
-            bytes32 context = contexts[i];
+            bytes32 contextOffset = contexts[i];
+            bytes memory context;
+            assembly {context := contextOffset}
             uint valueFromPaymaster;
             try this.internalHandleOp(op, context, preOpGas[i], prefunds[i]) returns (uint _valueFromPaymaster) {
                 valueFromPaymaster = _valueFromPaymaster;
@@ -100,7 +99,7 @@ contract Singleton is StakeManager {
         redeemer.transfer(collected);
     }
 
-    function internalHandleOp(UserOperation calldata op, bytes32 context, uint preOpGas, uint prefund) external returns (uint valueFromPaymaster) {
+    function internalHandleOp(UserOperation calldata op, bytes calldata context, uint preOpGas, uint prefund) external returns (uint valueFromPaymaster) {
         require(msg.sender == address(this));
 
         uint preGas = gasleft();
@@ -135,16 +134,12 @@ contract Singleton is StakeManager {
      *  the same userOp.validationGas quota.
      * The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the paymaster's data
      */
-    function simulatePaymasterValidation(UserOperation calldata userOp, uint gasUsedByPayForSelfOp) external view returns (bytes32 context){
+    function simulatePaymasterValidation(UserOperation calldata userOp, uint gasUsedByPayForSelfOp) external view returns (bytes memory context){
         if (!userOp.hasPaymaster()) {
-            return bytes32(0);
+            return "";
         }
         uint requiredPreFund = userOp.requiredPreFund();
         return _validatePaymasterPrepayment(0, userOp, requiredPreFund, gasUsedByPayForSelfOp);
-    }
-
-    function validateGas(UserOperation calldata userOp, uint priorityFee) internal pure {
-        require(userOp.maxPriorityFeePerGas <= priorityFee, "actual priorityFee too low");
     }
 
     // get the target address, or use "create2" to create it.
@@ -209,12 +204,13 @@ contract Singleton is StakeManager {
     }
 
     //validate paymaster.payForOp
-    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, uint requiredPreFund, uint payForSelfOp_gasUsed) internal view returns (bytes32 context) {
+    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, uint requiredPreFund, uint payForSelfOp_gasUsed) internal view returns (bytes memory context) {
         if (!isValidStake(op, requiredPreFund)) {
             revert FailedOp(opIndex, op.paymaster, "not enough stake");
         }
         //no pre-pay from paymaster
-        try IPaymaster(op.paymaster).payForOp{gas : op.verificationGas - payForSelfOp_gasUsed}(op, requiredPreFund) returns (bytes32 _context){
+        uint gas = op.verificationGas - payForSelfOp_gasUsed;
+        try IPaymaster(op.paymaster).payForOp{gas : gas}(op, requiredPreFund) returns (bytes memory _context){
             context = _context;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, op.paymaster, revertReason);
@@ -223,7 +219,7 @@ contract Singleton is StakeManager {
         }
     }
 
-    function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (uint prefund, bytes32 context){
+    function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (uint prefund, bytes memory context){
 
         createTargetIfNeeded(op);
         bool hasPaymaster = op.hasPaymaster();
@@ -244,7 +240,7 @@ contract Singleton is StakeManager {
         }
     }
 
-    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 context, uint actualGas, uint prefund, bool success) private returns (uint valueFromPaymaster) {
+    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes memory context, uint actualGas, uint prefund, bool success) private returns (uint valueFromPaymaster) {
         uint gasPrice = UserOperationLib.gasPrice(op);
         uint preGas = gasleft();
         uint actualGasCost = actualGas * gasPrice;
@@ -255,13 +251,13 @@ contract Singleton is StakeManager {
             //charged wallet directly.
             valueFromPaymaster = 0;
         } else {
-            if (context != bytes32(0)) {
+            if (context.length > 0) {
                 //TODO: what to do if one paymaster reverts here?
                 // - revert entire handleOps
                 // - revert with the special FailedOp, to blame the paymaster.
                 // - continue with the rest of the ops (paymaster pays from stake anyway)
                 // - emit a message (just for sake of debugging of this poor paymaster)
-                try IPaymaster(op.paymaster).postOp(mode, op, context, actualGasCost) {}
+                try IPaymaster(op.paymaster).postOp(mode, context, actualGasCost) {}
                 catch (bytes memory errdata) {
                     emit PaymasterPostOpFailed(op.paymaster, op.target, errdata);
                 }

@@ -5,7 +5,6 @@ import {HardhatUserConfig, subtask, task} from "hardhat/config";
 import {TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD} from "hardhat/builtin-tasks/task-names"
 import path from 'path'
 import * as fs from "fs";
-import {HardhatConfig} from "hardhat/types";
 import {formatEther} from "ethers/lib/utils";
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args: any, hre, runSuper) => {
@@ -49,6 +48,9 @@ const config: HardhatUserConfig = {
     settings: {
       optimizer: { enabled: false }
     }
+  },
+  networks: {
+	dev: { url: "http://localhost:8545" }
   }
 }
 export default config

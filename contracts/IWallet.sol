@@ -5,10 +5,9 @@ import "./UserOperation.sol";
 
 interface IWallet {
 
-    // validate user's signature and nonce, and prepay for gas
-    // @param userOp the user operation
+    // validate user's signature and nonce
     // @param requiredPrefund how much this wallet should pre-fund the transaction.
-    // @note that after execFromSingleton returns, the excess is sent back to the wallet.
+    // @note that after execution, the excess is sent back to the wallet.
     // @note if requiredPrefund is zero, the wallet MUST NOT send anything (the paymaster pays)
     function payForSelfOp(UserOperation calldata userOp, uint requiredPrefund) external;
 

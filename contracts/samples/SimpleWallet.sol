@@ -61,7 +61,8 @@ contract SimpleWallet is IWallet {
         _validateAndIncrementNonce(userOp);
 
         if (requiredPrefund != 0) {
-            require(payable(msg.sender).send(requiredPrefund), "failed to prepay");
+            (bool success) = payable(msg.sender).send(requiredPrefund);
+            (success);  //ignore failure (its Singleton's job to verify, not wallet.)
         }
     }
 

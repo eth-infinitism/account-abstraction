@@ -44,7 +44,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     }
 
     // verify that the user has enough tokens.
-    function payForOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes32 context) {
+    function payForOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
         uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {
@@ -53,10 +53,10 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
             //TODO: must also whitelist init function (callData), since that what will call "token.approve(paymaster)"
             //no "allowance" check during creation (we trust known constructor/init function)
             require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
-            return bytes32(uint(1));
-        }
+        } else {
 
-        require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance");
+            require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance");
+        }
 
         //since we ARE the token, we don't need approval to _transfer() value from user's balance.
         //        if (token.allowance(userOp.target, address(this)) < tokenPrefund) {
@@ -67,18 +67,19 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
         //            // then verify that "innerData" is approve(paymaster,-1)
         //            revert("TokenPaymaster: no allowance");
         //        }
-        return bytes32(uint(1));
+        return abi.encode(userOp.target);
     }
 
     //actual charge of user.
     // this method will be called just after the user's TX with postRevert=false.
     // BUT: if the user changed its balance and that postOp reverted, then it gets called again, after reverting
     // the user's TX
-    function postOp(PostOpMode mode, UserOperation calldata userOp, bytes32 context, uint actualGasCost) external override {
+    function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external override {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
-        (mode,context);
+        (mode);
+        address target = abi.decode(context, (address));
         uint charge = ethToToken(actualGasCost + COST_OF_POST);
         //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
-        _transfer(userOp.target, address(this), charge);
+        _transfer(target, address(this), charge);
     }
 }

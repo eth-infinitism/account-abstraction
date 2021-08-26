@@ -12,7 +12,14 @@ import {
   TokenPaymaster,
   TokenPaymaster__factory
 } from "../typechain";
-import {AddressZero, createWalletOwner, fund, getBalance, getTokenBalance} from "./testutils";
+import {
+  AddressZero,
+  createWalletOwner,
+  fund,
+  getBalance,
+  getTokenBalance, objdump, rethrow,
+  checkForGeth
+} from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
@@ -28,6 +35,8 @@ describe("Singleton with paymaster", function () {
   let redeemerAddress = '0x'.padEnd(42, '1')
 
   before(async function () {
+    await checkForGeth()
+
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     singleton = await new Singleton__factory(ethersSigner).deploy()
     walletOwner = createWalletOwner('1')
@@ -48,14 +57,21 @@ describe("Singleton with paymaster", function () {
       before(async () => {
         calldata = await wallet.populateTransaction.updateSingleton(AddressZero).then(tx => tx.data!)
       })
-      it('paymaster should reject if wallet doesn\'t have tokens or allowance', async () => {
+      it('paymaster should reject if wallet doesn\'t have tokens', async () => {
         const op = await fillAndSign({
           target: wallet.address,
           paymaster: paymaster.address,
           callData: calldata
         }, walletOwner)
 
-        await expect(singleton.handleOps([op], redeemerAddress)).to.revertedWith('TokenPaymaster: no balance')
+        await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
+          gasLimit: 1e7,
+        }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
+
+        await expect(singleton.handleOps([op], redeemerAddress, {
+          gasLimit: 1e7,
+        }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
+
       });
     })
 
@@ -70,7 +86,9 @@ describe("Singleton with paymaster", function () {
           initCode: walletConstructor,
           paymaster: paymaster.address
         }, walletOwner, singleton)
-        await expect(singleton.handleOps([op], redeemerAddress)).to.revertedWith('TokenPaymaster: no balance')
+        await expect(singleton.handleOps([op], redeemerAddress, {
+          gasLimit: 1e7,
+        })).to.revertedWith('TokenPaymaster: no balance')
       });
 
       it('should succeed to create account with tokens', async () => {
@@ -85,7 +103,9 @@ describe("Singleton with paymaster", function () {
           nonce: 0
         }, walletOwner, singleton)
 
-        const rcpt = await singleton.handleOps([createOp], redeemerAddress).then(tx => tx.wait())
+        const rcpt = await singleton.handleOps([createOp], redeemerAddress, {
+          gasLimit: 1e7,
+        }).then(tx => tx.wait())
         console.log('\t== create gasUsed=', rcpt.gasUsed.toString())
         created = true
       });
@@ -103,7 +123,9 @@ describe("Singleton with paymaster", function () {
 
       it('should reject if account already created', async function () {
         if (!created) this.skip()
-        await expect(singleton.handleOps([createOp], redeemerAddress)).to.revertedWith('create2 failed')
+        await expect(singleton.handleOps([createOp], redeemerAddress, {
+          gasLimit: 1e7,
+        }).catch(rethrow())).to.revertedWith('create2 failed')
       });
     })
   })

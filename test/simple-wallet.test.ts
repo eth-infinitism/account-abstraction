@@ -8,7 +8,7 @@ import {
   TestUtil,
   TestUtil__factory
 } from "../typechain";
-import {createWalletOwner, getBalance, ONE_ETH} from "./testutils";
+import {createWalletOwner, fund, getBalance, ONE_ETH} from "./testutils";
 import {fillUserOp, packUserOp, signUserOp} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
@@ -22,8 +22,11 @@ describe("SimpleWallet", function () {
   let walletOwner: Wallet
   let ethersSigner = ethers.provider.getSigner();
 
-  before(async () => {
+  before(async function () {
+
     accounts = await ethers.provider.listAccounts()
+    //ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
+    if (accounts.length < 2) this.skip()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     walletOwner = createWalletOwner('2')
   })
@@ -31,7 +34,7 @@ describe("SimpleWallet", function () {
   it('owner should be able to call transfer', async () => {
     const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy()
     await wallet.init(singleton, accounts[0])
-    await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('10')})
+    await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('2')})
     await wallet.transfer(accounts[2], ONE_ETH)
   });
   it('other account should not be able to call transfer', async () => {
@@ -79,7 +82,7 @@ describe("SimpleWallet", function () {
       expect(await wallet.nonce()).to.equal(1)
     });
     it('should reject same TX on nonce error', async () => {
-      await expect(wallet.payForSelfOp(userOp,0)).to.revertedWith("invalid nonce")
+      await expect(wallet.payForSelfOp(userOp, 0)).to.revertedWith("invalid nonce")
     });
 
   })

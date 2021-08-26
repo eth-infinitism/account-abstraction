@@ -6,7 +6,8 @@
   "scripts": {
     "compile": "FORCE_COLOR=1 hardhat compile 2>&1 | ./scripts/solcErrors; ./scripts/makeUserOps",
     "makeUserOps": "./scripts/makeUserOps",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "test-dev": "hardhat test --network dev"
   },
   "keywords": [],
   "author": "",

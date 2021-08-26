@@ -12,8 +12,15 @@ import {
   TestUtil,
   TestUtil__factory,
 } from "../typechain";
-import {AddressZero, createWalletOwner, fund, getBalance} from "./testutils";
-import {fillAndSign} from "./UserOp";
+import {
+  AddressZero,
+  createWalletOwner,
+  fund,
+  getBalance,
+  checkForGeth,
+  rethrow, tostr
+} from "./testutils";
+import {fillAndSign, ZeroUserOp} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 
@@ -26,6 +33,8 @@ describe("Singleton", function () {
   let wallet: SimpleWallet
 
   before(async function () {
+
+    await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     singleton = await new Singleton__factory(ethersSigner).deploy()
     walletOwner = createWalletOwner('1')
@@ -48,7 +57,8 @@ describe("Singleton", function () {
       const unfundedWallet = await new SimpleWallet__factory(ethersSigner).deploy()
       await unfundedWallet.init(singleton.address, await walletOwner.getAddress())
       const op = await fillAndSign({target: unfundedWallet.address}, walletOwner)
-      await expect(singletonView.callStatic.simulateWalletValidation(op)).to.revertedWith('failed to prepay')
+      await expect(singletonView.callStatic.simulateWalletValidation(op).catch(rethrow())).to
+        .revertedWith('wallet didn\'t pay prefund')
     });
     it('should succeed if payForSelfOp succeeds', async () => {
       const op = await fillAndSign({target: wallet.address}, walletOwner)
@@ -62,6 +72,7 @@ describe("Singleton", function () {
       let counter: TestCounter
       let call: PopulatedTransaction
       before(async () => {
+
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         call = await wallet.populateTransaction.exec(counter.address, count.data!)
@@ -69,16 +80,29 @@ describe("Singleton", function () {
 
       it('wallet should pay for tx', async function () {
 
+        // await testEthersParam()
+        ZeroUserOp.maxFeePerGas = 0
+        ZeroUserOp.maxPriorityFeePerGas = 0
         const op = await fillAndSign({
           target: wallet.address,
-          callData: call.data
+          callData: call.data,
+          maxPriorityFeePerGas: 0,
+          maxFeePerGas: 0
         }, walletOwner)
 
         const countBefore = await counter.counters(wallet.address)
-        const rcpt = await singleton.handleOps([op], redeemerAddress).then(t => t.wait())
+        //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
+        console.log('  == est gas=', await singleton.estimateGas.handleOps([op], redeemerAddress, {maxFeePerGas: 1e9}).then(tostr))
+
+        //must specify at least on of maxFeePerGas, gasLimit
+        // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
+        const rcpt = await singleton.handleOps([op], redeemerAddress, {
+          gasLimit: 1e7
+        }).then(t => t.wait())
+
         const countAfter = await counter.counters(wallet.address)
         expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString())
+        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
         const actualGas = await rcpt.gasUsed
         const logs = await singleton.queryFilter(singleton.filters.UserOperationEvent())
@@ -97,11 +121,14 @@ describe("Singleton", function () {
         }, walletOwner)
 
         const countBefore = await counter.counters(wallet.address)
-        const rcpt = await singleton.handleOps([op], redeemerAddress).then(t => t.wait())
+        const rcpt = await singleton.handleOp(op, redeemerAddress, {
+          gasLimit: 1e7
+        }).then(t => t.wait())
         const countAfter = await counter.counters(wallet.address)
         expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
 
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString())
+        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
+
       });
     })
 
@@ -113,10 +140,13 @@ describe("Singleton", function () {
       let redeemerAddress = Wallet.createRandom().address
 
       it('should reject if account not funded', async () => {
+
         const op = await fillAndSign({
           initCode: walletConstructor
         }, walletOwner, singleton)
-        await expect(singleton.handleOps([op], redeemerAddress)).to.revertedWith('failed to prepay')
+        await expect(singleton.handleOps([op], redeemerAddress, {
+          gasLimit: 1e7
+        }).catch(rethrow())).to.revertedWith('wallet didn\'t pay prefund')
       });
       it('should succeed to create account after prefund', async () => {
 
@@ -129,7 +159,9 @@ describe("Singleton", function () {
         }, walletOwner, singleton)
 
         preGas = await getBalance(redeemerAddress)
-        const rcpt = await singleton.handleOps([createOp], redeemerAddress).then(tx => tx.wait())
+        const rcpt = await singleton.handleOps([createOp], redeemerAddress, {
+          gasLimit: 1e7
+        }).then(tx => tx.wait())
         console.log('\t== create gasUsed=', rcpt.gasUsed.toString())
         created = true
       });
@@ -143,7 +175,9 @@ describe("Singleton", function () {
 
       it('should reject if account already created', async function () {
         if (!created) this.skip()
-        await expect(singleton.handleOps([createOp], redeemerAddress)).to.revertedWith('create2 failed')
+        await expect(singleton.handleOps([createOp], redeemerAddress, {
+          gasLimit: 1e7
+        })).to.revertedWith('create2 failed')
       });
     })
   })

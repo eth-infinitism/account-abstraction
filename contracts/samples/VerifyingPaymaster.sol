@@ -31,7 +31,7 @@ contract VerifyingPaymaster is IPaymaster {
 
     // verify our external signer signed this request.
     // the "paymasterData" is supposed to be a signature over the entire request params
-    function payForOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes32 context) {
+    function payForOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = userOp.hash();
@@ -42,10 +42,10 @@ contract VerifyingPaymaster is IPaymaster {
 
         //no other on-chain validation: entire UserOp should have been checked by the external service,
         // prior signing it.
-        return bytes32(uint(0));
+        return "";
     }
 
-    function postOp(PostOpMode, UserOperation calldata, bytes32, uint) external pure override {
+    function postOp(PostOpMode, bytes calldata, uint) external pure override {
         //should never get called. returned "0" from payForOp
         revert();
     }
