@@ -55,17 +55,13 @@ contract SimpleWallet is IWallet {
         singleton = _singleton;
     }
 
-    function payForSelfOp(UserOperation calldata userOp) external override {
+    function payForSelfOp(UserOperation calldata userOp, uint requiredPrefund) external override {
         require(singleton == address(0) || msg.sender == singleton, "wallet: not from Singleton");
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
 
-        //TODO: should use:  prepay = userOp.clientPrePay();
-        //  but fails with: InternalCompilerError: Internal compiler error (/Users/distiller/project/libsolidity/codegen/CompilerUtils.cpp:1135)
-        uint prepay = UserOperationLib.clientPrePay(userOp);
-
-        if (prepay != 0) {
-            require(payable(msg.sender).send(prepay), "failed to prepay");
+        if (requiredPrefund != 0) {
+            require(payable(msg.sender).send(requiredPrefund), "failed to prepay");
         }
     }
 

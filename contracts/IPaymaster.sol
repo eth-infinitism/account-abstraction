@@ -10,16 +10,21 @@ interface IPaymaster {
         opReverted, // user op reverted. still has to pay for gas.
         postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
     }
-    // pre-pay validation: check if paymaster agree to pay (using its stake)
+    // payment validation: check if paymaster agree to pay (using its stake)
     // revert to reject this request.
+    // actual payment is done after postOp is called, by deducting actual call cost form the paymaster's stake.
+    // @param userOp the user operation
+    // @param maxcost the maximum cost of this transaction (based on maximum gas and gas price from userOp)
     // @returns context value to send to a postOp
     //  zero value to signify postOp is not required.
-    function payForOp(UserOperation calldata userOp) external view returns (bytes32 context);
+    function payForOp(UserOperation calldata userOp, uint maxcost) external view returns (bytes32 context);
 
     // post-operation handler.
-    // @param mode  - false when call just after target is called.
-    //      true - in case first postOp() call reverted, then the user's operation is reverted, and
-    //           postOp is called again, with portRevert=true)
+    // @param mode
+    //      opSucceeded - user operation succeeded.
+    //      opReverted  - user op reverted. still has to pay for gas.
+    //      postOpReverted - user op succeeded, but caused postOp (in mode=opSucceeded) to revert.
+    //                       Now this is the 2nd call, after user's op was deliberately reverted.
     // @param context - the context value returned by payForOp
     // @param actualGasCost - actual gas used so far (without this postOp call).
     function postOp(PostOpMode mode, UserOperation calldata userOp, bytes32 context, uint actualGasCost) external;

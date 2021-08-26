@@ -114,13 +114,33 @@ contract Singleton is StakeManager {
         return handlePostOp(mode, op, context, actualGas, prefund, success);
     }
 
-    //validate it doesn't revert (paymaster, wallet validate request)
-    //  has payment (from wallet: from paymaster we only make sure stake is enough)
-    // accesslist should be used collected.
-    function simulateOp(UserOperation calldata op) external {
-        //make sure this method is only called off-chain
+    /**
+     * Simulate a call for wallet.payForSelfOp.
+     * Call must not revert.
+     * @return gasUsedByPayForSelfOp - gas used by the validation, to pass into simulatePaymasterValidation.
+     * The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the wallet's data
+     */
+    function simulateWalletValidation(UserOperation calldata userOp) external returns (uint gasUsedByPayForSelfOp){
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
-        validatePrepayment(0, op);
+        uint requiredPreFund = userOp.requiredPreFund();
+        uint walletRequiredPrefund = userOp.hasPaymaster() ? 0 : requiredPreFund;
+        (gasUsedByPayForSelfOp,) = _validateWalletPrepayment(0, userOp, walletRequiredPrefund);
+    }
+
+    /**
+     * Simulate a call to paymaster.payForOp
+     * do nothing if has no paymaster.
+     * @param userOp the user operation to validate.
+     * @param gasUsedByPayForSelfOp - the gas returned by simulateWalletValidation, as these 2 calls should share
+     *  the same userOp.validationGas quota.
+     * The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the paymaster's data
+     */
+    function simulatePaymasterValidation(UserOperation calldata userOp, uint gasUsedByPayForSelfOp) external view returns (bytes32 context){
+        if (!userOp.hasPaymaster()) {
+            return bytes32(0);
+        }
+        uint requiredPreFund = userOp.requiredPreFund();
+        return _validatePaymasterPrepayment(0, userOp, requiredPreFund, gasUsedByPayForSelfOp);
     }
 
     function validateGas(UserOperation calldata userOp, uint priorityFee) internal pure {
@@ -130,8 +150,7 @@ contract Singleton is StakeManager {
     // get the target address, or use "create2" to create it.
     // note that the gas allocation for this creation is deterministic (by the size of callData),
     // so it is not checked on-chain, and adds to the gas used by payForSelfOp
-    function _getOrCreateTarget(UserOperation calldata op) internal returns (address target) {
-        target = op.target;
+    function createTargetIfNeeded(UserOperation calldata op) internal {
         if (op.initCode.length != 0) {
             //its a create operation. run the create2
             // note that we're still under the gas limit of validate, so probably
@@ -145,7 +164,7 @@ contract Singleton is StakeManager {
                 target1 := create2(0, add(createData, 32), mload(createData), salt)
             }
             require(target1 != address(0), "create2 failed");
-            require(target1 == target, "target doesn't match create2 address");
+            require(target1 == op.target, "target doesn't match create2 address");
         }
     }
 
@@ -164,41 +183,57 @@ contract Singleton is StakeManager {
         return address(uint160(uint256(hash)));
     }
 
-    function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (uint prefund, bytes32 context){
-
-        IWallet target = IWallet(_getOrCreateTarget(op));
-        uint preBalance = address(this).balance;
+    //call wallet.payForSelfOp, and validate that it paid as needed.
+    // return actual value sent from wallet to "this"
+    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, uint walletRequiredPrefund) internal returns (uint prefund, uint gasUsedByPayForSelfOp) {
         uint preGas = gasleft();
-        try target.payForSelfOp{gas : op.verificationGas}(op) {
+        uint preBalance = address(this).balance;
+        try IWallet(op.target).payForSelfOp{gas : op.verificationGas}(op, walletRequiredPrefund) {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
             revert FailedOp(opIndex, address(0), "");
         }
-        uint payForSelfOp_gasUsed = preGas - gasleft();
         prefund = address(this).balance - preBalance;
 
-        if (!op.hasPaymaster()) {
-            if (prefund < op.requiredPreFund()) {
+        if (walletRequiredPrefund > 0) {
+            if (prefund < walletRequiredPrefund) {
                 revert FailedOp(opIndex, address(0), "wallet didn't pay prefund");
             }
-            context = bytes32(0);
         } else {
             if (prefund != 0) {
                 revert FailedOp(opIndex, address(0), "has paymaster but wallet paid");
             }
-            if (!isValidStake(op)) {
-                revert FailedOp(opIndex, op.paymaster, "not enough stake");
-            }
-            //no pre-pay from paymaster
-            try IPaymaster(op.paymaster).payForOp{gas : op.verificationGas - payForSelfOp_gasUsed}(op) returns (bytes32 _context){
-                context = _context;
-                prefund = 0;
-            } catch Error(string memory revertReason) {
-                revert FailedOp(opIndex, op.paymaster, revertReason);
-            } catch {
-                revert FailedOp(opIndex, op.paymaster, "");
-            }
+        }
+        gasUsedByPayForSelfOp = preGas - gasleft();
+    }
+
+    //validate paymaster.payForOp
+    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, uint requiredPreFund, uint payForSelfOp_gasUsed) internal view returns (bytes32 context) {
+        if (!isValidStake(op, requiredPreFund)) {
+            revert FailedOp(opIndex, op.paymaster, "not enough stake");
+        }
+        //no pre-pay from paymaster
+        try IPaymaster(op.paymaster).payForOp{gas : op.verificationGas - payForSelfOp_gasUsed}(op, requiredPreFund) returns (bytes32 _context){
+            context = _context;
+        } catch Error(string memory revertReason) {
+            revert FailedOp(opIndex, op.paymaster, revertReason);
+        } catch {
+            revert FailedOp(opIndex, op.paymaster, "");
+        }
+    }
+
+    function validatePrepayment(uint opIndex, UserOperation calldata op) private returns (uint prefund, bytes32 context){
+
+        createTargetIfNeeded(op);
+        bool hasPaymaster = op.hasPaymaster();
+        uint requiredPreFund = op.requiredPreFund();
+        uint walletRequiredPrefund = hasPaymaster ? 0 : requiredPreFund;
+        uint gasUsedByPayForSelfOp;
+        (prefund, gasUsedByPayForSelfOp) = _validateWalletPrepayment(opIndex, op, walletRequiredPrefund);
+
+        if (hasPaymaster) {
+            context = _validatePaymasterPrepayment(opIndex, op, requiredPreFund, gasUsedByPayForSelfOp);
         }
     }
 
@@ -240,9 +275,8 @@ contract Singleton is StakeManager {
         emit UserOperationEvent(op.target, op.paymaster, actualGasCost, gasPrice, success);
     }
 
-
-    function isValidStake(UserOperation calldata op) internal view returns (bool) {
-        return isPaymasterStaked(op.paymaster, PAYMASTER_STAKE + op.requiredPreFund());
+    function isValidStake(UserOperation calldata op, uint requiredPreFund) internal view returns (bool) {
+        return isPaymasterStaked(op.paymaster, PAYMASTER_STAKE + requiredPreFund);
     }
 }
 

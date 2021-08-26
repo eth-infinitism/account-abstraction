@@ -17,7 +17,7 @@ export function packUserOp(op: UserOperation): string {
     'uint64', // maxFeePerGas
     'uint64', // maxPriorityFeePerGas
     'address', // paymaster
-    'bytes32', // verificationAccessListHash
+    'bytes', // paymasterData
   ], [
     op.target,
     op.nonce,
@@ -28,7 +28,7 @@ export function packUserOp(op: UserOperation): string {
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
     op.paymaster,
-    op.verificationAccessListHash
+    op.paymasterData
   ])
 }
 
@@ -42,7 +42,7 @@ export const ZeroUserOp: UserOperation = {
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 0,
   paymaster: AddressZero,
-  verificationAccessListHash: HashZero,
+  paymasterData: '0x',
   signer: AddressZero,
   signature: '0x'
 }

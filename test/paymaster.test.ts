@@ -1,17 +1,14 @@
 import {describe} from 'mocha'
-import {BigNumber, Contract, Wallet} from "ethers";
+import {Wallet} from "ethers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
   SimpleWallet,
   SimpleWallet__factory,
-  SimpleWalletForTokens__factory,
   Singleton,
   Singleton__factory,
   TestUtil,
   TestUtil__factory,
-  TestToken,
-  TestToken__factory,
   TokenPaymaster,
   TokenPaymaster__factory
 } from "../typechain";
@@ -39,12 +36,10 @@ describe("Singleton with paymaster", function () {
     await fund(wallet)
   })
 
-  describe('using TokenPaymaster (account pays in TST tokens)', () => {
-    let tst: TestToken
+  describe('using TokenPaymaster (account pays in paymaster tokens)', () => {
     let paymaster: TokenPaymaster
     before(async () => {
-      tst = await new TestToken__factory(ethersSigner).deploy()
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(singleton.address, tst.address)
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", singleton.address)
       paymaster.addStake({value: parseEther('2')})
     })
 
@@ -61,38 +56,11 @@ describe("Singleton with paymaster", function () {
         }, walletOwner)
 
         await expect(singleton.handleOps([op], redeemerAddress)).to.revertedWith('TokenPaymaster: no balance')
-        await tst.mint(wallet.address, parseEther('1'))
-        await expect(singleton.handleOps([op], redeemerAddress)).to.revertedWith('TokenPaymaster: no allowance')
-      });
-
-      //this is a scenario where an existing wallet want to start using a TokenPaymaster,
-      // but first has to send a "token.approve()" transaction.
-      // the paymaster should agree, but has to decode this "approval" transaction, to validate it
-      // will eventually be able to get paid.
-      it.skip('wallet should pay for "approve" request in TST', async function () {
-        await tst.mint(wallet.address, parseEther('1'))
-
-        const approve = await tst.populateTransaction.approve(paymaster.address, BigNumber.from('0x'.padEnd(66, 'F')))
-        const execApprove = await wallet.populateTransaction.exec(tst.address, approve.data!)
-
-        const preTokenBalance = await tst.balanceOf(wallet.address)
-        const op = await fillAndSign({
-          target: wallet.address,
-          paymaster: paymaster.address,
-          callData: execApprove.data!
-        }, walletOwner)
-        await singleton.handleOps([op], redeemerAddress)
-
-        const postTokenBalance = await tst.balanceOf(wallet.address)
-        const logs = await singleton.queryFilter(singleton.filters.UserOperationEvent())
-        const tokenCost = preTokenBalance.sub(postTokenBalance).toNumber()
-        //paymaster has fixed 100-to-1 ratio for token to eth..
-        expect(tokenCost).to.closeTo(logs[0].args.actualGasCost.toNumber() / 100, tokenCost / 1000)
       });
     })
 
     describe('create account', () => {
-      const walletConstructor = SimpleWalletForTokens__factory.bytecode
+      const walletConstructor = SimpleWallet__factory.bytecode
       let createOp: UserOperation
       let created = false
       const redeemerAddress = Wallet.createRandom().address
@@ -107,17 +75,12 @@ describe("Singleton with paymaster", function () {
 
       it('should succeed to create account with tokens', async () => {
         const preAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
-        await tst.mint(preAddr, parseEther('1'))
+        await paymaster.mintTokens(preAddr, parseEther('1'))
 
-        //TODO: find a better way to encode SimpleWalletForTokens.init() to get its ABI:
-        const initFunc = await
-          new Contract(AddressZero, ['function init(address _singleton, address _owner, address token, address paymaster)']).populateTransaction.init(
-            singleton.address, walletOwner.address, tst.address, paymaster.address
-          ).then(tx => tx.data!)
+        //paymaster is the token, so no need for "approve" or any init function...
 
         createOp = await fillAndSign({
           initCode: walletConstructor,
-          callData: initFunc,
           paymaster: paymaster.address,
           nonce: 0
         }, walletOwner, singleton)
@@ -134,8 +97,8 @@ describe("Singleton with paymaster", function () {
         expect(ethRedeemed).to.above(100000)
 
         const walletAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
-        const postBalance = await getTokenBalance(tst, walletAddr)
-        expect(1e18-postBalance).to.above(10000)
+        const postBalance = await getTokenBalance(paymaster, walletAddr)
+        expect(1e18 - postBalance).to.above(10000)
       });
 
       it('should reject if account already created', async function () {

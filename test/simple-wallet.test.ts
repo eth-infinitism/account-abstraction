@@ -64,7 +64,7 @@ describe("SimpleWallet", function () {
       userOp = signUserOp(fillUserOp({target: wallet.address, callGas, maxFeePerGas}), walletOwner)
       expectedPay = maxFeePerGas * callGas
       preBalance = await getBalance(wallet.address)
-      const ret = await wallet.payForSelfOp(userOp)
+      const ret = await wallet.payForSelfOp(userOp, expectedPay)
       await ret.wait()
     })
 
@@ -79,7 +79,7 @@ describe("SimpleWallet", function () {
       expect(await wallet.nonce()).to.equal(1)
     });
     it('should reject same TX on nonce error', async () => {
-      await expect(wallet.payForSelfOp(userOp)).to.revertedWith("invalid nonce")
+      await expect(wallet.payForSelfOp(userOp,0)).to.revertedWith("invalid nonce")
     });
 
   })

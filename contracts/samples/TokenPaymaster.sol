@@ -2,35 +2,35 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../IPaymaster.sol";
 import "../Singleton.sol";
 import "./SimpleWalletForTokens.sol";
 import "hardhat/console.sol";
 
 /**
- * A sample paymaster that uses the user's token to pay for gas.
- * NOTE: actual paymaster should use some price oracle, and might also attempt to swap tokens for ETH.
- * for simplicity, this contract uses hard-coded token price, and assumes its owner should provide it with enough
- * eth (and collect the accumulated tokens)
+ * A sample paymaster that define itself as a  token to pay for gas.
+ * The paymaster IS the token to use, since a paymaster cannot use an external contract.
+ * also, the exchange rate has to be fixed, since it can't refernce external Uniswap os other exchange contract.
  */
-contract TokenPaymaster is Ownable, IPaymaster {
+contract TokenPaymaster is Ownable, ERC20, IPaymaster {
 
     //calculated cost of the postOp
     uint COST_OF_POST = 3000;
 
-    IERC20 token;
     Singleton singleton;
+    bytes32 immutable knownWallet;
 
-    constructor(Singleton _singleton, IERC20 _token) {
+    constructor(string memory _symbol, Singleton _singleton) ERC20(_symbol, _symbol) {
         singleton = _singleton;
-        token = _token;
-        knownWallets[keccak256(type(SimpleWalletForTokens).creationCode)] = true;
+        knownWallet = keccak256(type(SimpleWallet).creationCode);
+//        knownWallets[keccak256(type(SimpleWallet).creationCode)] = true;
+        approve(owner(), type(uint).max);
     }
 
-    //after successful transactions, this paymaster accumulates tokens.
-    function withdrawTokens(address withdrawAddress, uint amount) external onlyOwner {
-        token.transfer(withdrawAddress, amount);
+    //helpers for owner, to mint and withdraw tokens.
+    function mintTokens(address recipient, uint amount) external onlyOwner {
+        _mint(recipient, amount);
     }
 
     //owner should call and put eth into it.
@@ -43,32 +43,30 @@ contract TokenPaymaster is Ownable, IPaymaster {
         return valueEth / 100;
     }
 
-
-    mapping(bytes32 => bool) public knownWallets;
-
     // verify that the user has enough tokens.
-    function payForOp(UserOperation calldata userOp) external view override returns (bytes32 context) {
-        uint tokenPrefund = ethToToken(UserOperationLib.requiredPreFund(userOp));
+    function payForOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes32 context) {
+        uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {
             bytes32 bytecodeHash = keccak256(userOp.initCode);
-            require(knownWallets[bytecodeHash], "TokenPaymaster: unknown wallet constructor");
+            require(knownWallet == bytecodeHash, "TokenPaymaster: unknown wallet constructor");
             //TODO: must also whitelist init function (callData), since that what will call "token.approve(paymaster)"
             //no "allowance" check during creation (we trust known constructor/init function)
-            require(token.balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
+            require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
             return bytes32(uint(1));
         }
 
-        require(token.balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance");
+        require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance");
 
-        if (token.allowance(userOp.target, address(this)) < tokenPrefund) {
-
-            //TODO: allowance too low. just before reverting, can check if current operation is "token.approve(paymaster)"
-            // this is a multi-step operation: first, verify "callData" is exec(token, innerData)
-            //     (this requires knowing the "execute" signature of the wallet
-            // then verify that "innerData" is approve(paymaster,-1)
-            revert("TokenPaymaster: no allowance");
-        }
+        //since we ARE the token, we don't need approval to _transfer() value from user's balance.
+        //        if (token.allowance(userOp.target, address(this)) < tokenPrefund) {
+        //
+        //            //TODO: allowance too low. just before reverting, can check if current operation is "token.approve(paymaster)"
+        //            // this is a multi-step operation: first, verify "callData" is exec(token, innerData)
+        //            //     (this requires knowing the "execute" signature of the wallet
+        //            // then verify that "innerData" is approve(paymaster,-1)
+        //            revert("TokenPaymaster: no allowance");
+        //        }
         return bytes32(uint(1));
     }
 
@@ -81,6 +79,6 @@ contract TokenPaymaster is Ownable, IPaymaster {
         (mode,context);
         uint charge = ethToToken(actualGasCost + COST_OF_POST);
         //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
-        token.transferFrom(userOp.target, address(this), charge);
+        _transfer(userOp.target, address(this), charge);
     }
 }

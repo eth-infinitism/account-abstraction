@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
         uint64 maxFeePerGas;
         uint64 maxPriorityFeePerGas;
         address paymaster;
-        bytes32 verificationAccessListHash;
+        bytes paymasterData;
         address signer;
         bytes signature;
     }
@@ -66,7 +66,7 @@ library UserOperationLib {
             userOp.maxFeePerGas,
             userOp.maxPriorityFeePerGas,
             userOp.paymaster,
-            userOp.verificationAccessListHash
+            userOp.paymasterData
         );
     }
 

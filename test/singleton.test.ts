@@ -34,24 +34,25 @@ describe("Singleton", function () {
     await fund(wallet)
   })
 
-  describe('#simulateOp', () => {
+  describe('#simulateWalletValidation', () => {
     let singletonView: Singleton
     before(async () => {
+      //static call must come from address zero, to validate it can only be called off-chain.
       singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
     })
     it('should fail on-chain', async () => {
       const op = await fillAndSign({target: wallet.address}, walletOwner)
-      await expect(singleton.simulateOp(op)).to.revertedWith('must be called off-chain')
+      await expect(singleton.simulateWalletValidation(op)).to.revertedWith('must be called off-chain')
     });
     it('should fail if payForSelfOp fails', async () => {
       const unfundedWallet = await new SimpleWallet__factory(ethersSigner).deploy()
       await unfundedWallet.init(singleton.address, await walletOwner.getAddress())
       const op = await fillAndSign({target: unfundedWallet.address}, walletOwner)
-      await expect(singletonView.callStatic.simulateOp(op)).to.revertedWith('failed to prepay')
+      await expect(singletonView.callStatic.simulateWalletValidation(op)).to.revertedWith('failed to prepay')
     });
     it('should succeed if payForSelfOp succeeds', async () => {
       const op = await fillAndSign({target: wallet.address}, walletOwner)
-      await singletonView.callStatic.simulateOp(op)
+      await singletonView.callStatic.simulateWalletValidation(op)
     });
   })
 
