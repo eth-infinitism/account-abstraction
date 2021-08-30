@@ -18,7 +18,7 @@ import {
   fund,
   getBalance,
   getTokenBalance, objdump, rethrow,
-  checkForGeth, WalletConstructor
+  checkForGeth, WalletConstructor, calcGasUsage
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
@@ -54,23 +54,22 @@ describe("Singleton with paymaster", function () {
     describe('#handleOps', () => {
       let calldata: string
       before(async () => {
-        calldata = await wallet.populateTransaction.updateSingleton(AddressZero).then(tx => tx.data!)
+
+        const updateSingleton = await wallet.populateTransaction.updateSingleton(AddressZero).then(tx => tx.data!)
+        calldata = await wallet.populateTransaction.execFromSingleton(updateSingleton).then(tx => tx.data!)
       })
       it('paymaster should reject if wallet doesn\'t have tokens', async () => {
         const op = await fillAndSign({
           target: wallet.address,
           paymaster: paymaster.address,
           callData: calldata
-        }, walletOwner)
-
+        }, walletOwner, singleton)
         await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
-
         await expect(singleton.handleOps([op], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
-
       });
     })
 
@@ -107,6 +106,7 @@ describe("Singleton with paymaster", function () {
           gasLimit: 1e7,
         }).catch(rethrow()).then(tx => tx!.wait())
         console.log('\t== create gasUsed=', rcpt!.gasUsed.toString())
+        await calcGasUsage(rcpt, singleton)
         created = true
       });
 

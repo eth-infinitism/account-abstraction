@@ -23,56 +23,56 @@ contract SimpleWallet is IWallet {
         owner = _owner;
     }
 
-    modifier onlyThroughSingleton() {
-        _onlyThroughSingleton();
+    modifier onlyOwner() {
+        _onlyOwner();
         _;
     }
 
-    //complete wallet creation: set singleton and pay for creation.
-    // can only be called directly after creation, while singleton is not set
-    function payForCreation(address payable target, uint amount, address _singleton) external {
-        require(singleton == address(0), "singleton already set");
-        singleton = _singleton;
-        target.transfer(amount);
+    function _onlyOwner() internal view {
+        //directly from EOA owner, or through the singleton (which gets redirected through execFromSingleton)
+        require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
 
-    function _onlyThroughSingleton() internal view {
-        require(msg.sender == singleton || msg.sender == owner, "wallet: only through singleton or owner");
-    }
-
-    function transfer(address payable dest, uint amount) external onlyThroughSingleton {
+    function transfer(address payable dest, uint amount) external onlyOwner {
         dest.transfer(amount);
     }
 
-    function exec(address dest, bytes calldata func) external onlyThroughSingleton {
-        (bool success,) = dest.call(func);
-        require(success);
+    function exec(address dest, bytes calldata func) external onlyOwner {
+        _call(dest,func);
     }
 
-    function updateSingleton(address _singleton) external onlyThroughSingleton {
+    function updateSingleton(address _singleton) external onlyOwner {
         emit SingletonChanged(singleton, _singleton);
         singleton = _singleton;
     }
 
     function payForSelfOp(UserOperation calldata userOp, uint requiredPrefund) external override {
-        require(singleton == address(0) || msg.sender == singleton, "wallet: not from Singleton");
+        require(msg.sender == singleton, "wallet: not from Singleton");
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
 
         if (requiredPrefund != 0) {
             (bool success) = payable(msg.sender).send(requiredPrefund);
-            (success);  //ignore failure (its Singleton's job to verify, not wallet.)
+            (success);
+            //ignore failure (its Singleton's job to verify, not wallet.)
         }
     }
 
     //called by singleton, only after payForSelfOp succeeded.
     function execFromSingleton(bytes calldata func) external override {
-        require(msg.sender == singleton);
+        require(msg.sender == singleton, "execFromSingleton: only from singleton" );
         // solhint-disable-next-line avoid-low-level-calls
-        (bool success,) = address(this).call(func);
-        require(success);
+        _call(address(this), func);
     }
 
+    function _call(address target, bytes memory data) internal {
+        (bool success, bytes memory result) = target.call(data);
+        if (!success) {
+            assembly {
+                revert(result, add(result,32))
+            }
+        }
+    }
     function _validateAndIncrementNonce(UserOperation calldata userOp) internal {
         require(nonce++ == userOp.nonce, "wallet: invalid nonce");
     }

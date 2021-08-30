@@ -1,11 +1,13 @@
 import {ethers} from "hardhat";
 import {parseEther} from "ethers/lib/utils";
-import {Contract, Wallet} from "ethers";
+import {Contract, ContractReceipt, Wallet} from "ethers";
 import {IERC20} from '../typechain'
 import {BytesLike} from "@ethersproject/bytes";
 import {
+  Singleton,
   SimpleWallet__factory
 } from "../typechain";
+import {expect} from "chai";
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -51,6 +53,26 @@ export function createWalletOwner(privkeyBase?: string): Wallet {
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
+export function callDataCost(data: string): number {
+  return ethers.utils.arrayify(data)
+    .map(x => x == 0 ? 4 : 16)
+    .reduce((sum, x) => sum + x)
+}
+
+export async function calcGasUsage(rcpt: ContractReceipt, singleton: Singleton, redeemerAddress?: string) {
+  const actualGas = await rcpt.gasUsed
+  const logs = await singleton.queryFilter(singleton.filters.UserOperationEvent(), rcpt.blockHash)
+  const {actualGasCost, actualGasPrice} = logs[0].args
+  console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
+  let calculatedGasUsed = actualGasCost.toNumber() / actualGasPrice.toNumber();
+  console.log('\t== calculated gasUsed (paid to redeemer)=', calculatedGasUsed)
+  const tx = await ethers.provider.getTransaction(rcpt.transactionHash)
+  console.log('\t== gasDiff', actualGas.toNumber() - calculatedGasUsed - callDataCost(tx.data))
+  if (redeemerAddress != null) {
+    expect(await getBalance(redeemerAddress)).to.eq(actualGasCost.toNumber())
+  }
+}
+
 export function WalletConstructor(singleton: string, owner: string): BytesLike {
   return new SimpleWallet__factory().getDeployTransaction(singleton, owner).data!
 }
@@ -75,8 +97,8 @@ const panicCodes: { [key: string]: any } = {
 export function rethrow(): (e: Error) => void {
   let callerStack = new Error().stack!.replace(/Error.*\n.*at.*\n/, '').replace(/.*at.* \(internal[\s\S]*/, '')
 
-  if ( arguments[0] ) {
-    throw new Error( 'must use .catch(rethrow()), and NOT .catch(rethrow)')
+  if (arguments[0]) {
+    throw new Error('must use .catch(rethrow()), and NOT .catch(rethrow)')
   }
   return function (e: Error) {
     let solstack = e.stack!.match(/((?:.* at .*\.sol.*\n)+)/)

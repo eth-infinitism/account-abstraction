@@ -39,7 +39,7 @@ describe("SimpleWallet", function () {
   it('other account should not be able to call transfer', async () => {
     const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
     await expect(wallet.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
-      .to.be.revertedWith('only through')
+      .to.be.revertedWith('only owner')
   });
 
   it('should pack in js the same as solidity', async () => {

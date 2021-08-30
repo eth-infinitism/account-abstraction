@@ -10,25 +10,25 @@ export function packUserOp(op: UserOperation): string {
   return defaultAbiCoder.encode([
     'address', // target
     'uint256', // nonce
-    'bytes', // initCode
-    'bytes', // callData
+    'bytes32', // initCode
+    'bytes32', // callData
     'uint256', // callGas
     'uint', // verificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
     'address', // paymaster
-    'bytes', // paymasterData
+    'bytes32', // paymasterData
   ], [
     op.target,
     op.nonce,
-    op.initCode,
-    op.callData,
+    keccak256(op.initCode),
+    keccak256(op.callData),
     op.callGas,
     op.verificationGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
     op.paymaster,
-    op.paymasterData
+    keccak256(op.paymasterData)
   ])
 }
 
@@ -82,7 +82,7 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, si
   if (op.initCode != null) {
     op1.nonce = 0
     if (op1.target == null) {
-      assert(singleton != null, 'must have singleton when using initCode')
+      if (singleton == null) throw new Error('must have singleton to calc target address from initCode')
       op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce)
     }
     if (op1.verificationGas == null) {
@@ -94,8 +94,9 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, si
     op1.nonce = await c.nonce()
   }
   if (op1.callGas == null) {
+    if (singleton == null) throw new Error('must have singleton for callGas estimate')
     const gasEtimated = await provider.estimateGas({
-      from: singleton?.address ?? signer.address,
+      from: singleton?.address,
       to: op1.target,
       data: op1.callData
     })

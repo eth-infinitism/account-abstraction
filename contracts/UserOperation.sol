@@ -25,11 +25,15 @@ library UserOperationLib {
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
     function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
-        return min(userOp.maxFeePerGas, min(userOp.maxPriorityFeePerGas + block.basefee, tx.gasprice));
+    unchecked {
+        return min(userOp.maxFeePerGas, userOp.maxPriorityFeePerGas + block.basefee);
+    }
     }
 
-    function requiredGas(UserOperation memory userOp) internal pure returns (uint) {
+    function requiredGas(UserOperation calldata userOp) internal pure returns (uint) {
+    unchecked {
         return userOp.callGas + userOp.verificationGas;
+    }
     }
 
     //TODO: compiler crashes when changing param to "calldata"
@@ -37,7 +41,7 @@ library UserOperationLib {
         return requiredGas(userOp) * gasPrice(userOp);
     }
 
-    function hasPaymaster(UserOperation memory userOp) internal pure returns (bool) {
+    function hasPaymaster(UserOperation calldata userOp) internal pure returns (bool) {
         return userOp.paymaster != address(0);
     }
 
@@ -46,18 +50,18 @@ library UserOperationLib {
         return abi.encode(
             userOp.target,
             userOp.nonce,
-            userOp.initCode,
-            userOp.callData,
+            keccak256(userOp.initCode),
+            keccak256(userOp.callData),
             userOp.callGas,
             userOp.verificationGas,
             userOp.maxFeePerGas,
             userOp.maxPriorityFeePerGas,
             userOp.paymaster,
-            userOp.paymasterData
+            keccak256(userOp.paymasterData)
         );
     }
 
-    function hash(UserOperation memory userOp) internal pure returns (bytes32) {
+    function hash(UserOperation calldata userOp) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32",
             keccak256(pack(userOp))));
     }

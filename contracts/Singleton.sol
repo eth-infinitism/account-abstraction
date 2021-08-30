@@ -143,6 +143,13 @@ contract Singleton is StakeManager {
         return _validatePaymasterPrepayment(0, userOp, requiredPreFund, gasUsedByPayForSelfOp);
     }
 
+    function _create2(bytes calldata initCode, uint salt) internal returns (address target) {
+        bytes memory createData = initCode;
+        assembly {
+            target := create2(0, add(createData, 32), mload(createData), salt)
+        }
+    }
+
     // get the target address, or use "create2" to create it.
     // note that the gas allocation for this creation is deterministic (by the size of callData),
     // so it is not checked on-chain, and adds to the gas used by payForSelfOp
@@ -152,13 +159,8 @@ contract Singleton is StakeManager {
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
             // appending signer makes the request unique, so no one else can make this request.
-            bytes memory createData = op.initCode;
             //nonce is meaningless during create, so we re-purpose it as salt
-            uint salt = op.nonce;
-            address target1;
-            assembly {
-                target1 := create2(0, add(createData, 32), mload(createData), salt)
-            }
+            address target1 = _create2(op.initCode, op.nonce);
             require(target1 != address(0), "create2 failed");
             require(target1 == op.target, "target doesn't match create2 address");
         }
@@ -181,7 +183,7 @@ contract Singleton is StakeManager {
 
     //call wallet.payForSelfOp, and validate that it paid as needed.
     // return actual value sent from wallet to "this"
-    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, uint walletRequiredPrefund) internal returns (uint prefund, uint gasUsedByPayForSelfOp) {
+    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, uint walletRequiredPrefund) internal returns (uint gasUsedByPayForSelfOp, uint prefund) {
         uint preGas = gasleft();
         _createTargetIfNeeded(op);
         uint preBalance = address(this).balance;
@@ -226,11 +228,11 @@ contract Singleton is StakeManager {
     function _validatePrepayment(uint opIndex, UserOperation calldata op) private returns (uint prefund, bytes memory context){
 
         uint preGas = gasleft();
-        bool hasPaymaster = op.hasPaymaster();
+        bool hasPaymaster = op.paymaster != address (0);
         uint requiredPreFund = op.requiredPreFund();
         uint walletRequiredPrefund = hasPaymaster ? 0 : requiredPreFund;
         uint gasUsedByPayForSelfOp;
-        (prefund, gasUsedByPayForSelfOp) = _validateWalletPrepayment(opIndex, op, walletRequiredPrefund);
+        (gasUsedByPayForSelfOp, prefund) = _validateWalletPrepayment(opIndex, op, walletRequiredPrefund);
 
         uint gasUsedByPayForOp = 0;
         if (hasPaymaster) {
