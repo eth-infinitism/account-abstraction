@@ -17,7 +17,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
         uint maxPriorityFeePerGas;
         address paymaster;
         bytes paymasterData;
-        address signer;
         bytes signature;
     }
 
@@ -29,25 +28,13 @@ library UserOperationLib {
         return min(userOp.maxFeePerGas, min(userOp.maxPriorityFeePerGas + block.basefee, tx.gasprice));
     }
 
-    function requiredGas(UserOperation memory userOp) internal pure returns (uint prefund) {
-        uint callgas = userOp.callGas;
-        if (userOp.initCode.length > 0) {
-            uint create2gas = 32000 + 200 * userOp.callData.length;
-            callgas += create2gas;
-        }
-        return callgas;
+    function requiredGas(UserOperation memory userOp) internal pure returns (uint) {
+        return userOp.callGas + userOp.verificationGas;
     }
 
     //TODO: compiler crashes when changing param to "calldata"
-    function requiredPreFund(UserOperation memory userOp) internal pure returns (uint prefund) {
-        return requiredGas(userOp) * userOp.maxFeePerGas;
-    }
-
-    function clientPrePay(UserOperation calldata userOp) internal pure returns (uint){
-        if (hasPaymaster(userOp)) {
-            return 0;
-        }
-        return requiredPreFund(userOp);
+    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint prefund) {
+        return requiredGas(userOp) * gasPrice(userOp);
     }
 
     function hasPaymaster(UserOperation memory userOp) internal pure returns (bool) {

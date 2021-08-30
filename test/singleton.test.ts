@@ -18,11 +18,12 @@ import {
   fund,
   getBalance,
   checkForGeth,
-  rethrow, tostr
+  rethrow, tostr, WalletConstructor
 } from "./testutils";
 import {fillAndSign, ZeroUserOp} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
+import {BytesLike} from "@ethersproject/bytes";
 
 describe("Singleton", function () {
 
@@ -37,33 +38,52 @@ describe("Singleton", function () {
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     singleton = await new Singleton__factory(ethersSigner).deploy()
-    walletOwner = createWalletOwner('1')
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy()
-    await wallet.init(singleton.address, await walletOwner.getAddress())
+    walletOwner = createWalletOwner()
+    wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
     await fund(wallet)
   })
 
   describe('#simulateWalletValidation', () => {
     let singletonView: Singleton
+    const walletOwner1 = createWalletOwner()
+    let wallet1: SimpleWallet
+
     before(async () => {
       //static call must come from address zero, to validate it can only be called off-chain.
       singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
+      wallet1 = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner1.getAddress())
     })
     it('should fail on-chain', async () => {
-      const op = await fillAndSign({target: wallet.address}, walletOwner)
+      const op = await fillAndSign({target: wallet1.address}, walletOwner1)
       await expect(singleton.simulateWalletValidation(op)).to.revertedWith('must be called off-chain')
     });
     it('should fail if payForSelfOp fails', async () => {
-      const unfundedWallet = await new SimpleWallet__factory(ethersSigner).deploy()
-      await unfundedWallet.init(singleton.address, await walletOwner.getAddress())
-      const op = await fillAndSign({target: unfundedWallet.address}, walletOwner)
+      //using wrong owner for wallet1
+      const op = await fillAndSign({target: wallet1.address}, walletOwner)
       await expect(singletonView.callStatic.simulateWalletValidation(op).catch(rethrow())).to
-        .revertedWith('wallet didn\'t pay prefund')
+        .revertedWith('wrong signature')
     });
     it('should succeed if payForSelfOp succeeds', async () => {
-      const op = await fillAndSign({target: wallet.address}, walletOwner)
-      await singletonView.callStatic.simulateWalletValidation(op)
+      const op = await fillAndSign({target: wallet1.address}, walletOwner1)
+      await fund(wallet1)
+      const ret = await singletonView.callStatic.simulateWalletValidation(op).catch(rethrow())
+      console.log('   === simulate result', ret)
     });
+    it('should fail creation for wrong target', async () => {
+      const op1 = await fillAndSign({
+        initCode: WalletConstructor(singleton.address, walletOwner1.address),
+        target: '0x'.padEnd(42,'1')
+      }, walletOwner1, singleton)
+      await expect(singletonView.callStatic.simulateWalletValidation(op1).catch(rethrow()))
+        .to.revertedWith('target doesn\'t match create2 address')
+    })
+    it('should succeed for creating a wallet', async () => {
+      const op1 = await fillAndSign({
+        initCode: WalletConstructor(singleton.address, walletOwner1.address),
+      }, walletOwner1, singleton)
+      await fund(op1.target)
+      await singletonView.callStatic.simulateWalletValidation(op1).catch(rethrow())
+    })
   })
 
   describe('without paymaster (account pays in eth)', () => {
@@ -132,37 +152,65 @@ describe("Singleton", function () {
       });
     })
 
+    //not sure with "expect(call).to.be.revertedWith()" doesn't work.
+    async function expectRevert<T>(call: Promise<T>, match: RegExp) {
+      try {
+        await call.catch(rethrow())
+        throw new Error(`expected revert with ${match}`)
+      } catch (e) {
+        expect(e.message).to.match(match)
+      }
+    }
+
     describe('create account', () => {
-      const walletConstructor = SimpleWallet__factory.bytecode
       let createOp: UserOperation
       let preGas: number
       let created = false
       let redeemerAddress = Wallet.createRandom().address
 
-      it('should reject if account not funded', async () => {
+      it('should reject create if target address not set', async () => {
 
         const op = await fillAndSign({
-          initCode: walletConstructor
+          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          verificationGas: 2e6,
+          target: '0x'.padEnd(42, '1')
         }, walletOwner, singleton)
-        await expect(singleton.handleOps([op], redeemerAddress, {
+
+        await expectRevert(singleton.handleOps([op], redeemerAddress, {
           gasLimit: 1e7
-        }).catch(rethrow())).to.revertedWith('wallet didn\'t pay prefund')
+        }), /target doesn't match create2 address/)
       });
+
+      it('should reject create if account not funded', async () => {
+
+        const op = await fillAndSign({
+          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          verificationGas: 2e6
+        }, walletOwner, singleton)
+
+        await expectRevert(singleton.handleOps([op], redeemerAddress, {
+          gasLimit: 1e7
+        }), /didn't pay prefund/)
+        await expect(await ethers.provider.getCode(op.target).then(x => x.length)).to.equal(2, "wallet exists before creation")
+      });
+
       it('should succeed to create account after prefund', async () => {
 
-        const preAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
+        const preAddr = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner.address), 0)
         await fund(preAddr)
         createOp = await fillAndSign({
-          initCode: walletConstructor,
-          callGas: 1e7
+          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          callGas: 1e7,
+          verificationGas: 2e6
 
         }, walletOwner, singleton)
 
+        await expect(await ethers.provider.getCode(preAddr).then(x => x.length)).to.equal(2, "wallet exists before creation")
         preGas = await getBalance(redeemerAddress)
         const rcpt = await singleton.handleOps([createOp], redeemerAddress, {
-          gasLimit: 1e7
-        }).then(tx => tx.wait())
-        console.log('\t== create gasUsed=', rcpt.gasUsed.toString())
+          gasLimit: 1e7,
+        }).then(tx => tx.wait()).catch(rethrow())
+        console.log('\t== create gasUsed=', rcpt!.gasUsed.toString())
         created = true
       });
 

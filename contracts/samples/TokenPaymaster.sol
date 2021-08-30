@@ -48,8 +48,14 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
         uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {
-            bytes32 bytecodeHash = keccak256(userOp.initCode);
+            bytes32 bytecodeHash = keccak256(userOp.initCode[0:userOp.initCode.length-64]);
             require(knownWallet == bytecodeHash, "TokenPaymaster: unknown wallet constructor");
+
+            //verify the token constructor params:
+            // first param (of 2) should be our singleton
+            bytes32 singletonParam = bytes32(userOp.initCode[userOp.initCode.length-64:]);
+            require( address(uint160(uint256(singletonParam))) == address(singleton), "wrong paymaster in constructor");
+
             //TODO: must also whitelist init function (callData), since that what will call "token.approve(paymaster)"
             //no "allowance" check during creation (we trust known constructor/init function)
             require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");

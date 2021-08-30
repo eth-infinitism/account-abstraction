@@ -18,7 +18,7 @@ import {
   fund,
   getBalance,
   getTokenBalance, objdump, rethrow,
-  checkForGeth
+  checkForGeth, WalletConstructor
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
@@ -40,8 +40,7 @@ describe("Singleton with paymaster", function () {
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     singleton = await new Singleton__factory(ethersSigner).deploy()
     walletOwner = createWalletOwner('1')
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy()
-    await wallet.init(singleton.address, await walletOwner.getAddress())
+    wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
     await fund(wallet)
   })
 
@@ -76,14 +75,14 @@ describe("Singleton with paymaster", function () {
     })
 
     describe('create account', () => {
-      const walletConstructor = SimpleWallet__factory.bytecode
       let createOp: UserOperation
       let created = false
       const redeemerAddress = Wallet.createRandom().address
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: walletConstructor,
+          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          verificationGas: 1e7,
           paymaster: paymaster.address
         }, walletOwner, singleton)
         await expect(singleton.handleOps([op], redeemerAddress, {
@@ -92,21 +91,22 @@ describe("Singleton with paymaster", function () {
       });
 
       it('should succeed to create account with tokens', async () => {
-        const preAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
+        const preAddr = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner.address), 0)
         await paymaster.mintTokens(preAddr, parseEther('1'))
 
         //paymaster is the token, so no need for "approve" or any init function...
 
         createOp = await fillAndSign({
-          initCode: walletConstructor,
+          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          verificationGas: 1e7,
           paymaster: paymaster.address,
           nonce: 0
         }, walletOwner, singleton)
 
         const rcpt = await singleton.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7,
-        }).then(tx => tx.wait())
-        console.log('\t== create gasUsed=', rcpt.gasUsed.toString())
+        }).catch(rethrow()).then(tx => tx!.wait())
+        console.log('\t== create gasUsed=', rcpt!.gasUsed.toString())
         created = true
       });
 
@@ -116,7 +116,7 @@ describe("Singleton with paymaster", function () {
         const ethRedeemed = await getBalance(redeemerAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const walletAddr = await singleton.getAccountAddress(walletConstructor, 0, walletOwner.address)
+        const walletAddr = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner.address), 0)
         const postBalance = await getTokenBalance(paymaster, walletAddr)
         expect(1e18 - postBalance).to.above(10000)
       });

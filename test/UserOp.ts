@@ -1,5 +1,5 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
-import {Contract, Wallet} from "ethers";
+import {BigNumber, Contract, Wallet} from "ethers";
 import {AddressZero, HashZero} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {Singleton} from '../typechain'
@@ -38,7 +38,7 @@ export const ZeroUserOp: UserOperation = {
   initCode: '0x',
   callData: '0x',
   callGas: 0,
-  verificationGas: 500000,
+  verificationGas: 100000,
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
   paymaster: AddressZero,
@@ -72,14 +72,21 @@ export function fillUserOp(op: Partial<UserOperation>, defaults = ZeroUserOp): U
 }
 
 //singleton param is only required to fill in "target address when specifying "initCode"
+//nonce: assume contract as "nonce()" function, and fill in.
+// target - only in case of construction: fill target from initCode.
+// callGas: VERY crude estimation (by estimating call to wallet, and add rough singleton overhead
+// verificationGas: hard-code default at 100k. should add "create2" cost
 export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, singleton?: Singleton): Promise<UserOperation> {
   let op1 = {...op}
-  let provider = signer.provider;
+  let provider = singleton?.provider ?? signer.provider;
   if (op.initCode != null) {
     op1.nonce = 0
     if (op1.target == null) {
       assert(singleton != null, 'must have singleton when using initCode')
-      op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce, signer.address)
+      op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce)
+    }
+    if (op1.verificationGas == null) {
+      op1.verificationGas = BigNumber.from(ZeroUserOp.verificationGas).add(32000 + 200 * op.initCode.length);
     }
   }
   if (op1.nonce == null) {
@@ -87,13 +94,17 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet, si
     op1.nonce = await c.nonce()
   }
   if (op1.callGas == null) {
-    const gasEtimated = await provider.estimateGas({from: signer.address, to: op1.target, data: op1.callData})
-    //estimateGas assumes direct call from owner. add wrapper cost.
-    op1.callGas = gasEtimated.add(55000)
+    const gasEtimated = await provider.estimateGas({
+      from: singleton?.address ?? signer.address,
+      to: op1.target,
+      data: op1.callData
+    })
+    //estimateGas assumes direct call from singleton (or owner). add wrapper cost.
+    op1.callGas = gasEtimated //.add(55000)
   }
   if (op1.maxFeePerGas == null) {
     const block = await provider.getBlock('latest');
-    op1.maxFeePerGas =block.baseFeePerGas!.add(op1.maxPriorityFeePerGas ?? ZeroUserOp.maxPriorityFeePerGas)
+    op1.maxFeePerGas = block.baseFeePerGas!.add(op1.maxPriorityFeePerGas ?? ZeroUserOp.maxPriorityFeePerGas)
   }
   let op2 = fillUserOp(op1);
   return signUserOp(op2, signer)

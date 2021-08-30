@@ -8,7 +8,7 @@ import {
   TestUtil,
   TestUtil__factory
 } from "../typechain";
-import {createWalletOwner, fund, getBalance, ONE_ETH} from "./testutils";
+import {createWalletOwner, getBalance, ONE_ETH} from "./testutils";
 import {fillUserOp, packUserOp, signUserOp} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
@@ -32,14 +32,12 @@ describe("SimpleWallet", function () {
   })
 
   it('owner should be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy()
-    await wallet.init(singleton, accounts[0])
+    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
     await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('2')})
     await wallet.transfer(accounts[2], ONE_ETH)
   });
   it('other account should not be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy()
-    await wallet.init(singleton, accounts[0])
+    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
     await expect(wallet.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
       .to.be.revertedWith('only through')
   });
@@ -56,24 +54,33 @@ describe("SimpleWallet", function () {
     let preBalance: number
     let expectedPay: number
 
+    let actualGasPrice = 1e9;
+
     before(async () => {
       //that's the account of ethersSigner
       const singleton = accounts[2]
-      wallet = await new SimpleWallet__factory(await ethers.getSigner(singleton)).deploy()
-      await wallet.init(singleton, walletOwner.address)
+      wallet = await new SimpleWallet__factory(await ethers.getSigner(singleton)).deploy(singleton, walletOwner.address)
       await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('0.2')})
-      const callGas = 5
+      const callGas = 200000
+      const verificationGas = 100000
       const maxFeePerGas = 3e9
-      userOp = signUserOp(fillUserOp({target: wallet.address, callGas, maxFeePerGas}), walletOwner)
-      expectedPay = maxFeePerGas * callGas
+      userOp = signUserOp(fillUserOp({
+        target: wallet.address,
+        callGas,
+        verificationGas,
+        maxFeePerGas,
+      }), walletOwner)
+      expectedPay = actualGasPrice * (callGas + verificationGas)
+
       preBalance = await getBalance(wallet.address)
-      const ret = await wallet.payForSelfOp(userOp, expectedPay)
+      const ret = await wallet.payForSelfOp(userOp, expectedPay, {gasPrice: actualGasPrice})
       await ret.wait()
     })
 
     it('should pay', async () => {
 
-      expect(await testUtil.prefund(userOp)).to.equal(expectedPay);
+      let prefund = await testUtil.prefund(userOp, {gasPrice: actualGasPrice});
+      expect(prefund).to.equal(expectedPay);
       const postBalance = await getBalance(wallet.address)
       expect(preBalance - postBalance).to.eql(expectedPay)
     });

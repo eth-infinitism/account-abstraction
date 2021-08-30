@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "../IWallet.sol";
+import "hardhat/console.sol";
 
 //minimal wallet
 // this is sample minimal wallet.
@@ -17,9 +18,7 @@ contract SimpleWallet is IWallet {
 
     receive() external payable {}
 
-    function init(address _singleton, address _owner) public virtual {
-        require(singleton == address(0), "wallet: already initialized");
-        require(_singleton != address(0), "wallet: cannot have null singleton");
+    constructor(address _singleton, address _owner) {
         singleton = _singleton;
         owner = _owner;
     }
@@ -80,11 +79,10 @@ contract SimpleWallet is IWallet {
 
     function _validateSignature(UserOperation calldata userOp) internal view {
 
-        require(owner == address(0) || owner == userOp.signer, "wallet: not owner");
         bytes32 hash = userOp.hash();
         require(userOp.signature.length == 65, "wallet: invalid signature length");
         (bytes32 r, bytes32 s) = abi.decode(userOp.signature, (bytes32, bytes32));
         uint8 v = uint8(userOp.signature[64]);
-        require(userOp.signer == ecrecover(hash, v, r, s), "wallet: wrong signature");
+        require(owner == ecrecover(hash, v, r, s), "wallet: wrong signature");
     }
 }

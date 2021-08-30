@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "clean": "rm -rf cache artifacts typechain",
     "compile": "FORCE_COLOR=1 hardhat compile 2>&1 | ./scripts/solcErrors; ./scripts/makeUserOps",
     "makeUserOps": "./scripts/makeUserOps",
     "test": "hardhat test",

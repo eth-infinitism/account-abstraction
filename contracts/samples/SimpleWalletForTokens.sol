@@ -8,8 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // the simplest strategy is assign the allowance in the constructor or init function
 contract SimpleWalletForTokens is SimpleWallet {
 
-    function init(address _singleton, address _owner, IERC20 token, address paymaster) external virtual {
-        super.init(_singleton, _owner);
+    constructor(address _singleton, address _owner, IERC20 token, address paymaster) SimpleWallet(_singleton, _owner) {
         token.approve(paymaster, type(uint).max);
     }
 }

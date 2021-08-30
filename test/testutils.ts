@@ -2,7 +2,10 @@ import {ethers} from "hardhat";
 import {parseEther} from "ethers/lib/utils";
 import {Contract, Wallet} from "ethers";
 import {IERC20} from '../typechain'
-import {assert} from "chai";
+import {BytesLike} from "@ethersproject/bytes";
+import {
+  SimpleWallet__factory
+} from "../typechain";
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -42,12 +45,15 @@ export async function getTokenBalance(token: IERC20, address: string): Promise<n
 }
 
 
-export function createWalletOwner(privkeyBase: string): Wallet {
+export function createWalletOwner(privkeyBase?: string): Wallet {
   const ran = ethers.Wallet.createRandom()
   return new ethers.Wallet(ran.privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
+export function WalletConstructor(singleton: string, owner: string): BytesLike {
+  return new SimpleWallet__factory().getDeployTransaction(singleton, owner).data!
+}
 
 const panicCodes: { [key: string]: any } = {
   //from https://docs.soliditylang.org/en/v0.8.0/control-structures.html
