@@ -1,6 +1,6 @@
+import './aa.init'
 import {describe} from 'mocha'
 import {BigNumber, Wallet} from "ethers";
-import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
   SimpleWallet,
@@ -17,15 +17,20 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, tostr, WalletConstructor, calcGasUsage
+  rethrow, tostr, WalletConstructor, calcGasUsage, objdump, tonumber, checkForBannedOps
 } from "./testutils";
-import {fillAndSign, ZeroUserOp} from "./UserOp";
+import {fillAndSign, DefaultsForUserOp} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
+import {ethers} from 'hardhat'
+import {toBuffer} from "ethereumjs-util";
+import {defaultAbiCoder} from "ethers/lib/utils";
 
 describe("Singleton", function () {
 
   let singleton: Singleton
+  let singletonView: Singleton
+
   let testUtil: TestUtil
   let walletOwner: Wallet
   let ethersSigner = ethers.provider.getSigner();
@@ -35,20 +40,19 @@ describe("Singleton", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy()
+    singleton = await new Singleton__factory(ethersSigner).deploy(0)
+    //static call must come from address zero, to validate it can only be called off-chain.
+    singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
     await fund(wallet)
   })
 
   describe('#simulateWalletValidation', () => {
-    let singletonView: Singleton
     const walletOwner1 = createWalletOwner()
     let wallet1: SimpleWallet
 
     before(async () => {
-      //static call must come from address zero, to validate it can only be called off-chain.
-      singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
       wallet1 = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner1.getAddress())
     })
     it('should fail on-chain', async () => {
@@ -75,6 +79,7 @@ describe("Singleton", function () {
       await expect(singletonView.callStatic.simulateWalletValidation(op1).catch(rethrow()))
         .to.revertedWith('target doesn\'t match create2 address')
     })
+
     it('should succeed for creating a wallet', async () => {
       const op1 = await fillAndSign({
         initCode: WalletConstructor(singleton.address, walletOwner1.address),
@@ -82,6 +87,20 @@ describe("Singleton", function () {
       await fund(op1.target)
       await singletonView.callStatic.simulateWalletValidation(op1).catch(rethrow())
     })
+
+    it('should not use banned ops during simulateWalletValidation', async () => {
+      const op1 = await fillAndSign({
+        initCode: WalletConstructor(singleton.address, walletOwner1.address),
+      }, walletOwner1, singleton)
+      await fund(op1.target)
+      await fund(AddressZero)
+      //we must create a real transaction to debug, and it must come from address zero:
+      await ethers.provider.send('hardhat_impersonateAccount', [AddressZero])
+      const ret = await singletonView.simulateWalletValidation(op1)
+
+      await checkForBannedOps(ret!.hash)
+    })
+
   })
 
   describe('without paymaster (account pays in eth)', () => {
@@ -97,27 +116,22 @@ describe("Singleton", function () {
       })
 
       it('wallet should pay for tx', async function () {
-
-        // await testEthersParam()
-        ZeroUserOp.maxFeePerGas = 0
-        ZeroUserOp.maxPriorityFeePerGas = 0
         const op = await fillAndSign({
           target: wallet.address,
           callData: walletExecFromSingleton.data,
           verificationGas: 1e6,
           callGas: 1e6
-        }, walletOwner)
-
+        }, walletOwner, singleton)
         const redeemerAddress = Wallet.createRandom().address
 
         const countBefore = await counter.counters(wallet.address)
         //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
         console.log('  == est gas=', await singleton.estimateGas.handleOps([op], redeemerAddress, {maxFeePerGas: 1e9}).then(tostr))
 
-
         //must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
         const rcpt = await singleton.handleOps([op], redeemerAddress, {
+          maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(t => t.wait())
 
@@ -155,7 +169,7 @@ describe("Singleton", function () {
       let created = false
       let redeemerAddress = Wallet.createRandom().address //1
 
-      it('should reject create if target address not set', async () => {
+      it('should reject create if target address is wrong', async () => {
 
         const op = await fillAndSign({
           initCode: WalletConstructor(singleton.address, walletOwner.address),
@@ -163,7 +177,7 @@ describe("Singleton", function () {
           target: '0x'.padEnd(42, '1')
         }, walletOwner, singleton)
 
-        await expect(singleton.handleOps([op], redeemerAddress, {
+        await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
           gasLimit: 1e7
         })).to.revertedWith('target doesn\'t match create2 address')
       });
@@ -175,10 +189,13 @@ describe("Singleton", function () {
           verificationGas: 2e6
         }, walletOwner, singleton)
 
-        await expect(singleton.handleOps([op], redeemerAddress, {
+        expect(await ethers.provider.getBalance(op.target)).to.eq(0)
+
+        await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
           gasLimit: 1e7
         })).to.revertedWith('didn\'t pay prefund')
-        await expect(await ethers.provider.getCode(op.target).then(x => x.length)).to.equal(2, "wallet exists before creation")
+
+        // await expect(await ethers.provider.getCode(op.target).then(x => x.length)).to.equal(2, "wallet exists before creation")
       });
 
       it('should succeed to create account after prefund', async () => {
@@ -201,8 +218,11 @@ describe("Singleton", function () {
       });
 
       it('should reject if account already created', async function () {
-        if (!created) this.skip()
-        await expect(singleton.handleOps([createOp], redeemerAddress, {
+        const preAddr = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner.address), 0)
+        if (await ethers.provider.getCode(preAddr).then(x => x.length) == 2)
+          this.skip()
+
+        await expect(singleton.callStatic.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7
         })).to.revertedWith('create2 failed')
       });
@@ -243,8 +263,6 @@ describe("Singleton", function () {
         }, walletOwner1, singleton)
 
         // console.log('op=', {...op1, callData: op1.callData.length, initCode: op1.initCode.length})
-        const singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
-
 
         const op2 = await fillAndSign({
           callData: walletExecCounterFromSingleton.data,
@@ -261,8 +279,7 @@ describe("Singleton", function () {
         await fund(wallet2.address)
         prebalance1 = await ethers.provider.getBalance((wallet1))
         prebalance2 = await ethers.provider.getBalance((wallet2.address))
-        const ret = await singleton.handleOps([op1!, op2
-        ], redeemerAddress).catch((rethrow())).then(r => r!.wait())
+        await singleton.handleOps([op1!, op2], redeemerAddress).catch((rethrow())).then(r => r!.wait())
         // console.log(ret.events!.map(e=>({ev:e.event, ...objdump(e.args!)})))
       })
       it('should execute', async () => {
@@ -272,9 +289,9 @@ describe("Singleton", function () {
       it('should pay for tx', async () => {
         const cost1 = prebalance1.sub(await ethers.provider.getBalance(wallet1))
         const cost2 = prebalance2.sub(await ethers.provider.getBalance(wallet2.address))
-        console.log('cost1=', cost1)
-        console.log('cost2=', cost2)
+        // console.log('cost1=', cost1)
+        // console.log('cost2=', cost2)
       })
-    })
+    });
   })
 })

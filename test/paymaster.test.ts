@@ -38,7 +38,7 @@ describe("Singleton with paymaster", function () {
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy()
+    singleton = await new Singleton__factory(ethersSigner).deploy(0)
     walletOwner = createWalletOwner('1')
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
     await fund(wallet)
@@ -84,9 +84,9 @@ describe("Singleton with paymaster", function () {
           verificationGas: 1e7,
           paymaster: paymaster.address
         }, walletOwner, singleton)
-        await expect(singleton.handleOps([op], redeemerAddress, {
+        await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
           gasLimit: 1e7,
-        })).to.revertedWith('TokenPaymaster: no balance')
+        }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       });
 
       it('should succeed to create account with tokens', async () => {
@@ -123,10 +123,10 @@ describe("Singleton with paymaster", function () {
 
       it('should reject if account already created', async function () {
         if (!created) this.skip()
-        await expect(singleton.handleOps([createOp], redeemerAddress, {
+        await expect(singleton.callStatic.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('create2 failed')
-      });
+      })
     })
   })
 })

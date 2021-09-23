@@ -12,6 +12,5 @@ export interface UserOperation {
   maxPriorityFeePerGas: typ.uint
   paymaster: typ.address
   paymasterData: typ.bytes
-  signer: typ.address
   signature: typ.bytes
 }

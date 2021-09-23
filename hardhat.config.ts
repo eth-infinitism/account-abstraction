@@ -36,7 +36,6 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   for (const account of accounts) {
     console.log(account.address);
   }
-  formatEther(1)
 })
 
 // You need to export an object to set up your config
@@ -46,11 +45,14 @@ const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.7",
     settings: {
-      optimizer: { enabled: false }
+      optimizer: { enabled: true }
     }
   },
   networks: {
 	dev: { url: "http://localhost:8545" }
+  },
+  mocha: {
+    timeout: 10000
   }
 }
 export default config

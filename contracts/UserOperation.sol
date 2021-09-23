@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.7;
 
 import "hardhat/console.sol";
-
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
     struct UserOperation {
 
@@ -36,9 +34,8 @@ library UserOperationLib {
     }
     }
 
-    //TODO: compiler crashes when changing param to "calldata"
-    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint prefund) {
-        return requiredGas(userOp) * gasPrice(userOp);
+    function requiredPreFund(UserOperation calldata userOp, uint overhead) internal view returns (uint prefund) {
+        return (requiredGas(userOp) + overhead) * gasPrice(userOp);
     }
 
     function hasPaymaster(UserOperation calldata userOp) internal pure returns (bool) {

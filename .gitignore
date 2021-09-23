@@ -6,3 +6,4 @@ artifacts
 /.idea/
 /typechain/
 /dist/
+/yarn-error.log

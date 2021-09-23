@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.7;
 
 import "../IWallet.sol";
 import "hardhat/console.sol";
@@ -38,7 +38,7 @@ contract SimpleWallet is IWallet {
     }
 
     function exec(address dest, bytes calldata func) external onlyOwner {
-        _call(dest,func);
+        _call(dest, func);
     }
 
     function updateSingleton(address _singleton) external onlyOwner {
@@ -60,8 +60,7 @@ contract SimpleWallet is IWallet {
 
     //called by singleton, only after payForSelfOp succeeded.
     function execFromSingleton(bytes calldata func) external override {
-        require(msg.sender == singleton, "execFromSingleton: only from singleton" );
-        // solhint-disable-next-line avoid-low-level-calls
+        require(msg.sender == singleton, "execFromSingleton: only from singleton");
         _call(address(this), func);
     }
 
@@ -69,12 +68,17 @@ contract SimpleWallet is IWallet {
         (bool success, bytes memory result) = target.call(data);
         if (!success) {
             assembly {
-                revert(result, add(result,32))
+                revert(result, add(result, 32))
             }
         }
     }
+
     function _validateAndIncrementNonce(UserOperation calldata userOp) internal {
-        require(nonce++ == userOp.nonce, "wallet: invalid nonce");
+        //during construction, the "nonce" field hold the salt.
+        // if we assert it is zero, then we allow only a single wallet per owner.
+        if (userOp.initCode.length == 0) {
+            require(nonce++ == userOp.nonce, "wallet: invalid nonce");
+        }
     }
 
     function _validateSignature(UserOperation calldata userOp) internal view {

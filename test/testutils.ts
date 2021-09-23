@@ -20,20 +20,20 @@ export function tonumber(x: any): number {
   try {
     return parseFloat(x.toString())
   } catch (e) {
-    console.log('=== failed to parseFloat:', x, e.message)
+    console.log('=== failed to parseFloat:', x, (e as any).message)
     return NaN
   }
 }
 
 //just throw 1eth from account[0] to the given address (or contract instance)
-export async function fund(contractOrAddress: string | Contract) {
+export async function fund(contractOrAddress: string | Contract, amountEth = '1') {
   let address: string
   if (typeof contractOrAddress == 'string') {
     address = contractOrAddress
   } else {
     address = contractOrAddress.address
   }
-  await ethers.provider.getSigner().sendTransaction({to: address, value: parseEther('1')})
+  await ethers.provider.getSigner().sendTransaction({to: address, value: parseEther(amountEth)})
 }
 
 export async function getBalance(address: string): Promise<number> {
@@ -73,6 +73,7 @@ export async function calcGasUsage(rcpt: ContractReceipt, singleton: Singleton, 
   }
 }
 
+//helper function to create a constructor call to our wallet.
 export function WalletConstructor(singleton: string, owner: string): BytesLike {
   return new SimpleWallet__factory().getDeployTransaction(singleton, owner).data!
 }
@@ -108,21 +109,7 @@ export function rethrow(): (e: Error) => void {
     let message: string
     if (found != null) {
       const data = found![1]
-      const methodSig = data.slice(0, 10)
-      let dataParams = '0x' + data.slice(10);
-
-      if (methodSig == '0x08c379a0') {
-        const [err] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
-        message = `Error(${err})`
-      } else if (methodSig == '0x00fa072b') {
-        const [opindex, paymaster, msg] = ethers.utils.defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
-        message = `FailedOp(${opindex}, ${paymaster != AddressZero ? paymaster : "none"}, ${msg})`
-      } else if (methodSig == '0x4e487b71') {
-        const [code] = ethers.utils.defaultAbiCoder.decode(['uint256'], dataParams)
-        message = 'Panic(' + panicCodes[code] || code + ')'
-      } else {
-        message = e.message + ' - ' + data.slice(0, 100)
-      }
+      message = decodeRevertReason(data) ?? e.message + ' - ' + data.slice(0, 100)
     } else {
       message = e.message
     }
@@ -130,6 +117,27 @@ export function rethrow(): (e: Error) => void {
     err.stack = 'Error: ' + message + '\n' + stack
     throw err
   }
+}
+
+export function decodeRevertReason(data: string, nullIfNoMatch = true): string | null {
+  const methodSig = data.slice(0, 10)
+  let dataParams = '0x' + data.slice(10);
+
+  if (methodSig == '0x08c379a0') {
+    const [err] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
+    return `Error(${err})`
+  } else if (methodSig == '0x00fa072b') {
+    const [opindex, paymaster, msg] = ethers.utils.defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
+    return `FailedOp(${opindex}, ${paymaster != AddressZero ? paymaster : "none"}, ${msg})`
+  } else if (methodSig == '0x4e487b71') {
+    const [code] = ethers.utils.defaultAbiCoder.decode(['uint256'], dataParams)
+    return 'Panic(' + panicCodes[code] || code + ')'
+  }
+  if (!nullIfNoMatch) {
+    return data
+  }
+  return null
+
 }
 
 let currentNode: string = ''
@@ -154,7 +162,6 @@ export async function checkForGeth() {
   }
 }
 
-
 //remove "array" members, convert values to strings.
 // so Result obj like
 // { '0': "a", '1': 20, first: "a", second: 20 }
@@ -165,6 +172,21 @@ export function objdump(obj: { [key: string]: any }) {
     .filter(key => !key.match(/^[\d_]/))
     .reduce((set, key) => ({
       ...set,
-      [key]: obj[key].toString()
+      [key]: decodeRevertReason(obj[key].toString(), false)
     }), {})
+}
+
+export async function checkForBannedOps(txHash: string) {
+  const debugTx = async (hash: string) => ethers.provider.send('debug_traceTransaction', [hash, {
+    disableMemory: true,
+    disableStorage: true
+  }])
+
+  const tx = await debugTx(txHash)
+  const logs = tx.structLogs as { op: string; depth: number }[]
+  const ops = logs.filter(log=>log.depth>1).map(log => log.op)
+
+  expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
+  expect(ops).to.not.include('BASEFEE')
+  expect(ops).to.not.include('GASPRICE')
 }
