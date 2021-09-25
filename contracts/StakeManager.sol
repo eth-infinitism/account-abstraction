@@ -4,7 +4,11 @@ pragma solidity ^0.8;
 contract StakeManager {
 
     /// minimum number of blocks to after 'unlock' before amount can be withdrawn.
-    uint32 constant UNSTAKE_DELAY_BLOCKS = 300;
+    uint32 immutable public unstakeDelayBlocks;
+
+    constructor(uint32 _unstakeDelayBlocks) {
+        unstakeDelayBlocks = _unstakeDelayBlocks;
+    }
 
     event StakeAdded(
         address indexed paymaster,
@@ -18,7 +22,7 @@ contract StakeManager {
     );
 
     event StakeWithdrawn(
-        address indexed paymaser,
+        address indexed paymaster,
         address withdrawAddress,
         uint256 amount
     );
@@ -39,18 +43,22 @@ contract StakeManager {
         return stakes[paymaster];
     }
 
-    /// add stake for this paymaster
-    /// cancel pending unlock
+    /**
+     * add stake value for this paymaster.
+     * cancel any pending unlock
+     */
     function addStake() external payable {
         stakes[msg.sender].stake = uint112(stakes[msg.sender].stake + msg.value + stakes[msg.sender].withdrawStake);
+        stakes[msg.sender].withdrawStake = 0;
         stakes[msg.sender].withdrawBlock = 0;
         emit StakeAdded(msg.sender, stakes[msg.sender].stake);
     }
 
-    function unlockStake(address paymaster) external {
-        StakeInfo storage info = stakes[paymaster];
+    function unlockStake() external {
+        StakeInfo storage info = stakes[msg.sender];
         require(info.withdrawBlock == 0, "already pending");
-        uint32 withdrawBlock = uint32(block.number) + UNSTAKE_DELAY_BLOCKS;
+        require(info.stake != 0, "no stake to unlock");
+        uint32 withdrawBlock = uint32(block.number) + unstakeDelayBlocks;
         info.withdrawBlock = withdrawBlock;
         info.withdrawStake = info.stake;
         info.stake = 0;
@@ -64,11 +72,12 @@ contract StakeManager {
         uint256 amount = info.withdrawStake;
         info.withdrawStake = 0;
         withdrawAddress.transfer(amount);
+        info.withdrawBlock = 0;
         emit StakeWithdrawn(msg.sender, withdrawAddress, amount);
     }
 
 
-    function isPaymasterStaked(address paymaster, uint requiredStake) internal view returns (bool) {
+    function isPaymasterStaked(address paymaster, uint requiredStake) public view returns (bool) {
         return stakes[paymaster].stake >= requiredStake;
     }
 }

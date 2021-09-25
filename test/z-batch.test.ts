@@ -41,7 +41,7 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy(22000)
+    singleton = await new Singleton__factory(ethersSigner).deploy(22000,0)
     //static call must come from address zero, to validate it can only be called off-chain.
     singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()

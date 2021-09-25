@@ -13,9 +13,6 @@ contract Singleton is StakeManager {
     // (actual stake should be higher, to cover actual call cost)
     uint256 constant PAYMASTER_STAKE = 1 ether;
 
-    //lock period for stake.
-    uint256 constant STAKE_LOCK_BLOCKS = 300;
-
     uint public immutable perOpOverhead;
 
     event UserOperationEvent(address indexed account, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
@@ -32,9 +29,10 @@ contract Singleton is StakeManager {
     //  only to aid troubleshooting of wallet/paymaster reverts
     error FailedOp(uint opIndex, address paymaster, string reason);
 
-    constructor(uint _perOpOverhead) {
+    constructor(uint _perOpOverhead, uint32 _unstakeDelayBlocks) StakeManager(_unstakeDelayBlocks) {
         perOpOverhead = _perOpOverhead;
     }
+
     receive() external payable {}
 
     /**

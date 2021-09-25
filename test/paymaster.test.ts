@@ -38,7 +38,7 @@ describe("Singleton with paymaster", function () {
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy(0)
+    singleton = await new Singleton__factory(ethersSigner).deploy(0,0)
     walletOwner = createWalletOwner('1')
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
     await fund(wallet)

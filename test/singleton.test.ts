@@ -1,5 +1,5 @@
 import './aa.init'
-import {describe} from 'mocha'
+import {beforeEach, describe} from 'mocha'
 import {BigNumber, Wallet} from "ethers";
 import {expect} from "chai";
 import {
@@ -17,14 +17,15 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, tostr, WalletConstructor, calcGasUsage, objdump, tonumber, checkForBannedOps
+  rethrow, tostr, WalletConstructor, calcGasUsage, objdump, tonumber, checkForBannedOps, ONE_ETH, TWO_ETH
 } from "./testutils";
 import {fillAndSign, DefaultsForUserOp} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {toBuffer} from "ethereumjs-util";
-import {defaultAbiCoder} from "ethers/lib/utils";
+import {defaultAbiCoder, parseEther} from "ethers/lib/utils";
+import exp from "constants";
 
 describe("Singleton", function () {
 
@@ -36,11 +37,13 @@ describe("Singleton", function () {
   let ethersSigner = ethers.provider.getSigner();
   let wallet: SimpleWallet
 
+  const unstakeDelayBlocks = 2
+
   before(async function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy(0)
+    singleton = await new Singleton__factory(ethersSigner).deploy(0, unstakeDelayBlocks)
     //static call must come from address zero, to validate it can only be called off-chain.
     singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -48,6 +51,124 @@ describe("Singleton", function () {
     await fund(wallet)
   })
 
+  describe('Stake Management', () => {
+    let addr: string
+    before(async () => {
+      addr = await ethersSigner.getAddress()
+    })
+
+    describe('without stake', () => {
+      it('should return no stake', async () => {
+        expect(await singleton.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
+      })
+      it('should fail to unlock', async () => {
+        await expect(singleton.unlockStake()).to.revertedWith('no stake')
+      })
+      it('should fail to withdraw', async () => {
+        await expect(singleton.withdrawStake(AddressZero)).to.revertedWith('no unlocked stake')
+      })
+    })
+    describe('with stake of 2 eth', () => {
+      before(async () => {
+        await singleton.addStake({value: TWO_ETH})
+      })
+      it('should report "staked" state', async () => {
+        expect(await singleton.isPaymasterStaked(addr, TWO_ETH)).to.eq(true)
+        const {stake, withdrawStake, withdrawBlock} = await singleton.getStakeInfo(addr)
+        expect({stake, withdrawStake, withdrawBlock}).to.eql({
+          stake: parseEther('2'),
+          withdrawStake: BigNumber.from(0),
+          withdrawBlock: 0
+        })
+      })
+
+      function str(x: any) {
+        return JSON.stringify(x)
+      }
+
+      it('should succeed to stake again', async () => {
+        const {stake} = await singleton.getStakeInfo(addr)
+        expect(stake).to.eq(TWO_ETH)
+        await singleton.addStake({value: ONE_ETH})
+        const {stake: stakeAfter} = await singleton.getStakeInfo(addr)
+        expect(stakeAfter).to.eq(parseEther('3'))
+      })
+      it('should fail to withdraw before unlock', async () => {
+        await expect(singleton.withdrawStake(AddressZero)).to.revertedWith('no unlocked stake')
+      })
+      describe('with unlocked stake', () => {
+        before(async () => {
+          await singleton.unlockStake()
+        })
+        it('should report as "not staked"', async () => {
+          expect(await singleton.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
+        })
+        it('should report unstake state', async () => {
+          const withdrawBlock1 = await ethers.provider.getBlockNumber() + unstakeDelayBlocks
+          const {stake, withdrawStake, withdrawBlock} = await singleton.getStakeInfo(addr)
+          expect({stake, withdrawStake, withdrawBlock}).to.eql({
+            stake: BigNumber.from(0),
+            withdrawStake: parseEther('3'),
+            withdrawBlock: withdrawBlock1
+          })
+          expect(await singleton.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
+        })
+        it('should fail to withdraw before unlock timeout', async () => {
+          await expect(singleton.withdrawStake(AddressZero)).to.revertedWith('Withdrawal is not due')
+        })
+        it('should fail to unlock again', async () => {
+          await expect(singleton.unlockStake()).to.revertedWith('already pending')
+        })
+        describe('after unstake delay', () => {
+          before(async () => {
+            // dummy 2 transactions to advance blocks
+            await ethersSigner.sendTransaction({to: addr})
+            await ethersSigner.sendTransaction({to: addr})
+          })
+          it('adding stake should reset "unlockStake"', async () => {
+            let snap
+            try {
+              snap = await ethers.provider.send('evm_snapshot', [])
+
+              await ethersSigner.sendTransaction({to: addr})
+              await singleton.addStake({value: ONE_ETH})
+              const {stake, withdrawStake, withdrawBlock} = await singleton.getStakeInfo(addr)
+              expect({stake, withdrawStake, withdrawBlock}).to.eql({
+                stake: parseEther('4'),
+                withdrawStake: parseEther('0'),
+                withdrawBlock: 0
+              })
+            } finally {
+              await ethers.provider.send('evm_revert', [snap])
+            }
+          })
+
+          it('should report unstaked state', async () => {
+            expect(await singleton.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
+          })
+          it('should fail to unlock again', async () => {
+            await expect(singleton.unlockStake()).to.revertedWith('already pending')
+          })
+          it('should succeed to withdraw', async () => {
+            const {withdrawStake} = await singleton.getStakeInfo(addr)
+            const addr1 = createWalletOwner().address
+            await singleton.withdrawStake(addr1)
+            expect(await ethers.provider.getBalance(addr1)).to.eq(withdrawStake)
+            const {stake, withdrawStake: withdrawStakeAfter, withdrawBlock} = await singleton.getStakeInfo(addr)
+
+            expect({stake, withdrawStakeAfter, withdrawBlock}).to.eql({
+              stake: BigNumber.from(0),
+              withdrawStakeAfter: BigNumber.from(0),
+              withdrawBlock: 0
+            })
+          })
+          it('should fail to withdraw again', async () => {
+            await expect(singleton.withdrawStake(AddressZero)).to.revertedWith('no unlocked stake')
+          })
+        })
+      })
+    })
+  })
   describe('#simulateWalletValidation', () => {
     const walletOwner1 = createWalletOwner()
     let wallet1: SimpleWallet
