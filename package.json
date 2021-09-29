@@ -4,9 +4,9 @@
   "description": "",
   "scripts": {
     "clean": "rm -rf cache artifacts typechain",
-    "compile": "FORCE_COLOR=1 hardhat compile 2>&1 | ./scripts/solcErrors; ./scripts/makeUserOps",
+    "compile": "./scripts/hh-wrapper compile && yarn run makeUserOps",
     "makeUserOps": "./scripts/makeUserOps",
-    "test": "FORCE_COLOR=1 hardhat test 2>&1 | ./scripts/solcErrors;",
+    "test": "./scripts/hh-wrapper test",
     "test-dev": "hardhat test --network dev",
     "ci": "hardhat compile && hardhat test"
   },

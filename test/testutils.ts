@@ -4,7 +4,7 @@ import {Contract, ContractReceipt, Wallet} from "ethers";
 import {IERC20} from '../typechain'
 import {BytesLike} from "@ethersproject/bytes";
 import {
-  Singleton,
+  EntryPoint,
   SimpleWallet__factory
 } from "../typechain";
 import {expect} from "chai";
@@ -60,9 +60,9 @@ export function callDataCost(data: string): number {
     .reduce((sum, x) => sum + x)
 }
 
-export async function calcGasUsage(rcpt: ContractReceipt, singleton: Singleton, redeemerAddress?: string) {
+export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, redeemerAddress?: string) {
   const actualGas = await rcpt.gasUsed
-  const logs = await singleton.queryFilter(singleton.filters.UserOperationEvent(), rcpt.blockHash)
+  const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const {actualGasCost, actualGasPrice} = logs[0].args
   console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
   let calculatedGasUsed = actualGasCost.toNumber() / actualGasPrice.toNumber();
@@ -75,8 +75,8 @@ export async function calcGasUsage(rcpt: ContractReceipt, singleton: Singleton, 
 }
 
 //helper function to create a constructor call to our wallet.
-export function WalletConstructor(singleton: string, owner: string): BytesLike {
-  return new SimpleWallet__factory().getDeployTransaction(singleton, owner).data!
+export function WalletConstructor(entryPoint: string, owner: string): BytesLike {
+  return new SimpleWallet__factory().getDeployTransaction(entryPoint, owner).data!
 }
 
 const panicCodes: { [key: string]: any } = {

@@ -5,12 +5,13 @@ import "hardhat/console.sol";
 
     struct UserOperation {
 
-        address target;
+        address sender;
         uint256 nonce;
         bytes initCode;
         bytes callData;
         uint callGas;
         uint verificationGas;
+        uint preVerificationGas;
         uint maxFeePerGas;
         uint maxPriorityFeePerGas;
         address paymaster;
@@ -45,12 +46,13 @@ library UserOperationLib {
     function pack(UserOperation memory userOp) internal pure returns (bytes memory) {
         //TODO: eip712-style ?
         return abi.encode(
-            userOp.target,
+            userOp.sender,
             userOp.nonce,
             keccak256(userOp.initCode),
             keccak256(userOp.callData),
             userOp.callGas,
             userOp.verificationGas,
+            userOp.preVerificationGas,
             userOp.maxFeePerGas,
             userOp.maxPriorityFeePerGas,
             userOp.paymaster,

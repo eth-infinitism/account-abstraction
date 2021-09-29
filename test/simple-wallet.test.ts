@@ -16,7 +16,7 @@ import {UserOperation} from "./UserOperation";
 
 describe("SimpleWallet", function () {
 
-  const singleton = '0x'.padEnd(42, '2')
+  const entryPoint = '0x'.padEnd(42, '2')
   let accounts: string[]
   let testUtil: TestUtil
   let walletOwner: Wallet
@@ -32,23 +32,23 @@ describe("SimpleWallet", function () {
   })
 
   it('owner should be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
+    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
     await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('2')})
     await wallet.transfer(accounts[2], ONE_ETH)
   });
   it('other account should not be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(singleton, accounts[0])
+    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
     await expect(wallet.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
       .to.be.revertedWith('only owner')
   });
 
   it('should pack in js the same as solidity', async () => {
-    const op = await fillUserOp({target: accounts[0]})
+    const op = await fillUserOp({sender: accounts[0]})
     const packed = packUserOp(op)
     expect(await testUtil.packUserOp(op)).to.equal(packed)
   });
 
-  describe('#payForSelfOp', () => {
+  describe('#verifyUserOp', () => {
     let wallet: SimpleWallet
     let userOp: UserOperation
     let preBalance: number
@@ -58,14 +58,14 @@ describe("SimpleWallet", function () {
 
     before(async () => {
       //that's the account of ethersSigner
-      const singleton = accounts[2]
-      wallet = await new SimpleWallet__factory(await ethers.getSigner(singleton)).deploy(singleton, walletOwner.address)
+      const entryPoint = accounts[2]
+      wallet = await new SimpleWallet__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, walletOwner.address)
       await ethersSigner.sendTransaction({from: accounts[0], to: wallet.address, value: parseEther('0.2')})
       const callGas = 200000
       const verificationGas = 100000
       const maxFeePerGas = 3e9
       userOp = signUserOp(fillUserOp({
-        target: wallet.address,
+        sender: wallet.address,
         callGas,
         verificationGas,
         maxFeePerGas,
@@ -73,7 +73,7 @@ describe("SimpleWallet", function () {
       expectedPay = actualGasPrice * (callGas + verificationGas)
 
       preBalance = await getBalance(wallet.address)
-      const ret = await wallet.payForSelfOp(userOp, expectedPay, {gasPrice: actualGasPrice})
+      const ret = await wallet.verifyUserOp(userOp, expectedPay, {gasPrice: actualGasPrice})
       await ret.wait()
     })
 
@@ -89,7 +89,7 @@ describe("SimpleWallet", function () {
       expect(await wallet.nonce()).to.equal(1)
     });
     it('should reject same TX on nonce error', async () => {
-      await expect(wallet.payForSelfOp(userOp, 0)).to.revertedWith("invalid nonce")
+      await expect(wallet.verifyUserOp(userOp, 0)).to.revertedWith("invalid nonce")
     });
 
   })

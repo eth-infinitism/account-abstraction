@@ -4,7 +4,7 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../IPaymaster.sol";
-import "../Singleton.sol";
+import "../EntryPoint.sol";
 import "./SimpleWalletForTokens.sol";
 import "hardhat/console.sol";
 
@@ -18,11 +18,11 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     //calculated cost of the postOp
     uint COST_OF_POST = 3000;
 
-    Singleton singleton;
+    EntryPoint entryPoint;
     bytes32 immutable knownWallet;
 
-    constructor(string memory _symbol, Singleton _singleton) ERC20(_symbol, _symbol) {
-        singleton = _singleton;
+    constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) {
+        entryPoint = _entryPoint;
         knownWallet = keccak256(type(SimpleWallet).creationCode);
 //        knownWallets[keccak256(type(SimpleWallet).creationCode)] = true;
         approve(owner(), type(uint).max);
@@ -35,7 +35,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
 
     //owner should call and put eth into it.
     function addStake() external payable {
-        singleton.addStake{value : msg.value}();
+        entryPoint.addStake{value : msg.value}();
     }
 
     //TODO: this method assumes a fixed ratio of token-to-eth. should use oracle.
@@ -44,7 +44,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     }
 
     // verify that the user has enough tokens.
-    function payForOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
+    function verifyPaymasterUserOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
         uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {
@@ -52,20 +52,20 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
             require(knownWallet == bytecodeHash, "TokenPaymaster: unknown wallet constructor");
 
             //verify the token constructor params:
-            // first param (of 2) should be our singleton
-            bytes32 singletonParam = bytes32(userOp.initCode[userOp.initCode.length-64:]);
-            require( address(uint160(uint256(singletonParam))) == address(singleton), "wrong paymaster in constructor");
+            // first param (of 2) should be our entryPoint
+            bytes32 entryPointParam = bytes32(userOp.initCode[userOp.initCode.length-64:]);
+            require( address(uint160(uint256(entryPointParam))) == address(entryPoint), "wrong paymaster in constructor");
 
             //TODO: must also whitelist init function (callData), since that what will call "token.approve(paymaster)"
             //no "allowance" check during creation (we trust known constructor/init function)
-            require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
+            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
         } else {
 
-            require(balanceOf(userOp.target) > tokenPrefund, "TokenPaymaster: no balance");
+            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance");
         }
 
         //since we ARE the token, we don't need approval to _transfer() value from user's balance.
-        //        if (token.allowance(userOp.target, address(this)) < tokenPrefund) {
+        //        if (token.allowance(userOp.sender, address(this)) < tokenPrefund) {
         //
         //            //TODO: allowance too low. just before reverting, can check if current operation is "token.approve(paymaster)"
         //            // this is a multi-step operation: first, verify "callData" is exec(token, innerData)
@@ -73,7 +73,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
         //            // then verify that "innerData" is approve(paymaster,-1)
         //            revert("TokenPaymaster: no allowance");
         //        }
-        return abi.encode(userOp.target);
+        return abi.encode(userOp.sender);
     }
 
     //actual charge of user.
@@ -83,9 +83,9 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external override {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
-        address target = abi.decode(context, (address));
+        address sender = abi.decode(context, (address));
         uint charge = ethToToken(actualGasCost + COST_OF_POST);
         //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
-        _transfer(target, address(this), charge);
+        _transfer(sender, address(this), charge);
     }
 }

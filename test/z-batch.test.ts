@@ -5,8 +5,8 @@ import {expect} from "chai";
 import {
   SimpleWallet,
   SimpleWallet__factory,
-  Singleton,
-  Singleton__factory,
+  EntryPoint,
+  EntryPoint__factory,
   TestCounter,
   TestCounter__factory,
   TestUtil,
@@ -29,8 +29,8 @@ import {defaultAbiCoder} from "ethers/lib/utils";
 describe("Batch gas testing", function () {
 
   let ethersSigner = ethers.provider.getSigner();
-  let singleton: Singleton
-  let singletonView: Singleton
+  let entryPoint: EntryPoint
+  let entryPointView: EntryPoint
 
   let testUtil: TestUtil
   let walletOwner: Wallet
@@ -41,11 +41,11 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy(22000,0)
+    entryPoint = await new EntryPoint__factory(ethersSigner).deploy(22000,0)
     //static call must come from address zero, to validate it can only be called off-chain.
-    singletonView = singleton.connect(ethers.provider.getSigner(AddressZero))
+    entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
+    wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
   })
 
@@ -65,7 +65,7 @@ describe("Batch gas testing", function () {
        * attempt big batch.
        */
       let counter: TestCounter
-      let walletExecCounterFromSingleton: PopulatedTransaction
+      let walletExecCounterFromEntryPoint: PopulatedTransaction
       let execCounterCount: PopulatedTransaction
       const redeemerAddress = Wallet.createRandom().address
 
@@ -73,7 +73,7 @@ describe("Batch gas testing", function () {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         execCounterCount = await wallet.populateTransaction.exec(counter.address, count.data!)
-        walletExecCounterFromSingleton = await wallet.populateTransaction.execFromSingleton(execCounterCount.data!)
+        walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(execCounterCount.data!)
       })
 
       let wallets: { w: string, owner: Wallet }[] = []
@@ -86,16 +86,16 @@ describe("Batch gas testing", function () {
         let opsGasCollected = 0
         while (++count) {
           const walletOwner1 = createWalletOwner()
-          const wallet1 = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner1.address), 0)
+          const wallet1 = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
           await fund(wallet1, '0.5')
           const op1 = await fillAndSign({
-            initCode: WalletConstructor(singleton.address, walletOwner1.address),
-            // callData: walletExecCounterFromSingleton.data,
+            initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
+            // callData: walletExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9,
-          }, walletOwner1, singleton)
+          }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
-          const estim = await singletonView.callStatic.simulateWalletValidation(op1, {gasPrice: 1e9})
-          const estim1 = await singletonView.simulatePaymasterValidation(op1, estim!, {gasPrice: 1e9})
+          const estim = await entryPointView.callStatic.simulateWalletValidation(op1, {gasPrice: 1e9})
+          const estim1 = await entryPointView.simulatePaymasterValidation(op1, estim!, {gasPrice: 1e9})
           const verificationGas = estim.add(estim1.gasUsedByPayForOp)
           const txgas = verificationGas.add(op1.callGas).toNumber()
 
@@ -122,11 +122,11 @@ describe("Batch gas testing", function () {
         let ops: UserOperation[] = []
         for (let {w, owner} of wallets) {
           const op1 = await fillAndSign({
-            target: w,
-            callData: walletExecCounterFromSingleton.data,
+            sender: w,
+            callData: walletExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9,
             verificationGas: 1.3e6
-          }, owner, singleton)
+          }, owner, entryPoint)
           ops.push(op1)
 
           if (once) {
@@ -137,8 +137,8 @@ describe("Batch gas testing", function () {
               to: wallet.address,
               data: execCounterCount.data!
             }));
-            console.log('through handleOps:', await singleton.estimateGas.handleOps([op1], redeemerAddress))
-            console.log('through single handleOp:', await singleton.estimateGas.handleOp(op1, redeemerAddress))
+            console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], redeemerAddress))
+            console.log('through single handleOp:', await entryPoint.estimateGas.handleOp(op1, redeemerAddress))
           }
 
         }
@@ -152,19 +152,19 @@ describe("Batch gas testing", function () {
           this.skip()
         }
 
-        let walletExecFromSingleton_waster: PopulatedTransaction
+        let walletExecFromEntryPoint_waster: PopulatedTransaction
         const waster = await counter.populateTransaction.gasWaster(40, "")
         const execCounter_wasteGas = await wallet.populateTransaction.exec(counter.address, waster.data!)
-        walletExecFromSingleton_waster = await wallet.populateTransaction.execFromSingleton(execCounter_wasteGas.data!)
+        walletExecFromEntryPoint_waster = await wallet.populateTransaction.execFromEntryPoint(execCounter_wasteGas.data!)
 
         let ops: UserOperation[] = []
         for (let {w, owner} of wallets) {
           const op1 = await fillAndSign({
-            target: w,
-            callData: walletExecFromSingleton_waster.data,
+            sender: w,
+            callData: walletExecFromEntryPoint_waster.data,
             maxPriorityFeePerGas: 1e9,
             verificationGas: 1.3e6
-          }, owner, singleton)
+          }, owner, entryPoint)
           ops.push(op1)
         }
 
@@ -177,19 +177,19 @@ describe("Batch gas testing", function () {
           this.skip()
         }
 
-        let walletExecFromSingleton_waster: PopulatedTransaction
+        let walletExecFromEntryPoint_waster: PopulatedTransaction
         const waster = await counter.populateTransaction.gasWaster(0, '1'.repeat(16384))
         const execCounter_wasteGas = await wallet.populateTransaction.exec(counter.address, waster.data!)
-        walletExecFromSingleton_waster = await wallet.populateTransaction.execFromSingleton(execCounter_wasteGas.data!)
+        walletExecFromEntryPoint_waster = await wallet.populateTransaction.execFromEntryPoint(execCounter_wasteGas.data!)
 
         let ops: UserOperation[] = []
         for (let {w, owner} of wallets) {
           const op1 = await fillAndSign({
-            target: w,
-            callData: walletExecFromSingleton_waster.data,
+            sender: w,
+            callData: walletExecFromEntryPoint_waster.data,
             maxPriorityFeePerGas: 1e9,
             verificationGas: 1.3e6
-          }, owner, singleton)
+          }, owner, entryPoint)
           ops.push(op1)
         }
 
@@ -204,7 +204,7 @@ describe("Batch gas testing", function () {
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
 
-    const encoded = toBuffer(await singleton.populateTransaction.handleOps(ops, redeemerAddress).then(tx => tx.data))
+    const encoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, redeemerAddress).then(tx => tx.data))
 
     function callDataCost(data: Buffer | string): number {
       if (typeof data == 'string') {
@@ -217,7 +217,7 @@ describe("Batch gas testing", function () {
     const calldataOverheadGas = callDataCost(encoded)
     //data cost of a single op in the bundle:
 
-    const opEncoding = Object.values(singleton.interface.functions)[4].inputs[0]
+    const opEncoding = Object.values(entryPoint.interface.functions)[4].inputs[0]
     const opEncoded = defaultAbiCoder.encode([opEncoding], [ops[0]])
     const opDataCost = callDataCost(opEncoded)
     console.log('== calldataoverhead=', calldataOverheadGas, 'len=', encoded.length, 'opcost=', opDataCost, opEncoded.length / 2)
@@ -225,7 +225,7 @@ describe("Batch gas testing", function () {
     //for slack testing, we set TX priority same as UserOp
     //(real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
     const {maxPriorityFeePerGas} = ops[0]
-    const ret = await singleton.connect(sender).handleOps(ops, redeemerAddress, {
+    const ret = await entryPoint.connect(sender).handleOps(ops, redeemerAddress, {
       gasLimit: 13e6,
       maxPriorityFeePerGas
     }).catch((rethrow())).then(r => r!.wait())
@@ -261,7 +261,7 @@ describe("Batch gas testing", function () {
 
     // console.log('slack=', ((senderRedeemed - senderPaid) * 100 / senderPaid).toFixed(2), '%', opGasUsed - opGasPaid)
     const dumpResult = async ()=> {
-      console.log('==>', `${title} (count=${count}) : `.padEnd(30),'per-op gas overpaid:', opGasPaid - opGasUsed, 'singleton perOpOverhead=', await singleton.perOpOverhead().then(tonumber))
+      console.log('==>', `${title} (count=${count}) : `.padEnd(30),'per-op gas overpaid:', opGasPaid - opGasUsed, 'entryPoint perOpOverhead=', await entryPoint.perOpOverhead().then(tonumber))
     }
     await dumpResult()
     results.push(dumpResult)

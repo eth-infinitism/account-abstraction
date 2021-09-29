@@ -17,7 +17,7 @@ interface IPaymaster {
     // @param maxcost the maximum cost of this transaction (based on maximum gas and gas price from userOp)
     // @returns context value to send to a postOp
     //  zero length to signify postOp is not required.
-    function payForOp(UserOperation calldata userOp, uint maxcost) external view returns (bytes memory context);
+    function verifyPaymasterUserOp(UserOperation calldata userOp, uint maxcost) external view returns (bytes memory context);
 
     // post-operation handler.
     // @param mode
@@ -25,7 +25,7 @@ interface IPaymaster {
     //      opReverted  - user op reverted. still has to pay for gas.
     //      postOpReverted - user op succeeded, but caused postOp (in mode=opSucceeded) to revert.
     //                       Now this is the 2nd call, after user's op was deliberately reverted.
-    // @param context - the context value returned by payForOp
+    // @param context - the context value returned by verifyPaymasterUserOp
     // @param actualGasCost - actual gas used so far (without this postOp call).
     function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external;
 }

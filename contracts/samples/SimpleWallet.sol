@@ -7,19 +7,19 @@ import "hardhat/console.sol";
 //minimal wallet
 // this is sample minimal wallet.
 // has execute, eth handling methods
-// has a single signer that can send requests through the singleton.
+// has a single signer that can send requests through the entryPoint.
 contract SimpleWallet is IWallet {
     using UserOperationLib for UserOperation;
     uint public nonce;
     address public owner;
-    address public singleton;
+    address public entryPoint;
 
-    event SingletonChanged(address oldSingleton, address newSingleton);
+    event EntryPointChanged(address oldEntryPoint, address newEntryPoint);
 
     receive() external payable {}
 
-    constructor(address _singleton, address _owner) {
-        singleton = _singleton;
+    constructor(address _entryPoint, address _owner) {
+        entryPoint = _entryPoint;
         owner = _owner;
     }
 
@@ -29,7 +29,7 @@ contract SimpleWallet is IWallet {
     }
 
     function _onlyOwner() internal view {
-        //directly from EOA owner, or through the singleton (which gets redirected through execFromSingleton)
+        //directly from EOA owner, or through the entryPoint (which gets redirected through execFromEntryPoint)
         require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
 
@@ -41,31 +41,31 @@ contract SimpleWallet is IWallet {
         _call(dest, func);
     }
 
-    function updateSingleton(address _singleton) external onlyOwner {
-        emit SingletonChanged(singleton, _singleton);
-        singleton = _singleton;
+    function updateEntryPoint(address _entryPoint) external onlyOwner {
+        emit EntryPointChanged(entryPoint, _entryPoint);
+        entryPoint = _entryPoint;
     }
 
-    function payForSelfOp(UserOperation calldata userOp, uint requiredPrefund) external override {
-        require(msg.sender == singleton, "wallet: not from Singleton");
+    function verifyUserOp(UserOperation calldata userOp, uint requiredPrefund) external override {
+        require(msg.sender == entryPoint, "wallet: not from EntryPoint");
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
 
         if (requiredPrefund != 0) {
             (bool success) = payable(msg.sender).send(requiredPrefund);
             (success);
-            //ignore failure (its Singleton's job to verify, not wallet.)
+            //ignore failure (its EntryPoint's job to verify, not wallet.)
         }
     }
 
-    //called by singleton, only after payForSelfOp succeeded.
-    function execFromSingleton(bytes calldata func) external override {
-        require(msg.sender == singleton, "execFromSingleton: only from singleton");
+    //called by entryPoint, only after verifyUserOp succeeded.
+    function execFromEntryPoint(bytes calldata func) external {
+        require(msg.sender == entryPoint, "execFromEntryPoint: only from entryPoint");
         _call(address(this), func);
     }
 
-    function _call(address target, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call(data);
+    function _call(address sender, bytes memory data) internal {
+        (bool success, bytes memory result) = sender.call(data);
         if (!success) {
             assembly {
                 revert(result, add(result, 32))

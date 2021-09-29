@@ -5,8 +5,8 @@ import {expect} from "chai";
 import {
   SimpleWallet,
   SimpleWallet__factory,
-  Singleton,
-  Singleton__factory,
+  EntryPoint,
+  EntryPoint__factory,
   TestUtil,
   TestUtil__factory,
   TokenPaymaster,
@@ -25,9 +25,9 @@ import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
 
 
-describe("Singleton with paymaster", function () {
+describe("EntryPoint with paymaster", function () {
 
-  let singleton: Singleton
+  let entryPoint: EntryPoint
   let testUtil: TestUtil
   let walletOwner: Wallet
   let ethersSigner = ethers.provider.getSigner();
@@ -38,16 +38,16 @@ describe("Singleton with paymaster", function () {
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    singleton = await new Singleton__factory(ethersSigner).deploy(0,0)
+    entryPoint = await new EntryPoint__factory(ethersSigner).deploy(0,0)
     walletOwner = createWalletOwner('1')
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy(singleton.address, await walletOwner.getAddress())
+    wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
   })
 
   describe('using TokenPaymaster (account pays in paymaster tokens)', () => {
     let paymaster: TokenPaymaster
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", singleton.address)
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", entryPoint.address)
       paymaster.addStake({value: parseEther('2')})
     })
 
@@ -55,19 +55,19 @@ describe("Singleton with paymaster", function () {
       let calldata: string
       before(async () => {
 
-        const updateSingleton = await wallet.populateTransaction.updateSingleton(AddressZero).then(tx => tx.data!)
-        calldata = await wallet.populateTransaction.execFromSingleton(updateSingleton).then(tx => tx.data!)
+        const updateEntryPoint = await wallet.populateTransaction.updateEntryPoint(AddressZero).then(tx => tx.data!)
+        calldata = await wallet.populateTransaction.execFromEntryPoint(updateEntryPoint).then(tx => tx.data!)
       })
       it('paymaster should reject if wallet doesn\'t have tokens', async () => {
         const op = await fillAndSign({
-          target: wallet.address,
+          sender: wallet.address,
           paymaster: paymaster.address,
           callData: calldata
-        }, walletOwner, singleton)
-        await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
+        }, walletOwner, entryPoint)
+        await expect(entryPoint.callStatic.handleOps([op], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
-        await expect(singleton.handleOps([op], redeemerAddress, {
+        await expect(entryPoint.handleOps([op], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       });
@@ -80,33 +80,33 @@ describe("Singleton with paymaster", function () {
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          initCode: WalletConstructor(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
           paymaster: paymaster.address
-        }, walletOwner, singleton)
-        await expect(singleton.callStatic.handleOps([op], redeemerAddress, {
+        }, walletOwner, entryPoint)
+        await expect(entryPoint.callStatic.handleOps([op], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       });
 
       it('should succeed to create account with tokens', async () => {
-        const preAddr = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner.address), 0)
+        const preAddr = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
         await paymaster.mintTokens(preAddr, parseEther('1'))
 
         //paymaster is the token, so no need for "approve" or any init function...
 
         createOp = await fillAndSign({
-          initCode: WalletConstructor(singleton.address, walletOwner.address),
+          initCode: WalletConstructor(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
           paymaster: paymaster.address,
           nonce: 0
-        }, walletOwner, singleton)
+        }, walletOwner, entryPoint)
 
-        const rcpt = await singleton.handleOps([createOp], redeemerAddress, {
+        const rcpt = await entryPoint.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow()).then(tx => tx!.wait())
         console.log('\t== create gasUsed=', rcpt!.gasUsed.toString())
-        await calcGasUsage(rcpt, singleton)
+        await calcGasUsage(rcpt, entryPoint)
         created = true
       });
 
@@ -116,14 +116,14 @@ describe("Singleton with paymaster", function () {
         const ethRedeemed = await getBalance(redeemerAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const walletAddr = await singleton.getAccountAddress(WalletConstructor(singleton.address, walletOwner.address), 0)
+        const walletAddr = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
         const postBalance = await getTokenBalance(paymaster, walletAddr)
         expect(1e18 - postBalance).to.above(10000)
       });
 
       it('should reject if account already created', async function () {
         if (!created) this.skip()
-        await expect(singleton.callStatic.handleOps([createOp], redeemerAddress, {
+        await expect(entryPoint.callStatic.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('create2 failed')
       })

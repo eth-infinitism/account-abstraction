@@ -2,29 +2,31 @@ import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
 import {BigNumber, Contract, Signer, Wallet} from "ethers";
 import {AddressZero, HashZero, rethrow} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
-import {Singleton} from '../typechain'
+import {EntryPoint} from '../typechain'
 import assert from "assert";
 import {UserOperation} from "./UserOperation";
 
 export function packUserOp(op: UserOperation): string {
   return defaultAbiCoder.encode([
-    'address', // target
+    'address', // sender
     'uint256', // nonce
     'bytes32', // initCode
     'bytes32', // callData
     'uint256', // callGas
     'uint', // verificationGas
+    'uint', // preVerificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
     'address', // paymaster
     'bytes32', // paymasterData
   ], [
-    op.target,
+    op.sender,
     op.nonce,
     keccak256(op.initCode),
     keccak256(op.callData),
     op.callGas,
     op.verificationGas,
+    op.preVerificationGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
     op.paymaster,
@@ -33,12 +35,13 @@ export function packUserOp(op: UserOperation): string {
 }
 
 export const DefaultsForUserOp: UserOperation = {
-  target: AddressZero,
+  sender: AddressZero,
   nonce: 0,
   initCode: '0x',
   callData: '0x',
   callGas: 0,
   verificationGas: 100000,  //default verification gas. will add create2 cost (3200+200*length) if initCode exists
+  preVerificationGas: 21000,  //should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
   paymaster: AddressZero,
@@ -78,50 +81,50 @@ export function fillUserOp(op: Partial<UserOperation>, defaults = DefaultsForUse
 }
 
 //helper to fill structure:
-// - default callGas to estimate call from singleton to wallet (TODO: add overhead)
+// - default callGas to estimate call from entryPoint to wallet (TODO: add overhead)
 // if there is initCode:
 //  - default nonce (used as salt) to zero
-//  - calculate target using getAccountAddress
+//  - calculate sender using getAccountAddress
 //  - default verificationGas to create2 cost + 100000
 // no initCode:
 //  - update nonce from wallet.nonce()
-//singleton param is only required to fill in "target address when specifying "initCode"
+//entryPoint param is only required to fill in "sender address when specifying "initCode"
 //nonce: assume contract as "nonce()" function, and fill in.
-// target - only in case of construction: fill target from initCode.
-// callGas: VERY crude estimation (by estimating call to wallet, and add rough singleton overhead
+// sender - only in case of construction: fill sender from initCode.
+// callGas: VERY crude estimation (by estimating call to wallet, and add rough entryPoint overhead
 // verificationGas: hard-code default at 100k. should add "create2" cost
-export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | Signer, singleton?: Singleton): Promise<UserOperation> {
+export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
   let op1 = {...op}
-  let provider = singleton?.provider
+  let provider = entryPoint?.provider
   if (op.initCode != null) {
     if (!op1.nonce) op1.nonce = 0
-    if (op1.target == null) {
-      if (singleton == null) throw new Error('must have singleton to calc target address from initCode')
-      op1.target = await singleton!.getAccountAddress(op.initCode, op1.nonce)
+    if (op1.sender == null) {
+      if (entryPoint == null) throw new Error('must have entryPoint to calc sender address from initCode')
+      op1.sender = await entryPoint!.getAccountAddress(op.initCode, op1.nonce)
     }
     if (op1.verificationGas == null) {
       op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(32000 + 200 * op.initCode.length / 2)
     }
   }
   if (op1.nonce == null) {
-    if (provider == null) throw new Error('must have singleton to autofill nonce')
-    const c = new Contract(op.target!, ['function nonce() view returns(address)'], provider)
+    if (provider == null) throw new Error('must have entryPoint to autofill nonce')
+    const c = new Contract(op.sender!, ['function nonce() view returns(address)'], provider)
     op1.nonce = await c.nonce().catch(rethrow())
   }
   if (op1.callGas == null && op.callData != null) {
-    if (provider == null) throw new Error('must have singleton for callGas estimate')
+    if (provider == null) throw new Error('must have entryPoint for callGas estimate')
     const gasEtimated = await provider.estimateGas({
-      from: singleton?.address,
-      to: op1.target,
+      from: entryPoint?.address,
+      to: op1.sender,
       data: op1.callData
     })
 
-    // console.log('estim', op1.target,'len=', op1.callData!.length, 'res=', gasEtimated)
-    //estimateGas assumes direct call from singleton. add wrapper cost.
+    // console.log('estim', op1.sender,'len=', op1.callData!.length, 'res=', gasEtimated)
+    //estimateGas assumes direct call from entryPoint. add wrapper cost.
     op1.callGas = gasEtimated //.add(55000)
   }
   if (op1.maxFeePerGas == null) {
-    if (provider == null) throw new Error('must have singleton to autofill maxFeePerGas')
+    if (provider == null) throw new Error('must have entryPoint to autofill maxFeePerGas')
     const block = await provider.getBlock('latest');
     op1.maxFeePerGas = block.baseFeePerGas!.add(op1.maxPriorityFeePerGas ?? DefaultsForUserOp.maxPriorityFeePerGas)
   }

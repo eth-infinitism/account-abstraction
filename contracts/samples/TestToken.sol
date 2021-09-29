@@ -8,7 +8,7 @@ contract TestToken is ERC20 {
         ERC20("TST", "TestToken") {
     }
 
-    function mint(address target, uint amount) external {
-        _mint(target, amount);
+    function mint(address sender, uint amount) external {
+        _mint(sender, amount);
     }
 }
