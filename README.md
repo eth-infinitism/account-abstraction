@@ -1,7 +1,7 @@
-# account-abstraction
+# Resources
 
-https://github.com/ethereum/EIPs/blob/3fd65b1a782912bfc18cb975c62c55f733c7c96e/EIPS/eip-4337.md
+[ERC 4337](https://github.com/ethereum/EIPs/blob/3fd65b1a782912bfc18cb975c62c55f733c7c96e/EIPS/eip-4337.md)
 
-https://notes.ethereum.org/@vbuterin/alt_abstraction
+[Vitalik's notes on Account abstraction designs](https://notes.ethereum.org/@vbuterin/alt_abstraction_2)
 
-https://notes.ethereum.org/@vbuterin/alt_abstraction_2
+[Vitalik's Proposal for account abstraction via alternative mempool](https://notes.ethereum.org/@vbuterin/alt_abstraction)
