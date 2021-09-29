@@ -6,4 +6,4 @@ Implementation of contracts for ERC 4337 account abstraction via alternative mem
 
 [Vitalik's notes on Account abstraction designs](https://notes.ethereum.org/@vbuterin/alt_abstraction_2)
 
-[Vitalik's Proposal for account abstraction via alternative mempool](https://notes.ethereum.org/@vbuterin/alt_abstraction)
+[Vitalik's original proposal for account abstraction via alternative mempool](https://notes.ethereum.org/@vbuterin/alt_abstraction)
