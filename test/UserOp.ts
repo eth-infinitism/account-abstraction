@@ -109,7 +109,7 @@ export function fillUserOp(op: Partial<UserOperation>, defaults = DefaultsForUse
 // - default callGas to estimate call from entryPoint to wallet (TODO: add overhead)
 // if there is initCode:
 //  - default nonce (used as salt) to zero
-//  - calculate sender using getAccountAddress
+//  - calculate sender using getSenderAddress
 //  - default verificationGas to create2 cost + 100000
 // no initCode:
 //  - update nonce from wallet.nonce()
@@ -125,7 +125,7 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
     if (!op1.nonce) op1.nonce = 0
     if (op1.sender == null) {
       if (entryPoint == null) throw new Error('must have entryPoint to calc sender address from initCode')
-      op1.sender = await entryPoint!.getAccountAddress(op.initCode, op1.nonce)
+      op1.sender = await entryPoint!.getSenderAddress(op.initCode, op1.nonce)
     }
     if (op1.verificationGas == null) {
       op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(32000 + 200 * op.initCode.length / 2)

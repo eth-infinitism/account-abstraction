@@ -1,5 +1,5 @@
 import './aa.init'
-import {describe} from 'mocha'
+import {beforeEach, describe} from 'mocha'
 import {BigNumber, Wallet} from "ethers";
 import {expect} from "chai";
 import {
@@ -17,13 +17,25 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, tostr, WalletConstructor, calcGasUsage, checkForBannedOps, ONE_ETH, TWO_ETH, getBalance
+  rethrow,
+  tostr,
+  WalletConstructor,
+  calcGasUsage,
+  objdump,
+  tonumber,
+  checkForBannedOps,
+  ONE_ETH,
+  TWO_ETH,
+  deployEntryPoint,
+  getBalance
 } from "./testutils";
-import {fillAndSign} from "./UserOp";
+import {fillAndSign, DefaultsForUserOp} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {parseEther} from "ethers/lib/utils";
+import {toBuffer} from "ethereumjs-util";
+import {defaultAbiCoder, parseEther} from "ethers/lib/utils";
+import exp from "constants";
 
 describe("EntryPoint", function () {
 
@@ -41,7 +53,7 @@ describe("EntryPoint", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await new EntryPoint__factory(ethersSigner).deploy(0, unstakeDelayBlocks)
+    entryPoint = await deployEntryPoint(0,unstakeDelayBlocks)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -76,6 +88,7 @@ describe("EntryPoint", function () {
           withdrawBlock: 0
         })
       })
+
 
       it('should succeed to stake again', async () => {
         const {stake} = await entryPoint.getStakeInfo(addr)
@@ -159,7 +172,6 @@ describe("EntryPoint", function () {
         })
       })
     })
-
     describe('with deposit (stake without lock)', () => {
       let owner: string
       let wallet: SimpleWallet
@@ -366,7 +378,7 @@ describe("EntryPoint", function () {
 
       it('should succeed to create account after prefund', async () => {
 
-        const preAddr = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
+        const preAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
         await fund(preAddr)
         createOp = await fillAndSign({
           initCode: WalletConstructor(entryPoint.address, walletOwner.address),
@@ -384,7 +396,7 @@ describe("EntryPoint", function () {
       });
 
       it('should reject if account already created', async function () {
-        const preAddr = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
+        const preAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
         if (await ethers.provider.getCode(preAddr).then(x => x.length) == 2)
           this.skip()
 
@@ -416,7 +428,7 @@ describe("EntryPoint", function () {
         const count = await counter.populateTransaction.count()
         const execCounterCount = await wallet.populateTransaction.exec(counter.address, count.data!)
         walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(execCounterCount.data!)
-        wallet1 = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
+        wallet1 = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
         wallet2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner2.address)
         await fund(wallet1)
         await fund(wallet2.address)

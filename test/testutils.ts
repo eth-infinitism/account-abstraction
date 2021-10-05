@@ -1,13 +1,15 @@
 import {ethers} from "hardhat";
-import {parseEther} from "ethers/lib/utils";
+import {defaultAbiCoder, hexConcat, parseEther} from "ethers/lib/utils";
 import {Contract, ContractReceipt, Wallet} from "ethers";
 import {IERC20} from '../typechain'
 import {BytesLike} from "@ethersproject/bytes";
 import {
   EntryPoint,
+  EntryPoint__factory,
   SimpleWallet__factory
 } from "../typechain";
 import {expect} from "chai";
+import {Create2Factory} from "../src/Create2Factory";
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -190,4 +192,15 @@ export async function checkForBannedOps(txHash: string) {
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   expect(ops).to.not.include('BASEFEE')
   expect(ops).to.not.include('GASPRICE')
+}
+
+export async function deployEntryPoint(perOpOverhead:number, unstakeDelayBlocks:number ): Promise<EntryPoint> {
+  let provider = ethers.provider;
+  const create2factory = new Create2Factory(provider)
+  const epf = new EntryPoint__factory()
+  const ctrParams = defaultAbiCoder.encode(['address', 'uint256', 'uint256'],
+    [Create2Factory.contractAddress, perOpOverhead, unstakeDelayBlocks])
+
+  const addr = await create2factory.deploy(hexConcat([ epf.bytecode, ctrParams]),0)
+  return EntryPoint__factory.connect(addr, provider.getSigner())
 }

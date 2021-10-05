@@ -6,6 +6,10 @@ import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
 
+interface ICreate2Deployer {
+    function deploy(bytes memory _initCode, bytes32 _salt) external returns(address);
+}
+
 contract EntryPoint is StakeManager {
 
     using UserOperationLib for UserOperation;
@@ -20,6 +24,7 @@ contract EntryPoint is StakeManager {
     }
 
     uint public immutable perOpOverhead;
+    address public immutable create2factory;
 
     event UserOperationEvent(address indexed account, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
     event UserOperationRevertReason(address indexed account, bytes revertReason);
@@ -35,7 +40,8 @@ contract EntryPoint is StakeManager {
     //  only to aid troubleshooting of wallet/paymaster reverts
     error FailedOp(uint opIndex, address paymaster, string reason);
 
-    constructor(uint _perOpOverhead, uint32 _unstakeDelayBlocks) StakeManager(_unstakeDelayBlocks) {
+    constructor(address _create2factory, uint _perOpOverhead, uint32 _unstakeDelayBlocks) StakeManager(_unstakeDelayBlocks) {
+        create2factory = _create2factory;
         perOpOverhead = _perOpOverhead;
     }
 
@@ -165,13 +171,6 @@ contract EntryPoint is StakeManager {
         return _validatePaymasterPrepayment(0, userOp, requiredPreFund, gasUsedByPayForSelfOp);
     }
 
-    function _create2(bytes calldata initCode, uint salt) internal returns (address sender) {
-        bytes memory createData = initCode;
-        assembly {
-            sender := create2(0, add(createData, 32), mload(createData), salt)
-        }
-    }
-
     // get the sender address, or use "create2" to create it.
     // note that the gas allocation for this creation is deterministic (by the size of callData),
     // so it is not checked on-chain, and adds to the gas used by verifyUserOp
@@ -182,20 +181,21 @@ contract EntryPoint is StakeManager {
             // this create2 creates a proxy account.
             // appending signer makes the request unique, so no one else can make this request.
             //nonce is meaningless during create, so we re-purpose it as salt
-            address sender1 = _create2(op.initCode, op.nonce);
+            address sender1 = ICreate2Deployer(create2factory).deploy(op.initCode, bytes32(op.nonce));
             require(sender1 != address(0), "create2 failed");
             require(sender1 == op.sender, "sender doesn't match create2 address");
         }
     }
 
-    //get counterfactual account address.
-    function getAccountAddress(bytes memory bytecode, uint _salt) public view returns (address) {
+    //get counterfactual sender address.
+    // use the initCode and salt in the UserOperation tot create this sender contract
+    function getSenderAddress(bytes memory initCode, uint _salt) public view returns (address) {
         bytes32 hash = keccak256(
             abi.encodePacked(
                 bytes1(0xff),
-                address(this),
+                address(create2factory),
                 _salt,
-                keccak256(bytecode)
+                keccak256(initCode)
             )
         );
 

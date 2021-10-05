@@ -17,7 +17,7 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, WalletConstructor, tonumber, callDataCost
+  rethrow, WalletConstructor, tonumber, deployEntryPoint, callDataCost
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
@@ -25,6 +25,7 @@ import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {toBuffer} from "ethereumjs-util";
 import {defaultAbiCoder} from "ethers/lib/utils";
+import {Create2Factory} from "../src/Create2Factory";
 
 describe("Batch gas testing", function () {
 
@@ -43,7 +44,7 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await new EntryPoint__factory(ethersSigner).deploy(22000, 0)
+    entryPoint = await deployEntryPoint(22000, 0)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -90,10 +91,11 @@ describe("Batch gas testing", function () {
         let opsGasCollected = 0
         while (++count) {
           const walletOwner1 = createWalletOwner()
-          const wallet1 = await entryPoint.getAccountAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
+          const wallet1 = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
           await fund(wallet1, '0.5')
           const op1 = await fillAndSign({
             initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
+            nonce: 0,
             // callData: walletExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9,
           }, walletOwner1, entryPoint)
@@ -207,7 +209,6 @@ describe("Batch gas testing", function () {
     const redeemerAddress = createWalletOwner().address
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
-
     const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, redeemerAddress).then(tx => tx.data))
 
     function callDataCost(data: Buffer | string): number {
@@ -220,13 +221,12 @@ describe("Batch gas testing", function () {
     //data cost of entire bundle
     const entireTxDataCost = callDataCost(entireTxEncoded)
     //data cost of a single op in the bundle:
-    const type = Object.values(entryPoint.interface.functions).find(f => f.name == 'handleOp')!.inputs[0]
-    const opEncoded = defaultAbiCoder.encode([type], [ops[0]])
-
+    const handleOpFunc = Object.values(entryPoint.interface.functions).find(func => func.name == 'handleOp')!
+    const opEncoding = handleOpFunc.inputs[0]
+    const opEncoded = defaultAbiCoder.encode([opEncoding], [ops[0]])
     const opDataCost = callDataCost(opEncoded)
-    console.log('== entire tx data cost=', entireTxDataCost, 'len=', entireTxEncoded.length, 'op data cost=', opDataCost, 'len=',opEncoded.length / 2)
+    console.log('== calldataoverhead=', entireTxDataCost, 'len=', entireTxEncoded.length/2, 'opcost=', opDataCost, opEncoded.length / 2)
     console.log('== per-op overhead:', entireTxDataCost-(opDataCost*count), 'count=', count)
-
     //for slack testing, we set TX priority same as UserOp
     //(real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
     const {maxPriorityFeePerGas} = ops[0]
@@ -234,7 +234,6 @@ describe("Batch gas testing", function () {
       gasLimit: 13e6,
       maxPriorityFeePerGas
     }).catch((rethrow())).then(r => r!.wait())
-
     // const allocatedGas = ops.map(op => parseInt(op.callGas.toString()) + parseInt(op.verificationGas.toString())).reduce((sum, x) => sum + x)
     // console.log('total allocated gas (callGas+verificationGas):', allocatedGas)
 
