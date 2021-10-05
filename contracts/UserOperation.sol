@@ -31,7 +31,7 @@ library UserOperationLib {
 
     function requiredGas(UserOperation calldata userOp) internal pure returns (uint) {
     unchecked {
-        return userOp.callGas + userOp.verificationGas;
+        return userOp.callGas + userOp.verificationGas + userOp.preVerificationGas;
     }
     }
 

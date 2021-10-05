@@ -1,5 +1,5 @@
 import './aa.init'
-import {beforeEach, describe} from 'mocha'
+import {describe} from 'mocha'
 import {BigNumber, Wallet} from "ethers";
 import {expect} from "chai";
 import {
@@ -17,15 +17,13 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, tostr, WalletConstructor, calcGasUsage, objdump, tonumber, checkForBannedOps, ONE_ETH, TWO_ETH
+  rethrow, tostr, WalletConstructor, calcGasUsage, checkForBannedOps, ONE_ETH, TWO_ETH, getBalance
 } from "./testutils";
-import {fillAndSign, DefaultsForUserOp} from "./UserOp";
+import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {toBuffer} from "ethereumjs-util";
-import {defaultAbiCoder, parseEther} from "ethers/lib/utils";
-import exp from "constants";
+import {parseEther} from "ethers/lib/utils";
 
 describe("EntryPoint", function () {
 
@@ -64,16 +62,13 @@ describe("EntryPoint", function () {
       it('should fail to unlock', async () => {
         await expect(entryPoint.unlockStake()).to.revertedWith('no stake')
       })
-      it('should fail to withdraw', async () => {
-        await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('no unlocked stake')
-      })
     })
     describe('with stake of 2 eth', () => {
       before(async () => {
-        await entryPoint.addStake({value: TWO_ETH})
+        await entryPoint.addStake(2, {value: TWO_ETH})
       })
       it('should report "staked" state', async () => {
-        expect(await entryPoint.isPaymasterStaked(addr, TWO_ETH)).to.eq(true)
+        expect(await entryPoint.isPaymasterStaked(addr, 0)).to.eq(true)
         const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
         expect({stake, withdrawStake, withdrawBlock}).to.eql({
           stake: parseEther('2'),
@@ -82,14 +77,10 @@ describe("EntryPoint", function () {
         })
       })
 
-      function str(x: any) {
-        return JSON.stringify(x)
-      }
-
       it('should succeed to stake again', async () => {
         const {stake} = await entryPoint.getStakeInfo(addr)
         expect(stake).to.eq(TWO_ETH)
-        await entryPoint.addStake({value: ONE_ETH})
+        await entryPoint.addStake(2, {value: ONE_ETH})
         const {stake: stakeAfter} = await entryPoint.getStakeInfo(addr)
         expect(stakeAfter).to.eq(parseEther('3'))
       })
@@ -131,7 +122,7 @@ describe("EntryPoint", function () {
               snap = await ethers.provider.send('evm_snapshot', [])
 
               await ethersSigner.sendTransaction({to: addr})
-              await entryPoint.addStake({value: ONE_ETH})
+              await entryPoint.addStake(2, {value: ONE_ETH})
               const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
               expect({stake, withdrawStake, withdrawBlock}).to.eql({
                 stake: parseEther('4'),
@@ -166,6 +157,25 @@ describe("EntryPoint", function () {
             await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('no unlocked stake')
           })
         })
+      })
+    })
+
+    describe('with deposit (stake without lock)', () => {
+      let owner: string
+      let wallet: SimpleWallet
+      before(async()=>{
+        owner = await ethersSigner.getAddress()
+        wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, owner)
+        const ret = await wallet.addDeposit({value:ONE_ETH})
+        expect(await getBalance(wallet.address)).to.equal(0)
+      })
+      it('should fail to unlock deposit (its not locked)', async () => {
+        //wallet doesn't have "unlock" api, so we test it with static call.
+        await expect(entryPoint.connect(wallet.address).callStatic.unlockStake()).to.revertedWith('no stake')
+      })
+      it('should withdraw with no unlock', async () => {
+        await wallet.withdrawDeposit(wallet.address)
+        expect(await getBalance(wallet.address)).to.equal(1e18)
       })
     })
   })
@@ -261,7 +271,42 @@ describe("EntryPoint", function () {
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
         await calcGasUsage(rcpt, entryPoint, redeemerAddress)
+      });
 
+      it('if wallet has a stake, it should use it to pay', async function () {
+        await wallet.addDeposit({value: ONE_ETH})
+        const op = await fillAndSign({
+          sender: wallet.address,
+          callData: walletExecFromEntryPoint.data,
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, walletOwner, entryPoint)
+        const redeemerAddress = Wallet.createRandom().address
+
+        const countBefore = await counter.counters(wallet.address)
+        //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
+        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], redeemerAddress, {maxFeePerGas: 1e9}).then(tostr))
+
+        const balBefore = await getBalance(wallet.address)
+        const stakeBefore = await entryPoint.getStakeInfo(wallet.address).then(info => info.stake)
+        //must specify at least one of maxFeePerGas, gasLimit
+        // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
+        const rcpt = await entryPoint.handleOps([op], redeemerAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }).then(t => t.wait())
+
+        const countAfter = await counter.counters(wallet.address)
+        expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
+        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
+
+        const balAfter = await getBalance(wallet.address)
+        const stakeAfter = await entryPoint.getStakeInfo(wallet.address).then(info => info.stake)
+        expect(balAfter).to.equal(balBefore, 'should pay from stake, not balance')
+        let stakeUsed = stakeBefore.sub(stakeAfter)
+        expect(await ethers.provider.getBalance(redeemerAddress)).to.equal(stakeUsed)
+
+        await calcGasUsage(rcpt, entryPoint, redeemerAddress)
       });
 
       it('#handleOp (single)', async () => {

@@ -17,7 +17,7 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, WalletConstructor, tonumber
+  rethrow, WalletConstructor, tonumber, callDataCost
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
@@ -28,6 +28,8 @@ import {defaultAbiCoder} from "ethers/lib/utils";
 
 describe("Batch gas testing", function () {
 
+  let once = true
+
   let ethersSigner = ethers.provider.getSigner();
   let entryPoint: EntryPoint
   let entryPointView: EntryPoint
@@ -36,12 +38,12 @@ describe("Batch gas testing", function () {
   let walletOwner: Wallet
   let wallet: SimpleWallet
 
-  let results: (()=>void)[] = []
+  let results: (() => void)[] = []
   before(async function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await new EntryPoint__factory(ethersSigner).deploy(22000,0)
+    entryPoint = await new EntryPoint__factory(ethersSigner).deploy(22000, 0)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -49,7 +51,7 @@ describe("Batch gas testing", function () {
     await fund(wallet)
   })
 
-  after(async ()=>{
+  after(async () => {
 
     console.log('== Summary')
     console.log('note: negative "overpaid" means the client should compensate the relayer with higher priority fee')
@@ -58,7 +60,9 @@ describe("Batch gas testing", function () {
     }
   })
 
-  ;[1, 10].forEach(maxCount => {
+  ;[1,
+    10
+  ].forEach(maxCount => {
 
     describe('test batches maxCount=' + maxCount, () => {
       /**
@@ -136,7 +140,7 @@ describe("Batch gas testing", function () {
               from: walletOwner.address,
               to: wallet.address,
               data: execCounterCount.data!
-            }));
+            }), 'datacost=', callDataCost(execCounterCount.data!));
             console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], redeemerAddress))
             console.log('through single handleOp:', await entryPoint.estimateGas.handleOp(op1, redeemerAddress))
           }
@@ -193,7 +197,7 @@ describe("Batch gas testing", function () {
           ops.push(op1)
         }
 
-        await call_handleOps_and_stats('Large (16k) Ops',ops, ops.length)
+        await call_handleOps_and_stats('Large (16k) Ops', ops, ops.length)
       })
 
     })
@@ -204,7 +208,7 @@ describe("Batch gas testing", function () {
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
 
-    const encoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, redeemerAddress).then(tx => tx.data))
+    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, redeemerAddress).then(tx => tx.data))
 
     function callDataCost(data: Buffer | string): number {
       if (typeof data == 'string') {
@@ -214,13 +218,14 @@ describe("Batch gas testing", function () {
     }
 
     //data cost of entire bundle
-    const calldataOverheadGas = callDataCost(encoded)
+    const entireTxDataCost = callDataCost(entireTxEncoded)
     //data cost of a single op in the bundle:
+    const type = Object.values(entryPoint.interface.functions).find(f => f.name == 'handleOp')!.inputs[0]
+    const opEncoded = defaultAbiCoder.encode([type], [ops[0]])
 
-    const opEncoding = Object.values(entryPoint.interface.functions)[4].inputs[0]
-    const opEncoded = defaultAbiCoder.encode([opEncoding], [ops[0]])
     const opDataCost = callDataCost(opEncoded)
-    console.log('== calldataoverhead=', calldataOverheadGas, 'len=', encoded.length, 'opcost=', opDataCost, opEncoded.length / 2)
+    console.log('== entire tx data cost=', entireTxDataCost, 'len=', entireTxEncoded.length, 'op data cost=', opDataCost, 'len=',opEncoded.length / 2)
+    console.log('== per-op overhead:', entireTxDataCost-(opDataCost*count), 'count=', count)
 
     //for slack testing, we set TX priority same as UserOp
     //(real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
@@ -251,21 +256,20 @@ describe("Batch gas testing", function () {
     expect(senderRedeemed).to.equal(totalEventsGasCost)
 
     //for slack calculations, add the calldataoverhead. should be part of the relayer fee.
-    senderRedeemed += calldataOverheadGas * actualGasPrice
-    console.log('gp:', await ethers.provider.getGasPrice())
-    console.log('gasPrice:', actualGasPrice)
+    senderRedeemed += entireTxDataCost * actualGasPrice
+    console.log('provider gasprice:', await ethers.provider.getGasPrice())
+    console.log('userop   gasPrice:', actualGasPrice)
     const opGasUsed = Math.floor(senderPaid / actualGasPrice / count)
     const opGasPaid = Math.floor(senderRedeemed / actualGasPrice / count)
     console.log('senderPaid= ', senderPaid, '(wei)\t', (senderPaid / actualGasPrice).toFixed(0), '(gas)', opGasUsed, '(gas/op)', count)
     console.log('redeemed=   ', senderRedeemed, '(wei)\t', (senderRedeemed / actualGasPrice).toFixed(0), '(gas)', opGasPaid, '(gas/op)')
 
     // console.log('slack=', ((senderRedeemed - senderPaid) * 100 / senderPaid).toFixed(2), '%', opGasUsed - opGasPaid)
-    const dumpResult = async ()=> {
-      console.log('==>', `${title} (count=${count}) : `.padEnd(30),'per-op gas overpaid:', opGasPaid - opGasUsed, 'entryPoint perOpOverhead=', await entryPoint.perOpOverhead().then(tonumber))
+    const dumpResult = async () => {
+      console.log('==>', `${title} (count=${count}) : `.padEnd(30), 'per-op gas overpaid:', opGasPaid - opGasUsed, 'entryPoint perOpOverhead=', await entryPoint.perOpOverhead().then(tonumber))
     }
     await dumpResult()
     results.push(dumpResult)
   }
 })
 
-let once = true

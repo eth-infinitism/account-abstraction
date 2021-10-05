@@ -1,12 +1,37 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
 import {BigNumber, Contract, Signer, Wallet} from "ethers";
-import {AddressZero, HashZero, rethrow} from "./testutils";
+import {AddressZero, callDataCost, HashZero, rethrow} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {EntryPoint} from '../typechain'
 import assert from "assert";
 import {UserOperation} from "./UserOperation";
 
-export function packUserOp(op: UserOperation): string {
+function encode(typevalues: { type: string, val: any }[], hashBytes: boolean) {
+
+  const types = typevalues.map(typevalue => typevalue.type == 'bytes' && hashBytes ? 'bytes32' : typevalue.type)
+  const values = typevalues.map((typevalue) => typevalue.type == 'bytes' && hashBytes ? keccak256(typevalue.val) : typevalue.val)
+  return defaultAbiCoder.encode(types, values)
+}
+
+
+export function packUserOp(op: UserOperation, hashBytes = true): string {
+  return encode([
+    {type: 'address', val: op.sender},
+    {type: 'uint256', val: op.nonce},
+    {type: 'bytes', val: op.initCode},
+    {type: 'bytes', val: op.callData},
+    {type: 'uint256', val: op.callGas},
+    {type: 'uint256', val: op.verificationGas},
+    {type: 'uint256', val: op.preVerificationGas},
+    {type: 'uint256', val: op.maxFeePerGas},
+    {type: 'uint256', val: op.maxPriorityFeePerGas},
+    {type: 'address', val: op.paymaster},
+    {type: 'bytes', val: op.paymasterData}
+  ], hashBytes)
+}
+
+
+export function packUserOp1(op: UserOperation): string {
   return defaultAbiCoder.encode([
     'address', // sender
     'uint256', // nonce
@@ -134,6 +159,11 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
     op1.maxPriorityFeePerGas = DefaultsForUserOp.maxPriorityFeePerGas
   }
   let op2 = fillUserOp(op1);
+  if (op2.preVerificationGas.toString() == '0') {
+
+    //TODO: we don't add overhead, which is ~21000 for a single TX, but much lower in a batch.
+    op2.preVerificationGas = callDataCost(packUserOp(op2, false))
+  }
 
   let packed = packUserOp(op2);
   let message = Buffer.from(arrayify(keccak256(packed)));
