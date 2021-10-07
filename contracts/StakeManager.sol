@@ -55,6 +55,11 @@ contract StakeManager {
         addStake(0);
     }
 
+    //add deposit to another account (doesn't change lock status)
+    function addDepositTo(address target) external payable {
+        stakes[target].stake += uint96(msg.value);
+    }
+
     /**
      * add stake value for this paymaster.
      * cancel any pending unlock

@@ -21,6 +21,10 @@ import "hardhat/console.sol";
 
 library UserOperationLib {
 
+    function getSender(UserOperation calldata userOp) internal view returns (address ret) {
+        assembly {ret := calldataload(userOp)}
+    }
+
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
     function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
@@ -43,7 +47,19 @@ library UserOperationLib {
         return userOp.paymaster != address(0);
     }
 
-    function pack(UserOperation memory userOp) internal pure returns (bytes memory) {
+    function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
+        //lighter signature scheme. must match UserOp.ts#packUserOp
+        bytes calldata sig = userOp.signature;
+        assembly {
+            let ofs := userOp
+            let len := sub(sub(sig.offset, ofs), 32)
+            ret := mload(0x40)
+            mstore(0x40, add(ret, add(len, 32)))
+            mstore(ret, len)
+            calldatacopy(add(ret, 32), ofs, len)
+        }
+        return ret;
+
         //TODO: eip712-style ?
         return abi.encode(
             userOp.sender,

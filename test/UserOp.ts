@@ -1,21 +1,60 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
 import {BigNumber, Contract, Signer, Wallet} from "ethers";
-import {AddressZero, callDataCost, HashZero, rethrow} from "./testutils";
+import {AddressZero, callDataCost, rethrow} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
-import {EntryPoint} from '../typechain'
-import assert from "assert";
+import {
+  EntryPoint,
+  TestUtil,
+} from '../typechain'
 import {UserOperation} from "./UserOperation";
 
-function encode(typevalues: { type: string, val: any }[], hashBytes: boolean) {
+function encode(typevalues: { type: string, val: any }[], forSignature: boolean) {
 
-  const types = typevalues.map(typevalue => typevalue.type == 'bytes' && hashBytes ? 'bytes32' : typevalue.type)
-  const values = typevalues.map((typevalue) => typevalue.type == 'bytes' && hashBytes ? keccak256(typevalue.val) : typevalue.val)
+  const types = typevalues.map(typevalue => typevalue.type == 'bytes' && forSignature ? 'bytes32' : typevalue.type)
+  const values = typevalues.map((typevalue) => typevalue.type == 'bytes' && forSignature ? keccak256(typevalue.val) : typevalue.val)
   return defaultAbiCoder.encode(types, values)
 }
 
 
-export function packUserOp(op: UserOperation, hashBytes = true): string {
-  return encode([
+// export function packUserOp(op: UserOperation, hashBytes = true): string {
+//   if ( !hashBytes || true ) {
+//     return packUserOp1(op, hashBytes)
+//   }
+//
+//   const opEncoding = Object.values(testUtil.interface.functions).find(func => func.name == 'packUserOp')!.inputs[0]
+//   let packed = defaultAbiCoder.encode([opEncoding], [{...op, signature:'0x'}])
+//   packed = '0x'+packed.slice(64+2) //skip first dword (length)
+//   packed = packed.slice(0,packed.length-64) //remove signature (the zero-length)
+//   return packed
+// }
+
+export function packUserOp(op: UserOperation, forSignature = true): string {
+  if (forSignature) {
+    //lighter signature scheme (must match UserOperation#pack): do encode a zero-length signature, but strip afterwards the appended zero-length value
+    const userOpType = {
+      "components": [
+        {"type": "address", "name": "sender"},
+        {"type": "uint256", "name": "nonce"},
+        {"type": "bytes", "name": "initCode"},
+        {"type": "bytes", "name": "callData"},
+        {"type": "uint256", "name": "callGas"},
+        {"type": "uint256", "name": "verificationGas"},
+        {"type": "uint256", "name": "preVerificationGas"},
+        {"type": "uint256", "name": "maxFeePerGas"},
+        {"type": "uint256", "name": "maxPriorityFeePerGas"},
+        {"type": "address", "name": "paymaster"},
+        {"type": "bytes", "name": "paymasterData"},
+        {"type": "bytes", "name": "signature"}
+      ],
+      "name": "userOp",
+      "type": "tuple"
+    }
+    let encoded = defaultAbiCoder.encode([userOpType as any], [op])
+    //remove leading word (total length) and trailing word (zero-length signature)
+    encoded = '0x' + encoded.slice(66, encoded.length - 64)
+    return encoded
+  }
+  let typevalues = [
     {type: 'address', val: op.sender},
     {type: 'uint256', val: op.nonce},
     {type: 'bytes', val: op.initCode},
@@ -27,7 +66,13 @@ export function packUserOp(op: UserOperation, hashBytes = true): string {
     {type: 'uint256', val: op.maxPriorityFeePerGas},
     {type: 'address', val: op.paymaster},
     {type: 'bytes', val: op.paymasterData}
-  ], hashBytes)
+  ];
+  if (forSignature) {
+  } else {
+    //for the purpose of calculating gas cost, also hash signature
+    typevalues.push({type: 'bytes', val: op.signature})
+  }
+  return encode(typevalues, forSignature)
 }
 
 
@@ -167,6 +212,7 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
 
   let packed = packUserOp(op2);
   let message = Buffer.from(arrayify(keccak256(packed)));
+
   return {
     ...op2,
     signature: await signer.signMessage(message)

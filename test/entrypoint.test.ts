@@ -1,12 +1,11 @@
 import './aa.init'
-import {beforeEach, describe} from 'mocha'
+import {describe} from 'mocha'
 import {BigNumber, Wallet} from "ethers";
 import {expect} from "chai";
 import {
   SimpleWallet,
   SimpleWallet__factory,
   EntryPoint,
-  EntryPoint__factory,
   TestCounter,
   TestCounter__factory,
   TestUtil,
@@ -21,21 +20,17 @@ import {
   tostr,
   WalletConstructor,
   calcGasUsage,
-  objdump,
-  tonumber,
   checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
   getBalance
 } from "./testutils";
-import {fillAndSign, DefaultsForUserOp} from "./UserOp";
+import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {toBuffer} from "ethereumjs-util";
-import {defaultAbiCoder, parseEther} from "ethers/lib/utils";
-import exp from "constants";
+import {parseEther} from "ethers/lib/utils";
 
 describe("EntryPoint", function () {
 
@@ -52,8 +47,10 @@ describe("EntryPoint", function () {
   before(async function () {
 
     await checkForGeth()
+
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     entryPoint = await deployEntryPoint(0,unstakeDelayBlocks)
+
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -178,7 +175,7 @@ describe("EntryPoint", function () {
       before(async()=>{
         owner = await ethersSigner.getAddress()
         wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, owner)
-        const ret = await wallet.addDeposit({value:ONE_ETH})
+        await wallet.addDeposit({value:ONE_ETH})
         expect(await getBalance(wallet.address)).to.equal(0)
       })
       it('should fail to unlock deposit (its not locked)', async () => {
@@ -254,8 +251,7 @@ describe("EntryPoint", function () {
 
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        const execCounterCount = await wallet.populateTransaction.exec(counter.address, count.data!)
-        walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(execCounterCount.data!)
+        walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
       })
 
       it('wallet should pay for tx', async function () {
@@ -426,8 +422,7 @@ describe("EntryPoint", function () {
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        const execCounterCount = await wallet.populateTransaction.exec(counter.address, count.data!)
-        walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(execCounterCount.data!)
+        walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
         wallet1 = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
         wallet2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner2.address)
         await fund(wallet1)
@@ -439,8 +434,6 @@ describe("EntryPoint", function () {
           callGas: 2e6,
           verificationGas: 2e6
         }, walletOwner1, entryPoint)
-
-        // console.log('op=', {...op1, callData: op1.callData.length, initCode: op1.initCode.length})
 
         const op2 = await fillAndSign({
           callData: walletExecCounterFromEntryPoint.data,

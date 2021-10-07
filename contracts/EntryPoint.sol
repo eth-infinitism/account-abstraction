@@ -7,7 +7,7 @@ import "./IWallet.sol";
 import "./IPaymaster.sol";
 
 interface ICreate2Deployer {
-    function deploy(bytes memory _initCode, bytes32 _salt) external returns(address);
+    function deploy(bytes memory _initCode, bytes32 _salt) external returns (address);
 }
 
 contract EntryPoint is StakeManager {
@@ -26,10 +26,10 @@ contract EntryPoint is StakeManager {
     uint public immutable perOpOverhead;
     address public immutable create2factory;
 
-    event UserOperationEvent(address indexed account, address indexed paymaster, uint actualGasCost, uint actualGasPrice, bool success);
-    event UserOperationRevertReason(address indexed account, bytes revertReason);
+    event UserOperationEvent(address indexed sender, address indexed paymaster, uint nonce, uint actualGasCost, uint actualGasPrice, bool success);
+    event UserOperationRevertReason(address indexed sender, uint nonce, bytes revertReason);
 
-    event PaymasterPostOpFailed(address paymaster, address sender, bytes reason);
+    event PaymasterPostOpFailed(address indexed sender, address indexed paymaster, uint nonce, bytes reason);
 
     //handleOps reverts with this error struct, to mark the offending op
     // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
@@ -68,7 +68,11 @@ contract EntryPoint is StakeManager {
             actualGasCost = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas, prefund, paymentMode);
         }
 
-        redeemer.transfer(actualGasCost);
+        redeem(redeemer, actualGasCost);
+    }
+
+    function redeem(address payable redeemer, uint amount) internal {
+        redeemer.transfer(amount);
     }
 
     function handleOps(UserOperation[] calldata ops, address payable redeemer) public {
@@ -111,7 +115,7 @@ contract EntryPoint is StakeManager {
             }
         }
 
-        redeemer.transfer(collected);
+        redeem(redeemer, collected);
     }
 
     function internalHandleOp(UserOperation calldata op, bytes calldata context, uint preOpGas, uint prefund, PaymentMode paymentMode) external returns (uint actualGasCost) {
@@ -121,9 +125,9 @@ contract EntryPoint is StakeManager {
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (op.callData.length > 0) {
 
-            (bool success,bytes memory result) = address(op.sender).call{gas : op.callGas}(op.callData);
+            (bool success,bytes memory result) = address(op.getSender()).call{gas : op.callGas}(op.callData);
             if (!success && result.length > 0) {
-                emit UserOperationRevertReason(op.sender, result);
+                emit UserOperationRevertReason(op.getSender(), op.nonce, result);
                 mode = IPaymaster.PostOpMode.opReverted;
             }
         }
@@ -148,7 +152,7 @@ contract EntryPoint is StakeManager {
         requiredPrefund = userOp.requiredPreFund(perOpOverhead);
         if (userOp.hasPaymaster()) {
             paymentMode = PaymentMode.paymasterStake;
-        } else if (isStaked(userOp.sender, requiredPrefund, 0)) {
+        } else if (isStaked(userOp.getSender(), requiredPrefund, 0)) {
             paymentMode = PaymentMode.walletStake;
         } else {
             paymentMode = PaymentMode.walletEth;
@@ -183,7 +187,7 @@ contract EntryPoint is StakeManager {
             //nonce is meaningless during create, so we re-purpose it as salt
             address sender1 = ICreate2Deployer(create2factory).deploy(op.initCode, bytes32(op.nonce));
             require(sender1 != address(0), "create2 failed");
-            require(sender1 == op.sender, "sender doesn't match create2 address");
+            require(sender1 == op.getSender(), "sender doesn't match create2 address");
         }
     }
 
@@ -213,11 +217,11 @@ contract EntryPoint is StakeManager {
         if (paymentMode == PaymentMode.walletEth) {
             requiredEthPrefund = requiredPrefund;
         } else if (paymentMode == PaymentMode.walletStake) {
-            stakes[op.sender].stake -= uint96(requiredPrefund);
+            _prefundFromSender(op, requiredPrefund);
         } else {
             // paymaster pays in handlePostOp
         }
-        try IWallet(op.sender).verifyUserOp{gas : op.verificationGas}(op, requiredEthPrefund) {
+        try IWallet(op.getSender()).verifyUserOp{gas : op.verificationGas}(op, requiredEthPrefund) {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
@@ -302,11 +306,9 @@ contract EntryPoint is StakeManager {
             }
             uint refund = prefund - actualGasCost;
             if (paymentMode == PaymentMode.walletStake) {
-                stakes[op.sender].stake += uint96(refund);
+                _refundSenderStake(op, refund);
             } else {
-                //NOTE: deliberately ignoring revert: wallet should accept refund.
-                bool sendOk = payable(op.sender).send(refund);
-                (sendOk);
+                _refundSender(op, refund);
             }
         } else {
             if (context.length > 0) {
@@ -315,7 +317,7 @@ contract EntryPoint is StakeManager {
                 // - paymaster still pays (from its stake)
                 try IPaymaster(op.paymaster).postOp(mode, context, actualGasCost) {}
                 catch (bytes memory errdata) {
-                    emit PaymasterPostOpFailed(op.paymaster, op.sender, errdata);
+                    emit PaymasterPostOpFailed(op.getSender(), op.paymaster, op.nonce, errdata);
                 }
             }
             //paymaster pays for full gas, including for postOp (and revert event)
@@ -324,11 +326,28 @@ contract EntryPoint is StakeManager {
             //paymaster balance known to be high enough, and to be locked for this block
             stakes[op.paymaster].stake -= uint96(actualGasCost);
         }
-        emit UserOperationEvent(op.sender, op.paymaster, actualGasCost, gasPrice, mode == IPaymaster.PostOpMode.opSucceeded);
+        _emitLog(op, actualGasCost, gasPrice, mode == IPaymaster.PostOpMode.opSucceeded);
     }
 
-    function isValidStake(UserOperation calldata op, uint requiredPreFund) internal view returns (bool) {
-        return isPaymasterStaked(op.paymaster, PAYMASTER_STAKE + requiredPreFund);
+    function _emitLog(UserOperation calldata op, uint actualGasCost, uint gasPrice, bool success) internal {
+        emit UserOperationEvent(op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
+    }
+
+    function _prefundFromSender(UserOperation calldata userOp, uint requiredPrefund) internal {
+        stakes[userOp.getSender()].stake -= uint96(requiredPrefund);
+    }
+
+    function _refundSender(UserOperation calldata userOp, uint refund) internal {
+        //NOTE: deliberately ignoring revert: wallet should accept refund.
+        bool sendOk = payable(userOp.getSender()).send(refund);
+        (sendOk);
+    }
+    function _refundSenderStake(UserOperation calldata userOp, uint refund) internal {
+        stakes[userOp.getSender()].stake += uint96(refund);
+    }
+
+    function isValidStake(UserOperation calldata userOp, uint requiredPreFund) internal view returns (bool) {
+        return isPaymasterStaked(userOp.paymaster, PAYMASTER_STAKE + requiredPreFund);
     }
 
     function isPaymasterStaked(address paymaster, uint stake) public view returns (bool) {

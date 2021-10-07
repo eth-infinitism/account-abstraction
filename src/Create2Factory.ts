@@ -1,6 +1,6 @@
 //from https://eips.ethereum.org/EIPS/eip-2470
 import {BigNumber, BigNumberish, Contract, ethers, Signer} from "ethers";
-import {arrayify, hexConcat, hexlify, hexZeroPad, keccak256, parseEther} from "ethers/lib/utils";
+import {arrayify, hexConcat, hexlify, hexZeroPad, keccak256} from "ethers/lib/utils";
 import {Provider} from "@ethersproject/providers";
 
 export class Create2Factory {

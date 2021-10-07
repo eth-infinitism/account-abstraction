@@ -1,11 +1,11 @@
 import "@nomiclabs/hardhat-waffle"
 import "@typechain/hardhat";
 import {HardhatUserConfig, subtask, task} from "hardhat/config";
-
+import 'hardhat-deploy'
+import '@nomiclabs/hardhat-etherscan'
 import {TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD} from "hardhat/builtin-tasks/task-names"
 import path from 'path'
 import * as fs from "fs";
-import {formatEther} from "ethers/lib/utils";
 
 subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args: any, hre, runSuper) => {
   const solcVersion = args.solcVersion
@@ -38,6 +38,23 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
   }
 })
 
+let mnemonicFileName = process.env.MNEMONIC_FILE || process.env.HOME + '/.secret/testnet-mnemonic.txt'
+let mnemonic = 'test '.repeat(11) + 'junk'
+if (fs.existsSync(mnemonicFileName))
+  mnemonic = fs.readFileSync(mnemonicFileName!, "ascii");
+
+function getNetwork1(url: string) {
+  return {
+    url,
+    accounts: {mnemonic}
+  }
+}
+
+function getNetwork(name: string) {
+  return getNetwork1(`https://${name}.infura.io/v3/${process.env.INFURA_ID}`)
+  // return getNetwork1(`wss://${name}.infura.io/ws/v3/${process.env.INFURA_ID}`)
+}
+
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
@@ -45,14 +62,22 @@ const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.7",
     settings: {
-      optimizer: { enabled: true }
+      optimizer: {enabled: true}
     }
   },
   networks: {
-	dev: { url: "http://localhost:8545" }
+    dev: {url: "http://localhost:8545"},
+    goerli: getNetwork('goerli'),
+    proxy: getNetwork1('http://localhost:8545'),
+    kovan: getNetwork('kovan')
   },
   mocha: {
     timeout: 10000
+  },
+
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY
   }
+
 }
 export default config

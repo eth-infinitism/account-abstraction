@@ -6,7 +6,6 @@ import {
   SimpleWallet,
   SimpleWallet__factory,
   EntryPoint,
-  EntryPoint__factory,
   TestCounter,
   TestCounter__factory,
   TestUtil,
@@ -17,7 +16,11 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow, WalletConstructor, tonumber, deployEntryPoint, callDataCost
+  rethrow,
+  WalletConstructor,
+  tonumber,
+  deployEntryPoint,
+  callDataCost
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
@@ -25,7 +28,6 @@ import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {toBuffer} from "ethereumjs-util";
 import {defaultAbiCoder} from "ethers/lib/utils";
-import {Create2Factory} from "../src/Create2Factory";
 
 describe("Batch gas testing", function () {
 
@@ -77,8 +79,8 @@ describe("Batch gas testing", function () {
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        execCounterCount = await wallet.populateTransaction.exec(counter.address, count.data!)
-        walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(execCounterCount.data!)
+        execCounterCount = await wallet.populateTransaction.exec(counter.address, 0, count.data!)
+        walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
       })
 
       let wallets: { w: string, owner: Wallet }[] = []
@@ -160,8 +162,7 @@ describe("Batch gas testing", function () {
 
         let walletExecFromEntryPoint_waster: PopulatedTransaction
         const waster = await counter.populateTransaction.gasWaster(40, "")
-        const execCounter_wasteGas = await wallet.populateTransaction.exec(counter.address, waster.data!)
-        walletExecFromEntryPoint_waster = await wallet.populateTransaction.execFromEntryPoint(execCounter_wasteGas.data!)
+        walletExecFromEntryPoint_waster = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
 
         let ops: UserOperation[] = []
         for (let {w, owner} of wallets) {
@@ -185,8 +186,7 @@ describe("Batch gas testing", function () {
 
         let walletExecFromEntryPoint_waster: PopulatedTransaction
         const waster = await counter.populateTransaction.gasWaster(0, '1'.repeat(16384))
-        const execCounter_wasteGas = await wallet.populateTransaction.exec(counter.address, waster.data!)
-        walletExecFromEntryPoint_waster = await wallet.populateTransaction.execFromEntryPoint(execCounter_wasteGas.data!)
+        walletExecFromEntryPoint_waster = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
 
         let ops: UserOperation[] = []
         for (let {w, owner} of wallets) {
@@ -225,8 +225,8 @@ describe("Batch gas testing", function () {
     const opEncoding = handleOpFunc.inputs[0]
     const opEncoded = defaultAbiCoder.encode([opEncoding], [ops[0]])
     const opDataCost = callDataCost(opEncoded)
-    console.log('== calldataoverhead=', entireTxDataCost, 'len=', entireTxEncoded.length/2, 'opcost=', opDataCost, opEncoded.length / 2)
-    console.log('== per-op overhead:', entireTxDataCost-(opDataCost*count), 'count=', count)
+    console.log('== calldataoverhead=', entireTxDataCost, 'len=', entireTxEncoded.length / 2, 'opcost=', opDataCost, opEncoded.length / 2)
+    console.log('== per-op overhead:', entireTxDataCost - (opDataCost * count), 'count=', count)
     //for slack testing, we set TX priority same as UserOp
     //(real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
     const {maxPriorityFeePerGas} = ops[0]

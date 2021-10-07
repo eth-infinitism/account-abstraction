@@ -6,7 +6,6 @@ import {
   SimpleWallet,
   SimpleWallet__factory,
   EntryPoint,
-  EntryPoint__factory,
   TestUtil,
   TestUtil__factory,
   TokenPaymaster,
@@ -58,7 +57,7 @@ describe("EntryPoint with paymaster", function () {
       before(async () => {
 
         const updateEntryPoint = await wallet.populateTransaction.updateEntryPoint(AddressZero).then(tx => tx.data!)
-        calldata = await wallet.populateTransaction.execFromEntryPoint(updateEntryPoint).then(tx => tx.data!)
+        calldata = await wallet.populateTransaction.execFromEntryPoint(wallet.address, 0, updateEntryPoint).then(tx => tx.data!)
       })
       it('paymaster should reject if wallet doesn\'t have tokens', async () => {
         const op = await fillAndSign({

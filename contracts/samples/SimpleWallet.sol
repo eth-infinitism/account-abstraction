@@ -12,9 +12,20 @@ import "hardhat/console.sol";
 // has a single signer that can send requests through the entryPoint.
 contract SimpleWallet is IWallet {
     using UserOperationLib for UserOperation;
-    uint public nonce;
-    address public owner;
+    struct OwnerNonce {
+        uint96 nonce;
+        address owner;
+    }
+    OwnerNonce ownerNonce;
     EntryPoint public entryPoint;
+
+    function nonce() public  view returns (uint) {
+        return ownerNonce.nonce;
+    }
+
+    function owner() public view returns(address) {
+        return ownerNonce.owner;
+    }
 
     event EntryPointChanged(EntryPoint oldEntryPoint, EntryPoint newEntryPoint);
 
@@ -22,7 +33,7 @@ contract SimpleWallet is IWallet {
 
     constructor(EntryPoint _entryPoint, address _owner) {
         entryPoint = _entryPoint;
-        owner = _owner;
+        ownerNonce.owner = _owner;
     }
 
     modifier onlyOwner() {
@@ -32,15 +43,15 @@ contract SimpleWallet is IWallet {
 
     function _onlyOwner() internal view {
         //directly from EOA owner, or through the entryPoint (which gets redirected through execFromEntryPoint)
-        require(msg.sender == owner || msg.sender == address(this), "only owner");
+        require(msg.sender == ownerNonce.owner || msg.sender == address(this), "only owner");
     }
 
     function transfer(address payable dest, uint amount) external onlyOwner {
         dest.transfer(amount);
     }
 
-    function exec(address dest, bytes calldata func) external onlyOwner {
-        _call(dest, func);
+    function exec(address dest, uint value, bytes calldata func) external onlyOwner {
+        _call(dest, value, func);
     }
 
     function updateEntryPoint(EntryPoint _entryPoint) external onlyOwner {
@@ -48,11 +59,18 @@ contract SimpleWallet is IWallet {
         entryPoint = _entryPoint;
     }
 
-    function verifyUserOp(UserOperation calldata userOp, uint requiredPrefund) external override {
+    function _requireFromEntryPoint() internal view {
         require(msg.sender == address(entryPoint), "wallet: not from EntryPoint");
+    }
+
+    function verifyUserOp(UserOperation calldata userOp, uint requiredPrefund) external override {
+        _requireFromEntryPoint();
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
+        _payPrefund(requiredPrefund);
+    }
 
+    function _payPrefund(uint requiredPrefund) internal {
         if (requiredPrefund != 0) {
             (bool success) = payable(msg.sender).send(requiredPrefund);
             (success);
@@ -61,35 +79,48 @@ contract SimpleWallet is IWallet {
     }
 
     //called by entryPoint, only after verifyUserOp succeeded.
-    function execFromEntryPoint(bytes calldata func) external {
-        require(msg.sender == address (entryPoint), "execFromEntryPoint: only from entryPoint");
-        _call(address(this), func);
-    }
-
-    function _call(address sender, bytes memory data) internal {
-        (bool success, bytes memory result) = sender.call(data);
-        if (!success) {
-            assembly {
-                revert(result, add(result, 32))
-            }
-        }
+    function execFromEntryPoint(address dest, uint value, bytes calldata func) external {
+        _requireFromEntryPoint();
+        _call(dest, value, func);
     }
 
     function _validateAndIncrementNonce(UserOperation calldata userOp) internal {
         //during construction, the "nonce" field hold the salt.
         // if we assert it is zero, then we allow only a single wallet per owner.
         if (userOp.initCode.length == 0) {
-            require(nonce++ == userOp.nonce, "wallet: invalid nonce");
+            require(ownerNonce.nonce++ == userOp.nonce, "wallet: invalid nonce");
         }
     }
 
     function _validateSignature(UserOperation calldata userOp) internal view {
 
         bytes32 hash = userOp.hash();
-        require(userOp.signature.length == 65, "wallet: invalid signature length");
-        (bytes32 r, bytes32 s) = abi.decode(userOp.signature, (bytes32, bytes32));
-        uint8 v = uint8(userOp.signature[64]);
-        require(owner == ecrecover(hash, v, r, s), "wallet: wrong signature");
+        (bytes32 r, bytes32 s, uint8 v) = _rsv(userOp.signature);
+
+        require(owner() == _ecrecover(hash, v, r, s), "wallet: wrong signature");
+    }
+
+    function _rsv(bytes calldata signature) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+
+        require(signature.length == 65, "wallet: invalid signature length");
+        assembly {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 0x20))
+            v := byte(0, calldataload(add(signature.offset, 0x40)))
+        }
+    }
+
+    function _ecrecover(bytes32 hash, uint8 v, bytes32 r, bytes32 s) internal pure returns (address) {
+        return ecrecover(hash, v, r, s);
+    }
+
+    function _call(address sender, uint value, bytes memory data) internal {
+        (bool success, bytes memory result) = sender.call{value : value}(data);
+        if (!success) {
+            assembly {
+                revert(result, add(result, 32))
+            }
+        }
     }
 
     function addDeposit() public payable {
