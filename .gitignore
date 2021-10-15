@@ -7,3 +7,6 @@ artifacts
 /typechain/
 /dist/
 /yarn-error.log
+/deployments/dev/
+/deployments/localhost/
+/deployments/proxy/

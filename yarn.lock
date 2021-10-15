@@ -3986,10 +3986,10 @@ hardhat-deploy@^0.9.3:
     murmur-128 "^0.2.1"
     qs "^6.9.4"
 
-hardhat@^2.6.0:
-  version "2.6.4"
-  resolved "https://registry.npmjs.org/hardhat/-/hardhat-2.6.4.tgz"
-  integrity sha512-6QNfu1FptjtyGJ+jBR7LMX7AMY9gWWw9kAUD7v0YZNZH1ZBgsZdMHqXKiSzO5pLQXo+fy9zZovKAUNYbjQ/1fw==
+hardhat@^2.6.6:
+  version "2.6.6"
+  resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.6.6.tgz#11d2dc4c1659fcbb8632de9399b1b4999f8b3628"
+  integrity sha512-GneZAwvNxf3cNobYTmMSp2qGX/yJyUmHD/xjW+8zF2AgWkLS33CHmGn4aRFKqfjsk7BS7FU6jqMmmZhHHO3gUw==
   dependencies:
     "@ethereumjs/block" "^3.4.0"
     "@ethereumjs/blockchain" "^5.4.0"

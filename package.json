@@ -7,6 +7,7 @@
     "compile": "./scripts/hh-wrapper compile && yarn run makeUserOps",
     "makeUserOps": "./scripts/makeUserOps",
     "test": "./scripts/hh-wrapper test",
+    "deploy": "./scripts/hh-wrapper deploy",
     "test-dev": "hardhat test --network dev",
     "ci": "hardhat compile && hardhat test",
     "runop": "hardhat run src/runop.ts ",
@@ -24,7 +25,7 @@
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.4.0",
     "ethers": "^5.4.2",
-    "hardhat": "^2.6.0",
+    "hardhat": "^2.6.6",
     "ts-generator": "^0.1.1",
     "ts-node": "^10.1.0",
     "typechain": "^5.1.2"
