@@ -1,12 +1,12 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
 import {BigNumber, Contract, Signer, Wallet} from "ethers";
-import {AddressZero, callDataCost, rethrow} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {
   EntryPoint,
   TestUtil,
-} from '../typechain'
+} from '../../typechain'
 import {UserOperation} from "./UserOperation";
+import {AddressZero, callDataCost, rethrow} from "./utils";
 
 function encode(typevalues: { type: string, val: any }[], forSignature: boolean) {
 

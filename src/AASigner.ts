@@ -5,14 +5,11 @@ import {Deferrable, resolveProperties} from "@ethersproject/properties";
 import {SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory} from "../typechain";
 import {BytesLike, hexValue} from "@ethersproject/bytes";
 import {TransactionResponse} from "@ethersproject/abstract-provider";
-import {fillAndSign} from "../test/UserOp";
-import {UserOperation} from "../test/UserOperation";
-import {TransactionReceipt} from "@ethersproject/abstract-provider/src.ts/index";
+import {fillAndSign} from "./userop/UserOp";
+import {UserOperation} from "./userop/UserOperation";
+import {TransactionReceipt} from "@ethersproject/abstract-provider";
 import {clearInterval} from "timers";
-import {use} from "chai";
-//import axios from 'axios'
 
-const axios: any = {}
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
 
 export let debug = false
@@ -24,8 +21,6 @@ export let debug = false
  */
 export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): SendUserOp {
 
-  let chainId: number
-
   return async function (userOp) {
     if (debug) {
       console.log('sending', {
@@ -34,10 +29,6 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): Sen
         callData: (userOp.callData ?? '').length
       })
     }
-    if (chainId == undefined) {
-      chainId = await provider.getNetwork().then(net => net.chainId)
-    }
-
     const cleanUserOp = Object.keys(userOp).map(key => {
       let val = (userOp as any)[key];
       if (typeof val != 'string' || !val.startsWith('0x'))
@@ -196,19 +187,22 @@ export class AASigner extends Signer {
   private _isPhantom = true
   public entryPoint: EntryPoint
 
-  //TODO: if needed, then async'ly initialize from provider.
   private _chainId = 0
 
   /**
    * create account abstraction signer
-   * @param signer - the underlying signer. has no funds (=can't send TXs)
+   * @param signer - the underlying signer. Used only for signing, not for sendTransaction (has no eth)
    * @param entryPoint the entryPoint contract. used for read-only operations
    * @param sendUserOp function to actually send the UserOp to the entryPoint.
    * @param index - index of this wallet for this signer.
+   * @param provider by default, `signer.provider`. Should specify only if the signer doesn't wrap an existing provider.
    */
-  constructor(readonly signer: Signer, readonly entryPointAddress: string, readonly sendUserOp: SendUserOp, readonly index = 0, readonly provider = signer.provider) {
+  constructor(readonly signer: Signer, readonly entryPointAddress: string, readonly sendUserOp: SendUserOp, readonly index = 0, readonly provider: Provider = signer.provider!) {
     super();
     this.entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
+    if ( provider==null ) {
+      throw new Error( 'no provider given')
+    }
   }
 
   //connect to a specific pre-deployed address
@@ -253,12 +247,20 @@ export class AASigner extends Signer {
     return this._wallet!
   }
 
+  //unlike real tx, we can't give hash before TX is mined: actual tx depends on
+  // other UserOps packed into the same transaction.
+  // to make this value meaningful, we need a provider that can do getTransactionReceipt with this virtual
+  // value.
+  virtualTransactionHash(userOp: UserOperation): string {
+    return `userop:${userOp.sender}-${parseInt(userOp.nonce.toString())}`
+  }
+
   //fabricate a response in a format usable by ethers users...
   async userEventResponse(userOp: UserOperation): Promise<TransactionResponse> {
     const entryPoint = this.entryPoint
     const provider = entryPoint.provider
     const resp: TransactionResponse = {
-      hash: `userop:${userOp.sender}-${userOp.nonce}`,  //unlike real tx, we can't give hash before TX is mined
+      hash: this.virtualTransactionHash(userOp),
       confirmations: 0,
       from: userOp.sender,
       nonce: BigNumber.from(userOp.nonce).toNumber(),
@@ -319,7 +321,7 @@ export class AASigner extends Signer {
     //once an account is deployed, it can no longer be a phantom.
     // but until then, we need to re-check
     if (this._isPhantom) {
-      const size = await this.signer.provider?.getCode(this._wallet.address).then(x => x.length)
+      const size = await this.provider!.getCode(this._wallet.address).then(x => x.length)
       // console.log(`== __isPhantom. addr=${this._wallet.address} re-checking code size. result = `, size)
       this._isPhantom = size == 2
       // !await this.entryPoint.isContractDeployed(await this.getAddress());

@@ -12,22 +12,20 @@ import {
   TestUtil__factory,
 } from "../typechain";
 import {
-  AddressZero,
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow,
   WalletConstructor,
   tonumber,
-  deployEntryPoint,
-  callDataCost
+  deployEntryPoint
 } from "./testutils";
-import {fillAndSign} from "./UserOp";
-import {UserOperation} from "./UserOperation";
+import {fillAndSign} from "../src/userop/UserOp";
+import {UserOperation} from "../src/userop/UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {toBuffer} from "ethereumjs-util";
 import {defaultAbiCoder} from "ethers/lib/utils";
+import {AddressZero, callDataCost, rethrow} from "../src/userop/utils";
 
 describe("Batch gas testing", function () {
 

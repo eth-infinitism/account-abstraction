@@ -12,11 +12,9 @@ import {
   TestUtil__factory,
 } from "../typechain";
 import {
-  AddressZero,
   createWalletOwner,
   fund,
   checkForGeth,
-  rethrow,
   tostr,
   WalletConstructor,
   calcGasUsage,
@@ -26,11 +24,12 @@ import {
   deployEntryPoint,
   getBalance
 } from "./testutils";
-import {fillAndSign} from "./UserOp";
-import {UserOperation} from "./UserOperation";
+import {fillAndSign} from "../src/userop/UserOp";
+import {UserOperation} from "../src/userop/UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {parseEther} from "ethers/lib/utils";
+import {AddressZero, rethrow} from "../src/userop/utils";
 
 describe("EntryPoint", function () {
 

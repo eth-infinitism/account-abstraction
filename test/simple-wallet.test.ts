@@ -8,10 +8,11 @@ import {
   TestUtil,
   TestUtil__factory
 } from "../typechain";
-import {AddressZero, createWalletOwner, fund, getBalance, ONE_ETH} from "./testutils";
-import {fillUserOp, packUserOp, signUserOp} from "./UserOp";
+import {createWalletOwner, fund, getBalance, ONE_ETH} from "./testutils";
+import {fillUserOp, packUserOp, signUserOp} from "../src/userop/UserOp";
 import {parseEther} from "ethers/lib/utils";
-import {UserOperation} from "./UserOperation";
+import {UserOperation} from "../src/userop/UserOperation";
+import {AddressZero} from "../src/userop/utils";
 
 
 describe("SimpleWallet", function () {
