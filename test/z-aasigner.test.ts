@@ -1,41 +1,105 @@
-import {createWalletOwner, deployEntryPoint, fund} from "./testutils";
-import {TestCounter__factory, EntryPoint__factory} from "../typechain";
-import {AASigner, localUserOpSender} from "../src/AASigner";
-import {ethers} from 'hardhat'
+import {createWalletOwner, fund, getBalance} from "./testutils";
+import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain";
+import {AASigner} from "../src/ethers/AASigner";
+import hre, {ethers} from 'hardhat'
+import {providers, Wallet} from 'ethers'
 import {expect} from "chai";
 import {before} from "mocha";
+import {fail} from "assert";
+import {Create2Factory} from "../src/Create2Factory";
+import {parseEther} from "ethers/lib/utils";
 
 describe('AASigner', function () {
-  before(async()=>{
+  this.timeout(60000)
+  let entryPoint: EntryPoint
+  let ethersSigner: providers.JsonRpcSigner
+  let walletOwner: Wallet
+  let deployedTestCounter: TestCounter
+  before(async () => {
 
+
+    await Create2Factory.init(ethers.provider)
+    ethersSigner = ethers.provider.getSigner()
+    // entryPoint = await deployEntryPoint(PER_OP_OVERHEAD, UNSTAKE_DELAY_BLOCKS)
+    //use deploy task. this way, the test can be repeated against real node...
+    await hre.run('deploy')
+    const epAddress = await hre.deployments.get('EntryPoint').then(d => d.address)
+    const counterAddress = await hre.deployments.get('TestCounter').then(d => d.address)
+    entryPoint = EntryPoint__factory.connect(epAddress, ethersSigner)
+
+    walletOwner = createWalletOwner()
+
+    // deployedTestCounter = await new TestCounter__factory(ethersSigner).deploy()
+    deployedTestCounter = TestCounter__factory.connect(counterAddress, ethersSigner)
   })
-  it('should create', async function () {
-    const ethersSigner = ethers.provider.getSigner()
-    const entryPoint = await deployEntryPoint(0,0)
 
-    const deployedTestCounter = await new TestCounter__factory(ethersSigner).deploy()
-    const redeemer = createWalletOwner().address
+  it.skip('should fail on "eth_sendUserOperation not found" if no rpc provided ', async () => {
 
-    const walletOwner = createWalletOwner()
-    expect(await entryPoint.isContractDeployed(walletOwner.address)).to.eq(false)
-    const mysigner = new AASigner(walletOwner, entryPoint.address, localUserOpSender(entryPoint.address, ethersSigner, redeemer))
-
-    const mywallet = await mysigner.getAddress()
+    //by default, eth_sendUserOperation is sent to our underlying provider. if it doesn't support (yet) our new RPC, then sendUserOpRpc must be set...
+    const mysigner = new AASigner(walletOwner,
+      {
+        entryPointAddress: entryPoint.address,
+        // sendUserOpRpc: debugRpcUrl(entryPoint.address, ethersSigner)
+      })
 
     const testCounter = deployedTestCounter.connect(mysigner)
-
-    await expect(testCounter.count()).to.revertedWith('didn\'t pay prefund')
-    await fund(mywallet)
-    // console.log('est=', await testCounter.estimateGas.gasWaster(count,'',{gasLimit:10e6}))
-    // for est:43632 need gaslimit: 29439
-    // const ret = await testCounter.gasWaster(count, '', {gasLimit: 10e6, maxPriorityFeePerGas: 1e9})
-    // const ret = await testCounter.count({gasLimit:19439, maxPriorityFeePerGas:1e9})
-    const ret = await testCounter.count({gasLimit:1000000})
-    const rcpt = await ret.wait()
-    console.log('1st tx (including create) gas=',rcpt.gasUsed)
-    expect(await testCounter.counters(mywallet)).to.eq(1)
-    const r2 = await testCounter.count().then(r=>r.wait())
-    console.log('2nd tx gas2=', r2.gasUsed)
-    expect(await testCounter.counters(mywallet)).to.eq(2)
+    try {
+      await testCounter.count({gasLimit: 2e6})
+      fail('expected to fail')
+    } catch (e) {
+      expect(e.message).to.match(/eth_sendUserOperation/)
+    }
   });
+
+  describe('seamless create', () => {
+    let mysigner: AASigner
+    let mywallet: string
+    let testCounter: TestCounter
+    before(async () => {
+      mysigner = new AASigner(walletOwner,
+        {
+          entryPointAddress: entryPoint.address,
+          debug_handleOpSigner: ethersSigner,
+          // sendUserOpRpc: process.env.AA_URL ?? debugRpcUrl(entryPoint.address, ethersSigner)
+        })
+      mywallet = await mysigner.getAddress()
+      testCounter = deployedTestCounter.connect(mysigner)
+    })
+    it('should fail to execute before funding', async () => {
+      expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
+      await expect(testCounter.count({gasLimit: 2e6})).to.revertedWith('didn\'t pay prefund')
+    });
+    it('should seamless create after prefund', async function () {
+      await fund(mywallet)
+
+      // console.log('est=', await testCounter.estimateGas.gasWaster(count,'',{gasLimit:10e6}))
+      // for est:43632 need gaslimit: 29439
+      // const ret = await testCounter.gasWaster(count, '', {gasLimit: 10e6, maxPriorityFeePerGas: 1e9})
+      // const ret = await testCounter.count({gasLimit:19439, maxPriorityFeePerGas:1e9})
+      const ret = await testCounter.count({gasLimit: 2e6})
+      const rcpt = await ret.wait()
+      expect(await entryPoint.isContractDeployed(mywallet)).to.eq(true, 'failed to create wallet')
+
+      console.log('1st tx (including create) gas=', rcpt.gasUsed)
+      expect(await testCounter.counters(mywallet)).to.eq(1)
+    })
+    it('execute 2nd tx (on created wallet)', async function () {
+      if (!await entryPoint.isContractDeployed(mywallet)) this.skip()
+
+      const r2 = await testCounter.count().then(r => r.wait())
+      console.log('2nd tx gas2=', r2.gasUsed)
+      expect(await testCounter.counters(mywallet)).to.eq(2)
+    });
+
+    it('should use deposit to pay for TX', async () => {
+      await mysigner.addDeposit(ethersSigner, parseEther('1.0'))
+      const preBalance = await getBalance(mywallet)
+      const r3 = await testCounter.count().then(r => r.wait())
+      console.log('tx gas from deposit=', r3.gasUsed)
+      expect(await getBalance(mywallet)).to.eq(preBalance, "shouldn't pay with eth but with deposit")
+
+    });
+
+  })
+
 });

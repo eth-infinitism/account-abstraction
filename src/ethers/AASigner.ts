@@ -1,14 +1,13 @@
-import {BigNumber, Bytes, Contract, ethers, Signer} from "ethers";
-import {BaseProvider, Provider, TransactionRequest} from "@ethersproject/providers";
-import {Event} from 'ethers'
+import {BigNumber, BigNumberish, Bytes, ethers, Event, providers, Signer} from "ethers";
+import {Provider, TransactionRequest} from "@ethersproject/providers";
 import {Deferrable, resolveProperties} from "@ethersproject/properties";
-import {SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory} from "../typechain";
+import {EntryPoint, EntryPoint__factory, SimpleWallet, SimpleWallet__factory} from "../../typechain";
 import {BytesLike, hexValue} from "@ethersproject/bytes";
-import {TransactionResponse} from "@ethersproject/abstract-provider";
-import {fillAndSign} from "./userop/UserOp";
-import {UserOperation} from "./userop/UserOperation";
-import {TransactionReceipt} from "@ethersproject/abstract-provider";
+import {TransactionReceipt, TransactionResponse} from "@ethersproject/abstract-provider";
+import {fillAndSign} from "../userop/UserOp";
+import {UserOperation} from "../userop/UserOperation";
 import {clearInterval} from "timers";
+import {localUserOpSender} from "./localUserOpSender";
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
 
@@ -23,12 +22,14 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): Sen
 
   return async function (userOp) {
     if (debug) {
-      console.log('sending', {
+      console.log('rpcUserOpSender: sending', {
         ...userOp,
         initCode: (userOp.initCode ?? '').length,
         callData: (userOp.callData ?? '').length
       })
     }
+
+    //cleanup request: convert all non-hex into hex values.
     const cleanUserOp = Object.keys(userOp).map(key => {
       let val = (userOp as any)[key];
       if (typeof val != 'string' || !val.startsWith('0x'))
@@ -36,9 +37,10 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): Sen
       return [key, val]
     })
       .reduce((set, [k, v]) => ({...set, [k]: v}), {})
-    await provider.send('eth_sendUserOperation', [cleanUserOp]).catch(e => {
-      throw e.error ?? e
-    })
+    await provider.send('eth_sendUserOperation', [cleanUserOp])
+    //   .catch(e => {
+    //   throw new Error(e.error ?? e)
+    // })
   }
 }
 
@@ -142,40 +144,37 @@ async function sendQueuedUserOps(queueSender: QueueSendUserOp, entryPoint: Entry
   }
 }
 
-/**
- * send UserOp using handleOps, but locally.
- * for testing: instead of connecting through RPC to a remote host, directly send the transaction
- * @param entryPointAddress the entryPoint address to use.
- * @param signer ethers provider to send the request (must have eth balance to send)
- * @param redeemer the account to receive the payment (from wallet/paymaster). defaults to the signer's address
- */
-export function localUserOpSender(entryPointAddress: string, signer: Signer, redeemer?: string): SendUserOp {
-  const entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
-  return async function (userOp) {
-    if (debug)
-      console.log('sending', {
-        ...userOp,
-        initCode: (userOp.initCode ?? '').length,
-        callData: (userOp.callData ?? '').length
-      })
-    const ret = await entryPoint.handleOps([userOp], redeemer ?? await signer.getAddress(), {
-      gasLimit: 10e6,
-      maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
-      maxFeePerGas: userOp.maxFeePerGas
-    })
-    const rcpt = await ret.wait()
-  }
+interface AASignerOptions {
+  //the entry point we're working with.
+  entryPointAddress: string
+
+  // index of this wallet within the signer. defaults to "zero".
+  // use if you want multiple wallets with the same signer.
+  index?: number
+
+  //URL to send eth_sendUserOperation. if not set, use current provider
+  // (note that current nodes don't support both full RPC and eth_sendUserOperation, so it is required..)
+  sendUserOpRpc?: string
+
+  //underlying RPC provider. by default, uses signer.provider
+  provider?: Provider
+
+  //if set, use this signer address to call handleOp.
+  // This bypasses the RPC call and used for local testing
+  debug_handleOpSigner?: Signer
 }
 
-
-export class AAProvider extends BaseProvider {
-  private entryPoint: EntryPoint;
-
-  constructor(entryPointAddress: string, provider: Provider) {
-    super(provider.getNetwork());
-    this.entryPoint = EntryPoint__factory.connect(entryPointAddress, provider)
+function initSendUseOp(provider: Provider, options: AASignerOptions): SendUserOp {
+  if (options.debug_handleOpSigner != null) {
+    return localUserOpSender(options.entryPointAddress, options.debug_handleOpSigner)
   }
-
+  const rpcProvider = options.sendUserOpRpc != null ?
+    new providers.JsonRpcProvider(options.sendUserOpRpc) :
+    (provider as providers.JsonRpcProvider)
+  if (typeof rpcProvider.send != 'function') {
+    throw new Error('not an rpc provider')
+  }
+  return rpcUserOpSender(rpcProvider)
 }
 
 /**
@@ -189,20 +188,48 @@ export class AASigner extends Signer {
 
   private _chainId = 0
 
+  readonly index: number
+  readonly provider: Provider
+  readonly sendUserOp: SendUserOp
+
   /**
    * create account abstraction signer
    * @param signer - the underlying signer. Used only for signing, not for sendTransaction (has no eth)
-   * @param entryPoint the entryPoint contract. used for read-only operations
-   * @param sendUserOp function to actually send the UserOp to the entryPoint.
-   * @param index - index of this wallet for this signer.
-   * @param provider by default, `signer.provider`. Should specify only if the signer doesn't wrap an existing provider.
+   * @param options.entryPoint the entryPoint contract. used for read-only operations
+   * @param options.sendUserOp function to actually send the UserOp to the entryPoint.
+   * @param options.index - index of this wallet for this signer.
+   * @param options.provider by default, `signer.provider`. Should specify only if the signer doesn't wrap an existing provider.
    */
-  constructor(readonly signer: Signer, readonly entryPointAddress: string, readonly sendUserOp: SendUserOp, readonly index = 0, readonly provider: Provider = signer.provider!) {
+  constructor(readonly signer: Signer, options: AASignerOptions) {
     super();
-    this.entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
-    if ( provider==null ) {
-      throw new Error( 'no provider given')
+    this.index = options.index || 0
+    this.provider = options.provider || signer.provider!
+    this.entryPoint = EntryPoint__factory.connect(options.entryPointAddress, signer)
+    if (this.provider == null) {
+      throw new Error('no provider given')
     }
+    this.sendUserOp = initSendUseOp(this.provider, options)
+
+  }
+
+  /**
+   * deposit eth into the entryPoint, to be used for gas payment for this wallet.
+   * its cheaper to use deposit (by ~10000gas) rather than provide eth (and get refunded) on each request.
+   * todo: add "withdraw deposit", (which must be done from the wallet itself)
+   *
+   * @param wealthySigner some signer with eth
+   * @param amount eth value to deposit.
+   */
+  async addDeposit(wealthySigner: Signer, amount: BigNumberish) {
+    await this.entryPoint.connect(wealthySigner).addDepositTo(await this.getAddress(), {value: amount})
+  }
+
+  /**
+   * return current deposit of this wallet.
+   */
+  async getDeposit() : Promise<BigNumber> {
+    const stakeInfo = await this.entryPoint.getStakeInfo(await this.getAddress());
+    return stakeInfo.stake
   }
 
   //connect to a specific pre-deployed address
@@ -258,7 +285,6 @@ export class AASigner extends Signer {
   //fabricate a response in a format usable by ethers users...
   async userEventResponse(userOp: UserOperation): Promise<TransactionResponse> {
     const entryPoint = this.entryPoint
-    const provider = entryPoint.provider
     const resp: TransactionResponse = {
       hash: this.virtualTransactionHash(userOp),
       confirmations: 0,
@@ -278,7 +304,7 @@ export class AASigner extends Signer {
             }
 
             const rcpt = await event.getTransactionReceipt()
-            console.log('got event with status=', event.args!.success, 'gasUsed=', rcpt.gasUsed)
+            // console.log('got event with status=', event.args!.success, 'gasUsed=', rcpt.gasUsed)
 
             //before returning the receipt, update the status from the event.
             if (!event.args!.success) {
@@ -287,8 +313,8 @@ export class AASigner extends Signer {
               const revertReasonEvents = await entryPoint.queryFilter(entryPoint.filters.UserOperationRevertReason(userOp.sender), rcpt.blockHash)
               if (revertReasonEvents[0]) {
                 console.log('rejecting with reason')
-                reject('UserOp failed with reason: ' +
-                  revertReasonEvents[0].args.revertReason)
+                reject(Error('UserOp failed with reason: ' +
+                  revertReasonEvents[0].args.revertReason))
                 return
               }
             }
@@ -359,7 +385,10 @@ export class AASigner extends Signer {
       callGas: tx.gasLimit,
       maxPriorityFeePerGas,
       maxFeePerGas,
-    }, this.signer, this.entryPoint)
+    }, this.signer, this.entryPoint).catch(e => {
+      console.log('ex=', e);
+      throw e
+    })
 
     return userOp
   }

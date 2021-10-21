@@ -9,11 +9,11 @@ const UNSTAKE_DELAY_BLOCKS = 100;
 const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const provider = ethers.provider;
   const from = await provider.getSigner().getAddress()
+
   const ret = await hre.deployments.deploy(
     'EntryPoint', {
       from,
       args: [Create2Factory.contractAddress, PER_OP_OVERHEAD, UNSTAKE_DELAY_BLOCKS],
-      gasLimit: 3e6,
       deterministicDeployment: true
     })
   console.log('==entrypoint addr=', ret.address)

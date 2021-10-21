@@ -124,7 +124,6 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   expect(ops).to.not.include('BASEFEE')
   expect(ops).to.not.include('GASPRICE')
-
   if ( checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
@@ -132,7 +131,7 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   }
 }
 
-export async function deployEntryPoint(perOpOverhead:number, unstakeDelayBlocks:number ): Promise<EntryPoint> {
+export async function deployEntryPoint(perOpOverhead: number, unstakeDelayBlocks: number): Promise<EntryPoint> {
   let provider = ethers.provider;
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory()

@@ -3,30 +3,7 @@ import "@typechain/hardhat";
 import {HardhatUserConfig, subtask, task} from "hardhat/config";
 import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
-import {TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD} from "hardhat/builtin-tasks/task-names"
-import path from 'path'
 import * as fs from "fs";
-
-subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args: any, hre, runSuper) => {
-  const solcVersion = args.solcVersion
-  if (solcVersion.indexOf('0.8.8') < 0)
-    return runSuper();
-
-  let ver = '0.8.7-nightly.2021.8.9+commit.74c804d8'
-  const compilerPath = path.join(__dirname, `./compilers/soljson-v${ver}.js`)
-  if (!fs.existsSync(compilerPath)) {
-    throw `Unable to find: ${compilerPath}`
-  }
-
-  return {
-    compilerPath,
-    isSolcJs: true, // if you are using a native compiler, set this to false
-    version: '0.8.7',
-    // this is used as extra information in the build-info files, but other than
-    // that is not important
-    longVersion: '0.8.7+nightly'
-  }
-})
 
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
@@ -66,9 +43,9 @@ const config: HardhatUserConfig = {
     }
   },
   networks: {
-    dev: {url: "http://localhost:8545"},
+    dev: {url: "http://localhost:8545", saveDeployments: false},
     goerli: getNetwork('goerli'),
-    proxy: getNetwork1('http://localhost:8545'),
+    proxy: {...getNetwork1('http://localhost:8545'), saveDeployments: false},
     kovan: getNetwork('kovan')
   },
   mocha: {

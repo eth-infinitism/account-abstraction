@@ -193,15 +193,21 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
     //estimateGas assumes direct call from entryPoint. add wrapper cost.
     op1.callGas = gasEtimated //.add(55000)
   }
-  if (op1.maxFeePerGas == null) {
-    if (provider == null) throw new Error('must have entryPoint to autofill maxFeePerGas')
-    const block = await provider.getBlock('latest');
-    op1.maxFeePerGas = block.baseFeePerGas!.add(op1.maxPriorityFeePerGas ?? DefaultsForUserOp.maxPriorityFeePerGas)
-  }
   //TODO: this is exactly what fillUserOp below should do - but it doesn't.
   // adding this manually
   if (op1.maxPriorityFeePerGas == undefined) {
     op1.maxPriorityFeePerGas = DefaultsForUserOp.maxPriorityFeePerGas
+  }
+  if (op1.maxFeePerGas == null) {
+    if (provider == null) throw new Error('must have entryPoint to autofill maxFeePerGas')
+    const block = await provider.getBlock('latest');
+    let baseFeePerGas = block.baseFeePerGas;
+    if ( baseFeePerGas!=null) {
+      op1.maxFeePerGas = baseFeePerGas!.add(op1.maxPriorityFeePerGas ?? DefaultsForUserOp.maxPriorityFeePerGas)
+    } else {
+      //no eip1559. using "legacy" mode
+      op1.maxFeePerGas = op1.maxPriorityFeePerGas
+    }
   }
   let op2 = fillUserOp(op1);
   if (op2.preVerificationGas.toString() == '0') {

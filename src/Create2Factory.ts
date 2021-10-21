@@ -67,6 +67,10 @@ export class Create2Factory {
     ])).slice(-40)
   }
 
+  static async init(provider: Provider) {
+    await new Create2Factory(provider).deployFactory()
+  }
+
   //deploy the EIP2470 factory, if not already deployed.
   // (note that it requires to have a "signer" with 0.0247 eth, to fund the deployer's deployment
   async deployFactory(signer?: Signer) {
