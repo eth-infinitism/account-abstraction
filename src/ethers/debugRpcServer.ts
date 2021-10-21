@@ -37,15 +37,11 @@ export function debugRpcSender(entryPointAddress: string, signer: Signer, port?:
           const rcpt = await ret.wait()
           console.log('== gasused=', rcpt.gasUsed)
           callResult = {result: rcpt.transactionHash}
-        } catch (e) {
+        } catch (e: any) {
           callResult = {
             error: {
               message: e.message,
-              code: -32000,
-              data: {
-                stack: e.stack,
-                name: 'c'
-              }
+              code: -32000
             }
           }
         }

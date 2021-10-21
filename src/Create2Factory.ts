@@ -80,7 +80,7 @@ export class Create2Factory {
     await (signer ?? this.signer).sendTransaction({
       to: Create2Factory.factoryDeployer,
       value: BigNumber.from(Create2Factory.factoryDeploymentFee)
-    })
+    }).then(tx=>tx.wait())
     await this.provider.sendTransaction(Create2Factory.factoryTx)
     if (!await this._isFactoryDeployed()) {
       throw new Error('fatal: failed to deploy Eip2470factory')

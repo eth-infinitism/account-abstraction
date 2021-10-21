@@ -1,6 +1,8 @@
 import {Signer} from "ethers";
-import {debug, SendUserOp} from "./AASigner";
+import {SendUserOp} from "./AASigner";
 import {EntryPoint__factory} from "../../typechain";
+
+const debug = require('debug')('userop.local')
 
 /**
  * send UserOp using handleOps, but locally.
@@ -12,12 +14,11 @@ import {EntryPoint__factory} from "../../typechain";
 export function localUserOpSender(entryPointAddress: string, signer: Signer, redeemer?: string): SendUserOp {
   const entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
   return async function (userOp) {
-    if (debug)
-      console.log('sending', {
-        ...userOp,
-        initCode: (userOp.initCode ?? '').length,
-        callData: (userOp.callData ?? '').length
-      })
+    debug('sending', {
+      ...userOp,
+      initCode: (userOp.initCode ?? '').length,
+      callData: (userOp.callData ?? '').length
+    })
     try {
       const ret = await entryPoint.handleOps([userOp], redeemer ?? await signer.getAddress(), {
         gasLimit: 10e6,
@@ -26,9 +27,7 @@ export function localUserOpSender(entryPointAddress: string, signer: Signer, red
       })
       const rcpt = await ret.wait()
     } catch (e) {
-      if(debug) {
-        console.log('==sending ex=', e)
-      }
+      debug('==sending ex=', e)
       throw e
     }
   }

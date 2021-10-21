@@ -1,4 +1,4 @@
-import {BigNumber, BigNumberish, Bytes, ethers, Event, providers, Signer} from "ethers";
+import {BigNumber, BigNumberish, Bytes, Event, providers, Signer} from "ethers";
 import {Provider, TransactionRequest} from "@ethersproject/providers";
 import {Deferrable, resolveProperties} from "@ethersproject/properties";
 import {EntryPoint, EntryPoint__factory, SimpleWallet, SimpleWallet__factory} from "../../typechain";
@@ -8,141 +8,12 @@ import {fillAndSign} from "../userop/UserOp";
 import {UserOperation} from "../userop/UserOperation";
 import {clearInterval} from "timers";
 import {localUserOpSender} from "./localUserOpSender";
+import {rpcUserOpSender} from "./rpcUserOpSender";
+import {QueueSendUserOp, sendQueuedUserOps} from "./sendQueuedUserOps";
+
+const debug = require('debug')('aasigner')
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
-
-export let debug = false
-
-/**
- * send a request using rpc.
- *
- * @param provider - rpc provider that supports "eth_sendUserOperation"
- */
-export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): SendUserOp {
-
-  return async function (userOp) {
-    if (debug) {
-      console.log('rpcUserOpSender: sending', {
-        ...userOp,
-        initCode: (userOp.initCode ?? '').length,
-        callData: (userOp.callData ?? '').length
-      })
-    }
-
-    //cleanup request: convert all non-hex into hex values.
-    const cleanUserOp = Object.keys(userOp).map(key => {
-      let val = (userOp as any)[key];
-      if (typeof val != 'string' || !val.startsWith('0x'))
-        val = hexValue(val)
-      return [key, val]
-    })
-      .reduce((set, [k, v]) => ({...set, [k]: v}), {})
-    await provider.send('eth_sendUserOperation', [cleanUserOp])
-    //   .catch(e => {
-    //   throw new Error(e.error ?? e)
-    // })
-  }
-}
-
-
-interface QueueSendUserOp extends SendUserOp {
-  lastQueueUpdate: number
-  queueSize: number
-  queue: { [sender: string]: UserOperation[] }
-  push: () => Promise<void>
-  setInterval: (intervalMs: number) => void
-  cancelInterval: () => void
-
-  _cancelInterval: any
-}
-
-/**
- * a SendUserOp that queue requests. need to call sendQueuedUserOps to create a bundle and send them.
- * the returned object handles the queue of userops and also interval control.
- */
-export function queueUserOpSender(entryPointAddress: string, signer: Signer, intervalMs = 3000): QueueSendUserOp {
-  const entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
-
-  let ret = <QueueSendUserOp>async function (userOp: UserOperation) {
-    if (ret.queue[userOp.sender] == null) {
-      ret.queue[userOp.sender] = []
-    }
-    ret.queue[userOp.sender].push(userOp)
-    ret.lastQueueUpdate = Date.now()
-    ret.queueSize++
-  }
-
-  ret.queue = {}
-  ret.push = async function () {
-    await sendQueuedUserOps(ret, entryPoint)
-  }
-  ret.setInterval = function (intervalMs: number) {
-    ret.cancelInterval()
-    ret._cancelInterval = setInterval(ret.push, intervalMs)
-  }
-  ret.cancelInterval = function () {
-    if (ret._cancelInterval != null) {
-      clearInterval(ret._cancelInterval)
-      ret._cancelInterval = null
-    }
-  }
-
-  if (intervalMs != null) {
-    ret.setInterval(intervalMs)
-  }
-
-  return ret
-}
-
-/**
- * create a bundle from the queue and send it to the entrypoint.
- * NOTE: only a single request from a given sender can be put into a bundle.
- * @param queue
- * @param entryPoint
- */
-
-let sending = false
-
-//after that much time with no new TX, send whatever you can.
-const IDLE_TIME = 5000
-
-//when reaching this theshold, don't wait anymore and send a bundle
-const BUNDLE_SIZE_IMMEDIATE = 3
-
-async function sendQueuedUserOps(queueSender: QueueSendUserOp, entryPoint: EntryPoint) {
-  if (sending) {
-    console.log('sending in progress. waiting')
-    return
-  }
-  sending = true;
-  try {
-    if (queueSender.queueSize < BUNDLE_SIZE_IMMEDIATE || queueSender.lastQueueUpdate + IDLE_TIME > Date.now()) {
-      console.log('queue too small/too young. waiting')
-      return
-    }
-    let ops: UserOperation[] = []
-    const queue = queueSender.queue
-    Object.keys(queue).forEach(sender => {
-      let op = queue[sender].shift();
-      if (op != null) {
-        ops.push(op)
-        queueSender.queueSize--
-      }
-    })
-    if (ops.length == 0) {
-      console.log('no ops to send')
-      return
-    }
-    let signer = await (entryPoint.provider as any).getSigner().getAddress();
-    console.log('==== sending batch of ', ops.length)
-    const ret = await entryPoint.handleOps(ops, signer, {maxPriorityFeePerGas: 2e9})
-    console.log('handleop tx=', ret.hash)
-    const rcpt = await ret.wait()
-    console.log('events=', rcpt.events!.map(e => ({name: e.event, args: e.args})))
-  } finally {
-    sending = false
-  }
-}
 
 interface AASignerOptions {
   //the entry point we're working with.
@@ -227,7 +98,7 @@ export class AASigner extends Signer {
   /**
    * return current deposit of this wallet.
    */
-  async getDeposit() : Promise<BigNumber> {
+  async getDeposit(): Promise<BigNumber> {
     const stakeInfo = await this.entryPoint.getStakeInfo(await this.getAddress());
     return stakeInfo.stake
   }
@@ -299,7 +170,7 @@ export class AASigner extends Signer {
           let listener = async function (this: any) {
             const event = arguments[arguments.length - 1] as Event
             if (event.args!.nonce != parseInt(userOp.nonce.toString())) {
-              console.log(`== event with wrong nonce: event.${event.args!.nonce}!= userOp.${userOp.nonce}`)
+              debug(`== event with wrong nonce: event.${event.args!.nonce}!= userOp.${userOp.nonce}`)
               return
             }
 
@@ -308,11 +179,11 @@ export class AASigner extends Signer {
 
             //before returning the receipt, update the status from the event.
             if (!event.args!.success) {
-              console.log('mark tx as failed')
+              debug('mark tx as failed')
               rcpt.status = 0
               const revertReasonEvents = await entryPoint.queryFilter(entryPoint.filters.UserOperationRevertReason(userOp.sender), rcpt.blockHash)
               if (revertReasonEvents[0]) {
-                console.log('rejecting with reason')
+                debug('rejecting with reason')
                 reject(Error('UserOp failed with reason: ' +
                   revertReasonEvents[0].args.revertReason))
                 return
@@ -374,6 +245,7 @@ export class AASigner extends Signer {
     let {gasPrice, maxPriorityFeePerGas, maxFeePerGas} = tx
     //gasPrice is legacy, and overrides eip1559 values:
     if (gasPrice) {
+      console.log('=== using legacy "gasPrice" instead')
       maxPriorityFeePerGas = gasPrice
       maxFeePerGas = gasPrice
     }

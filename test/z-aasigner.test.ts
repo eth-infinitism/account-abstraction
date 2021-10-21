@@ -46,7 +46,7 @@ describe('AASigner', function () {
     try {
       await testCounter.count({gasLimit: 2e6})
       fail('expected to fail')
-    } catch (e) {
+    } catch (e: any) {
       expect(e.message).to.match(/eth_sendUserOperation/)
     }
   });

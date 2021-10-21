@@ -1,9 +1,9 @@
-import {ethers} from "hardhat";
+import {utils, constants} from "ethers";
 
-export const AddressZero = ethers.constants.AddressZero
+export const AddressZero = constants.AddressZero
 
 export function callDataCost(data: string): number {
-  return ethers.utils.arrayify(data)
+  return utils.arrayify(data)
     .map(x => x == 0 ? 4 : 16)
     .reduce((sum, x) => sum + x)
 }
@@ -26,13 +26,13 @@ export function decodeRevertReason(data: string, nullIfNoMatch = true): string |
   let dataParams = '0x' + data.slice(10);
 
   if (methodSig == '0x08c379a0') {
-    const [err] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
+    const [err] = utils.defaultAbiCoder.decode(['string'], dataParams)
     return `Error(${err})`
   } else if (methodSig == '0x00fa072b') {
-    const [opindex, paymaster, msg] = ethers.utils.defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
+    const [opindex, paymaster, msg] = utils.defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
     return `FailedOp(${opindex}, ${paymaster != AddressZero ? paymaster : "none"}, ${msg})`
   } else if (methodSig == '0x4e487b71') {
-    const [code] = ethers.utils.defaultAbiCoder.decode(['uint256'], dataParams)
+    const [code] = utils.defaultAbiCoder.decode(['uint256'], dataParams)
     return 'Panic(' + panicCodes[code] || code + ')'
   }
   if (!nullIfNoMatch) {
