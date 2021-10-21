@@ -29,7 +29,13 @@ library UserOperationLib {
     // pay above what he signed for.
     function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
     unchecked {
-        return min(userOp.maxFeePerGas, userOp.maxPriorityFeePerGas + block.basefee);
+        uint maxFeePerGas = userOp.maxFeePerGas;
+        uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        if (maxFeePerGas == maxPriorityFeePerGas) {
+            //legacy mode (for networks that don't support basefee opcode
+            return maxFeePerGas;
+        }
+        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
     }
 
