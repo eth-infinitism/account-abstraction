@@ -6,12 +6,14 @@ import {BytesLike, hexValue} from "@ethersproject/bytes";
 import {TransactionReceipt, TransactionResponse} from "@ethersproject/abstract-provider";
 import {fillAndSign} from "../userop/UserOp";
 import {UserOperation} from "../userop/UserOperation";
-import {clearInterval} from "timers";
+import {clearInterval, clearTimeout} from "timers";
 import {localUserOpSender} from "./localUserOpSender";
 import {rpcUserOpSender} from "./rpcUserOpSender";
 import {QueueSendUserOp, sendQueuedUserOps} from "./sendQueuedUserOps";
 
 const debug = require('debug')('aasigner')
+
+//if set, then don't use "on(event)"
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
 
@@ -52,6 +54,8 @@ function initSendUseOp(provider: Provider, options: AASignerOptions): SendUserOp
  * a signer that wraps account-abstraction.
  */
 export class AASigner extends Signer {
+  static eventsPollingInterval: number | undefined = 2000
+
   _wallet?: SimpleWallet
 
   private _isPhantom = true
@@ -73,6 +77,7 @@ export class AASigner extends Signer {
    */
   constructor(readonly signer: Signer, options: AASignerOptions) {
     super();
+    debug('aa ctr')
     this.index = options.index || 0
     this.provider = options.provider || signer.provider!
     this.entryPoint = EntryPoint__factory.connect(options.entryPointAddress, signer)
@@ -156,6 +161,7 @@ export class AASigner extends Signer {
   //fabricate a response in a format usable by ethers users...
   async userEventResponse(userOp: UserOperation): Promise<TransactionResponse> {
     const entryPoint = this.entryPoint
+    let fromBlock = await entryPoint.provider.getBlockNumber()
     const resp: TransactionResponse = {
       hash: this.virtualTransactionHash(userOp),
       confirmations: 0,
@@ -167,7 +173,7 @@ export class AASigner extends Signer {
       chainId: this._chainId,
       wait: async function (confirmations?: number): Promise<TransactionReceipt> {
         return new Promise<TransactionReceipt>((resolve, reject) => {
-          let listener = async function (this: any) {
+          let listener = async function () {
             const event = arguments[arguments.length - 1] as Event
             if (event.args!.nonce != parseInt(userOp.nonce.toString())) {
               debug(`== event with wrong nonce: event.${event.args!.nonce}!= userOp.${userOp.nonce}`)
@@ -193,6 +199,27 @@ export class AASigner extends Signer {
             resolve(rcpt)
           }
           listener = listener.bind(listener)
+          const ep = entryPoint as any
+          if (AASigner.eventsPollingInterval != undefined && !ep._onOffInitialized) {
+            ep.on = function (name: any, listener: (e: Event) => void) {
+              let pollEvents = async () => {
+                let filter = entryPoint.filters.UserOperationEvent(userOp.sender)
+                const logs = await entryPoint.queryFilter(filter,fromBlock)
+                for (let log of logs) {
+                  if(ep._timerId==undefined)
+                    return
+                  await listener(log)
+                  fromBlock = log.blockNumber+1
+                }
+              }
+              ep._timerId = setTimeout(pollEvents, AASigner.eventsPollingInterval)
+            }
+            ep.off = ()=>{
+              clearTimeout(ep._timerId)
+              ep._timerId=undefined
+            }
+            ep._onOffInitialized=true
+          }
           entryPoint.on('UserOperationEvent', listener)
         })
       }

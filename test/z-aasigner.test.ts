@@ -1,3 +1,4 @@
+
 import {createWalletOwner, fund, getBalance} from "./testutils";
 import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain";
 import {AASigner} from "../src/ethers/AASigner";
@@ -8,6 +9,7 @@ import {before} from "mocha";
 import {fail} from "assert";
 import {Create2Factory} from "../src/Create2Factory";
 import {parseEther} from "ethers/lib/utils";
+import './aa.init'
 
 describe('AASigner', function () {
   this.timeout(60000)
@@ -17,6 +19,8 @@ describe('AASigner', function () {
   let deployedTestCounter: TestCounter
   before(async () => {
 
+    //faster, for testing..
+    AASigner.eventsPollingInterval = 100
 
     await Create2Factory.init(ethers.provider)
     ethersSigner = ethers.provider.getSigner()

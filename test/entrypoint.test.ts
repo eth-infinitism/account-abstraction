@@ -22,7 +22,7 @@ import {
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance
+  getBalance, objdump
 } from "./testutils";
 import {fillAndSign} from "../src/userop/UserOp";
 import {UserOperation} from "../src/userop/UserOperation";
@@ -58,6 +58,12 @@ describe("EntryPoint", function () {
   })
 
   describe('Stake Management', () => {
+
+    //compare as strings
+    function str(obj:any) {
+      return JSON.stringify(objdump(obj),null,2)
+    }
+
     let addr: string
     before(async () => {
       addr = await ethersSigner.getAddress()
@@ -78,11 +84,11 @@ describe("EntryPoint", function () {
       it('should report "staked" state', async () => {
         expect(await entryPoint.isPaymasterStaked(addr, 0)).to.eq(true)
         const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
-        expect({stake, withdrawStake, withdrawBlock}).to.eql({
+        expect(str({stake, withdrawStake, withdrawBlock})).to.eq(str({
           stake: parseEther('2'),
           withdrawStake: BigNumber.from(0),
           withdrawBlock: 0
-        })
+        }))
       })
 
 
@@ -106,11 +112,11 @@ describe("EntryPoint", function () {
         it('should report unstake state', async () => {
           const withdrawBlock1 = await ethers.provider.getBlockNumber() + unstakeDelayBlocks
           const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
-          expect({stake, withdrawStake, withdrawBlock}).to.eql({
+          expect(str({stake, withdrawStake, withdrawBlock})).to.eql(str({
             stake: BigNumber.from(0),
             withdrawStake: parseEther('3'),
             withdrawBlock: withdrawBlock1
-          })
+          }))
           expect(await entryPoint.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
         })
         it('should fail to withdraw before unlock timeout', async () => {
@@ -133,11 +139,11 @@ describe("EntryPoint", function () {
               await ethersSigner.sendTransaction({to: addr})
               await entryPoint.addStake(2, {value: ONE_ETH})
               const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
-              expect({stake, withdrawStake, withdrawBlock}).to.eql({
+              expect(str({stake, withdrawStake, withdrawBlock})).to.eql(str({
                 stake: parseEther('4'),
                 withdrawStake: parseEther('0'),
                 withdrawBlock: 0
-              })
+              }))
             } finally {
               await ethers.provider.send('evm_revert', [snap])
             }
@@ -156,11 +162,11 @@ describe("EntryPoint", function () {
             expect(await ethers.provider.getBalance(addr1)).to.eq(withdrawStake)
             const {stake, withdrawStake: withdrawStakeAfter, withdrawBlock} = await entryPoint.getStakeInfo(addr)
 
-            expect({stake, withdrawStakeAfter, withdrawBlock}).to.eql({
+            expect(str({stake, withdrawStakeAfter, withdrawBlock})).to.eql(str({
               stake: BigNumber.from(0),
               withdrawStakeAfter: BigNumber.from(0),
               withdrawBlock: 0
-            })
+            }))
           })
           it('should fail to withdraw again', async () => {
             await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('no unlocked stake')

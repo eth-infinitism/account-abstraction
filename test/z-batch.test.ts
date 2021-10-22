@@ -28,6 +28,11 @@ import {defaultAbiCoder} from "ethers/lib/utils";
 import {AddressZero, callDataCost, rethrow} from "../src/userop/utils";
 
 describe("Batch gas testing", function () {
+  //silently skip..
+  if ( process.env.SKIP_LONG) {
+    it('SKIP_LONG - skipped...')
+    return
+  }
 
   let once = true
 
