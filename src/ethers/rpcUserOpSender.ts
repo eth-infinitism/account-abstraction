@@ -1,6 +1,6 @@
 import {ethers} from "ethers";
-import {hexValue} from "@ethersproject/bytes";
 import {SendUserOp} from "./AASigner";
+import {hexValues} from "../userop/utils";
 
 const debug = require('debug')('aa.userop.rpc')
 
@@ -19,13 +19,7 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): Sen
     })
 
     //cleanup request: convert all non-hex into hex values.
-    const cleanUserOp = Object.keys(userOp).map(key => {
-      let val = (userOp as any)[key];
-      if (typeof val != 'string' || !val.startsWith('0x'))
-        val = hexValue(val)
-      return [key, val]
-    })
-      .reduce((set, [k, v]) => ({...set, [k]: v}), {})
+    const cleanUserOp = hexValues(userOp)
     await provider.send('eth_sendUserOperation', [cleanUserOp])
     //   .catch(e => {
     //   throw new Error(e.error ?? e)

@@ -28,9 +28,8 @@ import {Wallet} from "ethers";
     AASigner.eventsPollingInterval = 100
   }
 
-  const ownerSigner = new Wallet('0xdeadface', provider)
   const url = process.env.AA_URL
-
+  const ownerSigner = new Wallet('0xdeadface', provider)
   const aasigner = new AASigner(ownerSigner, {
     entryPointAddress,
     sendUserOpRpc: url, // O?? debugRpcUrl(entryPointAddress, ethersSigner)
@@ -63,7 +62,7 @@ import {Wallet} from "ethers";
   let ret
   let rcpt
   console.log('current counter=', await testCounter.counters(myAddress), 'balance=', prebalance, 'stake=', currentStake)
-  ret = await testCounter.count({gasLimit: 2e6})
+  ret = await testCounter.count()
   console.log('waiting for mine, tmp.hash=', ret.hash)
   rcpt = await ret.wait()
   console.log('rcpt', rcpt.transactionHash, `https://dashboard.tenderly.co/tx/kovan/${rcpt.transactionHash}/gas-usage`)

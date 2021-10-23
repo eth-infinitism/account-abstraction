@@ -1,4 +1,3 @@
-
 import {createWalletOwner, fund, getBalance} from "./testutils";
 import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain";
 import {AASigner} from "../src/ethers/AASigner";
@@ -73,8 +72,12 @@ describe('AASigner', function () {
       expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
       await expect(testCounter.count({gasLimit: 2e6})).to.revertedWith('didn\'t pay prefund')
     });
-    it('should seamless create after prefund', async function () {
+    it('should fail to create with gasLimit too low', async () => {
+      expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
       await fund(mywallet)
+      await testCounter.count({gasLimit: 10000})
+    });
+    it('should seamless create after prefund', async function () {
 
       // console.log('est=', await testCounter.estimateGas.gasWaster(count,'',{gasLimit:10e6}))
       // for est:43632 need gaslimit: 29439
@@ -84,14 +87,14 @@ describe('AASigner', function () {
       const rcpt = await ret.wait()
       expect(await entryPoint.isContractDeployed(mywallet)).to.eq(true, 'failed to create wallet')
 
-      console.log('1st tx (including create) gas=', rcpt.gasUsed)
+      console.log('1st tx (including create) gas=', rcpt.gasUsed.toNumber())
       expect(await testCounter.counters(mywallet)).to.eq(1)
     })
     it('execute 2nd tx (on created wallet)', async function () {
       if (!await entryPoint.isContractDeployed(mywallet)) this.skip()
 
       const r2 = await testCounter.count().then(r => r.wait())
-      console.log('2nd tx gas2=', r2.gasUsed)
+      console.log('2nd tx gas2=', r2.gasUsed.toNumber())
       expect(await testCounter.counters(mywallet)).to.eq(2)
     });
 
@@ -99,7 +102,7 @@ describe('AASigner', function () {
       await mysigner.addDeposit(ethersSigner, parseEther('1.0'))
       const preBalance = await getBalance(mywallet)
       const r3 = await testCounter.count().then(r => r.wait())
-      console.log('tx gas from deposit=', r3.gasUsed)
+      console.log('tx gas from deposit=', r3.gasUsed.toNumber())
       expect(await getBalance(mywallet)).to.eq(preBalance, "shouldn't pay with eth but with deposit")
 
     });

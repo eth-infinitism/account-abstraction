@@ -10,6 +10,7 @@ import {clearInterval, clearTimeout} from "timers";
 import {localUserOpSender} from "./localUserOpSender";
 import {rpcUserOpSender} from "./rpcUserOpSender";
 import {QueueSendUserOp, sendQueuedUserOps} from "./sendQueuedUserOps";
+import {callDataCost, stringValues} from "../userop/utils";
 
 const debug = require('debug')('aasigner')
 
@@ -77,7 +78,6 @@ export class AASigner extends Signer {
    */
   constructor(readonly signer: Signer, options: AASignerOptions) {
     super();
-    debug('aa ctr')
     this.index = options.index || 0
     this.provider = options.provider || signer.provider!
     this.entryPoint = EntryPoint__factory.connect(options.entryPointAddress, signer)
@@ -204,21 +204,21 @@ export class AASigner extends Signer {
             ep.on = function (name: any, listener: (e: Event) => void) {
               let pollEvents = async () => {
                 let filter = entryPoint.filters.UserOperationEvent(userOp.sender)
-                const logs = await entryPoint.queryFilter(filter,fromBlock)
+                const logs = await entryPoint.queryFilter(filter, fromBlock)
                 for (let log of logs) {
-                  if(ep._timerId==undefined)
+                  if (ep._timerId == undefined)
                     return
                   await listener(log)
-                  fromBlock = log.blockNumber+1
+                  fromBlock = log.blockNumber + 1
                 }
               }
               ep._timerId = setTimeout(pollEvents, AASigner.eventsPollingInterval)
             }
-            ep.off = ()=>{
+            ep.off = () => {
               clearTimeout(ep._timerId)
-              ep._timerId=undefined
+              ep._timerId = undefined
             }
-            ep._onOffInitialized=true
+            ep._onOffInitialized = true
           }
           entryPoint.on('UserOperationEvent', listener)
         })
@@ -258,21 +258,41 @@ export class AASigner extends Signer {
     return this._isPhantom
   }
 
+  async _createInitAndExec(tx: TransactionRequest, needInitCode: boolean): Promise<{ initCode: BytesLike | undefined, callData: BytesLike }> {
+    let initCode: BytesLike | undefined
+    if (needInitCode) {
+      initCode = await this._deploymentTransaction()
+    }
+    const callData = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!).then(tx => tx.data!)
+    return {initCode, callData}
+  }
+
   async _createUserOperation(transaction: Deferrable<TransactionRequest>): Promise<UserOperation> {
 
     const tx: TransactionRequest = await resolveProperties(transaction)
     await this.syncAccount()
 
+    //TODO: new hook, to populate fields, for customizing this AASigner to other wallets
+    // const { initCode, callData } = await this._createInitAndExec(tx, this._isPhantom)
     let initCode: BytesLike | undefined
     if (this._isPhantom) {
       initCode = await this._deploymentTransaction()
     }
-    const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
+    const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!).then((tx => tx.data!))
+    if (tx.gasLimit == null) {
+      let estimate = await this.provider.estimateGas({
+        from: this._wallet!.address,
+        to: tx.to,
+        value: tx.value,
+        data: tx.data
+      });
+      tx.gasLimit = estimate
+    }
 
     let {gasPrice, maxPriorityFeePerGas, maxFeePerGas} = tx
     //gasPrice is legacy, and overrides eip1559 values:
     if (gasPrice) {
-      console.log('=== using legacy "gasPrice" instead')
+      debug('=== using legacy "gasPrice" instead')
       maxPriorityFeePerGas = gasPrice
       maxFeePerGas = gasPrice
     }
@@ -280,12 +300,12 @@ export class AASigner extends Signer {
       sender: this._wallet!.address,
       initCode,
       nonce: initCode == null ? tx.nonce : this.index,
-      callData: execFromEntryPoint.data!,
+      callData: execFromEntryPoint,
       callGas: tx.gasLimit,
       maxPriorityFeePerGas,
       maxFeePerGas,
     }, this.signer, this.entryPoint).catch(e => {
-      console.log('ex=', e);
+      debug('ex=', e);
       throw e
     })
 

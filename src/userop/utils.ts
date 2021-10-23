@@ -1,4 +1,6 @@
 import {utils, constants} from "ethers";
+import {hexValue} from "@ethersproject/bytes";
+import {tostr} from "../../test/testutils";
 
 export const AddressZero = constants.AddressZero
 
@@ -68,4 +70,30 @@ export function rethrow(): (e: Error) => void {
     err.stack = 'Error: ' + message + '\n' + stack
     throw err
   }
+}
+
+/**
+ * map object values.
+ * each object member's value is mapped using the mapFunc
+ * @param obj object to
+ * @param mapFunc a function to convert each value
+ */
+export function mapValues(obj: any, mapFunc: (obj: any) => any) {
+  return Object.keys(obj)
+    .reduce((set, k) => ({...set, [k]: mapFunc(obj[k])}), {})
+}
+
+/**
+ * convert all object values to hexValue (works well with nubmers, BigNubmers, arrays, etc)
+ * @param obj
+ */
+export function hexValues(obj:any): any {
+  return mapValues(obj, hexValue)
+}
+
+/**
+ * convert all object values to string using toString
+ */
+export function stringValues(obj:any) {
+  return mapValues(obj,tostr)
 }
