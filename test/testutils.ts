@@ -106,6 +106,17 @@ export function objdump(obj: { [key: string]: any }) {
     }), {})
 }
 
+export function eventDump(obj: Event | Event[]): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => eventDump(item))
+  }
+  const args = obj.args
+  return {
+    ev: obj.event,
+    ...objdump(args as any)
+  }
+}
+
 export async function checkForBannedOps(txHash: string, checkPaymaster: boolean) {
   const debugTx = async (hash: string) => ethers.provider.send('debug_traceTransaction', [hash, {
     disableMemory: true,
@@ -138,6 +149,6 @@ export async function deployEntryPoint(perOpOverhead: number, unstakeDelayBlocks
   const ctrParams = defaultAbiCoder.encode(['address', 'uint256', 'uint256'],
     [Create2Factory.contractAddress, perOpOverhead, unstakeDelayBlocks])
 
-  const addr = await create2factory.deploy(hexConcat([ epf.bytecode, ctrParams]),0)
+  const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }

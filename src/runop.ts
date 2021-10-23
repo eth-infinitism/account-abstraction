@@ -1,12 +1,13 @@
 //run a single op
 // "yarn run runop [--network ...]"
 import hre, {ethers} from 'hardhat'
-import {objdump} from "../test/testutils";
+import {eventDump, objdump, tostr} from "../test/testutils";
 import {AASigner} from "./ethers/AASigner";
 import {TestCounter__factory, EntryPoint__factory} from '../typechain'
 import '../test/aa.init'
 import {parseEther} from "ethers/lib/utils";
 import {debugRpcUrl} from "./ethers/debugRpcServer";
+import {Wallet} from "ethers";
 
 (async () => {
   await hre.run('deploy')
@@ -22,14 +23,21 @@ import {debugRpcUrl} from "./ethers/debugRpcServer";
   let provider = ethers.provider;
   const ethersSigner = provider.getSigner()
 
+  const chainId = await provider.getNetwork().then(net => net.chainId)
+  if (chainId == 1337 || chainId == 31337) {
+    AASigner.eventsPollingInterval = 100
+  }
+
+  const ownerSigner = new Wallet('0xdeadface', provider)
   const url = process.env.AA_URL
 
-  const aasigner = new AASigner(ethersSigner, {
+  const aasigner = new AASigner(ownerSigner, {
     entryPointAddress,
     sendUserOpRpc: url, // O?? debugRpcUrl(entryPointAddress, ethersSigner)
     debug_handleOpSigner: url == null ? ethersSigner : undefined  //use debug signer only if no URL
   })
-  await aasigner.connectWalletAddress(walletAddress)
+  //use an externally-created wallet (which supports our owner
+  // await aasigner.connectWalletAddress(walletAddress)
   const myAddress = await aasigner.getAddress()
   if (await provider.getBalance(myAddress) < parseEther('0.01')) {
     console.log('prefund wallet')
@@ -52,15 +60,20 @@ import {debugRpcUrl} from "./ethers/debugRpcServer";
   const testCounter = TestCounter__factory.connect(testCounterAddress, aasigner)
 
   const prebalance = await provider.getBalance(myAddress)
+  let ret
+  let rcpt
   console.log('current counter=', await testCounter.counters(myAddress), 'balance=', prebalance, 'stake=', currentStake)
-  const ret = await testCounter.count()
+  ret = await testCounter.count({gasLimit: 2e6})
   console.log('waiting for mine, tmp.hash=', ret.hash)
-  const rcpt = await ret.wait()
+  rcpt = await ret.wait()
   console.log('rcpt', rcpt.transactionHash, `https://dashboard.tenderly.co/tx/kovan/${rcpt.transactionHash}/gas-usage`)
+  console.log('events=', eventDump(await testCounter.queryFilter('*' as any, rcpt.blockNumber)))
   let gasPaid = prebalance.sub(await provider.getBalance(myAddress))
-  console.log('counter after=', await testCounter.counters(myAddress), 'paid=', gasPaid.toNumber() / 1e9, 'gasUsed=', rcpt.gasUsed)
-  const logs = await entryPoint.queryFilter('*' as any, rcpt.blockNumber)
-  console.log(logs.map((e: any) => ({ev: e.event, ...objdump(e.args!)})))
+  console.log('counter after=', await testCounter.counters(myAddress).then(tostr), 'paid=', gasPaid.toNumber() / 1e9, 'gasUsed=', rcpt.gasUsed.toNumber())
+  let logs
+  logs = await entryPoint.queryFilter('*' as any, rcpt.blockNumber)
+  console.log('UserOperationEvent success=', (logs[0].args as any).success)
+  // console.log(logs.map((e: any) => ({ev: e.event, ...objdump(e.args!)})))
 
 
-})().then(()=>process.exit())
+})().then(() => process.exit())

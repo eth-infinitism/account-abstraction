@@ -4,7 +4,7 @@ import {Signer} from "ethers";
 import {clearInterval} from "timers";
 import {EntryPoint, EntryPoint__factory} from "../../typechain";
 
-const debug = require('debug')('userop.queue')
+const debug = require('debug')('aa.userop.queue')
 
 export interface QueueSendUserOp extends SendUserOp {
   lastQueueUpdate: number

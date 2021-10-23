@@ -2,7 +2,7 @@ import {ethers} from "ethers";
 import {hexValue} from "@ethersproject/bytes";
 import {SendUserOp} from "./AASigner";
 
-const debug = require('debug')('userop.rpc')
+const debug = require('debug')('aa.userop.rpc')
 
 /**
  * send a request using rpc.

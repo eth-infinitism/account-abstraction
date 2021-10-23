@@ -2,7 +2,7 @@ import {Signer} from "ethers";
 import {SendUserOp} from "./AASigner";
 import {EntryPoint__factory} from "../../typechain";
 
-const debug = require('debug')('userop.local')
+const debug = require('debug')('aa.userop.local')
 
 /**
  * send UserOp using handleOps, but locally.
