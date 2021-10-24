@@ -125,11 +125,25 @@ export class AASigner extends Signer {
     throw new Error('connect not implemented')
   }
 
-  async _deploymentTransaction(): Promise<BytesLike> {
+  /**
+   * create deployment transaction.
+   * Used to initialize the initCode of a userOp. also determines create2 address of the wallet.
+   * NOTE: MUST use the signer address as part of the init signature.
+   */
+  async _createDeploymentTransaction(): Promise<BytesLike> {
     let ownerAddress = await this.signer.getAddress();
     return new SimpleWallet__factory()
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
+
+  /**
+   * create the entryPoint transaction for a given user transaction.
+   * @param tx
+   */
+  async _createExecFromEntryPoint(tx: TransactionRequest): Promise<BytesLike> {
+    return await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!).then(tx => tx.data!)
+  }
+
 
   async getAddress(): Promise<string> {
     await this.syncAccount()
@@ -238,7 +252,7 @@ export class AASigner extends Signer {
 
   async syncAccount() {
     if (!this._wallet) {
-      const address = await this.entryPoint.getSenderAddress(await this._deploymentTransaction(), this.index)
+      const address = await this.entryPoint.getSenderAddress(await this._createDeploymentTransaction(), this.index)
       this._wallet = SimpleWallet__factory.connect(address, this.signer)
     }
 
@@ -258,27 +272,16 @@ export class AASigner extends Signer {
     return this._isPhantom
   }
 
-  async _createInitAndExec(tx: TransactionRequest, needInitCode: boolean): Promise<{ initCode: BytesLike | undefined, callData: BytesLike }> {
-    let initCode: BytesLike | undefined
-    if (needInitCode) {
-      initCode = await this._deploymentTransaction()
-    }
-    const callData = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!).then(tx => tx.data!)
-    return {initCode, callData}
-  }
-
   async _createUserOperation(transaction: Deferrable<TransactionRequest>): Promise<UserOperation> {
 
     const tx: TransactionRequest = await resolveProperties(transaction)
     await this.syncAccount()
 
-    //TODO: new hook, to populate fields, for customizing this AASigner to other wallets
-    // const { initCode, callData } = await this._createInitAndExec(tx, this._isPhantom)
     let initCode: BytesLike | undefined
     if (this._isPhantom) {
-      initCode = await this._deploymentTransaction()
+      initCode = await this._createDeploymentTransaction()
     }
-    const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!).then((tx => tx.data!))
+    const execFromEntryPoint = await this._createExecFromEntryPoint(tx)
     if (tx.gasLimit == null) {
       let estimate = await this.provider.estimateGas({
         from: this._wallet!.address,
@@ -304,7 +307,7 @@ export class AASigner extends Signer {
       callGas: tx.gasLimit,
       maxPriorityFeePerGas,
       maxFeePerGas,
-    }, this.signer, this.entryPoint).catch(e => {
+    }, this.signer, this.entryPoint, this._wallet).catch(e => {
       debug('ex=', e);
       throw e
     })

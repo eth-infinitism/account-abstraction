@@ -29,8 +29,8 @@ import {Wallet} from "ethers";
   }
 
   const url = process.env.AA_URL
-  const ownerSigner = new Wallet('0xdeadface', provider)
-  const aasigner = new AASigner(ownerSigner, {
+
+  const aasigner = new AASigner(ethersSigner, {
     entryPointAddress,
     sendUserOpRpc: url, // O?? debugRpcUrl(entryPointAddress, ethersSigner)
     debug_handleOpSigner: url == null ? ethersSigner : undefined  //use debug signer only if no URL

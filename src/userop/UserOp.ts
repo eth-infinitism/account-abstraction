@@ -163,7 +163,7 @@ export function fillUserOp(op: Partial<UserOperation>, defaults = DefaultsForUse
 // sender - only in case of construction: fill sender from initCode.
 // callGas: VERY crude estimation (by estimating call to wallet, and add rough entryPoint overhead
 // verificationGas: hard-code default at 100k. should add "create2" cost
-export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, wallet?:Contract): Promise<UserOperation> {
   let op1 = {...op}
   let provider = entryPoint?.provider
   if (op.initCode != null) {
@@ -178,7 +178,7 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
   }
   if (op1.nonce == null) {
     if (provider == null) throw new Error('must have entryPoint to autofill nonce')
-    const c = new Contract(op.sender!, ['function nonce() view returns(address)'], provider)
+    const c = wallet ?? new Contract(op.sender!, ['function nonce() view returns(address)'], provider)
     op1.nonce = await c.nonce().catch(rethrow())
   }
   if (op1.callGas == null && op.callData != null) {
