@@ -1,5 +1,5 @@
 import {ethers} from "ethers";
-import {SendUserOp} from "./AASigner";
+import {SendUserOp} from "./AbstractAASigner";
 import {hexValues} from "../userop/utils";
 
 const debug = require('debug')('aa.userop.rpc')

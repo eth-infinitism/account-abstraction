@@ -1,16 +1,16 @@
 import {createWalletOwner, fund, getBalance} from "./testutils";
 import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain";
-import {AASigner} from "../src/ethers/AASigner";
 import hre, {ethers} from 'hardhat'
-import {providers, Wallet} from 'ethers'
+import {BigNumber, providers, Wallet} from 'ethers'
 import {expect} from "chai";
 import {before} from "mocha";
 import {fail} from "assert";
 import {Create2Factory} from "../src/Create2Factory";
 import {parseEther} from "ethers/lib/utils";
 import './aa.init'
+import {SimpleWalletSigner} from "../src/ethers/SimpleWalletSigner";
 
-describe('AASigner', function () {
+describe('SimpleWalletSigner', function () {
   this.timeout(60000)
   let entryPoint: EntryPoint
   let ethersSigner: providers.JsonRpcSigner
@@ -19,7 +19,7 @@ describe('AASigner', function () {
   before(async () => {
 
     //faster, for testing..
-    AASigner.eventsPollingInterval = 100
+    SimpleWalletSigner.eventsPollingInterval = 100
 
     await Create2Factory.init(ethers.provider)
     ethersSigner = ethers.provider.getSigner()
@@ -39,7 +39,7 @@ describe('AASigner', function () {
   it.skip('should fail on "eth_sendUserOperation not found" if no rpc provided ', async () => {
 
     //by default, eth_sendUserOperation is sent to our underlying provider. if it doesn't support (yet) our new RPC, then sendUserOpRpc must be set...
-    const mysigner = new AASigner(walletOwner,
+    const mysigner = new SimpleWalletSigner(walletOwner,
       {
         entryPointAddress: entryPoint.address,
         // sendUserOpRpc: debugRpcUrl(entryPoint.address, ethersSigner)
@@ -55,11 +55,11 @@ describe('AASigner', function () {
   });
 
   describe('seamless create', () => {
-    let mysigner: AASigner
+    let mysigner: SimpleWalletSigner
     let mywallet: string
     let testCounter: TestCounter
     before(async () => {
-      mysigner = new AASigner(walletOwner,
+      mysigner = new SimpleWalletSigner(walletOwner,
         {
           entryPointAddress: entryPoint.address,
           debug_handleOpSigner: ethersSigner,
@@ -101,9 +101,20 @@ describe('AASigner', function () {
     it('should use deposit to pay for TX', async () => {
       await mysigner.addDeposit(ethersSigner, parseEther('1.0'))
       const preBalance = await getBalance(mywallet)
+
       const r3 = await testCounter.count().then(r => r.wait())
       console.log('tx gas from deposit=', r3.gasUsed.toNumber())
       expect(await getBalance(mywallet)).to.eq(preBalance, "shouldn't pay with eth but with deposit")
+
+
+      const withdrawAddress = createWalletOwner().address
+      await mysigner.withdrawDeposit(withdrawAddress)
+
+      //withdraw left deposit (paid for above tx, and the withdraw itself)
+      expect(await getBalance(withdrawAddress)).to.be.gt(0.5)
+
+      //TODO: we currently can't withdarw it all: our "prefund" is inexact, and thus some is returned to the wallet after the last TX
+      expect(await mysigner.getDeposit().then(b=>b.toNumber()/1e18)).to.be.closeTo(0, 0.001)
 
     });
 

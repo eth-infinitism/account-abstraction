@@ -1,5 +1,5 @@
 import {Signer} from "ethers";
-import {SendUserOp} from "./AASigner";
+import {SendUserOp} from "./AbstractAASigner";
 import {EntryPoint__factory} from "../../typechain";
 
 const debug = require('debug')('aa.userop.local')

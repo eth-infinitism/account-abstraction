@@ -1,16 +1,14 @@
-import {BigNumber, BigNumberish, Bytes, Event, providers, Signer} from "ethers";
+import {BigNumber, BigNumberish, Bytes, Contract, Event, providers, Signer} from "ethers";
 import {Provider, TransactionRequest} from "@ethersproject/providers";
 import {Deferrable, resolveProperties} from "@ethersproject/properties";
-import {EntryPoint, EntryPoint__factory, SimpleWallet, SimpleWallet__factory} from "../../typechain";
+import {EntryPoint, EntryPoint__factory} from "../../typechain";
 import {BytesLike, hexValue} from "@ethersproject/bytes";
 import {TransactionReceipt, TransactionResponse} from "@ethersproject/abstract-provider";
 import {fillAndSign} from "../userop/UserOp";
 import {UserOperation} from "../userop/UserOperation";
-import {clearInterval, clearTimeout} from "timers";
+import {clearTimeout} from "timers";
 import {localUserOpSender} from "./localUserOpSender";
 import {rpcUserOpSender} from "./rpcUserOpSender";
-import {QueueSendUserOp, sendQueuedUserOps} from "./sendQueuedUserOps";
-import {callDataCost, stringValues} from "../userop/utils";
 
 const debug = require('debug')('aasigner')
 
@@ -18,46 +16,54 @@ const debug = require('debug')('aasigner')
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
 
+
 interface AASignerOptions {
-  //the entry point we're working with.
+
+  /**
+   * the entry point we're working with.
+   */
   entryPointAddress: string
 
-  // index of this wallet within the signer. defaults to "zero".
-  // use if you want multiple wallets with the same signer.
+  /**
+   *  index of this wallet within the signer. defaults to "zero".
+   *use if you want multiple wallets with the same signer.
+   */
   index?: number
 
-  //URL to send eth_sendUserOperation. if not set, use current provider
-  // (note that current nodes don't support both full RPC and eth_sendUserOperation, so it is required..)
-  sendUserOpRpc?: string
+  /**
+   *  URL to send eth_sendUserOperation. if not set, use current provider
+   *  (note that current nodes don't support both full RPC and eth_sendUserOperation, so it is required..)
+   */
+  sendUserOpUrl?: string
 
-  //underlying RPC provider. by default, uses signer.provider
+  /**
+   * underlying RPC provider for read operations. by default, uses signer.provider
+   */
   provider?: Provider
 
-  //if set, use this signer address to call handleOp.
-  // This bypasses the RPC call and used for local testing
+  /**
+   * Debugging tool:
+   * if set, use this signer to call handleOp.
+   * This bypasses the RPC call and used for local testing
+   */
   debug_handleOpSigner?: Signer
 }
 
-function initSendUseOp(provider: Provider, options: AASignerOptions): SendUserOp {
-  if (options.debug_handleOpSigner != null) {
-    return localUserOpSender(options.entryPointAddress, options.debug_handleOpSigner)
-  }
-  const rpcProvider = options.sendUserOpRpc != null ?
-    new providers.JsonRpcProvider(options.sendUserOpRpc) :
-    (provider as providers.JsonRpcProvider)
-  if (typeof rpcProvider.send != 'function') {
-    throw new Error('not an rpc provider')
-  }
-  return rpcUserOpSender(rpcProvider)
-}
 
 /**
- * a signer that wraps account-abstraction.
+ * Abstract base-class for AccountAbstraction signers.
+ * Using the signer abstracts away the creation and the usage of the wallet contract.
+ * - The underlying Signer object is the owner of this account.
+ * - the getAddress() returns the address of the wallet, even before creating it
+ * - to fund it, send eth to the address, or call addDeposit
+ * - the contract gets created on the first called transaction.
+ *
+ * see SimpleWalletSigner for an implementation of a specific wallet contract.
  */
-export class AASigner extends Signer {
+export abstract class AbstractAASigner extends Signer {
   static eventsPollingInterval: number | undefined = 2000
 
-  _wallet?: SimpleWallet
+  _wallet?: Contract
 
   private _isPhantom = true
   public entryPoint: EntryPoint
@@ -71,10 +77,7 @@ export class AASigner extends Signer {
   /**
    * create account abstraction signer
    * @param signer - the underlying signer. Used only for signing, not for sendTransaction (has no eth)
-   * @param options.entryPoint the entryPoint contract. used for read-only operations
-   * @param options.sendUserOp function to actually send the UserOp to the entryPoint.
-   * @param options.index - index of this wallet for this signer.
-   * @param options.provider by default, `signer.provider`. Should specify only if the signer doesn't wrap an existing provider.
+   * @param options signer options
    */
   constructor(readonly signer: Signer, options: AASignerOptions) {
     super();
@@ -84,20 +87,42 @@ export class AASigner extends Signer {
     if (this.provider == null) {
       throw new Error('no provider given')
     }
-    this.sendUserOp = initSendUseOp(this.provider, options)
+    this.sendUserOp = this._initSendUseOp(this.provider, options)
+  }
 
+
+  _initSendUseOp(provider: Provider, options: AASignerOptions): SendUserOp {
+    if (options.debug_handleOpSigner != null) {
+      return localUserOpSender(options.entryPointAddress, options.debug_handleOpSigner)
+    }
+    const rpcProvider = options.sendUserOpUrl != null ?
+      new providers.JsonRpcProvider(options.sendUserOpUrl) :
+      (provider as providers.JsonRpcProvider)
+    if (typeof rpcProvider.send != 'function') {
+      throw new Error('not an rpc provider')
+    }
+    return rpcUserOpSender(rpcProvider)
   }
 
   /**
    * deposit eth into the entryPoint, to be used for gas payment for this wallet.
-   * its cheaper to use deposit (by ~10000gas) rather than provide eth (and get refunded) on each request.
-   * todo: add "withdraw deposit", (which must be done from the wallet itself)
+   * its cheaper to use deposit (by ~10000gas) rather than use eth from the wallet (and get refunded) on each request.
    *
-   * @param wealthySigner some signer with eth
+   * @param wealthySigner some signer with eth to make this transaction.
    * @param amount eth value to deposit.
    */
   async addDeposit(wealthySigner: Signer, amount: BigNumberish) {
     await this.entryPoint.connect(wealthySigner).addDepositTo(await this.getAddress(), {value: amount})
+  }
+
+  /**
+   * withdraw deposit.
+   * @param withdrawAddress send all deposit to this address
+   */
+  async withdrawDeposit(withdrawAddress:string) {
+    //use this AA provider to call the entryPoint as a target from our wallet
+    //TODO: there is a small leftover, because of refund
+    await this.entryPoint.connect(this).withdrawStake(withdrawAddress)
   }
 
   /**
@@ -117,7 +142,7 @@ export class AASigner extends Signer {
     if (await this.provider!.getCode(address).then(code => code.length) <= 2) {
       throw new Error('cannot connect to non-existing contract')
     }
-    this._wallet = SimpleWallet__factory.connect(address, this.signer)
+    this._wallet = await this._connectWallet(address)
     this._isPhantom = false;
   }
 
@@ -128,22 +153,23 @@ export class AASigner extends Signer {
   /**
    * create deployment transaction.
    * Used to initialize the initCode of a userOp. also determines create2 address of the wallet.
-   * NOTE: MUST use the signer address as part of the init signature.
+   * NOTE: MUST use the ownerAddress address as part of the init signature.
    */
-  async _createDeploymentTransaction(): Promise<BytesLike> {
-    let ownerAddress = await this.signer.getAddress();
-    return new SimpleWallet__factory()
-      .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
-  }
+  abstract _createDeploymentTransaction(entryPointAddress: string, ownerAddress: string): Promise<BytesLike>
 
   /**
    * create the entryPoint transaction for a given user transaction.
+   * @param wallet the wallet object (created with _connectWallet)
    * @param tx
    */
-  async _createExecFromEntryPoint(tx: TransactionRequest): Promise<BytesLike> {
-    return await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!).then(tx => tx.data!)
-  }
+  abstract _createExecFromEntryPoint(wallet: Contract, tx: TransactionRequest): Promise<BytesLike>
 
+  /**
+   * return a wallet object connected to this address.
+   * The wallet must support the "exec" method (used by "_createExecFromEntryPoint") and "nonce" view method
+   * @param address
+   */
+  abstract _connectWallet(address: any): Promise<Contract>
 
   async getAddress(): Promise<string> {
     await this.syncAccount()
@@ -156,12 +182,6 @@ export class AASigner extends Signer {
 
   signTransaction(transaction: Deferrable<TransactionRequest>): Promise<string> {
     throw new Error('signMessage: unsupported by AA')
-  }
-
-  async getWallet(): Promise<SimpleWallet> {
-
-    await this.syncAccount()
-    return this._wallet!
   }
 
   //unlike real tx, we can't give hash before TX is mined: actual tx depends on
@@ -214,7 +234,7 @@ export class AASigner extends Signer {
           }
           listener = listener.bind(listener)
           const ep = entryPoint as any
-          if (AASigner.eventsPollingInterval != undefined && !ep._onOffInitialized) {
+          if (AbstractAASigner.eventsPollingInterval != undefined && !ep._onOffInitialized) {
             ep.on = function (name: any, listener: (e: Event) => void) {
               let pollEvents = async () => {
                 let filter = entryPoint.filters.UserOperationEvent(userOp.sender)
@@ -226,7 +246,7 @@ export class AASigner extends Signer {
                   fromBlock = log.blockNumber + 1
                 }
               }
-              ep._timerId = setTimeout(pollEvents, AASigner.eventsPollingInterval)
+              ep._timerId = setTimeout(pollEvents, AbstractAASigner.eventsPollingInterval)
             }
             ep.off = () => {
               clearTimeout(ep._timerId)
@@ -252,14 +272,15 @@ export class AASigner extends Signer {
 
   async syncAccount() {
     if (!this._wallet) {
-      const address = await this.entryPoint.getSenderAddress(await this._createDeploymentTransaction(), this.index)
-      this._wallet = SimpleWallet__factory.connect(address, this.signer)
+      const ownerAddress = await this.signer.getAddress();
+      const address = await this.entryPoint.getSenderAddress(await this._createDeploymentTransaction(this.entryPoint.address, ownerAddress), this.index)
+      this._wallet = await this._connectWallet(address);
     }
 
     //once an account is deployed, it can no longer be a phantom.
     // but until then, we need to re-check
     if (this._isPhantom) {
-      const size = await this.provider!.getCode(this._wallet.address).then(x => x.length)
+      const size = await this.provider!.getCode(this._wallet!.address).then(x => x.length)
       // console.log(`== __isPhantom. addr=${this._wallet.address} re-checking code size. result = `, size)
       this._isPhantom = size == 2
       // !await this.entryPoint.isContractDeployed(await this.getAddress());
@@ -279,9 +300,10 @@ export class AASigner extends Signer {
 
     let initCode: BytesLike | undefined
     if (this._isPhantom) {
-      initCode = await this._createDeploymentTransaction()
+      const ownerAddress = await this.signer.getAddress();
+      initCode = await this._createDeploymentTransaction(this.entryPoint.address, ownerAddress)
     }
-    const execFromEntryPoint = await this._createExecFromEntryPoint(tx)
+    const execFromEntryPoint = await this._createExecFromEntryPoint(this._wallet!, tx)
     if (tx.gasLimit == null) {
       let estimate = await this.provider.estimateGas({
         from: this._wallet!.address,

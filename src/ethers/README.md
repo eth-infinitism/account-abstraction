@@ -8,9 +8,9 @@ Usage:
 
 ```js
 const provider = ethers.getDefaultProvider(...)
-const signer = new AASigner(provider, {
+const signer = new AbstractAASigner(provider, {
     entryPointAddress
-    
+
 })
 
 console.log('my wallet address=', await signer.getAddress())

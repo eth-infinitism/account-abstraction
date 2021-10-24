@@ -1,13 +1,11 @@
 //run a single op
 // "yarn run runop [--network ...]"
 import hre, {ethers} from 'hardhat'
-import {eventDump, objdump, tostr} from "../test/testutils";
-import {AASigner} from "./ethers/AASigner";
+import {eventDump, tostr} from "../test/testutils";
 import {TestCounter__factory, EntryPoint__factory} from '../typechain'
 import '../test/aa.init'
 import {parseEther} from "ethers/lib/utils";
-import {debugRpcUrl} from "./ethers/debugRpcServer";
-import {Wallet} from "ethers";
+import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
 
 (async () => {
   await hre.run('deploy')
@@ -25,14 +23,14 @@ import {Wallet} from "ethers";
 
   const chainId = await provider.getNetwork().then(net => net.chainId)
   if (chainId == 1337 || chainId == 31337) {
-    AASigner.eventsPollingInterval = 100
+    SimpleWalletSigner.eventsPollingInterval = 100
   }
 
   const url = process.env.AA_URL
 
-  const aasigner = new AASigner(ethersSigner, {
+  const aasigner = new SimpleWalletSigner(ethersSigner, {
     entryPointAddress,
-    sendUserOpRpc: url, // O?? debugRpcUrl(entryPointAddress, ethersSigner)
+    sendUserOpUrl: url, // O?? debugRpcUrl(entryPointAddress, ethersSigner)
     debug_handleOpSigner: url == null ? ethersSigner : undefined  //use debug signer only if no URL
   })
   //use an externally-created wallet (which supports our owner

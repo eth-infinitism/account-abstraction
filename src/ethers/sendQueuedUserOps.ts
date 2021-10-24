@@ -1,5 +1,5 @@
 import {UserOperation} from "../userop/UserOperation";
-import {SendUserOp} from "./AASigner";
+import {SendUserOp} from "./AbstractAASigner";
 import {Signer} from "ethers";
 import {clearInterval} from "timers";
 import {EntryPoint, EntryPoint__factory} from "../../typechain";

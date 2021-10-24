@@ -1,4 +1,4 @@
-export * from './ethers/AASigner'
+export * from './ethers/AbstractAASigner'
 export * from './userop/UserOperation'
 export * from './userop/UserOp'
 export * from '../typechain/EntryPoint'
