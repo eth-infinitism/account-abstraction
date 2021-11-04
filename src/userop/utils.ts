@@ -78,7 +78,7 @@ export function rethrow(): (e: Error) => void {
  * @param obj object to
  * @param mapFunc a function to convert each value
  */
-export function mapValues(obj: any, mapFunc: (obj: any) => any) {
+export function mapValues(obj: any, mapFunc: (obj: any) => any): any {
   return Object.keys(obj)
     .reduce((set, k) => ({...set, [k]: mapFunc(obj[k])}), {})
 }
@@ -87,13 +87,13 @@ export function mapValues(obj: any, mapFunc: (obj: any) => any) {
  * convert all object values to hexValue (works well with nubmers, BigNubmers, arrays, etc)
  * @param obj
  */
-export function hexValues(obj:any): any {
+export function hexValues(obj: any): any {
   return mapValues(obj, hexValue)
 }
 
 /**
  * convert all object values to string using toString
  */
-export function stringValues(obj:any) {
-  return mapValues(obj,tostr)
+export function stringValues(obj: any) {
+  return mapValues(obj, tostr)
 }

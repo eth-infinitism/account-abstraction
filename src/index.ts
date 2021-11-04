@@ -1,4 +1,5 @@
 export * from './ethers/AbstractAASigner'
+export * from './ethers/SimpleWalletSigner'
 export * from './userop/UserOperation'
 export * from './userop/UserOp'
 export * from '../typechain/EntryPoint'

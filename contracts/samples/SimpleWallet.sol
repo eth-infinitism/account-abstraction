@@ -127,7 +127,7 @@ contract SimpleWallet is IWallet {
         entryPoint.addDeposit{value : msg.value}();
     }
 
-    function withdrawDeposit(address payable withdrawAddress) public {
+    function withdrawDeposit(address payable withdrawAddress) public onlyOwner {
         entryPoint.withdrawStake(withdrawAddress);
     }
 }
