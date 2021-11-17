@@ -179,7 +179,7 @@ export function objdump(obj: { [key: string]: any }) {
     }), {})
 }
 
-export async function checkForBannedOps(txHash: string) {
+export async function checkForBannedOps(txHash: string, checkPaymaster: boolean) {
   const debugTx = async (hash: string) => ethers.provider.send('debug_traceTransaction', [hash, {
     disableMemory: true,
     disableStorage: true
@@ -187,11 +187,22 @@ export async function checkForBannedOps(txHash: string) {
 
   const tx = await debugTx(txHash)
   const logs = tx.structLogs as { op: string; depth: number }[]
-  const ops = logs.filter(log=>log.depth>1).map(log => log.op)
+  const balanceOfs = logs.map((op,index)=>({op: op.op, index})).filter(op=>op.op=='SELFBALANCE')
+  expect(balanceOfs.length).to.equal(2, "expected exactly 2 calls to SELFBALANCE (Before and after validateUserOp)")
+  const validateWalletOps = logs.slice(0,balanceOfs[1].index-1)
+  const validatePaymasterOps = logs.slice(balanceOfs[1].index+1)
+  const ops = validateWalletOps.filter(log=>log.depth>1).map(log => log.op)
+  const paymasterOps = validatePaymasterOps.filter(log=>log.depth>1).map(log => log.op)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   expect(ops).to.not.include('BASEFEE')
   expect(ops).to.not.include('GASPRICE')
+
+  if ( checkPaymaster) {
+    expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
+    expect(paymasterOps).to.not.include('BASEFEE')
+    expect(paymasterOps).to.not.include('GASPRICE')
+  }
 }
 
 export async function deployEntryPoint(perOpOverhead:number, unstakeDelayBlocks:number ): Promise<EntryPoint> {

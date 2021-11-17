@@ -236,9 +236,8 @@ describe("EntryPoint", function () {
       await fund(AddressZero)
       //we must create a real transaction to debug, and it must come from address zero:
       await ethers.provider.send('hardhat_impersonateAccount', [AddressZero])
-      const ret = await entryPointView.simulateWalletValidation(op1)
-
-      await checkForBannedOps(ret!.hash)
+      const ret = await entryPointView.simulateValidation(op1)
+      await checkForBannedOps(ret!.hash, false)
     })
 
   })

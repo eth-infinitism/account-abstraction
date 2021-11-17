@@ -21,7 +21,7 @@ import "hardhat/console.sol";
 
 library UserOperationLib {
 
-    function getSender(UserOperation calldata userOp) internal view returns (address ret) {
+    function getSender(UserOperation calldata userOp) internal pure returns (address ret) {
         assembly {ret := calldataload(userOp)}
     }
 

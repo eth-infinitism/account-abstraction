@@ -137,6 +137,16 @@ contract EntryPoint is StakeManager {
     }
 
     /**
+     * Simulate a call to wallet.verifyUserOp and paymaster.verifyPaymasterUserOp
+     * Validation succeeds of the call doesn't revert.
+     * The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data
+     */
+    function simulateValidation(UserOperation calldata userOp) external {
+        _validatePrepayment(0, userOp);
+        require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
+    }
+
+    /**
      * Simulate a call for wallet.verifyUserOp.
      * Call must not revert.
      * @return gasUsedByPayForSelfOp - gas used by the validation, to pass into simulatePaymasterValidation.
@@ -342,6 +352,7 @@ contract EntryPoint is StakeManager {
         bool sendOk = payable(userOp.getSender()).send(refund);
         (sendOk);
     }
+
     function _refundSenderStake(UserOperation calldata userOp, uint refund) internal {
         stakes[userOp.getSender()].stake += uint96(refund);
     }

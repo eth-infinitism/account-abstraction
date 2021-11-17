@@ -17,7 +17,7 @@ import {
   fund,
   getBalance,
   getTokenBalance, objdump, rethrow,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint
+  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
@@ -102,6 +102,10 @@ describe("EntryPoint with paymaster", function () {
           paymaster: paymaster.address,
           nonce: 0
         }, walletOwner, entryPoint)
+
+        await entryPoint.simulateValidation(createOp, {gasLimit:5e6}).catch(e=>e.message)
+        const [tx] = await ethers.provider.getBlock('latest').then(block=>block.transactions)
+        await checkForBannedOps(tx, true)
 
         const rcpt = await entryPoint.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7,
