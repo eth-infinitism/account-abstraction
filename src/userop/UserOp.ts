@@ -4,7 +4,7 @@ import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {
   EntryPoint,
   TestUtil,
-} from '../../typechain'
+} from '../../typechain-types'
 import {UserOperation} from "./UserOperation";
 import {AddressZero, callDataCost, rethrow} from "./utils";
 

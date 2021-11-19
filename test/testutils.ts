@@ -1,7 +1,7 @@
 import {ethers} from "hardhat";
 import {defaultAbiCoder, hexConcat, parseEther} from "ethers/lib/utils";
-import {Contract, ContractReceipt, Wallet} from "ethers";
-import {EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory} from '../typechain'
+import {Contract, ContractReceipt, Event, Wallet} from "ethers";
+import {EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory} from '../typechain-types'
 import {BytesLike} from "@ethersproject/bytes";
 import {expect} from "chai";
 import {Create2Factory} from "../src/Create2Factory";

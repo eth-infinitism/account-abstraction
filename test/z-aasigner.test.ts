@@ -1,5 +1,5 @@
 import {createWalletOwner, fund, getBalance} from "./testutils";
-import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain";
+import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain-types";
 import hre, {ethers} from 'hardhat'
 import {BigNumber, providers, Wallet} from 'ethers'
 import {expect} from "chai";

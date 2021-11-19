@@ -7,7 +7,7 @@ import {
   SimpleWallet__factory,
   TestUtil,
   TestUtil__factory
-} from "../typechain";
+} from "../typechain-types";
 import {createWalletOwner, fund, getBalance, ONE_ETH} from "./testutils";
 import {fillUserOp, packUserOp, signUserOp} from "../src/userop/UserOp";
 import {parseEther} from "ethers/lib/utils";

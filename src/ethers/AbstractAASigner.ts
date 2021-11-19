@@ -1,7 +1,7 @@
 import {BigNumber, BigNumberish, Bytes, Contract, Event, providers, Signer} from "ethers";
 import {Provider, TransactionRequest} from "@ethersproject/providers";
 import {Deferrable, resolveProperties} from "@ethersproject/properties";
-import {EntryPoint, EntryPoint__factory} from "../../typechain";
+import {EntryPoint, EntryPoint__factory} from "../../typechain-types";
 import {BytesLike, hexValue} from "@ethersproject/bytes";
 import {TransactionReceipt, TransactionResponse} from "@ethersproject/abstract-provider";
 import {fillAndSign} from "../userop/UserOp";

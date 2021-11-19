@@ -10,19 +10,17 @@ import {
   TestUtil__factory,
   TokenPaymaster,
   TokenPaymaster__factory
-} from "../typechain";
+} from "../typechain-types";
 import {
-  AddressZero,
   createWalletOwner,
   fund,
   getBalance,
-  getTokenBalance, objdump, rethrow,
+  getTokenBalance,
   checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps
 } from "./testutils";
-import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
-import {UserOperation} from "./UserOperation";
-import {Create2Factory} from "../src/Create2Factory";
+import { AddressZero, rethrow } from '../src/userop/utils';
+import { fillAndSign, UserOperation } from '../src';
 
 
 describe("EntryPoint with paymaster", function () {
@@ -105,7 +103,7 @@ describe("EntryPoint with paymaster", function () {
 
         const rcpt = await entryPoint.handleOps([createOp], redeemerAddress, {
           gasLimit: 1e7,
-        }).catch(rethrow()).then(tx => tx!.wait())
+        }).then(tx => tx.wait())
         console.log('\t== create gasUsed=', rcpt!.gasUsed.toString())
         await calcGasUsage(rcpt, entryPoint)
         created = true

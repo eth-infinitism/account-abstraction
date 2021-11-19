@@ -1,7 +1,7 @@
 import {AbstractAASigner} from "./AbstractAASigner";
 import {BytesLike} from "@ethersproject/bytes";
 import {TransactionRequest} from "@ethersproject/providers";
-import {SimpleWallet__factory} from '../../typechain'
+import {SimpleWallet__factory} from '../../typechain-types'
 import {Contract} from "ethers";
 
 export class SimpleWalletSigner extends  AbstractAASigner {

@@ -7,3 +7,4 @@ artifacts
 /typechain/
 /dist/
 /yarn-error.log
+/typechain-types/

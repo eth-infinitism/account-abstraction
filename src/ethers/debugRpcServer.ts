@@ -1,5 +1,5 @@
 import {ethers, Signer} from "ethers";
-import {EntryPoint__factory} from "../../typechain";
+import {EntryPoint__factory} from "../../typechain-types";
 import http from 'http'
 import axios from "axios";
 

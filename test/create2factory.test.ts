@@ -1,9 +1,9 @@
 import {Create2Factory} from "../src/Create2Factory";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {TestToken__factory} from "../typechain";
 import {Provider} from "@ethersproject/providers";
 import {Signer} from "ethers";
+import { TestToken__factory } from "../typechain-types";
 
 describe('test Create2Factory', () => {
   let factory: Create2Factory

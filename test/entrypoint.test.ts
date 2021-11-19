@@ -10,7 +10,7 @@ import {
   TestCounter__factory,
   TestUtil,
   TestUtil__factory,
-} from "../typechain";
+} from "../typechain-types";
 import {
   createWalletOwner,
   fund,

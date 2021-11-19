@@ -2,7 +2,7 @@ import {UserOperation} from "../userop/UserOperation";
 import {SendUserOp} from "./AbstractAASigner";
 import {Signer} from "ethers";
 import {clearInterval} from "timers";
-import {EntryPoint, EntryPoint__factory} from "../../typechain";
+import {EntryPoint, EntryPoint__factory} from "../../typechain-types";
 
 const debug = require('debug')('aa.userop.queue')
 

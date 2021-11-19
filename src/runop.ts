@@ -2,7 +2,7 @@
 // "yarn run runop [--network ...]"
 import hre, {ethers} from 'hardhat'
 import {eventDump, tostr} from "../test/testutils";
-import {TestCounter__factory, EntryPoint__factory} from '../typechain'
+import {TestCounter__factory, EntryPoint__factory} from '../typechain-types'
 import '../test/aa.init'
 import {parseEther} from "ethers/lib/utils";
 import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
