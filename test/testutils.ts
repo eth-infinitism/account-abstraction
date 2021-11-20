@@ -6,6 +6,7 @@ import {BytesLike} from "@ethersproject/bytes";
 import {expect} from "chai";
 import {Create2Factory} from "../src/Create2Factory";
 import {callDataCost, decodeRevertReason, rethrow} from "../src/userop/utils";
+import {entryPointDeployer} from "../src";
 
 export const HashZero = ethers.constants.HashZero
 export const ONE_ETH = parseEther('1');
@@ -144,11 +145,6 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
 
 export async function deployEntryPoint(perOpOverhead: number, unstakeDelayBlocks: number): Promise<EntryPoint> {
   let provider = ethers.provider;
-  const create2factory = new Create2Factory(provider)
-  const epf = new EntryPoint__factory()
-  const ctrParams = defaultAbiCoder.encode(['address', 'uint256', 'uint256'],
-    [Create2Factory.contractAddress, perOpOverhead, unstakeDelayBlocks])
-
-  const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
+  const addr =  await entryPointDeployer(provider, perOpOverhead, unstakeDelayBlocks)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }

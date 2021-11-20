@@ -1,6 +1,6 @@
 {
   "name": "account-abstraction",
-  "version": "0.1.0-a1",
+  "version": "0.2",
   "description": "",
   "main": "dist/src/index.js",
   "scripts": {
@@ -13,8 +13,7 @@
     "ci": "hardhat compile && hardhat test",
     "runop": "hardhat run src/runop.ts ",
     "runop3": "hardhat run src/runop3.ts ",
-    "prepack": "yarn clean && yarn compile && tsc && yarn missing-d.ts-files",
-    "missing-d.ts-files": "cp typechain/*.d.ts dist/typechain/; touch dist/typechain/EntryPoint.js dist/typechain/SimpleWallet.js",
+    "prepack": "yarn clean && yarn compile && tsc",
     "tsc": "tsc"
   },
   "keywords": [],

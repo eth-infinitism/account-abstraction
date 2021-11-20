@@ -34,17 +34,25 @@ export class Create2Factory {
     const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'], this.signer)
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
     if (gasLimit == 'estimate') {
-      gasLimit = await factory.deploy(initCode, saltBytes32)
+      // gasLimit = await factory.estimateGas.deploy(initCode, saltBytes32)
+      //manual estimation:
+      //actual cost is somewhat smaller (should be calculated only deposited on code,
+      // not entire constructor)
+      const deploymentCost = 200 * initCode.length / 2;
+      const callDataCost = arrayify(initCode)
+        .map(x => x == 0 ? 4 : 16)
+        .reduce((sum, x) => sum + x);
+      //other gas price components are by far smaller, and are less than
+      // the skew we have in deploymentCost.
+      // we still compute them for completeness:
+      const hashCost = 6 * Math.ceil(initCode.length / 64);
+      gasLimit = deploymentCost
+        + callDataCost
+        + hashCost
+        + 32000
+        + 21000
     }
 
-    //manual estimation (its bit larger: we don't know actual deployed code size)
-    gasLimit = gasLimit ?? arrayify(initCode)
-        .map(x => x == 0 ? 4 : 16)
-        .reduce((sum, x) => sum + x)
-      + 200 * initCode.length / 2 //actual is usually somewhat smaller (only deposited code, not entire constructor)
-      + 6 * Math.ceil(initCode.length / 64) //hash price. very minor compared to deposit costs
-      + 32000
-      + 21000
     const ret = await factory.deploy(initCode, saltBytes32, {gasLimit})
     const r = await ret.wait()
     return addr
@@ -80,7 +88,7 @@ export class Create2Factory {
     await (signer ?? this.signer).sendTransaction({
       to: Create2Factory.factoryDeployer,
       value: BigNumber.from(Create2Factory.factoryDeploymentFee)
-    }).then(tx=>tx.wait())
+    }).then(tx => tx.wait())
     await this.provider.sendTransaction(Create2Factory.factoryTx)
     if (!await this._isFactoryDeployed()) {
       throw new Error('fatal: failed to deploy Eip2470factory')
