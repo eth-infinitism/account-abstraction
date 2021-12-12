@@ -31,6 +31,7 @@ import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {parseEther} from "ethers/lib/utils";
+import { debugTransaction } from './debugTx';
 
 describe("EntryPoint", function () {
 
@@ -278,6 +279,28 @@ describe("EntryPoint", function () {
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
         await calcGasUsage(rcpt, entryPoint, redeemerAddress)
+      });
+
+      it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
+        const op = await fillAndSign({
+          sender: wallet.address,
+          callData: walletExecFromEntryPoint.data,
+          maxPriorityFeePerGas: 10e9,
+          maxFeePerGas: 10e9,
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, walletOwner, entryPoint)
+        const redeemerAddress = Wallet.createRandom().address
+
+        // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
+        const rcpt = await entryPoint.handleOps([op], redeemerAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }).then(t => t.wait())
+
+        const ops = await debugTransaction(rcpt.transactionHash).then(tx=>tx.structLogs.map(op=>op.op))
+        expect(ops).to.include('GAS')
+        expect(ops).to.not.include('BASEFEE')
       });
 
       it('if wallet has a stake, it should use it to pay', async function () {

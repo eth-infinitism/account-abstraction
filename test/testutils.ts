@@ -10,6 +10,7 @@ import {
 } from "../typechain";
 import {expect} from "chai";
 import {Create2Factory} from "../src/Create2Factory";
+import { debugTransaction } from "./debugTx";
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -185,8 +186,8 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
     disableStorage: true
   }])
 
-  const tx = await debugTx(txHash)
-  const logs = tx.structLogs as { op: string; depth: number }[]
+  const tx = await debugTransaction(txHash)
+  const logs = tx.structLogs
   const balanceOfs = logs.map((op,index)=>({op: op.op, index})).filter(op=>op.op=='SELFBALANCE')
   expect(balanceOfs.length).to.equal(2, "expected exactly 2 calls to SELFBALANCE (Before and after validateUserOp)")
   const validateWalletOps = logs.slice(0,balanceOfs[1].index-1)
@@ -197,7 +198,6 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   expect(ops).to.not.include('BASEFEE')
   expect(ops).to.not.include('GASPRICE')
-
   if ( checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
@@ -205,13 +205,13 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   }
 }
 
-export async function deployEntryPoint(perOpOverhead:number, unstakeDelayBlocks:number ): Promise<EntryPoint> {
+export async function deployEntryPoint(perOpOverhead: number, unstakeDelayBlocks: number): Promise<EntryPoint> {
   let provider = ethers.provider;
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory()
   const ctrParams = defaultAbiCoder.encode(['address', 'uint256', 'uint256'],
     [Create2Factory.contractAddress, perOpOverhead, unstakeDelayBlocks])
 
-  const addr = await create2factory.deploy(hexConcat([ epf.bytecode, ctrParams]),0)
+  const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
