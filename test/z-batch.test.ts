@@ -265,7 +265,7 @@ describe("Batch gas testing", function () {
 
     // console.log('slack=', ((senderRedeemed - senderPaid) * 100 / senderPaid).toFixed(2), '%', opGasUsed - opGasPaid)
     const dumpResult = async () => {
-      console.log('==>', `${title} (count=${count}) : `.padEnd(30), 'per-op gas overpaid:', opGasPaid - opGasUsed, 'entryPoint perOpOverhead=', await entryPoint.perOpOverhead().then(tonumber))
+      console.log('==>', `${title} (count=${count}) : `.padEnd(30), 'per-op gas overpaid:', opGasPaid - opGasUsed)
     }
     await dumpResult()
     results.push(dumpResult)

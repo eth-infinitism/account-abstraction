@@ -12,7 +12,7 @@ contract TestUtil {
     }
 
     function prefund(UserOperation calldata op) public view returns (uint) {
-        return op.requiredPreFund(0);
+        return op.requiredPreFund();
     }
 
 }

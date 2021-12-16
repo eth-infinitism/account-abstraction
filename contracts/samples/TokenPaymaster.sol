@@ -81,6 +81,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     // BUT: if the user changed its balance and that postOp reverted, then it gets called again, after reverting
     // the user's TX
     function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external override {
+        require(msg.sender == address(entryPoint), "only from entryPoint");
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
         address sender = abi.decode(context, (address));

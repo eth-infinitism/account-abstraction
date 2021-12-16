@@ -13,9 +13,6 @@ interface ICreate2Deployer {
 contract EntryPoint is StakeManager {
 
     using UserOperationLib for UserOperation;
-    // paymaster locked stake
-    // (actual stake should be higher, to cover actual call cost)
-    uint256 constant PAYMASTER_STAKE = 1 ether;
 
     enum PaymentMode {
         paymasterStake, // if paymaster is set, use paymaster's stake to pay.
@@ -23,7 +20,7 @@ contract EntryPoint is StakeManager {
         walletEth // wallet has no stake. paying with eth.
     }
 
-    uint public immutable perOpOverhead;
+    uint public immutable paymasterStake;
     address public immutable create2factory;
 
     event UserOperationEvent(address indexed sender, address indexed paymaster, uint nonce, uint actualGasCost, uint actualGasPrice, bool success);
@@ -40,9 +37,14 @@ contract EntryPoint is StakeManager {
     //  only to aid troubleshooting of wallet/paymaster reverts
     error FailedOp(uint opIndex, address paymaster, string reason);
 
-    constructor(address _create2factory, uint _perOpOverhead, uint32 _unstakeDelayBlocks) StakeManager(_unstakeDelayBlocks) {
+    /**
+     * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that it can be upgraded)
+     * @param _paymasterStake - locked stake of paymaster (actual value should also cover TX cost)
+     * @param _unstakeDelayBlocks - minimum time a paymaster stake must be locked
+     */
+    constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelayBlocks) StakeManager(_unstakeDelayBlocks) {
         create2factory = _create2factory;
-        perOpOverhead = _perOpOverhead;
+        paymasterStake = _paymasterStake;
     }
 
     receive() external payable {}
@@ -57,7 +59,7 @@ contract EntryPoint is StakeManager {
         uint preGas = gasleft();
 
         (uint256 prefund, PaymentMode paymentMode, bytes memory context) = _validatePrepayment(0, op);
-        uint preOpGas = preGas - gasleft() + perOpOverhead;
+        uint preOpGas = preGas - gasleft() + op.preVerificationGas;
 
         uint actualGasCost;
 
@@ -92,7 +94,7 @@ contract EntryPoint is StakeManager {
             (prefunds[i], paymentModes[i], context) = _validatePrepayment(i, op);
             assembly {contextOffset := context}
             contexts[i] = contextOffset;
-            preOpGas[i] = preGas - gasleft() + perOpOverhead;
+            preOpGas[i] = preGas - gasleft() + op.preVerificationGas;
         }
 
         uint collected = 0;
@@ -159,7 +161,7 @@ contract EntryPoint is StakeManager {
     }
 
     function getPaymentInfo(UserOperation calldata userOp) internal view returns (uint requiredPrefund, PaymentMode paymentMode) {
-        requiredPrefund = userOp.requiredPreFund(perOpOverhead);
+        requiredPrefund = userOp.requiredPreFund();
         if (userOp.hasPaymaster()) {
             paymentMode = PaymentMode.paymasterStake;
         } else if (isStaked(userOp.getSender(), requiredPrefund, 0)) {
@@ -357,8 +359,11 @@ contract EntryPoint is StakeManager {
         stakes[userOp.getSender()].stake += uint96(refund);
     }
 
+    //validate a paymaster has enough stake (including for payment for this TX)
+    // NOTE: when submitting a batch, caller has to make sure a paymaster has enough stake to cover
+    // all its transactions in the batch.
     function isValidStake(UserOperation calldata userOp, uint requiredPreFund) internal view returns (bool) {
-        return isPaymasterStaked(userOp.paymaster, PAYMASTER_STAKE + requiredPreFund);
+        return isPaymasterStaked(userOp.paymaster, paymasterStake + requiredPreFund);
     }
 
     function isPaymasterStaked(address paymaster, uint stake) public view returns (bool) {
