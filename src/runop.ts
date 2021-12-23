@@ -15,8 +15,11 @@ import {BigNumber, providers} from "ethers";
 (async () => {
   await hre.run('deploy')
   console.log('net=', hre.network.name)
-  if (hre.network.name != 'hardhat')
+  const chainId = await hre.getChainId()
+  if (!chainId.match(/1337/)) {
+    console.log('chainid=', chainId)
     await hre.run('etherscan-verify')
+  }
   const [entryPointAddress, walletAddress, testCounterAddress] = await Promise.all([
     hre.deployments.get('EntryPoint').then(d => d.address),
     hre.deployments.get('SimpleWallet').then(d => d.address),
@@ -29,10 +32,10 @@ import {BigNumber, providers} from "ethers";
   let sendUserOp
 
   const url = process.env.AA_URL
-  if ( url!=null )
-      sendUserOp = rpcUserOpSender(new providers.JsonRpcProvider(url))
+  if (url != null)
+    sendUserOp = rpcUserOpSender(new providers.JsonRpcProvider(url))
   else
-      sendUserOp = localUserOpSender(entryPointAddress, ethersSigner);
+    sendUserOp = localUserOpSender(entryPointAddress, ethersSigner);
 
   const aasigner = new AASigner(ethersSigner, entryPointAddress, sendUserOp)
   await aasigner.connectWalletAddress(walletAddress)
@@ -66,7 +69,7 @@ import {BigNumber, providers} from "ethers";
   let gasPaid = prebalance.sub(await provider.getBalance(myAddress))
   console.log('counter after=', await testCounter.counters(myAddress), 'paid=', gasPaid.toNumber() / 1e9, 'gasUsed=', rcpt.gasUsed)
   const logs = await entryPoint.queryFilter('*' as any, rcpt.blockNumber)
-  console.log(logs.map((e:any)=>({ev:e.event, ...objdump(e.args!)})))
+  console.log(logs.map((e: any) => ({ev: e.event, ...objdump(e.args!)})))
 
 
 })();

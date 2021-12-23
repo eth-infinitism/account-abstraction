@@ -5,6 +5,7 @@
   "scripts": {
     "clean": "rm -rf cache artifacts typechain",
     "compile": "./scripts/hh-wrapper compile && yarn run makeUserOps",
+    "tsc": "tsc",
     "makeUserOps": "./scripts/makeUserOps",
     "test": "./scripts/hh-wrapper test",
     "deploy": "./scripts/hh-wrapper deploy",

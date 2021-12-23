@@ -40,9 +40,9 @@ contract EntryPoint is StakeManager {
     /**
      * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that it can be upgraded)
      * @param _paymasterStake - locked stake of paymaster (actual value should also cover TX cost)
-     * @param _unstakeDelayBlocks - minimum time a paymaster stake must be locked
+     * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
-    constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelayBlocks) StakeManager(_unstakeDelayBlocks) {
+    constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
         create2factory = _create2factory;
         paymasterStake = _paymasterStake;
     }
@@ -367,7 +367,7 @@ contract EntryPoint is StakeManager {
     }
 
     function isPaymasterStaked(address paymaster, uint stake) public view returns (bool) {
-        return isStaked(paymaster, stake, unstakeDelayBlocks);
+        return isStaked(paymaster, stake, unstakeDelaySec);
     }
 
     function isContractDeployed(address addr) external view returns (bool) {
