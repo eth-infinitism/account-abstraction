@@ -24,11 +24,12 @@ import {
   deployEntryPoint,
   getBalance, objdump
 } from "./testutils";
-import {fillAndSign} from "../src/userop/UserOp";
-import {UserOperation} from "../src/userop/UserOperation";
+import {fillAndSign} from "../src";
+import {UserOperation} from "../src";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {parseEther} from "ethers/lib/utils";
+import {debugTransaction} from './debugTx';
 import {AddressZero, rethrow} from "../src/userop/utils";
 
 describe("EntryPoint", function () {
@@ -41,14 +42,15 @@ describe("EntryPoint", function () {
   let ethersSigner = ethers.provider.getSigner();
   let wallet: SimpleWallet
 
-  const unstakeDelayBlocks = 2
+  const unstakeDelaySec = 2
+  const paymasterStake = ethers.utils.parseEther('1')
 
   before(async function () {
 
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(0,unstakeDelayBlocks)
+    entryPoint = await deployEntryPoint(paymasterStake, unstakeDelaySec)
 
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
@@ -60,8 +62,8 @@ describe("EntryPoint", function () {
   describe('Stake Management', () => {
 
     //compare as strings
-    function str(obj:any) {
-      return JSON.stringify(objdump(obj),null,2)
+    function str(obj: any) {
+      return JSON.stringify(objdump(obj), null, 2)
     }
 
     let addr: string
@@ -83,11 +85,11 @@ describe("EntryPoint", function () {
       })
       it('should report "staked" state', async () => {
         expect(await entryPoint.isPaymasterStaked(addr, 0)).to.eq(true)
-        const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
-        expect(str({stake, withdrawStake, withdrawBlock})).to.eq(str({
+        const {stake, withdrawStake, withdrawTime} = await entryPoint.getStakeInfo(addr)
+        expect(str({stake, withdrawStake, withdrawTime})).to.eq(str({
           stake: parseEther('2'),
           withdrawStake: BigNumber.from(0),
-          withdrawBlock: 0
+          withdrawTime: 0
         }))
       })
 
@@ -110,12 +112,12 @@ describe("EntryPoint", function () {
           expect(await entryPoint.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
         })
         it('should report unstake state', async () => {
-          const withdrawBlock1 = await ethers.provider.getBlockNumber() + unstakeDelayBlocks
-          const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
-          expect(str({stake, withdrawStake, withdrawBlock})).to.eql(str({
+          const withdrawTime1 = await ethers.provider.getBlock('latest').then(block => block.timestamp) + unstakeDelaySec
+          const {stake, withdrawStake, withdrawTime} = await entryPoint.getStakeInfo(addr)
+          expect(str({stake, withdrawStake, withdrawTime})).to.eql(str({
             stake: BigNumber.from(0),
             withdrawStake: parseEther('3'),
-            withdrawBlock: withdrawBlock1
+            withdrawTime: withdrawTime1
           }))
           expect(await entryPoint.isPaymasterStaked(addr, TWO_ETH)).to.eq(false)
         })
@@ -127,8 +129,8 @@ describe("EntryPoint", function () {
         })
         describe('after unstake delay', () => {
           before(async () => {
-            // dummy 2 transactions to advance blocks
-            await ethersSigner.sendTransaction({to: addr})
+            // dummy transaction and increase time by 2 seconds
+            ethers.provider.send('evm_increaseTime', [2])
             await ethersSigner.sendTransaction({to: addr})
           })
           it('adding stake should reset "unlockStake"', async () => {
@@ -138,11 +140,11 @@ describe("EntryPoint", function () {
 
               await ethersSigner.sendTransaction({to: addr})
               await entryPoint.addStake(2, {value: ONE_ETH})
-              const {stake, withdrawStake, withdrawBlock} = await entryPoint.getStakeInfo(addr)
-              expect(str({stake, withdrawStake, withdrawBlock})).to.eql(str({
+              const {stake, withdrawStake, withdrawTime} = await entryPoint.getStakeInfo(addr)
+              expect(str({stake, withdrawStake, withdrawTime})).to.eql(str({
                 stake: parseEther('4'),
                 withdrawStake: parseEther('0'),
-                withdrawBlock: 0
+                withdrawTime: 0
               }))
             } finally {
               await ethers.provider.send('evm_revert', [snap])
@@ -160,12 +162,12 @@ describe("EntryPoint", function () {
             const addr1 = createWalletOwner().address
             await entryPoint.withdrawStake(addr1)
             expect(await ethers.provider.getBalance(addr1)).to.eq(withdrawStake)
-            const {stake, withdrawStake: withdrawStakeAfter, withdrawBlock} = await entryPoint.getStakeInfo(addr)
+            const {stake, withdrawStake: withdrawStakeAfter, withdrawTime} = await entryPoint.getStakeInfo(addr)
 
-            expect(str({stake, withdrawStakeAfter, withdrawBlock})).to.eql(str({
+            expect(str({stake, withdrawStakeAfter, withdrawTime})).to.eql(str({
               stake: BigNumber.from(0),
               withdrawStakeAfter: BigNumber.from(0),
-              withdrawBlock: 0
+              withdrawTime: 0
             }))
           })
           it('should fail to withdraw again', async () => {
@@ -177,10 +179,10 @@ describe("EntryPoint", function () {
     describe('with deposit (stake without lock)', () => {
       let owner: string
       let wallet: SimpleWallet
-      before(async()=>{
+      before(async () => {
         owner = await ethersSigner.getAddress()
         wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, owner)
-        await wallet.addDeposit({value:ONE_ETH})
+        await wallet.addDeposit({value: ONE_ETH})
         expect(await getBalance(wallet.address)).to.equal(0)
       })
       it('should fail to unlock deposit (its not locked)', async () => {
@@ -283,6 +285,28 @@ describe("EntryPoint", function () {
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
         await calcGasUsage(rcpt, entryPoint, redeemerAddress)
+      });
+
+      it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
+        const op = await fillAndSign({
+          sender: wallet.address,
+          callData: walletExecFromEntryPoint.data,
+          maxPriorityFeePerGas: 10e9,
+          maxFeePerGas: 10e9,
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, walletOwner, entryPoint)
+        const redeemerAddress = Wallet.createRandom().address
+
+        // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
+        const rcpt = await entryPoint.handleOps([op], redeemerAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }).then(t => t.wait())
+
+        const ops = await debugTransaction(rcpt.transactionHash).then(tx => tx.structLogs.map(op => op.op))
+        expect(ops).to.include('GAS')
+        expect(ops).to.not.include('BASEFEE')
       });
 
       it('if wallet has a stake, it should use it to pay', async function () {

@@ -3,8 +3,8 @@ import {DeployFunction} from 'hardhat-deploy/types';
 import {Create2Factory} from "../src/Create2Factory";
 import {ethers} from "hardhat";
 
-const PER_OP_OVERHEAD = 22000;
-const UNSTAKE_DELAY_BLOCKS = 100;
+const UNSTAKE_DELAY_SEC = 100;
+const PAYMASTER_STAKE = ethers.utils.parseEther('1')
 
 const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const provider = ethers.provider;
@@ -14,7 +14,7 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
     const ret = await hre.deployments.deploy(
         'EntryPoint', {
             from,
-            args: [Create2Factory.contractAddress, PER_OP_OVERHEAD, UNSTAKE_DELAY_BLOCKS],
+      	    args: [Create2Factory.contractAddress, PAYMASTER_STAKE, UNSTAKE_DELAY_SEC],
             deterministicDeployment: true
         })
     console.log('==entrypoint addr=', ret.address)

@@ -1,11 +1,11 @@
 import {ethers} from "hardhat";
-import {defaultAbiCoder, hexConcat, parseEther} from "ethers/lib/utils";
-import {Contract, ContractReceipt, Event, Wallet} from "ethers";
+import {parseEther} from "ethers/lib/utils";
+import {BigNumberish, Contract, ContractReceipt, Event, Wallet} from "ethers";
 import {EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory} from '../typechain-types'
 import {BytesLike} from "@ethersproject/bytes";
 import {expect} from "chai";
-import {Create2Factory} from "../src/Create2Factory";
 import {callDataCost, decodeRevertReason, rethrow} from "../src/userop/utils";
+import {debugTransaction} from "./debugTx";
 import {entryPointDeployer} from "../src";
 
 export const HashZero = ethers.constants.HashZero
@@ -124,27 +124,27 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
     disableStorage: true
   }])
 
-  const tx = await debugTx(txHash)
-  const logs = tx.structLogs as { op: string; depth: number }[]
-  const balanceOfs = logs.map((op,index)=>({op: op.op, index})).filter(op=>op.op=='SELFBALANCE')
+  const tx = await debugTransaction(txHash)
+  const logs = tx.structLogs
+  const balanceOfs = logs.map((op, index) => ({op: op.op, index})).filter(op => op.op == 'SELFBALANCE')
   expect(balanceOfs.length).to.equal(2, "expected exactly 2 calls to SELFBALANCE (Before and after validateUserOp)")
-  const validateWalletOps = logs.slice(0,balanceOfs[1].index-1)
-  const validatePaymasterOps = logs.slice(balanceOfs[1].index+1)
-  const ops = validateWalletOps.filter(log=>log.depth>1).map(log => log.op)
-  const paymasterOps = validatePaymasterOps.filter(log=>log.depth>1).map(log => log.op)
+  const validateWalletOps = logs.slice(0, balanceOfs[1].index - 1)
+  const validatePaymasterOps = logs.slice(balanceOfs[1].index + 1)
+  const ops = validateWalletOps.filter(log => log.depth > 1).map(log => log.op)
+  const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   expect(ops).to.not.include('BASEFEE')
   expect(ops).to.not.include('GASPRICE')
-  if ( checkPaymaster) {
+  if (checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
     expect(paymasterOps).to.not.include('GASPRICE')
   }
 }
 
-export async function deployEntryPoint(perOpOverhead: number, unstakeDelayBlocks: number): Promise<EntryPoint> {
+export async function deployEntryPoint(paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish): Promise<EntryPoint> {
   let provider = ethers.provider;
-  const addr =  await entryPointDeployer(provider, perOpOverhead, unstakeDelayBlocks)
+  const addr =  await entryPointDeployer(provider, paymasterStake, unstakeDelaySecs)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }

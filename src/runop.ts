@@ -10,8 +10,11 @@ import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
 (async () => {
   await hre.run('deploy')
   console.log('net=', hre.network.name)
-  if (hre.network.name != 'hardhat')
+  const chainId = await hre.getChainId()
+  if (!chainId.match(/1337/)) {
+    console.log('chainid=', chainId)
     await hre.run('etherscan-verify')
+  }
   const [entryPointAddress, walletAddress, testCounterAddress] = await Promise.all([
     hre.deployments.get('EntryPoint').then(d => d.address),
     hre.deployments.get('SimpleWallet').then(d => d.address),
@@ -21,8 +24,7 @@ import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
   let provider = ethers.provider;
   const ethersSigner = provider.getSigner()
 
-  const chainId = await provider.getNetwork().then(net => net.chainId)
-  if (chainId == 1337 || chainId == 31337) {
+  if (chainId.match(/1337/)) {
     SimpleWalletSigner.eventsPollingInterval = 100
   }
 

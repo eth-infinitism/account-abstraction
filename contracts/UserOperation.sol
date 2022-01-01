@@ -32,7 +32,7 @@ library UserOperationLib {
         uint maxFeePerGas = userOp.maxFeePerGas;
         uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         if (maxFeePerGas == maxPriorityFeePerGas) {
-            //legacy mode (for networks that don't support basefee opcode
+            //legacy mode (for networks that don't support basefee opcode)
             return maxFeePerGas;
         }
         return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
@@ -45,8 +45,8 @@ library UserOperationLib {
     }
     }
 
-    function requiredPreFund(UserOperation calldata userOp, uint overhead) internal view returns (uint prefund) {
-        return (requiredGas(userOp) + overhead) * gasPrice(userOp);
+    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint prefund) {
+        return requiredGas(userOp) * gasPrice(userOp);
     }
 
     function hasPaymaster(UserOperation calldata userOp) internal pure returns (bool) {
