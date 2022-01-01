@@ -16,8 +16,7 @@ contract EntryPoint is StakeManager {
 
     enum PaymentMode {
         paymasterStake, // if paymaster is set, use paymaster's stake to pay.
-        walletStake, // wallet has enough stake to pay for request.
-        walletEth // wallet has no stake. paying with eth.
+        walletStake // pay with wallet deposit.
     }
 
     uint public immutable paymasterStake;
@@ -31,7 +30,7 @@ contract EntryPoint is StakeManager {
     //handleOps reverts with this error struct, to mark the offending op
     // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
     // @param opIndex - index into the array of ops to the failed one (in simulateOp, this is always zero)
-    // @param paymaster - if paymaster.verifyPaymasterUserOp fails, this will be the paymaster's address. if verifyUserOp failed,
+    // @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
     //      this value will be zero (since it failed before accessing the paymaster)
     // @param reason - revert reason
     //  only to aid troubleshooting of wallet/paymaster reverts
@@ -47,14 +46,12 @@ contract EntryPoint is StakeManager {
         paymasterStake = _paymasterStake;
     }
 
-    receive() external payable {}
-
     /**
      * Execute the given UserOperation.
      * @param op the operation to execute
-     * @param redeemer the contract to redeem the fee
+     * @param beneficiary the address to receive the fees
      */
-    function handleOp(UserOperation calldata op, address payable redeemer) public {
+    function handleOp(UserOperation calldata op, address payable beneficiary) public {
 
         uint preGas = gasleft();
 
@@ -70,14 +67,20 @@ contract EntryPoint is StakeManager {
             actualGasCost = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, context, actualGas, prefund, paymentMode);
         }
 
-        redeem(redeemer, actualGasCost);
+        compensate(beneficiary, actualGasCost);
     }
 
-    function redeem(address payable redeemer, uint amount) internal {
-        redeemer.transfer(amount);
+    function compensate(address payable beneficiary, uint amount) internal {
+        (bool success,) = beneficiary.call{value : amount}("");
+        require(success);
     }
 
-    function handleOps(UserOperation[] calldata ops, address payable redeemer) public {
+    /**
+     * Execute a batch of UserOperation.
+     * @param ops the operations to execute
+     * @param beneficiary the address to receive the fees
+     */
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
 
         uint opslen = ops.length;
         uint256[] memory preOpGas = new uint256[](opslen);
@@ -117,7 +120,7 @@ contract EntryPoint is StakeManager {
             }
         }
 
-        redeem(redeemer, collected);
+        compensate(beneficiary, collected);
     }
 
     function internalHandleOp(UserOperation calldata op, bytes calldata context, uint preOpGas, uint prefund, PaymentMode paymentMode) external returns (uint actualGasCost) {
@@ -128,8 +131,10 @@ contract EntryPoint is StakeManager {
         if (op.callData.length > 0) {
 
             (bool success,bytes memory result) = address(op.getSender()).call{gas : op.callGas}(op.callData);
-            if (!success && result.length > 0) {
-                emit UserOperationRevertReason(op.getSender(), op.nonce, result);
+            if (!success) {
+                if (result.length > 0) {
+                    emit UserOperationRevertReason(op.getSender(), op.nonce, result);
+                }
                 mode = IPaymaster.PostOpMode.opReverted;
             }
         }
@@ -139,9 +144,11 @@ contract EntryPoint is StakeManager {
     }
 
     /**
-     * Simulate a call to wallet.verifyUserOp and paymaster.verifyPaymasterUserOp
+     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
      * Validation succeeds of the call doesn't revert.
-     * The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data
+     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
+     *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
+     *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      */
     function simulateValidation(UserOperation calldata userOp) external {
         _validatePrepayment(0, userOp);
@@ -149,62 +156,57 @@ contract EntryPoint is StakeManager {
     }
 
     /**
-     * Simulate a call for wallet.verifyUserOp.
+     * Simulate a call for wallet.validateUserOp.
      * Call must not revert.
-     * @return gasUsedByPayForSelfOp - gas used by the validation, to pass into simulatePaymasterValidation.
-     * The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the wallet's data
+     * @dev The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the wallet's data
+     * @return gasUsedByValidateUserOp - gas used by the validation, to pass into simulatePaymasterValidation.
      */
-    function simulateWalletValidation(UserOperation calldata userOp) external returns (uint gasUsedByPayForSelfOp){
+    function simulateWalletValidation(UserOperation calldata userOp) external returns (uint gasUsedByValidateUserOp){
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
         (uint requiredPreFund, PaymentMode paymentMode) = getPaymentInfo(userOp);
-        (gasUsedByPayForSelfOp,) = _validateWalletPrepayment(0, userOp, requiredPreFund, paymentMode);
+        (gasUsedByValidateUserOp,) = _validateWalletPrepayment(0, userOp, requiredPreFund, paymentMode);
     }
 
     function getPaymentInfo(UserOperation calldata userOp) internal view returns (uint requiredPrefund, PaymentMode paymentMode) {
         requiredPrefund = userOp.requiredPreFund();
         if (userOp.hasPaymaster()) {
             paymentMode = PaymentMode.paymasterStake;
-        } else if (isStaked(userOp.getSender(), requiredPrefund, 0)) {
-            paymentMode = PaymentMode.walletStake;
         } else {
-            paymentMode = PaymentMode.walletEth;
+            paymentMode = PaymentMode.walletStake;
         }
     }
 
     /**
-     * Simulate a call to paymaster.verifyPaymasterUserOp
+     * Simulate a call to paymaster.validatePaymasterUserOp.
      * do nothing if has no paymaster.
+     * @dev The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the paymaster's data
      * @param userOp the user operation to validate.
-     * @param gasUsedByPayForSelfOp - the gas returned by simulateWalletValidation, as these 2 calls should share
+     * @param gasUsedByValidateUserOp - the gas returned by simulateWalletValidation, as these 2 calls should share
      *  the same userOp.validationGas quota.
-     * The node must also verify it doesn't use banned opcode, and that it doesn't reference storage outside the paymaster's data
      */
-    function simulatePaymasterValidation(UserOperation calldata userOp, uint gasUsedByPayForSelfOp) external view returns (bytes memory context, uint gasUsedByPayForOp){
+    function simulatePaymasterValidation(UserOperation calldata userOp, uint gasUsedByValidateUserOp) external view returns (bytes memory context, uint gasUsedByPayForOp){
         (uint requiredPreFund, PaymentMode paymentMode) = getPaymentInfo(userOp);
         if (paymentMode != PaymentMode.paymasterStake) {
             return ("", 0);
         }
-        return _validatePaymasterPrepayment(0, userOp, requiredPreFund, gasUsedByPayForSelfOp);
+        return _validatePaymasterPrepayment(0, userOp, requiredPreFund, gasUsedByValidateUserOp);
     }
 
-    // get the sender address, or use "create2" to create it.
-    // note that the gas allocation for this creation is deterministic (by the size of callData),
-    // so it is not checked on-chain, and adds to the gas used by verifyUserOp
+    // create the sender's contract if needed.
     function _createSenderIfNeeded(UserOperation calldata op) internal {
         if (op.initCode.length != 0) {
-            //its a create operation. run the create2
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
-            // appending signer makes the request unique, so no one else can make this request.
-            //nonce is meaningless during create, so we re-purpose it as salt
+            // @dev initCode must be unique (e.g. contains the signer address), to make sure
+            //   it can only be executed from the entryPoint, and called with its initialization code (callData)
             address sender1 = ICreate2Deployer(create2factory).deploy(op.initCode, bytes32(op.nonce));
             require(sender1 != address(0), "create2 failed");
             require(sender1 == op.getSender(), "sender doesn't match create2 address");
         }
     }
 
-    //get counterfactual sender address.
-    // use the initCode and salt in the UserOperation tot create this sender contract
+    /// Get counterfactual sender address.
+    ///  Calculate the sender contract address that will be generated by the initCode and salt in the UserOperation.
     function getSenderAddress(bytes memory initCode, uint _salt) public view returns (address) {
         bytes32 hash = keccak256(
             abi.encodePacked(
@@ -219,57 +221,44 @@ contract EntryPoint is StakeManager {
         return address(uint160(uint256(hash)));
     }
 
-    //call wallet.verifyUserOp, and validate that it paid as needed.
+    //call wallet.validateUserOp, and validate that it paid as needed.
     // return actual value sent from wallet to "this"
-    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, uint requiredPrefund, PaymentMode paymentMode) internal returns (uint gasUsedByPayForSelfOp, uint prefund) {
+    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, uint requiredPrefund, PaymentMode paymentMode) internal returns (uint gasUsedByValidateUserOp, uint prefund) {
         uint preGas = gasleft();
         _createSenderIfNeeded(op);
-        uint preBalance = address(this).balance;
-        uint requiredEthPrefund = 0;
-        if (paymentMode == PaymentMode.walletEth) {
-            requiredEthPrefund = requiredPrefund;
-        } else if (paymentMode == PaymentMode.walletStake) {
-            _prefundFromSender(op, requiredPrefund);
-        } else {
-            // paymaster pays in handlePostOp
+        uint missingWalletFunds = 0;
+        address sender = op.getSender();
+        if (paymentMode != PaymentMode.paymasterStake) {
+            uint bal = balanceOf(sender);
+            missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        try IWallet(op.getSender()).verifyUserOp{gas : op.verificationGas}(op, requiredEthPrefund) {
+        try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, missingWalletFunds) {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
             revert FailedOp(opIndex, address(0), "");
         }
-        uint actualEthPrefund = address(this).balance - preBalance;
-
-        if (paymentMode == PaymentMode.walletEth) {
-            if (actualEthPrefund < requiredEthPrefund) {
+        if (paymentMode != PaymentMode.paymasterStake) {
+            if (requiredPrefund > balanceOf(sender)) {
                 revert FailedOp(opIndex, address(0), "wallet didn't pay prefund");
             }
-            prefund = actualEthPrefund;
-        } else if (paymentMode == PaymentMode.walletStake) {
-            if (actualEthPrefund != 0) {
-                revert FailedOp(opIndex, address(0), "using wallet stake but wallet paid eth");
-            }
+            internalDecrementDeposit(sender, requiredPrefund);
             prefund = requiredPrefund;
         } else {
-            if (actualEthPrefund != 0) {
-                revert FailedOp(opIndex, address(0), "has paymaster but wallet paid");
-            }
-            prefund = requiredPrefund;
+            prefund = 0;
         }
-
-        gasUsedByPayForSelfOp = preGas - gasleft();
+        gasUsedByValidateUserOp = preGas - gasleft();
     }
 
-    //validate paymaster.verifyPaymasterUserOp
-    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, uint requiredPreFund, uint gasUsedByPayForSelfOp) internal view returns (bytes memory context, uint gasUsedByPayForOp) {
+    //validate paymaster.validatePaymasterUserOp
+    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, uint requiredPreFund, uint gasUsedByValidateUserOp) internal view returns (bytes memory context, uint gasUsedByPayForOp) {
         uint preGas = gasleft();
         if (!isValidStake(op, requiredPreFund)) {
             revert FailedOp(opIndex, op.paymaster, "not enough stake");
         }
         //no pre-pay from paymaster
-        uint gas = op.verificationGas - gasUsedByPayForSelfOp;
-        try IPaymaster(op.paymaster).verifyPaymasterUserOp{gas : gas}(op, requiredPreFund) returns (bytes memory _context){
+        uint gas = op.verificationGas - gasUsedByValidateUserOp;
+        try IPaymaster(op.paymaster).validatePaymasterUserOp{gas : gas}(op, requiredPreFund) returns (bytes memory _context){
             context = _context;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, op.paymaster, revertReason);
@@ -282,15 +271,20 @@ contract EntryPoint is StakeManager {
     function _validatePrepayment(uint opIndex, UserOperation calldata userOp) private returns (uint prefund, PaymentMode paymentMode, bytes memory context){
 
         uint preGas = gasleft();
-        uint gasUsedByPayForSelfOp;
+        uint gasUsedByValidateUserOp;
         uint requiredPreFund;
         (requiredPreFund, paymentMode) = getPaymentInfo(userOp);
 
-        (gasUsedByPayForSelfOp, prefund) = _validateWalletPrepayment(opIndex, userOp, requiredPreFund, paymentMode);
+        (gasUsedByValidateUserOp, prefund) = _validateWalletPrepayment(opIndex, userOp, requiredPreFund, paymentMode);
+
+        //a "marker" where wallet opcode validation is done, by paymaster opcode validation is about to start
+        // (used only by off-chain simulateValidation)
+        uint marker = block.number;
+        (marker);
 
         uint gasUsedByPayForOp = 0;
         if (paymentMode == PaymentMode.paymasterStake) {
-            (context, gasUsedByPayForOp) = _validatePaymasterPrepayment(opIndex, userOp, requiredPreFund, gasUsedByPayForSelfOp);
+            (context, gasUsedByPayForOp) = _validatePaymasterPrepayment(opIndex, userOp, requiredPreFund, gasUsedByValidateUserOp);
         } else {
             context = "";
         }
@@ -304,7 +298,7 @@ contract EntryPoint is StakeManager {
     function getPaymastersStake(address[] calldata paymasters) external view returns (uint[] memory _stakes) {
         _stakes = new uint[](paymasters.length);
         for (uint i = 0; i < paymasters.length; i++) {
-            _stakes[i] = stakes[paymasters[i]].stake;
+            _stakes[i] = deposits[paymasters[i]].amount;
         }
     }
 
@@ -317,11 +311,7 @@ contract EntryPoint is StakeManager {
                 revert ("wallet prefund below actualGasCost");
             }
             uint refund = prefund - actualGasCost;
-            if (paymentMode == PaymentMode.walletStake) {
-                _refundSenderStake(op, refund);
-            } else {
-                _refundSender(op, refund);
-            }
+            internalIncrementDeposit(op.getSender(), refund);
         } else {
             if (context.length > 0) {
                 //if paymaster.postOp reverts:
@@ -336,27 +326,10 @@ contract EntryPoint is StakeManager {
             actualGas += preGas - gasleft();
             actualGasCost = actualGas * gasPrice;
             //paymaster balance known to be high enough, and to be locked for this block
-            stakes[op.paymaster].stake -= uint96(actualGasCost);
+            internalDecrementDeposit(op.paymaster, actualGasCost);
         }
-        _emitLog(op, actualGasCost, gasPrice, mode == IPaymaster.PostOpMode.opSucceeded);
-    }
-
-    function _emitLog(UserOperation calldata op, uint actualGasCost, uint gasPrice, bool success) internal {
+        bool success = mode == IPaymaster.PostOpMode.opSucceeded;
         emit UserOperationEvent(op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
-    }
-
-    function _prefundFromSender(UserOperation calldata userOp, uint requiredPrefund) internal {
-        stakes[userOp.getSender()].stake -= uint96(requiredPrefund);
-    }
-
-    function _refundSender(UserOperation calldata userOp, uint refund) internal {
-        //NOTE: deliberately ignoring revert: wallet should accept refund.
-        bool sendOk = payable(userOp.getSender()).send(refund);
-        (sendOk);
-    }
-
-    function _refundSenderStake(UserOperation calldata userOp, uint refund) internal {
-        stakes[userOp.getSender()].stake += uint96(refund);
     }
 
     //validate a paymaster has enough stake (including for payment for this TX)

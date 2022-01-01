@@ -18,4 +18,4 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
       - run: yarn install
-      - run: yarn run ci
+      - run: FORCE_COLOR=1 yarn run ci

@@ -3,6 +3,10 @@ pragma solidity ^0.8;
 
 import "hardhat/console.sol";
 
+/**
+ * manage deposit of sender or paymaster, to pay for gas.
+ * paymaster must stake some of the deposit.
+ */
 contract StakeManager {
 
     /// minimum number of blocks to after 'unlock' before amount can be withdrawn.
@@ -12,94 +16,130 @@ contract StakeManager {
         unstakeDelaySec = _unstakeDelaySec;
     }
 
-    event StakeAdded(
-        address indexed paymaster,
-        uint256 totalStake,
+    event Deposited(
+        address indexed account,
+        uint256 totalDeposit,
         uint256 unstakeDelaySec
     );
 
+
     /// Emitted once a stake is scheduled for withdrawal
-    event StakeUnlocking(
-        address indexed paymaster,
+    event DepositUnstaked(
+        address indexed account,
         uint256 withdrawTime
     );
 
-    event StakeWithdrawn(
-        address indexed paymaster,
+    event Withdrawn(
+        address indexed account,
         address withdrawAddress,
-        uint256 amount
+        uint256 withdrawAmount
     );
 
-    /// @param stake - amount of ether staked for this paymaster
-    /// @param withdrawStake - once 'unlocked' the value is no longer staked.
-    /// @param withdrawTime - first block timestamp where 'withdraw' will be callable, or zero if the unlock has not been called
-    struct StakeInfo {
-        uint96 stake;
+    /// @param amount of ether deposited for this account
+    /// @param unstakeDelaySec - time the deposit is locked, after calling unlock (or zero if deposit is not locked)
+    /// @param withdrawTime - first block timestamp where 'withdrawTo' will be callable, or zero if not locked
+    struct DepositInfo {
+        uint112 amount;
         uint32 unstakeDelaySec;
-        uint96 withdrawStake;
-        uint32 withdrawTime;
+        uint64 withdrawTime;
     }
 
-    /// maps relay managers to their stakes
-    mapping(address => StakeInfo) public stakes;
+    /// maps accounts to their deposits
+    mapping(address => DepositInfo) public deposits;
 
-    function getStakeInfo(address paymaster) external view returns (StakeInfo memory stakeInfo) {
-        return stakes[paymaster];
+    function getDepositInfo(address account) external view returns (DepositInfo memory info) {
+        return deposits[account];
+    }
+
+    function balanceOf(address account) public view returns (uint) {
+        return deposits[account].amount;
+    }
+
+    receive() external payable {
+        depositTo(msg.sender);
+    }
+
+    function internalIncrementDeposit(address account, uint amount) internal {
+        deposits[account].amount += uint112(amount);
+    }
+
+    function internalDecrementDeposit(address account, uint amount) internal {
+        deposits[account].amount -= uint112(amount);
     }
 
     /**
-     * add a deposit (just like stake, but with lock=0
-     * cancel any pending unlock
+     * add to the deposit of the given account
      */
-    function addDeposit() external payable {
-        addStake(0);
-    }
-
-    //add deposit to another account (doesn't change lock status)
-    function addDepositTo(address target) external payable {
-        stakes[target].stake += uint96(msg.value);
+    function depositTo(address account) public payable {
+        internalIncrementDeposit(account, msg.value);
+        DepositInfo storage info = deposits[account];
+        emit Deposited(msg.sender, info.amount, info.unstakeDelaySec);
     }
 
     /**
-     * add stake value for this paymaster.
-     * cancel any pending unlock
+     * stake the account's deposit.
+     * any pending unstakeDeposit is first cancelled.
+     * can also set (or increase) the deposit with call.
+     * @param _unstakeDelaySec the new lock time before the deposit can be withdrawn.
      */
     function addStake(uint32 _unstakeDelaySec) public payable {
-        require(_unstakeDelaySec >= stakes[msg.sender].unstakeDelaySec, "cannot decrease unstake time");
-        uint96 stake = uint96(stakes[msg.sender].stake + msg.value + stakes[msg.sender].withdrawStake);
-        stakes[msg.sender] = StakeInfo(
-            stake,
+        DepositInfo storage info = deposits[msg.sender];
+        require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
+        uint112 amount = deposits[msg.sender].amount + uint112(msg.value);
+        deposits[msg.sender] = DepositInfo(
+            amount,
             _unstakeDelaySec,
-            0,
             0);
-        emit StakeAdded(msg.sender, stake, _unstakeDelaySec);
+        emit Deposited(msg.sender, amount, _unstakeDelaySec);
     }
 
-    function unlockStake() external {
-        StakeInfo storage info = stakes[msg.sender];
-        require(info.withdrawTime == 0, "already pending");
-        require(info.stake != 0 && info.unstakeDelaySec != 0, "no stake to unlock");
-        uint32 withdrawTime = uint32(block.timestamp) + info.unstakeDelaySec;
+    /**
+     * attempt to unstake the deposit.
+     * the value can be withdrawn (using withdrawTo) after the unstake delay.
+     */
+    function unstakeDeposit() external {
+        DepositInfo storage info = deposits[msg.sender];
+        require(info.withdrawTime == 0, "already unstaking");
+        require(info.unstakeDelaySec != 0, "not staked");
+        uint64 withdrawTime = uint64(block.timestamp) + info.unstakeDelaySec;
         info.withdrawTime = withdrawTime;
-        info.withdrawStake = info.stake;
-        info.stake = 0;
-        emit StakeUnlocking(msg.sender, withdrawTime);
+        emit DepositUnstaked(msg.sender, withdrawTime);
     }
 
-    function withdrawStake(address payable withdrawAddress) external {
-        StakeInfo memory info = stakes[msg.sender];
+    /**
+     * withdraw from the deposit.
+     * will fail if the deposit is already staked or too low.
+     * after a paymaster unlocks and withdraws some of the value, it must call addStake() to stake the value again.
+     * @param withdrawAddress the address to send withdrawn value.
+     * @param withdrawAmount the amount to withdraw.
+     */
+    function withdrawTo(address payable withdrawAddress, uint withdrawAmount) external {
+        DepositInfo memory info = deposits[msg.sender];
         if (info.unstakeDelaySec != 0) {
-            require(info.withdrawStake > 0, "no unlocked stake");
+            require(info.withdrawTime > 0, "must call unstakeDeposit() first");
             require(info.withdrawTime <= block.timestamp, "Withdrawal is not due");
         }
-        uint256 amount = info.withdrawStake + info.stake;
-        stakes[msg.sender] = StakeInfo(0, info.unstakeDelaySec, 0, 0);
-        withdrawAddress.transfer(amount);
-        emit StakeWithdrawn(msg.sender, withdrawAddress, amount);
+        require(withdrawAmount <= info.amount, "Withdraw amount too large");
+
+        // store the remaining value, with stake info cleared.
+        deposits[msg.sender] = DepositInfo(
+            info.amount - uint112(withdrawAmount),
+            0,
+            0);
+        withdrawAddress.transfer(withdrawAmount);
+        emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
     }
 
-    function isStaked(address paymaster, uint requiredStake, uint requiredDelaySec) public view returns (bool) {
-        StakeInfo memory stakeInfo = stakes[paymaster];
-        return stakeInfo.stake >= requiredStake && stakeInfo.unstakeDelaySec >= requiredDelaySec;
+    /**
+     * check if the given account is staked and didn't unlock it yet.
+     * @param account the account (paymaster) to check
+     * @param requiredStake the minimum deposit
+     * @param requiredDelaySec the minimum required stake time.
+     */
+    function isStaked(address account, uint requiredStake, uint requiredDelaySec) public view returns (bool) {
+        DepositInfo memory info = deposits[account];
+        return info.amount >= requiredStake &&
+        info.unstakeDelaySec >= requiredDelaySec &&
+        info.withdrawTime == 0;
     }
 }

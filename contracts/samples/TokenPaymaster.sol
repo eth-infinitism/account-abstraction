@@ -33,7 +33,9 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
         _mint(recipient, amount);
     }
 
-    //owner should call and put eth into it.
+    /**
+     * add stake for this paymaster, using the unstake delay defined by the entryPoint.
+     */
     function addStake() external payable {
         entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec());
     }
@@ -44,7 +46,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     }
 
     // verify that the user has enough tokens.
-    function verifyPaymasterUserOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
+    function validatePaymasterUserOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
         uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {

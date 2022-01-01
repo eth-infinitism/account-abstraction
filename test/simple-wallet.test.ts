@@ -48,7 +48,7 @@ describe("SimpleWallet", function () {
     expect(await testUtil.packUserOp(op)).to.equal(packed)
   });
 
-  describe('#verifyUserOp', () => {
+  describe('#validateUserOp', () => {
     let wallet: SimpleWallet
     let userOp: UserOperation
     let preBalance: number
@@ -64,16 +64,18 @@ describe("SimpleWallet", function () {
       const callGas = 200000
       const verificationGas = 100000
       const maxFeePerGas = 3e9
+      const chainId = await ethers.provider.getNetwork().then(net=>net.chainId)
+
       userOp = signUserOp(fillUserOp({
         sender: wallet.address,
         callGas,
         verificationGas,
         maxFeePerGas,
-      }), walletOwner)
+      }), walletOwner, chainId)
       expectedPay = actualGasPrice * (callGas + verificationGas)
 
       preBalance = await getBalance(wallet.address)
-      const ret = await wallet.verifyUserOp(userOp, expectedPay, {gasPrice: actualGasPrice})
+      const ret = await wallet.validateUserOp(userOp, expectedPay, {gasPrice: actualGasPrice})
       await ret.wait()
     })
 
@@ -89,7 +91,7 @@ describe("SimpleWallet", function () {
       expect(await wallet.nonce()).to.equal(1)
     });
     it('should reject same TX on nonce error', async () => {
-      await expect(wallet.verifyUserOp(userOp, 0)).to.revertedWith("invalid nonce")
+      await expect(wallet.validateUserOp(userOp, 0)).to.revertedWith("invalid nonce")
     });
 
   })

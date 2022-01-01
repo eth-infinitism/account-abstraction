@@ -1,5 +1,5 @@
 import {arrayify, defaultAbiCoder, keccak256} from "ethers/lib/utils";
-import {BigNumber, Contract, Signer, Wallet} from "ethers";
+import {BigNumber, Contract, ethers, Signer, Wallet} from "ethers";
 import {AddressZero, callDataCost, rethrow} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {
@@ -119,8 +119,10 @@ export const DefaultsForUserOp: UserOperation = {
   signature: '0x'
 }
 
-export function signUserOp(op: UserOperation, signer: Wallet): UserOperation {
-  let packed = packUserOp(op);
+export function signUserOp(op: UserOperation, signer: Wallet, chainId: number): UserOperation {
+  const chainIdPadded = chainId!.toString(16).padStart(64,'0')
+  let packed = packUserOp(op) + chainIdPadded
+
   let message = Buffer.from(arrayify(keccak256(packed)));
   let msg1 = Buffer.concat([
     Buffer.from("\x19Ethereum Signed Message:\n32", 'ascii'),
@@ -210,7 +212,9 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
     op2.preVerificationGas = callDataCost(packUserOp(op2, false))
   }
 
-  let packed = packUserOp(op2);
+  const chainId = await provider?.getNetwork().then(net=>net.chainId)
+  const chainIdPadded = chainId!.toString(16).padStart(64,'0')
+  let packed = packUserOp(op2).concat(chainIdPadded)
   let message = Buffer.from(arrayify(keccak256(packed)));
 
   return {

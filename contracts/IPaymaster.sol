@@ -3,13 +3,11 @@ pragma solidity ^0.8.7;
 
 import "./UserOperation.sol";
 
+/**
+ * the interface exposed by a paymaster contract, who agrees to pay the gas for user's operations.
+ * a paymaster must hold a stake to cover the required entrypoint stake and also the gas for the transaction.
+ */
 interface IPaymaster {
-
-    enum PostOpMode {
-        opSucceeded, // user op succeeded
-        opReverted, // user op reverted. still has to pay for gas.
-        postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
-    }
 
     /**
      * payment validation: check if paymaster agree to pay (using its stake)
@@ -20,7 +18,7 @@ interface IPaymaster {
      * @return context value to send to a postOp
      *  zero length to signify postOp is not required.
      */
-    function verifyPaymasterUserOp(UserOperation calldata userOp, uint maxCost) external view returns (bytes memory context);
+    function validatePaymasterUserOp(UserOperation calldata userOp, uint maxCost) external view returns (bytes memory context);
 
     /**
      * post-operation handler.
@@ -30,8 +28,14 @@ interface IPaymaster {
      *      opReverted  - user op reverted. still has to pay for gas.
      *      postOpReverted - user op succeeded, but caused postOp (in mode=opSucceeded) to revert.
      *                       Now this is the 2nd call, after user's op was deliberately reverted.
-     * @param context - the context value returned by verifyPaymasterUserOp
+     * @param context - the context value returned by validatePaymasterUserOp
      * @param actualGasCost - actual gas used so far (without this postOp call).
      */
     function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external;
+
+    enum PostOpMode {
+        opSucceeded, // user op succeeded
+        opReverted, // user op reverted. still has to pay for gas.
+        postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
+    }
 }

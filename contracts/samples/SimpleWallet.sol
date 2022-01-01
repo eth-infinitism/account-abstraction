@@ -63,7 +63,7 @@ contract SimpleWallet is IWallet {
         require(msg.sender == address(entryPoint), "wallet: not from EntryPoint");
     }
 
-    function verifyUserOp(UserOperation calldata userOp, uint requiredPrefund) external override {
+    function validateUserOp(UserOperation calldata userOp, uint requiredPrefund) external override {
         _requireFromEntryPoint();
         _validateSignature(userOp);
         _validateAndIncrementNonce(userOp);
@@ -72,13 +72,12 @@ contract SimpleWallet is IWallet {
 
     function _payPrefund(uint requiredPrefund) internal {
         if (requiredPrefund != 0) {
-            (bool success) = payable(msg.sender).send(requiredPrefund);
-            (success);
-            //ignore failure (its EntryPoint's job to verify, not wallet.)
+            (bool success,) = payable(msg.sender).call{value : requiredPrefund}("");
+            (success); //ignore failure (its EntryPoint's job to verify, not wallet.)
         }
     }
 
-    //called by entryPoint, only after verifyUserOp succeeded.
+    //called by entryPoint, only after validateUserOp succeeded.
     function execFromEntryPoint(address dest, uint value, bytes calldata func) external {
         _requireFromEntryPoint();
         _call(dest, value, func);
@@ -123,11 +122,17 @@ contract SimpleWallet is IWallet {
         }
     }
 
-    function addDeposit() public payable {
-        entryPoint.addDeposit{value : msg.value}();
+    function getDeposit() public view returns (uint) {
+        return entryPoint.balanceOf(address(this));
     }
 
-    function withdrawDeposit(address payable withdrawAddress) public {
-        entryPoint.withdrawStake(withdrawAddress);
+    function addDeposit() public payable {
+
+        (bool req,) = address(entryPoint).call{value : msg.value}("");
+        require(req);
+    }
+
+    function withdrawDepsitTo(address payable withdrawAddress, uint amount) public {
+        entryPoint.withdrawTo(withdrawAddress, amount);
     }
 }
