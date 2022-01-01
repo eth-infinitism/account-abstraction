@@ -55,7 +55,7 @@ import {BigNumber, providers} from "ethers";
 
   if (info.stake.lte(parseEther('0.01'))) {
     console.log('depositing for wallet')
-    entryPoint.addDepositTo(myAddress, {value: parseEther('0.01')})
+    await entryPoint.addDepositTo(myAddress, {value: parseEther('0.01')})
   }
 
   const testCounter = TestCounter__factory.connect(testCounterAddress, aasigner)
