@@ -82,8 +82,8 @@ contract StakeManager {
      * can also set (or increase) the deposit with call.
      * @param _unstakeDelaySec the new lock time before the deposit can be withdrawn.
      */
-    function addStake(uint32 _unstakeDelaySec) public payable {
-        DepositInfo storage info = deposits[msg.sender];
+    function addStakeTo(address account, uint32 _unstakeDelaySec) public payable {
+        DepositInfo storage info = deposits[account];
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint112 amount = deposits[msg.sender].amount + uint112(msg.value);
         deposits[msg.sender] = DepositInfo(

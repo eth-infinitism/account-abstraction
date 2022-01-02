@@ -16,14 +16,12 @@ import {
   createWalletOwner,
   fund,
   getBalance,
-  getTokenBalance, objdump, rethrow,
+  getTokenBalance, rethrow,
   checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
-import {Create2Factory} from "../src/Create2Factory";
-
 
 describe("EntryPoint with paymaster", function () {
 

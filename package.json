@@ -10,7 +10,7 @@
     "test": "./scripts/hh-wrapper test",
     "deploy": "./scripts/hh-wrapper deploy",
     "test-dev": "hardhat test --network dev",
-    "ci": "hardhat compile && hardhat test",
+    "ci": "hardhat compile && hardhat test && yarn run runop",
     "runop": "hardhat run src/runop.ts ",
     "runop3": "hardhat run src/runop3.ts "
   },

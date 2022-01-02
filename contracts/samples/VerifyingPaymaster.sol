@@ -26,7 +26,7 @@ contract VerifyingPaymaster is IPaymaster {
     }
 
     function addStake() external payable {
-        entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec());
+        entryPoint.addStakeTo{value : msg.value}(address(this), entryPoint.unstakeDelaySec());
     }
 
     // verify our external signer signed this request.
@@ -35,7 +35,7 @@ contract VerifyingPaymaster is IPaymaster {
         (requiredPreFund);
 
         bytes32 hash = userOp.hash();
-        require( userOp.paymasterData.length >= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
+        require(userOp.paymasterData.length >= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
         (bytes32 r, bytes32 s) = abi.decode(userOp.paymasterData, (bytes32, bytes32));
         uint8 v = uint8(userOp.paymasterData[64]);
         require(verifyingSigner == ecrecover(hash, v, r, s), "VerifyingPaymaster: wrong signature");

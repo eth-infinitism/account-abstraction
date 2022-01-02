@@ -41,6 +41,7 @@ describe("EntryPoint", function () {
   let testUtil: TestUtil
   let walletOwner: Wallet
   let ethersSigner = ethers.provider.getSigner();
+  let signer: string
   let wallet: SimpleWallet
 
   const globalUnstakeDelaySec = 2
@@ -48,6 +49,7 @@ describe("EntryPoint", function () {
 
   before(async function () {
 
+    signer = await ethersSigner.getAddress()
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
@@ -87,7 +89,7 @@ describe("EntryPoint", function () {
     })
     describe('with stake of 2 eth', () => {
       before(async () => {
-        await entryPoint.addStake(2, {value: TWO_ETH})
+        await entryPoint.addStakeTo(signer, 2, {value: TWO_ETH})
       })
       it('should report "staked" state', async () => {
         expect(await entryPoint.isPaymasterStaked(addr, 0)).to.eq(true)
@@ -99,10 +101,9 @@ describe("EntryPoint", function () {
         })
       })
 
-
       it('should succeed to stake again', async () => {
         const {amount} = await entryPoint.getDepositInfo(addr)
-        await entryPoint.addStake(2, {value: ONE_ETH})
+        await entryPoint.addStakeTo(signer, 2, {value: ONE_ETH})
         const {amount: amountAfter} = await entryPoint.getDepositInfo(addr)
         expect(amountAfter).to.eq(amount.add(ONE_ETH))
       })
@@ -144,7 +145,7 @@ describe("EntryPoint", function () {
               snap = await ethers.provider.send('evm_snapshot', [])
 
               await ethersSigner.sendTransaction({to: addr})
-              await entryPoint.addStake(2, {value: ONE_ETH})
+              await entryPoint.addStakeTo(signer, 2, {value: ONE_ETH})
               const {amount, unstakeDelaySec, withdrawTime} = await entryPoint.getDepositInfo(addr)
               expect({amount, unstakeDelaySec, withdrawTime}).to.eql({
                 amount: parseEther('4'),

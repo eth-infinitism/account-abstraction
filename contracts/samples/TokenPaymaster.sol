@@ -24,7 +24,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) {
         entryPoint = _entryPoint;
         knownWallet = keccak256(type(SimpleWallet).creationCode);
-//        knownWallets[keccak256(type(SimpleWallet).creationCode)] = true;
+        //        knownWallets[keccak256(type(SimpleWallet).creationCode)] = true;
         approve(owner(), type(uint).max);
     }
 
@@ -37,7 +37,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
      * add stake for this paymaster, using the unstake delay defined by the entryPoint.
      */
     function addStake() external payable {
-        entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec());
+        entryPoint.addStakeTo{value : msg.value}(address(this), entryPoint.unstakeDelaySec());
     }
 
     //TODO: this method assumes a fixed ratio of token-to-eth. should use oracle.
@@ -50,13 +50,13 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
         uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {
-            bytes32 bytecodeHash = keccak256(userOp.initCode[0:userOp.initCode.length-64]);
+            bytes32 bytecodeHash = keccak256(userOp.initCode[0 : userOp.initCode.length - 64]);
             require(knownWallet == bytecodeHash, "TokenPaymaster: unknown wallet constructor");
 
             //verify the token constructor params:
             // first param (of 2) should be our entryPoint
-            bytes32 entryPointParam = bytes32(userOp.initCode[userOp.initCode.length-64:]);
-            require( address(uint160(uint256(entryPointParam))) == address(entryPoint), "wrong paymaster in constructor");
+            bytes32 entryPointParam = bytes32(userOp.initCode[userOp.initCode.length - 64 :]);
+            require(address(uint160(uint256(entryPointParam))) == address(entryPoint), "wrong paymaster in constructor");
 
             //TODO: must also whitelist init function (callData), since that what will call "token.approve(paymaster)"
             //no "allowance" check during creation (we trust known constructor/init function)
