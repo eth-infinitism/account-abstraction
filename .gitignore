@@ -10,3 +10,4 @@ artifacts
 /deployments/dev/
 /deployments/localhost/
 /deployments/proxy/
+/typechain-types/

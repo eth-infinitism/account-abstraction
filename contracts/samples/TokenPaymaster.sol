@@ -46,7 +46,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     }
 
     // verify that the user has enough tokens.
-    function validatePaymasterUserOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund) external view override returns (bytes memory context) {
         uint tokenPrefund = ethToToken(requiredPreFund);
 
         if (userOp.initCode.length != 0) {

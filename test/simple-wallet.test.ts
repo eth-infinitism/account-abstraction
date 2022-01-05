@@ -8,8 +8,8 @@ import {
   TestUtil,
   TestUtil__factory
 } from "../typechain";
-import {AddressZero, createWalletOwner, fund, getBalance, ONE_ETH} from "./testutils";
-import {fillUserOp, packUserOp, signUserOp} from "./UserOp";
+import {createWalletOwner, getBalance, ONE_ETH} from "./testutils";
+import {fillUserOp, getRequestId, packUserOp, signUserOp} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
 
@@ -51,6 +51,7 @@ describe("SimpleWallet", function () {
   describe('#validateUserOp', () => {
     let wallet: SimpleWallet
     let userOp: UserOperation
+    let requestId: string
     let preBalance: number
     let expectedPay: number
 
@@ -64,18 +65,21 @@ describe("SimpleWallet", function () {
       const callGas = 200000
       const verificationGas = 100000
       const maxFeePerGas = 3e9
-      const chainId = await ethers.provider.getNetwork().then(net=>net.chainId)
+      const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
       userOp = signUserOp(fillUserOp({
         sender: wallet.address,
         callGas,
         verificationGas,
         maxFeePerGas,
-      }), walletOwner, chainId)
+      }), walletOwner, entryPoint, chainId)
+
+      requestId = await getRequestId(userOp, entryPoint, chainId)
+
       expectedPay = actualGasPrice * (callGas + verificationGas)
 
       preBalance = await getBalance(wallet.address)
-      const ret = await wallet.validateUserOp(userOp, expectedPay, {gasPrice: actualGasPrice})
+      const ret = await wallet.validateUserOp(userOp, requestId, expectedPay, {gasPrice: actualGasPrice})
       await ret.wait()
     })
 
@@ -91,7 +95,13 @@ describe("SimpleWallet", function () {
       expect(await wallet.nonce()).to.equal(1)
     });
     it('should reject same TX on nonce error', async () => {
-      await expect(wallet.validateUserOp(userOp, 0)).to.revertedWith("invalid nonce")
+      await expect(wallet.validateUserOp(userOp, requestId, 0)).to.revertedWith("invalid nonce")
+    });
+    it('should reject tx with wrong signature', async () => {
+      //validateUserOp doesn't check the actual UserOp for the signature, but relies on the requestId given by
+      // the entrypoint
+      const wrongRequestId = ethers.constants.HashZero
+      await expect(wallet.validateUserOp(userOp, wrongRequestId, 0)).to.revertedWith("wallet: wrong signature")
     });
 
   })

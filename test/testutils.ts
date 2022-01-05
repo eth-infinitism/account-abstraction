@@ -70,7 +70,7 @@ export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint
   const {actualGasCost, actualGasPrice} = logs[0].args
   console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
   let calculatedGasUsed = actualGasCost.toNumber() / actualGasPrice.toNumber();
-  console.log('\t== calculated gasUsed (paid to redeemer)=', calculatedGasUsed)
+  console.log('\t== calculated gasUsed (paid to beneficiary)=', calculatedGasUsed)
   const tx = await ethers.provider.getTransaction(rcpt.transactionHash)
   console.log('\t== gasDiff', actualGas.toNumber() - calculatedGasUsed - callDataCost(tx.data))
   if (beneficiaryAddress != null) {

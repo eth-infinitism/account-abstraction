@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "clean": "rm -rf cache artifacts typechain",
+    "clean": "rm -rf cache artifacts typechain typechain-types",
     "compile": "./scripts/hh-wrapper compile && yarn run makeUserOps",
     "tsc": "tsc",
     "makeUserOps": "./scripts/makeUserOps",

@@ -14,11 +14,12 @@ interface IPaymaster {
      * revert to reject this request.
      * actual payment is done after postOp is called, by deducting actual call cost form the paymaster's stake.
      * @param userOp the user operation
+     * @param requestId hash of the user's request data.
      * @param maxCost the maximum cost of this transaction (based on maximum gas and gas price from userOp)
      * @return context value to send to a postOp
      *  zero length to signify postOp is not required.
      */
-    function validatePaymasterUserOp(UserOperation calldata userOp, uint maxCost) external view returns (bytes memory context);
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external view returns (bytes memory context);
 
     /**
      * post-operation handler.

@@ -31,7 +31,7 @@ contract VerifyingPaymaster is IPaymaster {
 
     // verify our external signer signed this request.
     // the "paymasterData" is supposed to be a signature over the entire request params
-    function validatePaymasterUserOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund) external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = userOp.hash();

@@ -82,9 +82,8 @@ library UserOperationLib {
         );
     }
 
-    function hash(UserOperation calldata userOp) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32",
-            keccak256(abi.encodePacked(pack(userOp), block.chainid))));
+    function hash(UserOperation calldata userOp) internal pure returns (bytes32) {
+        return keccak256(pack(userOp));
     }
 
     function min(uint a, uint b) internal pure returns (uint) {

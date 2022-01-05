@@ -26,11 +26,11 @@ import {
   deployEntryPoint,
   getBalance, FIVE_ETH
 } from "./testutils";
-import {fillAndSign} from "./UserOp";
+import {fillAndSign, getRequestId} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {formatEther, parseEther} from "ethers/lib/utils";
+import {parseEther} from "ethers/lib/utils";
 import {debugTransaction} from './debugTx';
 
 describe("EntryPoint", function () {
@@ -52,6 +52,8 @@ describe("EntryPoint", function () {
     signer = await ethersSigner.getAddress()
     await checkForGeth()
 
+    const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
+
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     entryPoint = await deployEntryPoint(paymasterStake, globalUnstakeDelaySec)
 
@@ -60,6 +62,10 @@ describe("EntryPoint", function () {
     walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
+
+    //sanity: validate helper functions
+    const sampleOp = await fillAndSign({sender: wallet.address}, walletOwner, entryPoint)
+    expect(getRequestId(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getRequestId(sampleOp))
   })
 
   describe('Stake Management', () => {
@@ -163,7 +169,7 @@ describe("EntryPoint", function () {
           it('should fail to unlock again', async () => {
             await expect(entryPoint.unstakeDeposit()).to.revertedWith('already unstaking')
           })
-          it( 'should fail to withdraw too much ', async()=>{
+          it('should fail to withdraw too much ', async () => {
             await expect(entryPoint.withdrawTo(AddressZero, FIVE_ETH)).to.revertedWith('Withdraw amount too large')
           })
           it('should succeed to withdraw some deposit', async () => {
@@ -215,35 +221,39 @@ describe("EntryPoint", function () {
     })
   })
 
-  describe('#simulateWalletValidation', () => {
+  describe('#simulateValidation', () => {
     const walletOwner1 = createWalletOwner()
     let wallet1: SimpleWallet
 
     before(async () => {
       wallet1 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner1.getAddress())
     })
-    it('should fail on-chain', async () => {
-      const op = await fillAndSign({sender: wallet1.address}, walletOwner1, entryPoint)
-      await expect(entryPoint.simulateWalletValidation(op)).to.revertedWith('must be called off-chain')
-    });
+
     it('should fail if validateUserOp fails', async () => {
       //using wrong owner for wallet1
       const op = await fillAndSign({sender: wallet1.address}, walletOwner, entryPoint)
-      await expect(entryPointView.callStatic.simulateWalletValidation(op).catch(rethrow())).to
+      await expect(entryPointView.callStatic.simulateValidation(op).catch(rethrow())).to
         .revertedWith('wrong signature')
     });
+
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({sender: wallet1.address}, walletOwner1, entryPoint)
       await fund(wallet1)
-      const ret = await entryPointView.callStatic.simulateWalletValidation(op).catch(rethrow())
+      const ret = await entryPointView.callStatic.simulateValidation(op).catch(rethrow())
       console.log('   === simulate result', ret)
     });
+
+    it('should fail on-chain', async () => {
+      const op = await fillAndSign({sender: wallet1.address}, walletOwner1, entryPoint)
+      await expect(entryPoint.simulateValidation(op)).to.revertedWith('must be called off-chain')
+    });
+
     it('should fail creation for wrong sender', async () => {
       const op1 = await fillAndSign({
         initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
         sender: '0x'.padEnd(42, '1')
       }, walletOwner1, entryPoint)
-      await expect(entryPointView.callStatic.simulateWalletValidation(op1).catch(rethrow()))
+      await expect(entryPointView.callStatic.simulateValidation(op1).catch(rethrow()))
         .to.revertedWith('sender doesn\'t match create2 address')
     })
 
@@ -252,7 +262,7 @@ describe("EntryPoint", function () {
         initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
       }, walletOwner1, entryPoint)
       await fund(op1.sender)
-      await entryPointView.callStatic.simulateWalletValidation(op1).catch(rethrow())
+      await entryPointView.callStatic.simulateValidation(op1).catch(rethrow())
     })
 
     it('should not use banned ops during simulateValidation', async () => {
@@ -360,9 +370,9 @@ describe("EntryPoint", function () {
         const depositAfter = await entryPoint.balanceOf(wallet.address)
         expect(balAfter).to.equal(balBefore, 'should pay from stake, not balance')
         let depositUsed = depositBefore.sub(depositAfter)
-        console.log('redeemer', (await getBalance(beneficiaryAddress))/1e9)
+        console.log('beneficiary', (await getBalance(beneficiaryAddress)) / 1e9)
         // @ts-ignore
-        console.log('depused=', depositUsed/1e9, depositAfter/1e9, depositBefore/1e9)
+        console.log('depused=', depositUsed / 1e9, depositAfter / 1e9, depositBefore / 1e9)
         expect(await ethers.provider.getBalance(beneficiaryAddress)).to.equal(depositUsed)
 
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
@@ -471,7 +481,7 @@ describe("EntryPoint", function () {
       let prebalance1: BigNumber
       let prebalance2: BigNumber
 
-      before(async () => {
+      before('before', async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
@@ -494,9 +504,7 @@ describe("EntryPoint", function () {
           verificationGas: 76000,
         }, walletOwner2, entryPoint)
 
-        const estim = await entryPointView.callStatic.simulateWalletValidation(op2, {gasPrice: 1e9})
-        const estim1 = await entryPointView.simulatePaymasterValidation(op2, estim!, {gasPrice: 1e9})
-        const verificationGas = estim.add(estim1.gasUsedByPayForOp)
+        const {preOpGas} = await entryPointView.callStatic.simulateValidation(op2, {gasPrice: 1e9})
 
         await fund(op1.sender)
         await fund(wallet2.address)

@@ -46,7 +46,7 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(22000, 0)
+    entryPoint = await deployEntryPoint(0, 0)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -102,10 +102,8 @@ describe("Batch gas testing", function () {
             maxPriorityFeePerGas: 1e9,
           }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
-          const estim = await entryPointView.callStatic.simulateWalletValidation(op1, {gasPrice: 1e9})
-          const estim1 = await entryPointView.simulatePaymasterValidation(op1, estim!, {gasPrice: 1e9})
-          const verificationGas = estim.add(estim1.gasUsedByPayForOp)
-          const txgas = verificationGas.add(op1.callGas).toNumber()
+          const {preOpGas} = await entryPointView.callStatic.simulateValidation(op1, {gasPrice: 1e9})
+          const txgas = preOpGas.add(op1.callGas).toNumber()
 
           // console.log('colected so far', opsGasCollected, 'estim', verificationGas, 'max', maxTxGas)
           if (opsGasCollected + txgas > maxTxGas) {

@@ -4,7 +4,6 @@ import {AddressZero, callDataCost, rethrow} from "./testutils";
 import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from "ethereumjs-util";
 import {
   EntryPoint,
-  TestUtil,
 } from '../typechain'
 import {UserOperation} from "./UserOperation";
 
@@ -49,7 +48,7 @@ export function packUserOp(op: UserOperation, forSignature = true): string {
       "name": "userOp",
       "type": "tuple"
     }
-    let encoded = defaultAbiCoder.encode([userOpType as any], [op])
+    let encoded = defaultAbiCoder.encode([userOpType as any], [{...op, signature: '0x'}])
     //remove leading word (total length) and trailing word (zero-length signature)
     encoded = '0x' + encoded.slice(66, encoded.length - 64)
     return encoded
@@ -104,6 +103,14 @@ export function packUserOp1(op: UserOperation): string {
   ])
 }
 
+export function getRequestId(op: UserOperation, entryPoint: string, chainId: number): string {
+  const userOpHash = keccak256(packUserOp(op, true))
+  const enc = defaultAbiCoder.encode(
+    ['bytes32', 'address', 'uint256'],
+    [userOpHash, entryPoint, chainId]);
+  return keccak256(enc)
+}
+
 export const DefaultsForUserOp: UserOperation = {
   sender: AddressZero,
   nonce: 0,
@@ -119,14 +126,11 @@ export const DefaultsForUserOp: UserOperation = {
   signature: '0x'
 }
 
-export function signUserOp(op: UserOperation, signer: Wallet, chainId: number): UserOperation {
-  const chainIdPadded = chainId!.toString(16).padStart(64,'0')
-  let packed = packUserOp(op) + chainIdPadded
-
-  let message = Buffer.from(arrayify(keccak256(packed)));
+export function signUserOp(op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
+  const message = getRequestId(op, entryPoint, chainId)
   let msg1 = Buffer.concat([
     Buffer.from("\x19Ethereum Signed Message:\n32", 'ascii'),
-    message
+    Buffer.from(arrayify(message))
   ])
 
   const sig = ecsign(keccak256_buffer(msg1), Buffer.from(arrayify(signer.privateKey)))
@@ -212,10 +216,8 @@ export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | S
     op2.preVerificationGas = callDataCost(packUserOp(op2, false))
   }
 
-  const chainId = await provider?.getNetwork().then(net=>net.chainId)
-  const chainIdPadded = chainId!.toString(16).padStart(64,'0')
-  let packed = packUserOp(op2).concat(chainIdPadded)
-  let message = Buffer.from(arrayify(keccak256(packed)));
+  const chainId = await provider!.getNetwork().then(net => net.chainId)
+  const message = arrayify(getRequestId(op2, entryPoint!.address, chainId))
 
   return {
     ...op2,

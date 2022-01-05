@@ -3,7 +3,7 @@ pragma solidity ^0.8.7;
 
 import "../IWallet.sol";
 import "../EntryPoint.sol";
-
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "hardhat/console.sol";
 
 //minimal wallet
@@ -11,19 +11,21 @@ import "hardhat/console.sol";
 // has execute, eth handling methods
 // has a single signer that can send requests through the entryPoint.
 contract SimpleWallet is IWallet {
+    using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
     struct OwnerNonce {
         uint96 nonce;
         address owner;
     }
+
     OwnerNonce ownerNonce;
     EntryPoint public entryPoint;
 
-    function nonce() public  view returns (uint) {
+    function nonce() public view returns (uint) {
         return ownerNonce.nonce;
     }
 
-    function owner() public view returns(address) {
+    function owner() public view returns (address) {
         return ownerNonce.owner;
     }
 
@@ -63,9 +65,9 @@ contract SimpleWallet is IWallet {
         require(msg.sender == address(entryPoint), "wallet: not from EntryPoint");
     }
 
-    function validateUserOp(UserOperation calldata userOp, uint requiredPrefund) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint requiredPrefund) external override {
         _requireFromEntryPoint();
-        _validateSignature(userOp);
+        _validateSignature(userOp, requestId);
         _validateAndIncrementNonce(userOp);
         _payPrefund(requiredPrefund);
     }
@@ -73,7 +75,8 @@ contract SimpleWallet is IWallet {
     function _payPrefund(uint requiredPrefund) internal {
         if (requiredPrefund != 0) {
             (bool success,) = payable(msg.sender).call{value : requiredPrefund}("");
-            (success); //ignore failure (its EntryPoint's job to verify, not wallet.)
+            (success);
+            //ignore failure (its EntryPoint's job to verify, not wallet.)
         }
     }
 
@@ -91,26 +94,9 @@ contract SimpleWallet is IWallet {
         }
     }
 
-    function _validateSignature(UserOperation calldata userOp) internal view {
-
-        bytes32 hash = userOp.hash();
-        (bytes32 r, bytes32 s, uint8 v) = _rsv(userOp.signature);
-
-        require(owner() == _ecrecover(hash, v, r, s), "wallet: wrong signature");
-    }
-
-    function _rsv(bytes calldata signature) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
-
-        require(signature.length == 65, "wallet: invalid signature length");
-        assembly {
-            r := calldataload(signature.offset)
-            s := calldataload(add(signature.offset, 0x20))
-            v := byte(0, calldataload(add(signature.offset, 0x40)))
-        }
-    }
-
-    function _ecrecover(bytes32 hash, uint8 v, bytes32 r, bytes32 s) internal pure returns (address) {
-        return ecrecover(hash, v, r, s);
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal view {
+        bytes32 hash = requestId.toEthSignedMessageHash();
+        require(owner() == hash.recover(userOp.signature), "wallet: wrong signature");
     }
 
     function _call(address sender, uint value, bytes memory data) internal {
