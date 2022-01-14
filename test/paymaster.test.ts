@@ -47,7 +47,7 @@ describe("EntryPoint with paymaster", function () {
     let paymaster: TokenPaymaster
     before(async () => {
       paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", entryPoint.address)
-      paymaster.addStake({value: parseEther('2')})
+      paymaster.addStake(0, {value: parseEther('2')})
     })
 
     describe('#handleOps', () => {

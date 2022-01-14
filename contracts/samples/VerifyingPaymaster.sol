@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.7;
 
-import "../IPaymaster.sol";
 import "../EntryPoint.sol";
+import "../BasePaymaster.sol";
 
 /**
  * A sample paymaster that uses external service to decide whether to pay for the UserOp.
@@ -13,20 +13,14 @@ import "../EntryPoint.sol";
  * - the paymaster signs to agree to PAY for GAS.
  * - the wallet signs to prove identity and wallet ownership.
  */
-contract VerifyingPaymaster is IPaymaster {
+contract VerifyingPaymaster is BasePaymaster {
 
     using UserOperationLib for UserOperation;
 
-    EntryPoint public immutable entryPoint;
     address public immutable verifyingSigner;
 
-    constructor(EntryPoint _entryPoint, address _verifyingSigner) {
-        entryPoint = _entryPoint;
+    constructor(EntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) {
         verifyingSigner = _verifyingSigner;
-    }
-
-    function addStake() external payable {
-        entryPoint.addStakeTo{value : msg.value}(address(this), entryPoint.unstakeDelaySec());
     }
 
     // verify our external signer signed this request.
@@ -45,8 +39,4 @@ contract VerifyingPaymaster is IPaymaster {
         return "";
     }
 
-    function postOp(PostOpMode, bytes calldata, uint) external pure override {
-        //should never get called. returned "0" from validatePaymasterUserOp
-        revert();
-    }
 }

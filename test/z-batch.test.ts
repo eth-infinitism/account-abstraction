@@ -31,6 +31,10 @@ import {defaultAbiCoder} from "ethers/lib/utils";
 
 describe("Batch gas testing", function () {
 
+  //this test is currently useless. client need to do better work with preVerificationGas calculation.
+  // we do need a better recommendation for bundlers how to validate those values before accepting a request.
+  return
+
   let once = true
 
   let ethersSigner = ethers.provider.getSigner();
@@ -43,6 +47,7 @@ describe("Batch gas testing", function () {
 
   let results: (() => void)[] = []
   before(async function () {
+    this.skip()
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
@@ -56,6 +61,9 @@ describe("Batch gas testing", function () {
 
   after(async () => {
 
+    if ( results.length==0 ) {
+      return
+    }
     console.log('== Summary')
     console.log('note: negative "overpaid" means the client should compensate the relayer with higher priority fee')
     for (let result of results) {

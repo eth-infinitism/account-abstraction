@@ -1,28 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.7;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "../IPaymaster.sol";
-import "../EntryPoint.sol";
 import "./SimpleWalletForTokens.sol";
 import "hardhat/console.sol";
+import "../BasePaymaster.sol";
 
 /**
  * A sample paymaster that define itself as a  token to pay for gas.
  * The paymaster IS the token to use, since a paymaster cannot use an external contract.
  * also, the exchange rate has to be fixed, since it can't refernce external Uniswap os other exchange contract.
  */
-contract TokenPaymaster is Ownable, ERC20, IPaymaster {
+contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //calculated cost of the postOp
     uint COST_OF_POST = 3000;
 
-    EntryPoint entryPoint;
     bytes32 immutable knownWallet;
 
-    constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) {
-        entryPoint = _entryPoint;
+    constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = keccak256(type(SimpleWallet).creationCode);
         //        knownWallets[keccak256(type(SimpleWallet).creationCode)] = true;
         approve(owner(), type(uint).max);
@@ -31,13 +27,6 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     //helpers for owner, to mint and withdraw tokens.
     function mintTokens(address recipient, uint amount) external onlyOwner {
         _mint(recipient, amount);
-    }
-
-    /**
-     * add stake for this paymaster, using the unstake delay defined by the entryPoint.
-     */
-    function addStake() external payable {
-        entryPoint.addStakeTo{value : msg.value}(address(this), entryPoint.unstakeDelaySec());
     }
 
     //TODO: this method assumes a fixed ratio of token-to-eth. should use oracle.
@@ -82,8 +71,7 @@ contract TokenPaymaster is Ownable, ERC20, IPaymaster {
     // this method will be called just after the user's TX with postRevert=false.
     // BUT: if the user changed its balance and that postOp reverted, then it gets called again, after reverting
     // the user's TX
-    function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external override {
-        require(msg.sender == address(entryPoint), "only from entryPoint");
+    function _postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) internal override {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
         address sender = abi.decode(context, (address));
