@@ -10,7 +10,7 @@ interface IOracle {
     /**
      * return amount of tokens that are required to receive that much eth.
      */
-    function getTokenToEthOutputPrice(uint ethOutput) external view returns (uint);
+    function getTokenToEthOutputPrice(uint ethOutput) external view returns (uint tokenInput);
 }
 
 /**
@@ -61,15 +61,20 @@ contract DepositPaymaster is BasePaymaster {
         require(oracles[token] != nullOracle, "unsupported token");
         balances[token][account] += amount;
         if (msg.sender == account) {
-            lockDeposit();
+            lockTokenDeposit();
         }
+    }
+
+    function depositInfo(IERC20 token, address account) public view returns (uint amount, uint _unlockBlock) {
+        amount = balances[token][account];
+        _unlockBlock = unlockBlock[account];
     }
 
     /**
      * unlock deposit, so that it can be withdrawn.
      * can't be called on in the same block as withdrawTo()
      */
-    function unlockDeposit() external {
+    function unlockTokenDeposit() external {
         unlockBlock[msg.sender] = block.number;
     }
 
@@ -77,7 +82,7 @@ contract DepositPaymaster is BasePaymaster {
      * lock the tokens deposited for this account so they can be used to pay for gas.
      * after calling unlock(), the account can't use this paymaster until the deposit is locked.
      */
-    function lockDeposit() public {
+    function lockTokenDeposit() public {
         unlockBlock[msg.sender] = 0;
     }
 
@@ -85,8 +90,8 @@ contract DepositPaymaster is BasePaymaster {
      * withdraw tokens.
      * can only be called after unlock() is called in a previous block.
      */
-    function withdrawTo(IERC20 token, address target, uint amount) public {
-        require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender]);
+    function withdrawTokensTo(IERC20 token, address target, uint amount) public {
+        require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender], "DepositPaymaster: must unlockTokenDeposit");
         balances[token][msg.sender] -= amount;
         token.transfer(target, amount);
     }
@@ -101,8 +106,8 @@ contract DepositPaymaster is BasePaymaster {
         require(oracle != nullOracle, "DepositPaymaster: unsupported token in paymasterData");
         address account = userOp.sender;
         uint maxTokenCost = oracle.getTokenToEthOutputPrice(maxCost);
-        require(unlockBlock[account] == 0, "not locked");
-        require(balances[token][account] >= maxTokenCost);
+        require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");
+        require(balances[token][account] >= maxTokenCost, "DepositPaymaster: deposit too low");
         return abi.encode(account, token, maxTokenCost, maxCost);
     }
 
@@ -112,6 +117,12 @@ contract DepositPaymaster is BasePaymaster {
         (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
         //use same conversion rate as used for validation.
         uint actualTokenCost = actualGasCost * maxTokenCost / maxCost;
-        balances[token][account] -= actualTokenCost;
+        if ( mode != PostOpMode.postOpReverted) {
+            // attempt to pay with tokens:
+            token.transferFrom(account, address(this), actualTokenCost);
+        } else {
+            //in case above transferFrom failed, pay with deposit:
+            balances[token][account] -= actualTokenCost;
+        }
     }
 }
