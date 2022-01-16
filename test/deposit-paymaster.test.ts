@@ -1,6 +1,5 @@
 import './aa.init'
 import {describe} from 'mocha'
-import {Wallet} from "ethers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
@@ -18,26 +17,22 @@ import {
 import {
   AddressZero,
   createWalletOwner,
-  deployEntryPoint, FIVE_ETH, ONE_ETH, TWO_ETH
+  deployEntryPoint, FIVE_ETH, ONE_ETH
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {hexZeroPad, parseEther} from "ethers/lib/utils";
-import exp from "constants";
 
 describe("DepositPaymaster", async () => {
 
   let entryPoint: EntryPoint
   let entryPointStatic: EntryPoint
   let ethersSigner = ethers.provider.getSigner();
-  let offchainSigner: Wallet
   let token: TestToken
   let paymaster: DepositPaymaster
   before(async function () {
 
     entryPoint = await deployEntryPoint(0, 0)
     entryPointStatic = entryPoint.connect(AddressZero)
-
-    offchainSigner = createWalletOwner()
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
     paymaster.addStake(0, {value: parseEther('2')})
@@ -58,7 +53,7 @@ describe("DepositPaymaster", async () => {
     })
     it('should deposit and read balance', async () => {
       await paymaster.addDepositFor(token.address, wallet.address, 100)
-      expect(await paymaster.depositInfo(token.address, wallet.address)).to.eql({amount:100})
+      expect(await paymaster.depositInfo(token.address, wallet.address)).to.eql({amount: 100})
     });
     it('should fail to withdraw without unlock', async () => {
       const paymasterWithdraw = await paymaster.populateTransaction.withdrawTokensTo(token.address, AddressZero, 1).then(tx => tx.data!)
@@ -136,7 +131,7 @@ describe("DepositPaymaster", async () => {
     })
 
     it('succeed with valid deposit', async () => {
-      // needed only if previous test did unlock..
+      // needed only if previous test did unlock.
       const paymasterLockTokenDeposit = await paymaster.populateTransaction.lockTokenDeposit().then(tx => tx.data!)
       await wallet.exec(paymaster.address, 0, paymasterLockTokenDeposit)
 
@@ -172,6 +167,7 @@ describe("DepositPaymaster", async () => {
       }, walletOwner, entryPoint)
 
       await entryPoint.handleOp(userOp, beneficiary)
+
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent())
       expect(log.args.success).to.eq(false)
       expect(await counter.queryFilter(counter.filters.CalledFrom())).to.eql([])
@@ -183,8 +179,8 @@ describe("DepositPaymaster", async () => {
       await token.mint(wallet.address, initialTokens)
 
       //need to "approve" the paymaster to use the tokens. we issue a UserOp for that (which uses the deposit to execute)
-      const tokenApprovePaymaster = await token.populateTransaction.approve(paymaster.address, ethers.constants.MaxUint256).then(tx=>tx.data!)
-      const execApprove = await wallet.populateTransaction.execFromEntryPoint(token.address, 0, tokenApprovePaymaster).then(tx=>tx.data!)
+      const tokenApprovePaymaster = await token.populateTransaction.approve(paymaster.address, ethers.constants.MaxUint256).then(tx => tx.data!)
+      const execApprove = await wallet.populateTransaction.execFromEntryPoint(token.address, 0, tokenApprovePaymaster).then(tx => tx.data!)
       const userOp1 = await fillAndSign({
         sender: wallet.address,
         paymaster: paymaster.address,
@@ -201,6 +197,7 @@ describe("DepositPaymaster", async () => {
         callData
       }, walletOwner, entryPoint)
       await entryPoint.handleOp(userOp, beneficiary)
+
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), await ethers.provider.getBlockNumber())
       expect(log.args.success).to.eq(true)
       const charge = log.args.actualGasCost
