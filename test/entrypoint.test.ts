@@ -22,7 +22,7 @@ import {
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance, FIVE_ETH, objdump
+  getBalance, FIVE_ETH, createAddress, objdump
 } from "./testutils";
 import {fillAndSign, getRequestId, UserOperation} from "../src";
 import {PopulatedTransaction} from "ethers/lib/ethers";
@@ -178,7 +178,7 @@ describe("EntryPoint", function () {
           })
           it('should succeed to withdraw some deposit', async () => {
             const {amount} = await entryPoint.getDepositInfo(addr)
-            const addr1 = createWalletOwner().address
+            const addr1 = createAddress()
             await entryPoint.withdrawTo(addr1, ONE_ETH)
             expect(await ethers.provider.getBalance(addr1)).to.eq(ONE_ETH)
             const {amount: amountAfter, withdrawTime, unstakeDelaySec} = await entryPoint.getDepositInfo(addr)
@@ -191,7 +191,7 @@ describe("EntryPoint", function () {
           })
           it('should succeed to withdraw the rest', async () => {
             const {amount} = await entryPoint.getDepositInfo(addr)
-            const addr1 = createWalletOwner().address
+            const addr1 = createAddress()
             await entryPoint.withdrawTo(addr1, amount)
             expect(await ethers.provider.getBalance(addr1)).to.eq(amount)
             const {amount: amountAfter, withdrawTime, unstakeDelaySec} = await entryPoint.getDepositInfo(addr)
@@ -219,7 +219,7 @@ describe("EntryPoint", function () {
         await expect(entryPoint.connect(wallet.address).callStatic.unstakeDeposit()).to.revertedWith('not staked')
       })
       it('should withdraw with no unlock', async () => {
-        await wallet.withdrawDepsitTo(wallet.address, ONE_ETH)
+        await wallet.withdrawDepositTo(wallet.address, ONE_ETH)
         expect(await getBalance(wallet.address)).to.equal(1e18)
       })
     })
@@ -301,7 +301,7 @@ describe("EntryPoint", function () {
           verificationGas: 1e6,
           callGas: 1e6
         }, walletOwner, entryPoint)
-        const beneficiaryAddress = Wallet.createRandom().address
+        const beneficiaryAddress = createAddress()
 
         const countBefore = await counter.counters(wallet.address)
         //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
@@ -330,7 +330,7 @@ describe("EntryPoint", function () {
           verificationGas: 1e6,
           callGas: 1e6
         }, walletOwner, entryPoint)
-        const beneficiaryAddress = Wallet.createRandom().address
+        const beneficiaryAddress = createAddress()
 
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
         const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
@@ -351,7 +351,7 @@ describe("EntryPoint", function () {
           verificationGas: 1e6,
           callGas: 1e6
         }, walletOwner, entryPoint)
-        const beneficiaryAddress = Wallet.createRandom().address
+        const beneficiaryAddress = createAddress()
 
         const countBefore = await counter.counters(wallet.address)
         //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
@@ -383,7 +383,7 @@ describe("EntryPoint", function () {
       });
 
       it('#handleOp (single)', async () => {
-        const beneficiaryAddress = Wallet.createRandom().address
+        const beneficiaryAddress = createAddress()
 
         const op = await fillAndSign({
           sender: wallet.address,
@@ -406,7 +406,7 @@ describe("EntryPoint", function () {
     describe('create account', () => {
       let createOp: UserOperation
       let created = false
-      let beneficiaryAddress = Wallet.createRandom().address //1
+      let beneficiaryAddress = createAddress() //1
 
       it('should reject create if sender address is wrong', async () => {
 
@@ -477,7 +477,7 @@ describe("EntryPoint", function () {
        */
       let counter: TestCounter
       let walletExecCounterFromEntryPoint: PopulatedTransaction
-      const beneficiaryAddress = Wallet.createRandom().address
+      const beneficiaryAddress = createAddress()
       const walletOwner1 = createWalletOwner()
       let wallet1: string
       let walletOwner2 = createWalletOwner()

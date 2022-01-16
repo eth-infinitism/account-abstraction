@@ -1,11 +1,16 @@
 import {ethers} from "hardhat";
-import {parseEther} from "ethers/lib/utils";
-import {BigNumberish, Contract, ContractReceipt, Event, Wallet} from "ethers";
-import {EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory} from '../typechain-types'
 import {BytesLike} from "@ethersproject/bytes";
 import {expect} from "chai";
-import {callDataCost, decodeRevertReason, rethrow} from "../src/userop/utils";
+import {decodeRevertReason, rethrow} from "../src/userop/utils";
 import {debugTransaction} from "./debugTx";
+import {arrayify, keccak256, parseEther} from "ethers/lib/utils";
+import {BigNumber, BigNumberish, Contract, ContractReceipt, Event, Wallet} from "ethers";
+import {
+  EntryPoint,
+  EntryPoint__factory,
+  IERC20,
+  SimpleWallet__factory
+} from '../typechain-types'
 import {entryPointDeployer} from "../src";
 
 export const HashZero = ethers.constants.HashZero
@@ -47,10 +52,23 @@ export async function getTokenBalance(token: IERC20, address: string): Promise<n
 }
 
 
-export function createWalletOwner(privkeyBase?: string): Wallet {
-  const ran = ethers.Wallet.createRandom()
-  return new ethers.Wallet(ran.privateKey, ethers.provider)
+let counter = 0
+
+//create non-random account, so gas calculations are deterministic
+export function createWalletOwner(): Wallet {
+  const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
+  return new ethers.Wallet(privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
+}
+
+export function createAddress(): string {
+  return createWalletOwner().address
+}
+
+export function callDataCost(data: string): number {
+  return ethers.utils.arrayify(data)
+    .map(x => x == 0 ? 4 : 16)
+    .reduce((sum, x) => sum + x)
 }
 
 export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string) {
@@ -146,6 +164,6 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
 
 export async function deployEntryPoint(paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish): Promise<EntryPoint> {
   let provider = ethers.provider;
-  const addr =  await entryPointDeployer(provider, paymasterStake, unstakeDelaySecs)
+  const addr = await entryPointDeployer(provider, paymasterStake, unstakeDelaySecs)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }

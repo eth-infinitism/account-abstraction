@@ -56,6 +56,12 @@ contract SimpleWallet is IWallet {
         _call(dest, value, func);
     }
 
+    function execBatch(address[] calldata dest, bytes[] calldata func) external onlyOwner {
+        require(dest.length == func.length, "wrong array lengths");
+        for (uint i = 0; i < dest.length; i++) {
+            _call(dest[i], 0, func[i]);
+        }
+    }
     function updateEntryPoint(EntryPoint _entryPoint) external onlyOwner {
         emit EntryPointChanged(entryPoint, _entryPoint);
         entryPoint = _entryPoint;
@@ -103,7 +109,7 @@ contract SimpleWallet is IWallet {
         (bool success, bytes memory result) = sender.call{value : value}(data);
         if (!success) {
             assembly {
-                revert(add(result, 32), mload(result))
+                revert(result, add(result, 32))
             }
         }
     }
@@ -118,7 +124,7 @@ contract SimpleWallet is IWallet {
         require(req);
     }
 
-    function withdrawDepsitTo(address payable withdrawAddress, uint amount) public onlyOwner {
+    function withdrawDepositTo(address payable withdrawAddress, uint amount) public onlyOwner{
         entryPoint.withdrawTo(withdrawAddress, amount);
     }
 }

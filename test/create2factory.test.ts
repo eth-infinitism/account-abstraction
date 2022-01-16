@@ -36,7 +36,7 @@ describe('test Create2Factory', () => {
     const addr = factory.getDeployedAddress(initCode, 123)
 
     expect(await provider.getCode(addr).then(code => code.length)).to.equal(2)
-    await factory.deploy(initCode,123)
+    await factory.deploy(initCode,123, 'estimate')
     expect(await provider.getCode(addr).then(code => code.length)).to.gt(100)
   })
 })

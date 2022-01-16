@@ -86,11 +86,11 @@ contract StakeManager {
         DepositInfo storage info = deposits[account];
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint112 amount = deposits[msg.sender].amount + uint112(msg.value);
-        deposits[msg.sender] = DepositInfo(
+        deposits[account] = DepositInfo(
             amount,
             _unstakeDelaySec,
             0);
-        emit Deposited(msg.sender, amount, _unstakeDelaySec);
+        emit Deposited(account, amount, _unstakeDelaySec);
     }
 
     /**

@@ -3,17 +3,9 @@ import "@typechain/hardhat";
 import {HardhatUserConfig, subtask, task} from "hardhat/config";
 import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
+import "hardhat-gas-reporter"
 import * as fs from "fs";
 
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-})
 
 let mnemonicFileName = process.env.MNEMONIC_FILE || process.env.HOME + '/.secret/testnet-mnemonic.txt'
 let mnemonic = 'test '.repeat(11) + 'junk'
@@ -54,7 +46,15 @@ const config: HardhatUserConfig = {
 
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY
-  }
+  },
 
+  gasReporter: {
+    enabled: process.env.GAS_REPORT != null,
+    excludeContracts: [ 'TestToken', 'SimpleWallet', 'ERC20'],
+    //"yarn gas-report" to dump report and create a no-color "txt" output, to be checked in.
+    noColors: false,
+    outputFile: 'reports/gas-used-output.color'
+  }
 }
+
 export default config

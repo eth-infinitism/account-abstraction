@@ -15,8 +15,7 @@ import {
   createWalletOwner,
   fund,
   getBalance,
-  getTokenBalance,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps
+  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress, tonumber
 } from "./testutils";
 import {parseEther} from "ethers/lib/utils";
 import { AddressZero, rethrow } from '../src/userop/utils';
@@ -37,7 +36,7 @@ describe("EntryPoint with paymaster", function () {
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     entryPoint = await deployEntryPoint(0,0)
 
-    walletOwner = createWalletOwner('1')
+    walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
   })
@@ -46,7 +45,7 @@ describe("EntryPoint with paymaster", function () {
     let paymaster: TokenPaymaster
     before(async () => {
       paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", entryPoint.address)
-      paymaster.addStake({value: parseEther('2')})
+      paymaster.addStake(0, {value: parseEther('2')})
     })
 
     describe('#handleOps', () => {
@@ -74,7 +73,7 @@ describe("EntryPoint with paymaster", function () {
     describe('create account', () => {
       let createOp: UserOperation
       let created = false
-      const beneficiaryAddress = Wallet.createRandom().address
+      const beneficiaryAddress = createAddress()
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
@@ -100,6 +99,10 @@ describe("EntryPoint with paymaster", function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
+        await entryPoint.simulateValidation(createOp, {gasLimit:5e6}).catch(e=>e.message)
+        const [tx] = await ethers.provider.getBlock('latest').then(block=>block.transactions)
+        await checkForBannedOps(tx, true)
+
         const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7,
         }).then(tx => tx.wait())
@@ -115,7 +118,7 @@ describe("EntryPoint with paymaster", function () {
         expect(ethRedeemed).to.above(100000)
 
         const walletAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
-        const postBalance = await getTokenBalance(paymaster, walletAddr)
+        const postBalance = await paymaster.balanceOf(walletAddr).then(tonumber)
         expect(1e18 - postBalance).to.above(10000)
       });
 

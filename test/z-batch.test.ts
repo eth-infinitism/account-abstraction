@@ -9,30 +9,32 @@ import {
   TestCounter,
   TestCounter__factory,
   TestUtil,
-  TestUtil__factory,
-} from "../typechain-types";
+  TestUtil__factory
+} from '../typechain-types'
 import {
   createWalletOwner,
   fund,
   checkForGeth,
   WalletConstructor,
-  tonumber,
-  deployEntryPoint
+  tonumber, deployEntryPoint, createAddress,
 } from "./testutils";
-import {fillAndSign} from "../src/userop/UserOp";
-import {UserOperation} from "../src/userop/UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {toBuffer} from "ethereumjs-util";
 import {defaultAbiCoder} from "ethers/lib/utils";
 import {AddressZero, callDataCost, rethrow} from "../src/userop/utils";
+import {fillAndSign, UserOperation} from "../src";
 
 describe("Batch gas testing", function () {
   //silently skip..
-  if ( process.env.SKIP_LONG) {
+  if (process.env.SKIP_LONG) {
     it('SKIP_LONG - skipped...')
     return
   }
+
+  //this test is currently useless. client need to do better work with preVerificationGas calculation.
+  // we do need a better recommendation for bundlers how to validate those values before accepting a request.
+  return
 
   let once = true
 
@@ -46,6 +48,7 @@ describe("Batch gas testing", function () {
 
   let results: (() => void)[] = []
   before(async function () {
+    this.skip()
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
@@ -59,6 +62,9 @@ describe("Batch gas testing", function () {
 
   after(async () => {
 
+    if (results.length == 0) {
+      return
+    }
     console.log('== Summary')
     console.log('note: negative "overpaid" means the client should compensate the relayer with higher priority fee')
     for (let result of results) {
@@ -77,7 +83,7 @@ describe("Batch gas testing", function () {
       let counter: TestCounter
       let walletExecCounterFromEntryPoint: PopulatedTransaction
       let execCounterCount: PopulatedTransaction
-      const beneficiaryAddress = Wallet.createRandom().address
+      const beneficiaryAddress = createAddress()
 
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
@@ -207,7 +213,7 @@ describe("Batch gas testing", function () {
   })
 
   async function call_handleOps_and_stats(title: string, ops: UserOperation[], count: number) {
-    const beneficiaryAddress = createWalletOwner().address
+    const beneficiaryAddress = createAddress()
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
     const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, beneficiaryAddress).then(tx => tx.data))

@@ -306,12 +306,16 @@ contract EntryPoint is StakeManager {
             internalIncrementDeposit(op.getSender(), refund);
         } else {
             if (context.length > 0) {
-                //if paymaster.postOp reverts:
-                // - emit a message (just for sake of debugging of this poor paymaster)
-                // - paymaster still pays (from its stake)
-                try IPaymaster(op.paymaster).postOp(mode, context, actualGasCost) {}
-                catch (bytes memory errdata) {
-                    emit PaymasterPostOpFailed(requestId, op.getSender(), op.paymaster, op.nonce, errdata);
+                if (mode != IPaymaster.PostOpMode.postOpReverted) {
+                    IPaymaster(op.paymaster).postOp(mode, context, actualGasCost);
+                } else {
+                    //paymaster.postOp reverts again (after internalHandleOp was reverted)
+                    // - emit a message (just for sake of debugging of this poor paymaster)
+                    // - paymaster still pays (from its stake)
+                    try IPaymaster(op.paymaster).postOp(mode, context, actualGasCost) {}
+                    catch (bytes memory errdata) {
+                        emit PaymasterPostOpFailed(requestId, op.getSender(), op.paymaster, op.nonce, errdata);
+                    }
                 }
             }
             //paymaster pays for full gas, including for postOp (and revert event)
