@@ -33,9 +33,9 @@ library UserOperationLib {
         uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         if (maxFeePerGas == maxPriorityFeePerGas) {
             //legacy mode (for networks that don't support basefee opcode)
-            return maxFeePerGas;
+            return min(tx.gasprice, maxFeePerGas);
         }
-        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
+        return min(tx.gasprice, min(maxFeePerGas, maxPriorityFeePerGas + block.basefee));
     }
     }
 
@@ -83,8 +83,7 @@ library UserOperationLib {
     }
 
     function hash(UserOperation calldata userOp) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32",
-            keccak256(pack(userOp))));
+        return keccak256(pack(userOp));
     }
 
     function min(uint a, uint b) internal pure returns (uint) {

@@ -6,7 +6,7 @@ import {expect} from "chai";
 import {before} from "mocha";
 import {fail} from "assert";
 import {Create2Factory} from "../src/Create2Factory";
-import {parseEther} from "ethers/lib/utils";
+import {formatEther, parseEther} from "ethers/lib/utils";
 import './aa.init'
 import {SimpleWalletSigner} from "../src/ethers/SimpleWalletSigner";
 
@@ -36,7 +36,7 @@ describe('SimpleWalletSigner', function () {
     deployedTestCounter = TestCounter__factory.connect(counterAddress, ethersSigner)
   })
 
-  it.skip('should fail on "eth_sendUserOperation not found" if no rpc provided ', async () => {
+  it('should fail on "eth_sendUserOperation not found" if no rpc provided ', async () => {
 
     //by default, eth_sendUserOperation is sent to our underlying provider. if it doesn't support (yet) our new RPC, then sendUserOpRpc must be set...
     const mysigner = new SimpleWalletSigner(walletOwner,
@@ -70,7 +70,12 @@ describe('SimpleWalletSigner', function () {
     })
     it('should fail to execute before funding', async () => {
       expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
-      await expect(testCounter.count({gasLimit: 2e6})).to.revertedWith('didn\'t pay prefund')
+      try {
+        await testCounter.count({gasLimit: 2e6})
+        fail('should fail')
+      } catch (e) {
+        expect(e.message).to.contain('didn\'t pay prefund')
+      }
     });
     it('should fail to create with gasLimit too low', async () => {
       expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
@@ -108,14 +113,10 @@ describe('SimpleWalletSigner', function () {
 
 
       const withdrawAddress = createWalletOwner().address
-      await mysigner.withdrawDeposit(withdrawAddress)
+      await mysigner.withdrawDeposit(withdrawAddress, parseEther('0.5'))
 
       //withdraw left deposit (paid for above tx, and the withdraw itself)
       expect(await getBalance(withdrawAddress)).to.be.gt(0.5)
-
-      //TODO: we currently can't withdarw it all: our "prefund" is inexact, and thus some is returned to the wallet after the last TX
-      expect(await mysigner.getDeposit().then(b=>b.toNumber()/1e18)).to.be.closeTo(0, 0.001)
-
     });
 
   })

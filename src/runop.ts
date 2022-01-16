@@ -1,11 +1,12 @@
 //run a single op
 // "yarn run runop [--network ...]"
 import hre, {ethers} from 'hardhat'
-import {eventDump, tostr} from "../test/testutils";
+import {objdump} from "../test/testutils";
 import {TestCounter__factory, EntryPoint__factory} from '../typechain-types'
 import '../test/aa.init'
 import {parseEther} from "ethers/lib/utils";
 import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
+import {TransactionReceipt} from "@ethersproject/abstract-provider";
 
 (async () => {
   await hre.run('deploy')
@@ -47,32 +48,50 @@ import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
   // and from there on will use deposit
   // for testing,
   const entryPoint = EntryPoint__factory.connect(entryPointAddress, ethersSigner)
-  const info = await entryPoint.getStakeInfo(myAddress)
-  const currentStake = info.stake.toString()
-  console.log('current stake=', currentStake)
+  console.log('wallet address=',myAddress)
+  let preDeposit = await entryPoint.balanceOf(myAddress)
+  console.log('current deposit=', preDeposit, 'current balance', await provider.getBalance(myAddress))
 
-  if (info.stake.lte(parseEther('0.001'))) {
+  if (preDeposit.lte(parseEther('0.001'))) {
     console.log('depositing for wallet')
-    await entryPoint.addDepositTo(myAddress, {value: parseEther('0.001')})
+    await entryPoint.depositTo(myAddress, {value: parseEther('0.001')})
   }
 
   const testCounter = TestCounter__factory.connect(testCounterAddress, aasigner)
 
   const prebalance = await provider.getBalance(myAddress)
-  let ret
-  let rcpt
-  console.log('current counter=', await testCounter.counters(myAddress), 'balance=', prebalance, 'stake=', currentStake)
-  ret = await testCounter.count()
-  console.log('waiting for mine, tmp.hash=', ret.hash)
-  rcpt = await ret.wait()
-  console.log('rcpt', rcpt.transactionHash, `https://dashboard.tenderly.co/tx/kovan/${rcpt.transactionHash}/gas-usage`)
-  console.log('events=', eventDump(await testCounter.queryFilter('*' as any, rcpt.blockNumber)))
+  console.log('balance=', prebalance.div(1e9).toString(), 'deposit=', preDeposit.div(1e9).toString())
+  console.log('direct call', {gasUsed: await testCounter.connect(ethersSigner).estimateGas.justemit().then(t => t.toNumber())})
+  const ret = await testCounter.justemit()
+  console.log('waiting for mine, hash (reqId)=', ret.hash)
+  const rcpt = await ret.wait()
+  const netname = await provider.getNetwork().then(net => net.name)
+  if (netname != 'unknown') {
+    console.log('rcpt', rcpt.transactionHash, `https://dashboard.tenderly.co/tx/${netname}/${rcpt.transactionHash}/gas-usage`)
+  }
   let gasPaid = prebalance.sub(await provider.getBalance(myAddress))
-  console.log('counter after=', await testCounter.counters(myAddress).then(tostr), 'paid=', gasPaid.toNumber() / 1e9, 'gasUsed=', rcpt.gasUsed.toNumber())
-  let logs
-  logs = await entryPoint.queryFilter('*' as any, rcpt.blockNumber)
-  console.log('UserOperationEvent success=', (logs[0].args as any).success)
-  // console.log(logs.map((e: any) => ({ev: e.event, ...objdump(e.args!)})))
+  let depositPaid = preDeposit.sub(await entryPoint.balanceOf(myAddress))
+  console.log('paid (from balance)=', gasPaid.toNumber() / 1e9, 'paid (from deposit)', depositPaid.div(1e9).toString(), 'gasUsed=', rcpt.gasUsed)
+  const logs = await entryPoint.queryFilter('*' as any, rcpt.blockNumber)
+  console.log(logs.map((e: any) => ({ev: e.event, ...objdump(e.args!)})))
+  console.log('1st run gas used:', await evInfo(rcpt))
+
+  const ret1 = await testCounter.justemit()
+  const rcpt2 = await ret1.wait()
+  console.log('2nd run:', await evInfo(rcpt2))
+
+  async function evInfo(rcpt: TransactionReceipt) {
+    //TODO: checking only latest block...
+    const block = rcpt.blockNumber
+    const ev = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), block)
+    // if (ev.length === 0) return {}
+    return ev.map(event => {
+      const {success, nonce, actualGasCost, actualGasPrice} = event.args
+      const gasPaid = actualGasCost.div(actualGasPrice).toNumber()
+      let gasUsed = rcpt.gasUsed.toNumber();
+      return {nonce: nonce.toNumber(), gasPaid, gasUsed: gasUsed, diff: gasUsed - gasPaid}
+    })
+  }
 
 
 })().then(() => process.exit())

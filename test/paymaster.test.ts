@@ -22,7 +22,6 @@ import {parseEther} from "ethers/lib/utils";
 import { AddressZero, rethrow } from '../src/userop/utils';
 import { fillAndSign, UserOperation } from '../src';
 
-
 describe("EntryPoint with paymaster", function () {
 
   let entryPoint: EntryPoint
@@ -30,7 +29,7 @@ describe("EntryPoint with paymaster", function () {
   let walletOwner: Wallet
   let ethersSigner = ethers.provider.getSigner();
   let wallet: SimpleWallet
-  let redeemerAddress = '0x'.padEnd(42, '1')
+  let beneficiaryAddress = '0x'.padEnd(42, '1')
 
   before(async function () {
     await checkForGeth()
@@ -63,10 +62,10 @@ describe("EntryPoint with paymaster", function () {
           paymaster: paymaster.address,
           callData: calldata
         }, walletOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], redeemerAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
-        await expect(entryPoint.handleOps([op], redeemerAddress, {
+        await expect(entryPoint.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       });
@@ -75,7 +74,7 @@ describe("EntryPoint with paymaster", function () {
     describe('create account', () => {
       let createOp: UserOperation
       let created = false
-      const redeemerAddress = Wallet.createRandom().address
+      const beneficiaryAddress = Wallet.createRandom().address
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
@@ -83,7 +82,7 @@ describe("EntryPoint with paymaster", function () {
           verificationGas: 1e7,
           paymaster: paymaster.address
         }, walletOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], redeemerAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       });
@@ -101,7 +100,7 @@ describe("EntryPoint with paymaster", function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        const rcpt = await entryPoint.handleOps([createOp], redeemerAddress, {
+        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7,
         }).then(tx => tx.wait())
         console.log('\t== create gasUsed=', rcpt!.gasUsed.toString())
@@ -112,7 +111,7 @@ describe("EntryPoint with paymaster", function () {
       it('account should pay for its creation (in tst)', async function () {
         if (!created) this.skip()
         //TODO: calculate needed payment
-        const ethRedeemed = await getBalance(redeemerAddress)
+        const ethRedeemed = await getBalance(beneficiaryAddress)
         expect(ethRedeemed).to.above(100000)
 
         const walletAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
@@ -122,7 +121,7 @@ describe("EntryPoint with paymaster", function () {
 
       it('should reject if account already created', async function () {
         if (!created) this.skip()
-        await expect(entryPoint.callStatic.handleOps([createOp], redeemerAddress, {
+        await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('create2 failed')
       })

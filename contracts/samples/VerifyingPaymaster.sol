@@ -26,16 +26,16 @@ contract VerifyingPaymaster is IPaymaster {
     }
 
     function addStake() external payable {
-        entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec());
+        entryPoint.addStakeTo{value : msg.value}(address(this), entryPoint.unstakeDelaySec());
     }
 
     // verify our external signer signed this request.
     // the "paymasterData" is supposed to be a signature over the entire request params
-    function verifyPaymasterUserOp(UserOperation calldata userOp, uint requiredPreFund) external view override returns (bytes memory context) {
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund) external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = userOp.hash();
-        require( userOp.paymasterData.length >= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
+        require(userOp.paymasterData.length >= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
         (bytes32 r, bytes32 s) = abi.decode(userOp.paymasterData, (bytes32, bytes32));
         uint8 v = uint8(userOp.paymasterData[64]);
         require(verifyingSigner == ecrecover(hash, v, r, s), "VerifyingPaymaster: wrong signature");
@@ -46,7 +46,7 @@ contract VerifyingPaymaster is IPaymaster {
     }
 
     function postOp(PostOpMode, bytes calldata, uint) external pure override {
-        //should never get called. returned "0" from verifyPaymasterUserOp
+        //should never get called. returned "0" from validatePaymasterUserOp
         revert();
     }
 }

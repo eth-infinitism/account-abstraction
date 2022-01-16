@@ -11,6 +11,7 @@ import {entryPointDeployer} from "../src";
 export const HashZero = ethers.constants.HashZero
 export const ONE_ETH = parseEther('1');
 export const TWO_ETH = parseEther('2');
+export const FIVE_ETH = parseEther('5');
 
 export const tostr = (x: any) => x != null ? x.toString() : 'null'
 
@@ -52,17 +53,17 @@ export function createWalletOwner(privkeyBase?: string): Wallet {
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
-export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, redeemerAddress?: string) {
+export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string) {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const {actualGasCost, actualGasPrice} = logs[0].args
   console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
   let calculatedGasUsed = actualGasCost.toNumber() / actualGasPrice.toNumber();
-  console.log('\t== calculated gasUsed (paid to redeemer)=', calculatedGasUsed)
+  console.log('\t== calculated gasUsed (paid to beneficiary)=', calculatedGasUsed)
   const tx = await ethers.provider.getTransaction(rcpt.transactionHash)
   console.log('\t== gasDiff', actualGas.toNumber() - calculatedGasUsed - callDataCost(tx.data))
-  if (redeemerAddress != null) {
-    expect(await getBalance(redeemerAddress)).to.eq(actualGasCost.toNumber())
+  if (beneficiaryAddress != null) {
+    expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost.toNumber())
   }
 }
 
@@ -126,10 +127,10 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
 
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
-  const balanceOfs = logs.map((op, index) => ({op: op.op, index})).filter(op => op.op == 'SELFBALANCE')
-  expect(balanceOfs.length).to.equal(2, "expected exactly 2 calls to SELFBALANCE (Before and after validateUserOp)")
-  const validateWalletOps = logs.slice(0, balanceOfs[1].index - 1)
-  const validatePaymasterOps = logs.slice(balanceOfs[1].index + 1)
+  const blockHash = logs.map((op, index) => ({op: op.op, index})).filter(op => op.op == 'NUMBER')
+  expect(blockHash.length).to.equal(1, "expected exactly 1 call to NUMBER (Just before validatePaymasterUserOp)")
+  const validateWalletOps = logs.slice(0, blockHash[0].index - 1)
+  const validatePaymasterOps = logs.slice(blockHash[0].index + 1)
   const ops = validateWalletOps.filter(log => log.depth > 1).map(log => log.op)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 

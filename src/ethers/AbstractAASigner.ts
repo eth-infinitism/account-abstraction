@@ -4,7 +4,7 @@ import {Deferrable, resolveProperties} from "@ethersproject/properties";
 import {EntryPoint, EntryPoint__factory} from "../../typechain-types";
 import {BytesLike, hexValue} from "@ethersproject/bytes";
 import {TransactionReceipt, TransactionResponse} from "@ethersproject/abstract-provider";
-import {fillAndSign} from "../userop/UserOp";
+import {fillAndSign, getRequestId} from "../userop/UserOp";
 import {UserOperation} from "../userop/UserOperation";
 import {clearTimeout} from "timers";
 import {localUserOpSender} from "./localUserOpSender";
@@ -68,7 +68,7 @@ export abstract class AbstractAASigner extends Signer {
   private _isPhantom = true
   public entryPoint: EntryPoint
 
-  private _chainId = 0
+  private _chainId: Promise<number> | undefined
 
   readonly index: number
   readonly provider: Provider
@@ -112,25 +112,26 @@ export abstract class AbstractAASigner extends Signer {
    * @param amount eth value to deposit.
    */
   async addDeposit(wealthySigner: Signer, amount: BigNumberish) {
-    await this.entryPoint.connect(wealthySigner).addDepositTo(await this.getAddress(), {value: amount})
+    await this.entryPoint.connect(wealthySigner).depositTo(await this.getAddress(), {value: amount})
   }
 
   /**
    * withdraw deposit.
-   * @param withdrawAddress send all deposit to this address
+   * @param withdrawAddress send deposit to this address
+   * @param amount amount to withdraw
    */
-  async withdrawDeposit(withdrawAddress:string) {
-    //use this AA provider to call the entryPoint as a target from our wallet
-    //TODO: there is a small leftover, because of refund
-    await this.entryPoint.connect(this).withdrawStake(withdrawAddress)
+  async withdrawDeposit(withdrawAddress: string, amount: BigNumberish) {
+    // Connect through this provider to withdraw from entrypoint.
+    // This generates a UserOperation to call (from our wallet) the entrypoint.withdrawTo
+    // (we have to, since only the wallet is allowed to call this method)
+    await this.entryPoint.connect(this).withdrawTo(withdrawAddress, amount!)
   }
 
   /**
    * return current deposit of this wallet.
    */
   async getDeposit(): Promise<BigNumber> {
-    const stakeInfo = await this.entryPoint.getStakeInfo(await this.getAddress());
-    return stakeInfo.stake
+    return await this.entryPoint.balanceOf(await this.getAddress());
   }
 
   //connect to a specific pre-deployed address
@@ -195,67 +196,70 @@ export abstract class AbstractAASigner extends Signer {
   //fabricate a response in a format usable by ethers users...
   async userEventResponse(userOp: UserOperation): Promise<TransactionResponse> {
     const entryPoint = this.entryPoint
-    let fromBlock = await entryPoint.provider.getBlockNumber()
+    const requestId = getRequestId(userOp, entryPoint.address, await this._chainId!)
+    const provider = entryPoint.provider
+    const currentBLock = provider.getBlockNumber()
+
+    let resolved = false
+    const waitPromise = new Promise<TransactionReceipt>((resolve, reject) => {
+      let listener = async function (this: any, ...param: any) {
+        if (resolved) return
+        const event = arguments[arguments.length - 1] as Event
+        if (event.blockNumber <= await currentBLock) {
+          // not sure why this callback is called first for previously-mined block..
+          console.log('ignore previous block', event.blockNumber)
+          return
+        }
+        if (event.args == null) {
+          console.error('got event without args', event)
+          return
+        }
+        if (event.args.requestId != requestId) {
+          console.log(`== event with wrong requestId: sender/nonce: event.${event.args.sender}@${event.args.nonce}!= userOp.${userOp.sender}@${parseInt(userOp.nonce.toString())}`)
+          return
+        }
+
+        const rcpt = await event.getTransactionReceipt()
+        console.log('got event with status=', event.args!.success, 'gasUsed=', rcpt.gasUsed)
+
+        //TODO: should use "requestId" as "transactionId" (but this has to be done in a provider, not a signer)
+
+        //before returning the receipt, update the status from the event.
+        if (!event.args!.success) {
+          console.log('mark tx as failed')
+          rcpt.status = 0
+          const revertReasonEvents = await entryPoint.queryFilter(entryPoint.filters.UserOperationRevertReason(userOp.sender), rcpt.blockHash)
+          if (revertReasonEvents[0]) {
+            console.log('rejecting with reason')
+            reject('UserOp failed with reason: ' +
+              revertReasonEvents[0].args.revertReason)
+            return
+          }
+        }
+        entryPoint.off('UserOperationEvent', listener)
+        resolve(rcpt)
+        resolved = true
+      }
+      listener = listener.bind(listener)
+      entryPoint.on('UserOperationEvent', listener)
+      //for some reason, 'on' takes at least 2 seconds to be triggered on local network. so add a one-shot timer:
+      setTimeout(() => entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(requestId)).then(query => {
+        if (query.length > 0) {
+          listener(query[0])
+        }
+      }), 500)
+    })
     const resp: TransactionResponse = {
-      hash: this.virtualTransactionHash(userOp),
+      hash: requestId,
       confirmations: 0,
       from: userOp.sender,
       nonce: BigNumber.from(userOp.nonce).toNumber(),
       gasLimit: BigNumber.from(userOp.callGas), //??
       value: BigNumber.from(0),
-      data: hexValue(userOp.callData),
-      chainId: this._chainId,
+      data: hexValue(userOp.callData), // should extract the actual called method from this "execFromSingleton()" call
+      chainId: await this._chainId!,
       wait: async function (confirmations?: number): Promise<TransactionReceipt> {
-        return new Promise<TransactionReceipt>((resolve, reject) => {
-          let listener = async function () {
-            const event = arguments[arguments.length - 1] as Event
-            if (event.args!.nonce != parseInt(userOp.nonce.toString())) {
-              debug(`== event with wrong nonce: event.${event.args!.nonce}!= userOp.${userOp.nonce}`)
-              return
-            }
-
-            const rcpt = await event.getTransactionReceipt()
-            // console.log('got event with status=', event.args!.success, 'gasUsed=', rcpt.gasUsed)
-
-            //before returning the receipt, update the status from the event.
-            if (!event.args!.success) {
-              debug('mark tx as failed')
-              rcpt.status = 0
-              const revertReasonEvents = await entryPoint.queryFilter(entryPoint.filters.UserOperationRevertReason(userOp.sender), rcpt.blockHash)
-              if (revertReasonEvents[0]) {
-                debug('rejecting with reason')
-                reject(Error('UserOp failed with reason: ' +
-                  revertReasonEvents[0].args.revertReason))
-                return
-              }
-            }
-            entryPoint.off('UserOperationEvent', listener)
-            resolve(rcpt)
-          }
-          listener = listener.bind(listener)
-          const ep = entryPoint as any
-          if (AbstractAASigner.eventsPollingInterval != undefined && !ep._onOffInitialized) {
-            ep.on = function (name: any, listener: (e: Event) => void) {
-              let pollEvents = async () => {
-                let filter = entryPoint.filters.UserOperationEvent(userOp.sender)
-                const logs = await entryPoint.queryFilter(filter, fromBlock)
-                for (let log of logs) {
-                  if (ep._timerId == undefined)
-                    return
-                  await listener(log)
-                  fromBlock = log.blockNumber + 1
-                }
-              }
-              ep._timerId = setTimeout(pollEvents, AbstractAASigner.eventsPollingInterval)
-            }
-            ep.off = () => {
-              clearTimeout(ep._timerId)
-              ep._timerId = undefined
-            }
-            ep._onOffInitialized = true
-          }
-          entryPoint.on('UserOperationEvent', listener)
-        })
+        return waitPromise
       }
     }
     return resp
@@ -276,6 +280,7 @@ export abstract class AbstractAASigner extends Signer {
       const address = await this.entryPoint.getSenderAddress(await this._createDeploymentTransaction(this.entryPoint.address, ownerAddress), this.index)
       this._wallet = await this._connectWallet(address);
     }
+    this._chainId = this.provider?.getNetwork().then(net => net.chainId)
 
     //once an account is deployed, it can no longer be a phantom.
     // but until then, we need to re-check

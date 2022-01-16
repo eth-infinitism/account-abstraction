@@ -49,7 +49,7 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(22000, 0)
+    entryPoint = await deployEntryPoint(0, 0)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -77,7 +77,7 @@ describe("Batch gas testing", function () {
       let counter: TestCounter
       let walletExecCounterFromEntryPoint: PopulatedTransaction
       let execCounterCount: PopulatedTransaction
-      const redeemerAddress = Wallet.createRandom().address
+      const beneficiaryAddress = Wallet.createRandom().address
 
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
@@ -105,10 +105,8 @@ describe("Batch gas testing", function () {
             maxPriorityFeePerGas: 1e9,
           }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
-          const estim = await entryPointView.callStatic.simulateWalletValidation(op1, {gasPrice: 1e9})
-          const estim1 = await entryPointView.simulatePaymasterValidation(op1, estim!, {gasPrice: 1e9})
-          const verificationGas = estim.add(estim1.gasUsedByPayForOp)
-          const txgas = verificationGas.add(op1.callGas).toNumber()
+          const {preOpGas} = await entryPointView.callStatic.simulateValidation(op1, {gasPrice: 1e9})
+          const txgas = preOpGas.add(op1.callGas).toNumber()
 
           // console.log('colected so far', opsGasCollected, 'estim', verificationGas, 'max', maxTxGas)
           if (opsGasCollected + txgas > maxTxGas) {
@@ -148,8 +146,8 @@ describe("Batch gas testing", function () {
               to: wallet.address,
               data: execCounterCount.data!
             }), 'datacost=', callDataCost(execCounterCount.data!));
-            console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], redeemerAddress))
-            console.log('through single handleOp:', await entryPoint.estimateGas.handleOp(op1, redeemerAddress))
+            console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress))
+            console.log('through single handleOp:', await entryPoint.estimateGas.handleOp(op1, beneficiaryAddress))
           }
 
         }
@@ -209,10 +207,10 @@ describe("Batch gas testing", function () {
   })
 
   async function call_handleOps_and_stats(title: string, ops: UserOperation[], count: number) {
-    const redeemerAddress = createWalletOwner().address
+    const beneficiaryAddress = createWalletOwner().address
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
-    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, redeemerAddress).then(tx => tx.data))
+    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, beneficiaryAddress).then(tx => tx.data))
 
     function callDataCost(data: Buffer | string): number {
       if (typeof data == 'string') {
@@ -233,7 +231,7 @@ describe("Batch gas testing", function () {
     //for slack testing, we set TX priority same as UserOp
     //(real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
     const {maxPriorityFeePerGas} = ops[0]
-    const ret = await entryPoint.connect(sender).handleOps(ops, redeemerAddress, {
+    const ret = await entryPoint.connect(sender).handleOps(ops, beneficiaryAddress, {
       gasLimit: 13e6,
       maxPriorityFeePerGas
     }).catch((rethrow())).then(r => r!.wait())
@@ -253,7 +251,7 @@ describe("Batch gas testing", function () {
     const totalEventsGasCost = parseInt(events1.map(x => x.args!.actualGasCost).reduce((sum, x) => sum.add(x)).toString())
 
     const senderPaid = parseInt(senderPrebalance.sub(await ethers.provider.getBalance(await sender.getAddress())).toString())
-    let senderRedeemed = await ethers.provider.getBalance(redeemerAddress).then(tonumber)
+    let senderRedeemed = await ethers.provider.getBalance(beneficiaryAddress).then(tonumber)
 
     expect(senderRedeemed).to.equal(totalEventsGasCost)
 
