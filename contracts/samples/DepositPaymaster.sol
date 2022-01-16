@@ -28,7 +28,10 @@ contract DepositPaymaster is BasePaymaster {
     mapping(IERC20 => mapping(address => uint)) public balances;
     mapping(address => uint) unlockBlock;
 
-    constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {}
+    constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {
+        //owner account is unblocked, to allow withdraw of paid tokens;
+        unlockTokenDeposit();
+    }
 
     /**
      * owner of the paymaster should add supported tokens
@@ -36,13 +39,6 @@ contract DepositPaymaster is BasePaymaster {
     function addToken(IERC20 token, IOracle tokenPriceOracle) external onlyOwner {
         require(oracles[token] == nullOracle);
         oracles[token] = tokenPriceOracle;
-    }
-
-    /**
-     * approve owner-selected address to withdraw collected tokens.
-     */
-    function approve(IERC20 token, address target, uint amount) external onlyOwner {
-        token.approve(target, amount);
     }
 
     /**
@@ -74,7 +70,7 @@ contract DepositPaymaster is BasePaymaster {
      * unlock deposit, so that it can be withdrawn.
      * can't be called on in the same block as withdrawTo()
      */
-    function unlockTokenDeposit() external {
+    function unlockTokenDeposit() public {
         unlockBlock[msg.sender] = block.number;
     }
 
@@ -124,5 +120,6 @@ contract DepositPaymaster is BasePaymaster {
             //in case above transferFrom failed, pay with deposit:
             balances[token][account] -= actualTokenCost;
         }
+        balances[token][owner()] += actualTokenCost;
     }
 }
