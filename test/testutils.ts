@@ -1,6 +1,6 @@
 import {ethers} from "hardhat";
-import {defaultAbiCoder, hexConcat, parseEther} from "ethers/lib/utils";
-import {BigNumberish, Contract, ContractReceipt, Wallet} from "ethers";
+import {arrayify, defaultAbiCoder, hexConcat, parseEther, solidityKeccak256} from "ethers/lib/utils";
+import {BigNumber, BigNumberish, Contract, ContractReceipt, Wallet} from "ethers";
 import {IERC20} from '../typechain'
 import {BytesLike} from "@ethersproject/bytes";
 import {
@@ -11,6 +11,7 @@ import {
 import {expect} from "chai";
 import {Create2Factory} from "../src/Create2Factory";
 import {debugTransaction} from "./debugTx";
+import {keccak256} from "ethereumjs-util";
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -52,10 +53,16 @@ export async function getTokenBalance(token: IERC20, address: string): Promise<n
 }
 
 
-export function createWalletOwner(privkeyBase?: string): Wallet {
-  const ran = ethers.Wallet.createRandom()
-  return new ethers.Wallet(ran.privateKey, ethers.provider)
+let counter=0
+//create non-random account, so gas calculations are deterministic
+export function createWalletOwner(): Wallet {
+  const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
+  return new ethers.Wallet(privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
+}
+
+export function createAddress(): string {
+  return createWalletOwner().address
 }
 
 export function callDataCost(data: string): number {

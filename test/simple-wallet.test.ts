@@ -28,7 +28,7 @@ describe("SimpleWallet", function () {
     //ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    walletOwner = createWalletOwner('2')
+    walletOwner = createWalletOwner()
   })
 
   it('owner should be able to call transfer', async () => {
