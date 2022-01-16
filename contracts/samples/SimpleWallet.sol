@@ -125,7 +125,7 @@ contract SimpleWallet is IWallet {
         require(req);
     }
 
-    function withdrawDepsitTo(address payable withdrawAddress, uint amount) public {
+    function withdrawDepositTo(address payable withdrawAddress, uint amount) public onlyOwner{
         entryPoint.withdrawTo(withdrawAddress, amount);
     }
 }
