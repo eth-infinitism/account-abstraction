@@ -26,7 +26,7 @@ contract VerifyingPaymaster is BasePaymaster {
     }
 
     // return the hash we're going to sign off-chain (and validate on-chain)
-    function getHash(UserOperation calldata userOp) public view returns (bytes32) {
+    function getHash(UserOperation calldata userOp) public pure returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterData itself.
         return keccak256(abi.encode(
                 userOp.sender,

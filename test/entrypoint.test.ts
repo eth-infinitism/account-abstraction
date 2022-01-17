@@ -215,7 +215,7 @@ describe("EntryPoint", function () {
         await expect(entryPoint.connect(wallet.address).callStatic.unstakeDeposit()).to.revertedWith('not staked')
       })
       it('should withdraw with no unlock', async () => {
-        await wallet.withdrawDepsitTo(wallet.address, ONE_ETH)
+        await wallet.withdrawDepositTo(wallet.address, ONE_ETH)
         expect(await getBalance(wallet.address)).to.equal(1e18)
       })
     })

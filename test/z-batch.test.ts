@@ -47,11 +47,7 @@ describe("Batch gas testing", function () {
 
   let results: (() => void)[] = []
   before(async function () {
-
-    //this test is currently useless. client need to do better work with preVerificationGas calculation.
-    // we do need a better recommendation for bundlers how to validate those values before accepting a request.
     this.skip()
-    return
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
