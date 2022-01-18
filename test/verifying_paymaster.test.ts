@@ -33,7 +33,7 @@ describe("EntryPoint with VerifyingPaymaster", function () {
     entryPointStatic = entryPoint.connect(AddressZero)
 
     offchainSigner = createWalletOwner()
-    walletOwner = createWalletOwner('1')
+    walletOwner = createWalletOwner()
 
     paymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(entryPoint.address, offchainSigner.address)
     paymaster.addStake(0, {value: parseEther('2')})

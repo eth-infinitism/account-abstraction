@@ -15,7 +15,7 @@ import {
   TestToken__factory
 } from "../typechain";
 import {
-  AddressZero,
+  AddressZero, createAddress,
   createWalletOwner,
   deployEntryPoint, FIVE_ETH, ONE_ETH
 } from "./testutils";
@@ -72,7 +72,7 @@ describe("DepositPaymaster", async () => {
     });
     it('should succeed to withdraw after unlock', async () => {
       const paymasterUnlock = await paymaster.populateTransaction.unlockTokenDeposit().then(tx => tx.data!)
-      const target = createWalletOwner().address
+      const target = createAddress()
       const paymasterWithdraw = await paymaster.populateTransaction.withdrawTokensTo(token.address, target, 1).then(tx => tx.data!)
       await wallet.exec(paymaster.address, 0, paymasterUnlock)
       await wallet.exec(paymaster.address, 0, paymasterWithdraw)
@@ -158,7 +158,7 @@ describe("DepositPaymaster", async () => {
     })
     it('should pay with deposit (and revert user\'s call) if user can\'t pay with tokens', async () => {
 
-      const beneficiary = createWalletOwner().address
+      const beneficiary = createAddress()
       const userOp = await fillAndSign({
         sender: wallet.address,
         paymaster: paymaster.address,
@@ -174,7 +174,7 @@ describe("DepositPaymaster", async () => {
       expect(await ethers.provider.getBalance(beneficiary)).to.be.gt(0)
     });
     it('should pay with tokens if available', async () => {
-      const beneficiary = createWalletOwner().address
+      const beneficiary = createAddress()
       let initialTokens = parseEther('1')
       await token.mint(wallet.address, initialTokens)
 

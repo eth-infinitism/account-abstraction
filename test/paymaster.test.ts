@@ -17,7 +17,7 @@ import {
   fund,
   getBalance,
   getTokenBalance, rethrow,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps
+  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
@@ -38,7 +38,7 @@ describe("EntryPoint with paymaster", function () {
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     entryPoint = await deployEntryPoint(0,0)
 
-    walletOwner = createWalletOwner('1')
+    walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
   })
@@ -75,7 +75,7 @@ describe("EntryPoint with paymaster", function () {
     describe('create account', () => {
       let createOp: UserOperation
       let created = false
-      const beneficiaryAddress = Wallet.createRandom().address
+      const beneficiaryAddress = createAddress()
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({

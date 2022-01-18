@@ -20,7 +20,7 @@ import {
   WalletConstructor,
   tonumber,
   deployEntryPoint,
-  callDataCost
+  callDataCost, createAddress
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {UserOperation} from "./UserOperation";
@@ -82,7 +82,7 @@ describe("Batch gas testing", function () {
       let counter: TestCounter
       let walletExecCounterFromEntryPoint: PopulatedTransaction
       let execCounterCount: PopulatedTransaction
-      const beneficiaryAddress = Wallet.createRandom().address
+      const beneficiaryAddress = createAddress()
 
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
@@ -212,7 +212,7 @@ describe("Batch gas testing", function () {
   })
 
   async function call_handleOps_and_stats(title: string, ops: UserOperation[], count: number) {
-    const beneficiaryAddress = createWalletOwner().address
+    const beneficiaryAddress = createAddress()
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
     const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, beneficiaryAddress).then(tx => tx.data))

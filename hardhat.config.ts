@@ -5,38 +5,9 @@ import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
 import {TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD} from "hardhat/builtin-tasks/task-names"
 import path from 'path'
+import "hardhat-gas-reporter"
+
 import * as fs from "fs";
-
-subtask(TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, async (args: any, hre, runSuper) => {
-  const solcVersion = args.solcVersion
-  if (solcVersion.indexOf('0.8.8') < 0)
-    return runSuper();
-
-  let ver = '0.8.7-nightly.2021.8.9+commit.74c804d8'
-  const compilerPath = path.join(__dirname, `./compilers/soljson-v${ver}.js`)
-  if (!fs.existsSync(compilerPath)) {
-    throw `Unable to find: ${compilerPath}`
-  }
-
-  return {
-    compilerPath,
-    isSolcJs: true, // if you are using a native compiler, set this to false
-    version: '0.8.7',
-    // this is used as extra information in the build-info files, but other than
-    // that is not important
-    longVersion: '0.8.7+nightly'
-  }
-})
-
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-})
 
 let mnemonicFileName = process.env.MNEMONIC_FILE || process.env.HOME + '/.secret/testnet-mnemonic.txt'
 let mnemonic = 'test '.repeat(11) + 'junk'
@@ -77,7 +48,15 @@ const config: HardhatUserConfig = {
 
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY
-  }
+  },
 
+  gasReporter: {
+    enabled: process.env.GAS_REPORT != null,
+    excludeContracts: [ 'TestToken', 'SimpleWallet', 'ERC20'],
+    //"yarn gas-report" to dump report and create a no-color "txt" output, to be checked in.
+    noColors: false,
+    outputFile: 'reports/gas-used-output.color'
+  }
 }
+
 export default config
