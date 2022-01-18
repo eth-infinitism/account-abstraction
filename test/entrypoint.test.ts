@@ -22,7 +22,7 @@ import {
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance, FIVE_ETH, createAddress, objdump
+  getBalance, FIVE_ETH, objdump, createAddress
 } from "./testutils";
 import {fillAndSign, getRequestId, UserOperation} from "../src";
 import {PopulatedTransaction} from "ethers/lib/ethers";

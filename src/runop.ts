@@ -16,9 +16,8 @@ import {TransactionReceipt} from "@ethersproject/abstract-provider";
     console.log('chainid=', chainId)
     await hre.run('etherscan-verify')
   }
-  const [entryPointAddress, walletAddress, testCounterAddress] = await Promise.all([
+  const [entryPointAddress, testCounterAddress] = await Promise.all([
     hre.deployments.get('EntryPoint').then(d => d.address),
-    hre.deployments.get('SimpleWallet').then(d => d.address),
     hre.deployments.get('TestCounter').then(d => d.address),
   ])
 

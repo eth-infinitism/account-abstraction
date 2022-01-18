@@ -4,8 +4,8 @@ import {HardhatUserConfig, subtask, task} from "hardhat/config";
 import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
 import "hardhat-gas-reporter"
-import * as fs from "fs";
 
+import * as fs from "fs";
 
 let mnemonicFileName = process.env.MNEMONIC_FILE || process.env.HOME + '/.secret/testnet-mnemonic.txt'
 let mnemonic = 'test '.repeat(11) + 'junk'

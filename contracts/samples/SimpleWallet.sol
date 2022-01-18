@@ -109,7 +109,7 @@ contract SimpleWallet is IWallet {
         (bool success, bytes memory result) = sender.call{value : value}(data);
         if (!success) {
             assembly {
-                revert(result, add(result, 32))
+                revert(add(result,32), mload(result))
             }
         }
     }
