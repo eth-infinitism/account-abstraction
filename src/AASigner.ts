@@ -19,17 +19,17 @@ export let debug = process.env.DEBUG != null
  *
  * @param provider - rpc provider that supports "eth_sendUserOperation"
  */
-export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): SendUserOp {
+export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider, entryPointAddress: string): SendUserOp {
 
   let chainId: number
 
   return async function (userOp) {
     if (debug) {
-      console.log('sending', {
+      console.log('sending eth_sendUserOperation', {
         ...userOp,
         initCode: (userOp.initCode ?? '').length,
         callData: (userOp.callData ?? '').length
-      })
+      }, entryPointAddress)
     }
     if (chainId == undefined) {
       chainId = await provider.getNetwork().then(net => net.chainId)
@@ -42,7 +42,7 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider): Sen
       return [key, val]
     })
       .reduce((set, [k, v]) => ({...set, [k]: v}), {})
-    await provider.send('eth_sendUserOperation', [cleanUserOp]).catch(e => {
+    await provider.send('eth_sendUserOperation', [cleanUserOp, entryPointAddress]).catch(e => {
       throw e.error ?? e
     })
   }
@@ -161,11 +161,12 @@ export function localUserOpSender(entryPointAddress: string, signer: Signer, ben
     if (debug)
       console.log('sending', {
         ...userOp,
-        initCode: (userOp.initCode ?? '').length,
-        callData: (userOp.callData ?? '').length
+        initCode: userOp.initCode.length<=2 ? userOp.initCode : `<len=${userOp.initCode.length}>`,
       })
+    const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas);
+    console.log('calc gaslimit=', gasLimit.toString())
     const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), {
-      gasLimit: 10e6,
+      gasLimit,
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
       maxFeePerGas: userOp.maxFeePerGas
     })

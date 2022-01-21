@@ -13,6 +13,7 @@
     "ci": "hardhat compile && GAS_REPORT=1 hardhat test && yarn gas-report && yarn run runop",
     "gas-report": "cat reports/gas-used-output.color; echo; perl -pe 's/\\e\\[\\d+m//g' reports/gas-used-output.color > reports/gas-used-output.txt",
     "runop": "hardhat run src/runop.ts ",
+    "runop-goerli": "AA_URL=https://account-abstraction-goerli.nethermind.io yarn runop --network goerli",
     "runop3": "hardhat run src/runop3.ts "
   },
   "keywords": [],
