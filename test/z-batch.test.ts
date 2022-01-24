@@ -118,7 +118,6 @@ describe("Batch gas testing", function () {
             break;
           }
           opsGasCollected += txgas
-          // console.log('== estim=', estim1.gasUsedByPayForOp, estim, verificationGas)
           ops.push(op1)
           wallets.push({owner: walletOwner1, w: wallet1})
           if (wallets.length >= maxCount) break

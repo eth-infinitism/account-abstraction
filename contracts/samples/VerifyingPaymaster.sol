@@ -26,10 +26,11 @@ contract VerifyingPaymaster is BasePaymaster {
     }
 
     // return the hash we're going to sign off-chain (and validate on-chain)
-    function getHash(UserOperation calldata userOp) public pure returns (bytes32) {
+    function getHash(UserOperation calldata userOp)
+    public pure returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterData itself.
         return keccak256(abi.encode(
-                userOp.sender,
+                userOp.getSender(),
                 userOp.nonce,
                 keccak256(userOp.initCode),
                 keccak256(userOp.callData),
@@ -44,7 +45,8 @@ contract VerifyingPaymaster is BasePaymaster {
 
     // verify our external signer signed this request.
     // the "paymasterData" is supposed to be a signature over the entire request params
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund) external view override returns (bytes memory context) {
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund)
+    external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);

@@ -25,8 +25,6 @@ contract EntryPoint is StakeManager {
     event UserOperationEvent(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint nonce, uint actualGasCost, uint actualGasPrice, bool success);
     event UserOperationRevertReason(bytes32 indexed requestId, address indexed sender, uint nonce, bytes revertReason);
 
-    event PaymasterPostOpFailed(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint nonce, bytes reason);
-
     //handleOps reverts with this error struct, to mark the offending op
     // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
     // @param opIndex - index into the array of ops to the failed one (in simulateOp, this is always zero)
@@ -66,7 +64,7 @@ contract EntryPoint is StakeManager {
             actualGasCost = _actualGasCost;
         } catch {
             uint actualGas = preGas - gasleft() + preOpGas;
-            actualGasCost = handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, requestId, context, actualGas, prefund, paymentMode);
+            actualGasCost = handlePostOp(0, IPaymaster.PostOpMode.postOpReverted, op, requestId, context, actualGas, prefund, paymentMode);
         }
 
         compensate(beneficiary, actualGasCost);
@@ -124,7 +122,7 @@ contract EntryPoint is StakeManager {
                 collected += _actualGasCost;
             } catch {
                 uint actualGas = preGas - gasleft() + preOpGasi;
-                collected += handlePostOp(IPaymaster.PostOpMode.postOpReverted, op, requestIdi, context, actualGas, prefundi, paymentModei);
+                collected += handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, requestIdi, context, actualGas, prefundi, paymentModei);
             }
         }
 
@@ -150,7 +148,7 @@ contract EntryPoint is StakeManager {
 
     unchecked {
         uint actualGas = preGas - gasleft() + preOpGas;
-        return handlePostOp(mode, op, requestId, context, actualGas, prefund, paymentMode);
+        return handlePostOp(0, mode, op, requestId, context, actualGas, prefund, paymentMode);
     }
     }
 
@@ -181,7 +179,7 @@ contract EntryPoint is StakeManager {
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
     }
 
-    function getPaymentInfo(UserOperation calldata userOp) internal view returns (uint requiredPrefund, PaymentMode paymentMode) {
+    function _getPaymentInfo(UserOperation calldata userOp) internal view returns (uint requiredPrefund, PaymentMode paymentMode) {
         requiredPrefund = userOp.requiredPreFund();
         if (userOp.hasPaymaster()) {
             paymentMode = PaymentMode.paymasterStake;
@@ -222,6 +220,7 @@ contract EntryPoint is StakeManager {
     //call wallet.validateUserOp, and validate that it paid as needed.
     // return actual value sent from wallet to "this"
     function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPrefund, PaymentMode paymentMode) internal returns (uint gasUsedByValidateUserOp, uint prefund) {
+    unchecked {
         uint preGas = gasleft();
         _createSenderIfNeeded(op);
         uint missingWalletFunds = 0;
@@ -245,15 +244,17 @@ contract EntryPoint is StakeManager {
         } else {
             prefund = 0;
         }
-    unchecked {
         gasUsedByValidateUserOp = preGas - gasleft();
     }
     }
 
     //validate paymaster.validatePaymasterUserOp
-    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPreFund, uint gasUsedByValidateUserOp) internal view returns (bytes memory context, uint gasUsedByPayForOp) {
-        uint preGas = gasleft();
-        if (!isValidStake(op, requiredPreFund)) {
+    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPreFund, uint gasUsedByValidateUserOp) internal view returns (bytes memory context) {
+    unchecked {
+        //validate a paymaster has enough stake (including for payment for this TX)
+        // NOTE: when submitting a batch, caller has to make sure a paymaster has enough stake to cover
+        // all its transactions in the batch.
+        if (!isPaymasterStaked(op.paymaster, paymasterStake + requiredPreFund)) {
             revert FailedOp(opIndex, op.paymaster, "not enough stake");
         }
         //no pre-pay from paymaster
@@ -265,22 +266,18 @@ contract EntryPoint is StakeManager {
         } catch {
             revert FailedOp(opIndex, op.paymaster, "");
         }
-    unchecked {
-        gasUsedByPayForOp = preGas - gasleft();
     }
     }
 
     function _validatePrepayment(uint opIndex, UserOperation calldata userOp, bytes32 requestId) private returns (uint prefund, PaymentMode paymentMode, bytes memory context){
 
         uint preGas = gasleft();
-
         uint maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
         userOp.callGas | userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
         require(maxGasValues < type(uint120).max, "gas values overflow");
-
         uint gasUsedByValidateUserOp;
         uint requiredPreFund;
-        (requiredPreFund, paymentMode) = getPaymentInfo(userOp);
+        (requiredPreFund, paymentMode) = _getPaymentInfo(userOp);
 
         (gasUsedByValidateUserOp, prefund) = _validateWalletPrepayment(opIndex, userOp, requestId, requiredPreFund, paymentMode);
 
@@ -289,13 +286,11 @@ contract EntryPoint is StakeManager {
         uint marker = block.number;
         (marker);
 
-        uint gasUsedByPayForOp = 0;
         if (paymentMode == PaymentMode.paymasterStake) {
-            (context, gasUsedByPayForOp) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateUserOp);
+            (context) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateUserOp);
         } else {
             context = "";
         }
-
     unchecked {
         uint gasUsed = preGas - gasleft();
 
@@ -305,7 +300,7 @@ contract EntryPoint is StakeManager {
     }
     }
 
-    function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 requestId, bytes memory context, uint actualGas, uint prefund, PaymentMode paymentMode) private returns (uint actualGasCost) {
+    function handlePostOp(uint opIndex, IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 requestId, bytes memory context, uint actualGas, uint prefund, PaymentMode paymentMode) private returns (uint actualGasCost) {
         uint preGas = gasleft();
         uint gasPrice = UserOperationLib.gasPrice(op);
     unchecked {
@@ -321,16 +316,16 @@ contract EntryPoint is StakeManager {
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
                     IPaymaster(op.paymaster).postOp(mode, context, actualGasCost);
                 } else {
-                    //paymaster.postOp reverts again (after internalHandleOp was reverted)
-                    // - emit a message (just for sake of debugging of this poor paymaster)
-                    // - paymaster still pays (from its stake)
                     try IPaymaster(op.paymaster).postOp(mode, context, actualGasCost) {}
-                    catch (bytes memory errdata) {
-                        emit PaymasterPostOpFailed(requestId, op.getSender(), op.paymaster, op.nonce, errdata);
+                    catch Error(string memory reason) {
+                        revert FailedOp(opIndex, op.paymaster, reason);
+                    }
+                    catch {
+                        revert FailedOp(opIndex, op.paymaster, "postOp revert");
                     }
                 }
             }
-            //paymaster pays for full gas, including for postOp (and revert event)
+            //paymaster pays for full gas, including for postOp
             actualGas += preGas - gasleft();
             actualGasCost = actualGas * gasPrice;
             //paymaster balance known to be high enough, and to be locked for this block
@@ -341,12 +336,6 @@ contract EntryPoint is StakeManager {
     } // unchecked
     }
 
-    //validate a paymaster has enough stake (including for payment for this TX)
-    // NOTE: when submitting a batch, caller has to make sure a paymaster has enough stake to cover
-    // all its transactions in the batch.
-    function isValidStake(UserOperation calldata userOp, uint requiredPreFund) internal view returns (bool) {
-        return isPaymasterStaked(userOp.paymaster, paymasterStake + requiredPreFund);
-    }
 
     function isPaymasterStaked(address paymaster, uint stake) public view returns (bool) {
         return isStaked(paymaster, stake, unstakeDelaySec);

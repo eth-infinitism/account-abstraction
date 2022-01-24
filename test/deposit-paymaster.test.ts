@@ -98,13 +98,13 @@ describe("DepositPaymaster", async () => {
       await expect(entryPointStatic.callStatic.simulateValidation(userOp)).to.be.revertedWith('paymasterData must specify token')
     });
 
-    it('should fail with wrong', async () => {
+    it('should fail with wrong token', async () => {
       const userOp = await fillAndSign({
         sender: wallet.address,
         paymaster: paymaster.address,
         paymasterData: hexZeroPad('0x1234', 32),
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, {gasPrice})).to.be.revertedWith('DepositPaymaster: unsupported token in paymasterData')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, {gasPrice})).to.be.revertedWith('DepositPaymaster: unsupported token')
     });
 
     it('should reject if no deposit', async () => {

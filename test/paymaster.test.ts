@@ -20,7 +20,7 @@ import {
   checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress, ONE_ETH
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
-import {parseEther} from "ethers/lib/utils";
+import {formatEther, parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
 import {cleanValue} from "./chaiHelper";
 
@@ -103,9 +103,7 @@ describe("EntryPoint with paymaster", function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        console.log('simulate result=',
-          await entryPoint.simulateValidation(createOp, {gasLimit: 5e6}).catch(e => e.message)
-        )
+        await entryPoint.simulateValidation(createOp, {gasLimit: 5e6}).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 
@@ -133,6 +131,60 @@ describe("EntryPoint with paymaster", function () {
         await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('create2 failed')
+      })
+
+      // wallets attempt to grief paymaster: both wallets pass validatePaymasterUserOp (since they have enough balance)
+      // but the execution of wallet1 drains wallet2.
+      // as a result, the postOp of the paymaster reverts, and cause entire handleOp to revert.
+      describe('grief attempt', () => {
+        let wallet2: SimpleWallet
+        let approveCallData: string
+        before(async () => {
+          wallet2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
+          await paymaster.mintTokens(wallet2.address, parseEther('1'))
+          await paymaster.mintTokens(wallet.address, parseEther('1'))
+          approveCallData = paymaster.interface.encodeFunctionData('approve', [wallet.address, ethers.constants.MaxUint256])
+          //need to call approve from wallet2. use paymaster for that
+          const approveOp = await fillAndSign({
+            sender: wallet2.address,
+            callData: wallet2.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, approveCallData]),
+            paymaster: paymaster.address
+          }, walletOwner, entryPoint)
+          await entryPoint.handleOp(approveOp, beneficiaryAddress)
+          expect(await paymaster.allowance(wallet2.address, wallet.address)).to.eq(ethers.constants.MaxUint256)
+        })
+
+        it('griefing attempt should cause handleOp to revert', async () => {
+          //wallet1 is approved to withdraw going to withdraw wallet2's balance
+
+          const wallet2Balance = await paymaster.balanceOf(wallet2.address)
+          const transferCost = parseEther('1').sub(wallet2Balance)
+          const withdrawAmount = wallet2Balance.sub(transferCost.mul(0))
+          const withdrawTokens = paymaster.interface.encodeFunctionData('transferFrom', [wallet2.address, wallet.address, withdrawAmount])
+          // const withdrawTokens = paymaster.interface.encodeFunctionData('transfer', [wallet.address, parseEther('0.1')])
+          const execFromEntryPoint = wallet.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, withdrawTokens])
+
+          const userOp1 = await fillAndSign({
+            sender: wallet.address,
+            callData: execFromEntryPoint,
+            paymaster: paymaster.address,
+          }, walletOwner, entryPoint)
+
+          //wallet2's operation is unimportant, as it is going to be reverted - but the paymaster will have to pay for it..
+          const userOp2 = await fillAndSign({
+            sender: wallet2.address,
+            callData: execFromEntryPoint,
+            paymaster: paymaster.address,
+            callGas: 1e6
+          }, walletOwner, entryPoint)
+
+          await expect(
+            entryPoint.handleOps([
+              userOp1,
+              userOp2,
+            ], beneficiaryAddress)
+          ).to.be.revertedWith('transfer amount exceeds balance')
+        });
       })
     })
     describe('withdraw', () => {

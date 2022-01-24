@@ -194,7 +194,6 @@ export class AASigner extends Signer {
   private _isPhantom = true
   public entryPoint: EntryPoint
 
-  //TODO: if needed, then async'ly initialize from provider.
   private _chainId : Promise<number> | undefined
 
   /**
