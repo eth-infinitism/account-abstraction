@@ -314,9 +314,9 @@ contract EntryPoint is StakeManager {
         } else {
             if (context.length > 0) {
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                    IPaymaster(op.paymaster).postOp(mode, context, actualGasCost);
+                    IPaymaster(op.paymaster).postOp{gas : op.verificationGas}(mode, context, actualGasCost);
                 } else {
-                    try IPaymaster(op.paymaster).postOp(mode, context, actualGasCost) {}
+                    try IPaymaster(op.paymaster).postOp{gas : op.verificationGas}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
                         revert FailedOp(opIndex, op.paymaster, reason);
                     }

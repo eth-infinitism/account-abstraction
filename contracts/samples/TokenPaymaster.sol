@@ -20,12 +20,14 @@ import "../BasePaymaster.sol";
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //calculated cost of the postOp
-    uint COST_OF_POST = 3000;
+    uint COST_OF_POST = 15000;
 
     bytes32 immutable knownWallet;
 
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();
+        //make it non-empty
+        _mint(address (this),1);
         approve(owner(), type(uint).max);
     }
 
@@ -49,6 +51,9 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund)
     external view override returns (bytes memory context) {
         uint tokenPrefund = getTokenToEthOutputPrice(requiredPreFund);
+
+        // make sure that verificationGas is high enough to handle postOp
+        require(userOp.verificationGas > 16000, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);

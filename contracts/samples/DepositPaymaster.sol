@@ -99,6 +99,9 @@ contract DepositPaymaster is BasePaymaster {
     external view override returns (bytes memory context) {
 
         (requestId);
+        // make sure that verificationGas is high enough to handle postOp
+        require(userOp.verificationGas > 35000, "DepositPaymaster: gas too low for postOp");
+
         require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
         IERC20 token = abi.decode(userOp.paymasterData, (IERC20));
         address account = userOp.getSender();
@@ -114,7 +117,7 @@ contract DepositPaymaster is BasePaymaster {
         (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
         //use same conversion rate as used for validation.
         uint actualTokenCost = actualGasCost * maxTokenCost / maxCost;
-        if ( mode != PostOpMode.postOpReverted) {
+        if (mode != PostOpMode.postOpReverted) {
             // attempt to pay with tokens:
             token.transferFrom(account, address(this), actualTokenCost);
         } else {
