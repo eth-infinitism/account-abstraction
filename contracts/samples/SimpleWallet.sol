@@ -3,7 +3,7 @@ pragma solidity ^0.8.7;
 
 import "../IWallet.sol";
 import "../EntryPoint.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./ECDSA.sol";
 import "hardhat/console.sol";
 
 //minimal wallet
@@ -81,7 +81,9 @@ contract SimpleWallet is IWallet {
 
     function _payPrefund(uint requiredPrefund) internal {
         if (requiredPrefund != 0) {
-            (bool success,) = payable(msg.sender).call{value : requiredPrefund}("");
+            //pay required prefund. make sure NOT to use the "gas" opcode, which is banned during validateUserOp
+            // (and used by default by the "call")
+            (bool success,) = payable(msg.sender).call{value : requiredPrefund, gas : type(uint).max}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not wallet.)
         }

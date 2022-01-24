@@ -204,8 +204,8 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
-  expect(ops).to.not.include('BASEFEE')
-  expect(ops).to.not.include('GASPRICE')
+  const bannedOpCodes = new Set(['GAS', 'BASEFEE', 'GASPRICE', 'NUMBER'])
+  expect(ops.filter(op=>bannedOpCodes.has(op))).to.eql([])
   if (checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
