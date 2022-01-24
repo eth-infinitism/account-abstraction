@@ -12,3 +12,6 @@ artifacts
 /deployments/proxy/
 /typechain-types/
 /reports/gas-used-output.color
+/coverage
+/coverage.json
+/.DS_Store

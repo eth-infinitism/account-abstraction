@@ -67,21 +67,6 @@ library UserOperationLib {
             calldatacopy(add(ret, 32), ofs, len)
         }
         return ret;
-
-        //TODO: eip712-style ?
-        return abi.encode(
-            userOp.sender,
-            userOp.nonce,
-            keccak256(userOp.initCode),
-            keccak256(userOp.callData),
-            userOp.callGas,
-            userOp.verificationGas,
-            userOp.preVerificationGas,
-            userOp.maxFeePerGas,
-            userOp.maxPriorityFeePerGas,
-            userOp.paymaster,
-            keccak256(userOp.paymasterData)
-        );
     }
 
     function hash(UserOperation calldata userOp) internal pure returns (bytes32) {

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./DepositPaymaster.sol";
+import "../samples/DepositPaymaster.sol";
 
 contract TestOracle is IOracle {
     function getTokenToEthOutputPrice(uint ethOutput) external pure override returns (uint tokenInput) {

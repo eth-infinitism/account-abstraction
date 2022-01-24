@@ -166,13 +166,14 @@ describe("DepositPaymaster", async () => {
         callData
       }, walletOwner, entryPoint)
 
-      await entryPoint.handleOp(userOp, beneficiary)
+      await entryPoint.handleOps([userOp], beneficiary)
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent())
       expect(log.args.success).to.eq(false)
       expect(await counter.queryFilter(counter.filters.CalledFrom())).to.eql([])
       expect(await ethers.provider.getBalance(beneficiary)).to.be.gt(0)
     });
+
     it('should pay with tokens if available', async () => {
       const beneficiary = createAddress()
       let initialTokens = parseEther('1')

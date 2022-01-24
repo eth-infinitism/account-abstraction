@@ -17,11 +17,12 @@ import {
   fund,
   getBalance,
   getTokenBalance, rethrow,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress
+  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress, ONE_ETH
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
+import {cleanValue} from "./chaiHelper";
 
 describe("EntryPoint with paymaster", function () {
 
@@ -36,7 +37,7 @@ describe("EntryPoint with paymaster", function () {
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(0,0)
+    entryPoint = await deployEntryPoint(100, 10)
 
     walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
@@ -48,6 +49,7 @@ describe("EntryPoint with paymaster", function () {
     before(async () => {
       paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", entryPoint.address)
       paymaster.addStake(0, {value: parseEther('2')})
+      console.log('stake info=', cleanValue(await entryPoint.getDepositInfo(paymaster.address)))
     })
 
     describe('#handleOps', () => {
@@ -101,8 +103,10 @@ describe("EntryPoint with paymaster", function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        await entryPoint.simulateValidation(createOp, {gasLimit:5e6}).catch(e=>e.message)
-        const [tx] = await ethers.provider.getBlock('latest').then(block=>block.transactions)
+        console.log('simulate result=',
+          await entryPoint.simulateValidation(createOp, {gasLimit: 5e6}).catch(e => e.message)
+        )
+        const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 
         const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
@@ -131,5 +135,25 @@ describe("EntryPoint with paymaster", function () {
         }).catch(rethrow())).to.revertedWith('create2 failed')
       })
     })
+    describe('withdraw', () => {
+
+      const withdrawAddress = createAddress()
+      it('should fail to withdraw before unstake', async () => {
+        const amount = await paymaster.getDeposit()
+        await expect(
+          paymaster.withdrawTo(withdrawAddress, amount)
+        ).to.revertedWith('must call unstakeDeposit')
+      })
+      it('should be able to withdraw after unstake delay', async () => {
+        await paymaster.unstakeDeposit()
+        const amount = await paymaster.getDeposit()
+        expect(amount).to.be.gte(ONE_ETH.div(2))
+        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
+        await paymaster.withdrawTo(withdrawAddress, amount)
+        expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
+        expect(await paymaster.getDeposit()).to.eq(0)
+      });
+    })
   })
+
 })

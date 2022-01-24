@@ -305,13 +305,6 @@ contract EntryPoint is StakeManager {
     }
     }
 
-    function getPaymastersStake(address[] calldata paymasters) external view returns (uint[] memory _stakes) {
-        _stakes = new uint[](paymasters.length);
-        for (uint i = 0; i < paymasters.length; i++) {
-            _stakes[i] = deposits[paymasters[i]].amount;
-        }
-    }
-
     function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 requestId, bytes memory context, uint actualGas, uint prefund, PaymentMode paymentMode) private returns (uint actualGasCost) {
         uint preGas = gasleft();
         uint gasPrice = UserOperationLib.gasPrice(op);
@@ -357,14 +350,6 @@ contract EntryPoint is StakeManager {
 
     function isPaymasterStaked(address paymaster, uint stake) public view returns (bool) {
         return isStaked(paymaster, stake, unstakeDelaySec);
-    }
-
-    function isContractDeployed(address addr) external view returns (bool) {
-        bytes32 hash;
-        assembly {
-            hash := extcodehash(addr)
-        }
-        return hash != bytes32(0);
     }
 }
 

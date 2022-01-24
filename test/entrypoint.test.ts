@@ -209,6 +209,7 @@ describe("EntryPoint", function () {
         wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, owner)
         await wallet.addDeposit({value: ONE_ETH})
         expect(await getBalance(wallet.address)).to.equal(0)
+        expect(await wallet.getDeposit()).to.eql(ONE_ETH)
       })
       it('should fail to unstakeDeposit if not staked', async () => {
         //wallet doesn't have "unlock" api, so we test it with static call.
@@ -377,13 +378,29 @@ describe("EntryPoint", function () {
         const balAfter = await getBalance(wallet.address)
         const depositAfter = await entryPoint.balanceOf(wallet.address)
         expect(balAfter).to.equal(balBefore, 'should pay from stake, not balance')
-        let depositUsed = depositBefore.sub(depositAfter)
-        console.log('beneficiary', (await getBalance(beneficiaryAddress)) / 1e9)
-        // @ts-ignore
-        console.log('depused=', depositUsed / 1e9, depositAfter / 1e9, depositBefore / 1e9)
+        const depositUsed = depositBefore.sub(depositAfter)
         expect(await ethers.provider.getBalance(beneficiaryAddress)).to.equal(depositUsed)
 
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+      });
+
+      it('should pay for reverted tx', async () => {
+        const op = await fillAndSign({
+          sender: wallet.address,
+          callData: '0xdeadface',
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, walletOwner, entryPoint)
+        const beneficiaryAddress = createAddress()
+
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }).then(t => t.wait())
+
+        const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
+        expect(log.args.success).to.eq(false)
+        expect(await getBalance(beneficiaryAddress)).to.be.gte(1)
       });
 
       it('#handleOp (single)', async () => {
@@ -408,6 +425,9 @@ describe("EntryPoint", function () {
     })
 
     describe('create account', () => {
+      if (process.env.COVERAGE != null) {
+        return
+      }
       let createOp: UserOperation
       let created = false
       let beneficiaryAddress = createAddress() //1
@@ -473,6 +493,9 @@ describe("EntryPoint", function () {
     })
 
     describe('batch multiple requests', () => {
+      if ( process.env.COVERAGE != null ) {
+        return
+      }
       /**
        * attempt a batch:
        * 1. create wallet1 + "initialize" (by calling counter.count())

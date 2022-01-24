@@ -55,6 +55,10 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         entryPoint.addStakeTo{value:msg.value}(address(this), entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
     }
 
+    function getDeposit() public view returns (uint) {
+        return entryPoint.balanceOf(address(this));
+    }
+
     /**
      * attempt to unstake the deposit.
      * The paymaster can't serve requests once unstaked.

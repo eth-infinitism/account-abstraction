@@ -7,6 +7,8 @@ import {TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD} from "hardhat/builtin-tasks/task-n
 import path from 'path'
 import "hardhat-gas-reporter"
 
+import 'solidity-coverage'
+
 import * as fs from "fs";
 
 let mnemonicFileName = process.env.MNEMONIC_FILE || process.env.HOME + '/.secret/testnet-mnemonic.txt'

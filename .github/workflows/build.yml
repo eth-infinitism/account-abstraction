@@ -5,7 +5,11 @@ on:
       - master
   pull_request:
     types: [opened, reopened, synchronize]
+
+
+# todo: extract shared seto/checkout/install/compile, instead of repeat in each job.
 jobs:
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -18,4 +22,30 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
       - run: yarn install
+      - run: yarn compile
+
       - run: FORCE_COLOR=1 yarn run ci
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+      - uses: actions/checkout@v1
+      - uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: yarn install
+
+      - run: yarn compile
+
+      - run: FORCE_COLOR=1 yarn coverage
+      - uses: actions/upload-artifact@v2
+        with:
+          name: solidity-coverage
+          path: |
+            coverage/
+            coverage.json
+
