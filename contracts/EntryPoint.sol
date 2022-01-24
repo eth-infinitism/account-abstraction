@@ -55,6 +55,7 @@ contract EntryPoint is StakeManager {
 
         uint preGas = gasleft();
 
+    unchecked {
         bytes32 requestId = getRequestId(op);
         (uint256 prefund, PaymentMode paymentMode, bytes memory context) = _validatePrepayment(0, op, requestId);
         uint preOpGas = preGas - gasleft() + op.preVerificationGas;
@@ -69,6 +70,7 @@ contract EntryPoint is StakeManager {
         }
 
         compensate(beneficiary, actualGasCost);
+    } // unchecked
     }
 
     function compensate(address payable beneficiary, uint amount) internal {
@@ -90,6 +92,7 @@ contract EntryPoint is StakeManager {
         bytes32[] memory requestIds = new bytes32[](opslen);
         PaymentMode[] memory paymentModes = new PaymentMode[](opslen);
 
+    unchecked {
         for (uint i = 0; i < opslen; i++) {
             uint preGas = gasleft();
             UserOperation calldata op = ops[i];
@@ -126,6 +129,7 @@ contract EntryPoint is StakeManager {
         }
 
         compensate(beneficiary, collected);
+    } //unchecked
     }
 
     function internalHandleOp(UserOperation calldata op, bytes32 requestId, bytes calldata context, uint preOpGas, uint prefund, PaymentMode paymentMode) external returns (uint actualGasCost) {
@@ -144,8 +148,10 @@ contract EntryPoint is StakeManager {
             }
         }
 
+    unchecked {
         uint actualGas = preGas - gasleft() + preOpGas;
         return handlePostOp(mode, op, requestId, context, actualGas, prefund, paymentMode);
+    }
     }
 
     /**
@@ -239,7 +245,9 @@ contract EntryPoint is StakeManager {
         } else {
             prefund = 0;
         }
+    unchecked {
         gasUsedByValidateUserOp = preGas - gasleft();
+    }
     }
 
     //validate paymaster.validatePaymasterUserOp
@@ -257,12 +265,19 @@ contract EntryPoint is StakeManager {
         } catch {
             revert FailedOp(opIndex, op.paymaster, "");
         }
+    unchecked {
         gasUsedByPayForOp = preGas - gasleft();
+    }
     }
 
     function _validatePrepayment(uint opIndex, UserOperation calldata userOp, bytes32 requestId) private returns (uint prefund, PaymentMode paymentMode, bytes memory context){
 
         uint preGas = gasleft();
+
+        uint maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
+        userOp.callGas | userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
+        require(maxGasValues < type(uint120).max, "gas values overflow");
+
         uint gasUsedByValidateUserOp;
         uint requiredPreFund;
         (requiredPreFund, paymentMode) = getPaymentInfo(userOp);
@@ -280,11 +295,14 @@ contract EntryPoint is StakeManager {
         } else {
             context = "";
         }
+
+    unchecked {
         uint gasUsed = preGas - gasleft();
 
         if (userOp.verificationGas < gasUsed) {
             revert FailedOp(opIndex, userOp.paymaster, "Used more than verificationGas");
         }
+    }
     }
 
     function getPaymastersStake(address[] calldata paymasters) external view returns (uint[] memory _stakes) {
@@ -297,6 +315,7 @@ contract EntryPoint is StakeManager {
     function handlePostOp(IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 requestId, bytes memory context, uint actualGas, uint prefund, PaymentMode paymentMode) private returns (uint actualGasCost) {
         uint preGas = gasleft();
         uint gasPrice = UserOperationLib.gasPrice(op);
+    unchecked {
         actualGasCost = actualGas * gasPrice;
         if (paymentMode != PaymentMode.paymasterStake) {
             if (prefund < actualGasCost) {
@@ -326,6 +345,7 @@ contract EntryPoint is StakeManager {
         }
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
         emit UserOperationEvent(requestId, op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
+    } // unchecked
     }
 
     //validate a paymaster has enough stake (including for payment for this TX)

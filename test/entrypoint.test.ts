@@ -240,7 +240,15 @@ describe("EntryPoint", function () {
       const op = await fillAndSign({sender: wallet1.address}, walletOwner1, entryPoint)
       await fund(wallet1)
       const ret = await entryPointView.callStatic.simulateValidation(op).catch(rethrow())
-      console.log('   === simulate result', ret)
+    });
+
+    it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
+      const op = await fillAndSign({
+        preVerificationGas: BigNumber.from(2).pow(130),
+        sender: wallet1.address}, walletOwner1, entryPoint)
+      await expect(
+        entryPointView.callStatic.simulateValidation(op)
+      ).to.revertedWith('gas values overflow')
     });
 
     it('should fail on-chain', async () => {
