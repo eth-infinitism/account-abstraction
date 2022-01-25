@@ -1,5 +1,5 @@
 import {describe} from 'mocha'
-import {Wallet} from "ethers";
+import {BigNumber, Wallet} from "ethers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
@@ -9,7 +9,8 @@ import {
   TestUtil,
   TestUtil__factory,
   TokenPaymaster,
-  TokenPaymaster__factory
+  TokenPaymaster__factory,
+  TestCounter__factory
 } from "../typechain";
 import {
   AddressZero,
@@ -17,7 +18,7 @@ import {
   fund,
   getBalance,
   getTokenBalance, rethrow,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress, ONE_ETH
+  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress, ONE_ETH, objdump
 } from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {formatEther, parseEther} from "ethers/lib/utils";
@@ -132,6 +133,45 @@ describe("EntryPoint with paymaster", function () {
           gasLimit: 1e7,
         }).catch(rethrow())).to.revertedWith('create2 failed')
       })
+
+      it('batched request should each pay for its share', async () => {
+
+        //validate context is passed correctly to postOp
+        // (context is the account to pay with)
+
+        const beneficiaryAddress = createAddress()
+        const testCounter = await new TestCounter__factory(ethersSigner).deploy()
+        const justEmit = testCounter.interface.encodeFunctionData('justemit')
+        const execFromSingleton = wallet.interface.encodeFunctionData('execFromEntryPoint', [testCounter.address, 0, justEmit])
+
+        let ops: UserOperation[] = []
+        let wallets: SimpleWallet[] = []
+
+        for (let i = 0; i < 4; i++) {
+          const aWallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
+          await paymaster.mintTokens(aWallet.address, parseEther('1'))
+          const op = await fillAndSign({
+            sender: aWallet.address,
+            callData: execFromSingleton,
+            paymaster: paymaster.address
+          }, walletOwner, entryPoint)
+
+          wallets.push(aWallet)
+          ops.push(op)
+        }
+
+        const pmBalanceBefore = await paymaster.balanceOf(paymaster.address).then(b=>b.toNumber())
+        await entryPoint.handleOps(ops, beneficiaryAddress).then(tx => tx.wait())
+        const totalPaid = await paymaster.balanceOf(paymaster.address).then(b=>b.toNumber()) - pmBalanceBefore
+        for (let i = 0; i < wallets.length; i++) {
+          let bal = await getTokenBalance(paymaster, wallets[i].address);
+          const paid = parseEther('1').sub(bal.toString()).toNumber()
+
+          //roughly each account should pay 1/4th of total price, within 10%
+          // (first account pays more, for warming up..)
+          expect(paid).to.be.closeTo(totalPaid/4, paid/10)
+        }
+      });
 
       // wallets attempt to grief paymaster: both wallets pass validatePaymasterUserOp (since they have enough balance)
       // but the execution of wallet1 drains wallet2.
