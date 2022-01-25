@@ -56,15 +56,21 @@ contract EntryPoint is StakeManager {
     unchecked {
         bytes32 requestId = getRequestId(op);
         (uint256 prefund, PaymentMode paymentMode, bytes memory context) = _validatePrepayment(0, op, requestId);
-        uint preOpGas = preGas - gasleft() + op.preVerificationGas;
+        UserOpInfo memory opInfo = UserOpInfo(
+            requestId,
+            prefund,
+            paymentMode,
+            0,
+            preGas - gasleft() + op.preVerificationGas
+        );
 
         uint actualGasCost;
 
-        try this.internalHandleOp(op, requestId, context, preOpGas, prefund, paymentMode) returns (uint _actualGasCost) {
+        try this.internalHandleOp(op, opInfo, context) returns (uint _actualGasCost) {
             actualGasCost = _actualGasCost;
         } catch {
-            uint actualGas = preGas - gasleft() + preOpGas;
-            actualGasCost = handlePostOp(0, IPaymaster.PostOpMode.postOpReverted, op, requestId, context, actualGas, prefund, paymentMode);
+            uint actualGas = preGas - gasleft() + opInfo.preOpGas;
+            actualGasCost = handlePostOp(0, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
         }
 
         compensate(beneficiary, actualGasCost);
@@ -84,11 +90,7 @@ contract EntryPoint is StakeManager {
     function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
 
         uint opslen = ops.length;
-        uint256[] memory preOpGas = new uint256[](opslen);
-        bytes32[] memory contexts = new bytes32[](opslen);
-        uint256[] memory prefunds = new uint256[](opslen);
-        bytes32[] memory requestIds = new bytes32[](opslen);
-        PaymentMode[] memory paymentModes = new PaymentMode[](opslen);
+        UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
     unchecked {
         for (uint i = 0; i < opslen; i++) {
@@ -96,13 +98,19 @@ contract EntryPoint is StakeManager {
             UserOperation calldata op = ops[i];
 
             bytes memory context;
-            bytes32 contextOffset;
+            uint contextOffset;
             bytes32 requestId = getRequestId(op);
-            (prefunds[i], paymentModes[i], context) = _validatePrepayment(i, op, requestId);
+            uint prefund;
+            PaymentMode paymentMode;
+            (prefund, paymentMode, context) = _validatePrepayment(i, op, requestId);
             assembly {contextOffset := context}
-            contexts[i] = contextOffset;
-            preOpGas[i] = preGas - gasleft() + op.preVerificationGas;
-            requestIds[i] = requestId;
+            opInfos[i] = UserOpInfo(
+                requestId,
+                prefund,
+                paymentMode,
+                contextOffset,
+                preGas - gasleft() + op.preVerificationGas
+            );
         }
 
         uint collected = 0;
@@ -110,19 +118,16 @@ contract EntryPoint is StakeManager {
         for (uint i = 0; i < ops.length; i++) {
             uint preGas = gasleft();
             UserOperation calldata op = ops[i];
-            bytes32 contextOffset = contexts[i];
+            UserOpInfo memory opInfo = opInfos[i];
+            uint contextOffset = opInfo._context;
             bytes memory context;
             assembly {context := contextOffset}
-            uint preOpGasi = preOpGas[i];
-            uint prefundi = prefunds[i];
-            bytes32 requestIdi = requestIds[i];
-            PaymentMode paymentModei = paymentModes[i];
 
-            try this.internalHandleOp(op, requestIdi, context, preOpGasi, prefundi, paymentModei) returns (uint _actualGasCost) {
+            try this.internalHandleOp(op, opInfo, context) returns (uint _actualGasCost) {
                 collected += _actualGasCost;
             } catch {
-                uint actualGas = preGas - gasleft() + preOpGasi;
-                collected += handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, requestIdi, context, actualGas, prefundi, paymentModei);
+                uint actualGas = preGas - gasleft() + opInfo.preOpGas;
+                collected += handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
             }
         }
 
@@ -130,7 +135,15 @@ contract EntryPoint is StakeManager {
     } //unchecked
     }
 
-    function internalHandleOp(UserOperation calldata op, bytes32 requestId, bytes calldata context, uint preOpGas, uint prefund, PaymentMode paymentMode) external returns (uint actualGasCost) {
+    struct UserOpInfo {
+        bytes32 requestId;
+        uint prefund;
+        PaymentMode paymentMode;
+        uint _context;
+        uint preOpGas;
+    }
+
+    function internalHandleOp(UserOperation calldata op, UserOpInfo calldata opInfo, bytes calldata context) external returns (uint actualGasCost) {
         uint preGas = gasleft();
         require(msg.sender == address(this));
 
@@ -140,15 +153,15 @@ contract EntryPoint is StakeManager {
             (bool success,bytes memory result) = address(op.getSender()).call{gas : op.callGas}(op.callData);
             if (!success) {
                 if (result.length > 0) {
-                    emit UserOperationRevertReason(requestId, op.getSender(), op.nonce, result);
+                    emit UserOperationRevertReason(opInfo.requestId, op.getSender(), op.nonce, result);
                 }
                 mode = IPaymaster.PostOpMode.opReverted;
             }
         }
 
     unchecked {
-        uint actualGas = preGas - gasleft() + preOpGas;
-        return handlePostOp(0, mode, op, requestId, context, actualGas, prefund, paymentMode);
+        uint actualGas = preGas - gasleft() + opInfo.preOpGas;
+        return handlePostOp(0, mode, op, opInfo, context, actualGas);
     }
     }
 
@@ -300,16 +313,16 @@ contract EntryPoint is StakeManager {
     }
     }
 
-    function handlePostOp(uint opIndex, IPaymaster.PostOpMode mode, UserOperation calldata op, bytes32 requestId, bytes memory context, uint actualGas, uint prefund, PaymentMode paymentMode) private returns (uint actualGasCost) {
+    function handlePostOp(uint opIndex, IPaymaster.PostOpMode mode, UserOperation calldata op, UserOpInfo memory opInfo, bytes memory context, uint actualGas) private returns (uint actualGasCost) {
         uint preGas = gasleft();
         uint gasPrice = UserOperationLib.gasPrice(op);
     unchecked {
         actualGasCost = actualGas * gasPrice;
-        if (paymentMode != PaymentMode.paymasterStake) {
-            if (prefund < actualGasCost) {
+        if (opInfo.paymentMode != PaymentMode.paymasterStake) {
+            if (opInfo.prefund < actualGasCost) {
                 revert ("wallet prefund below actualGasCost");
             }
-            uint refund = prefund - actualGasCost;
+            uint refund = opInfo.prefund - actualGasCost;
             internalIncrementDeposit(op.getSender(), refund);
         } else {
             if (context.length > 0) {
@@ -332,7 +345,7 @@ contract EntryPoint is StakeManager {
             internalDecrementDeposit(op.paymaster, actualGasCost);
         }
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-        emit UserOperationEvent(requestId, op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
+        emit UserOperationEvent(opInfo.requestId, op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
     } // unchecked
     }
 
