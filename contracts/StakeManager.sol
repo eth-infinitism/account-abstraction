@@ -73,7 +73,7 @@ contract StakeManager {
     function depositTo(address account) public payable {
         internalIncrementDeposit(account, msg.value);
         DepositInfo storage info = deposits[account];
-        emit Deposited(msg.sender, info.amount, info.unstakeDelaySec);
+        emit Deposited(account, info.amount, info.unstakeDelaySec);
     }
 
     /**
@@ -85,7 +85,7 @@ contract StakeManager {
     function addStakeTo(address account, uint32 _unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[account];
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
-        uint112 amount = deposits[msg.sender].amount + uint112(msg.value);
+        uint112 amount = info.amount + uint112(msg.value);
         deposits[account] = DepositInfo(
             amount,
             _unstakeDelaySec,
