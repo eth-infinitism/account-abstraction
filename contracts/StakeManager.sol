@@ -79,18 +79,18 @@ contract StakeManager {
     /**
      * stake the account's deposit.
      * any pending unstakeDeposit is first cancelled.
-     * can also set (or increase) the deposit with call.
+     * can also set (or increase) the deposit with the call.
      * @param _unstakeDelaySec the new lock time before the deposit can be withdrawn.
      */
-    function addStakeTo(address account, uint32 _unstakeDelaySec) public payable {
-        DepositInfo storage info = deposits[account];
+    function addStake(uint32 _unstakeDelaySec) public payable {
+        DepositInfo storage info = deposits[msg.sender];
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint112 amount = info.amount + uint112(msg.value);
-        deposits[account] = DepositInfo(
+        deposits[msg.sender] = DepositInfo(
             amount,
             _unstakeDelaySec,
             0);
-        emit Deposited(account, amount, _unstakeDelaySec);
+        emit Deposited(msg.sender, amount, _unstakeDelaySec);
     }
 
     /**
