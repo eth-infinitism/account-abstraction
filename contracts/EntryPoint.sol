@@ -65,7 +65,7 @@ contract EntryPoint is StakeManager {
         );
 
         uint actualGasCost;
-
+        preGas = gasleft();
         try this.internalHandleOp(op, opInfo, context) returns (uint _actualGasCost) {
             actualGasCost = _actualGasCost;
         } catch {
