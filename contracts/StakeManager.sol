@@ -47,7 +47,7 @@ contract StakeManager {
     /// maps accounts to their deposits
     mapping(address => DepositInfo) public deposits;
 
-    function getDepositInfo(address account) external view returns (DepositInfo memory info) {
+    function getDepositInfo(address account) public view returns (DepositInfo memory info) {
         return deposits[account];
     }
 
