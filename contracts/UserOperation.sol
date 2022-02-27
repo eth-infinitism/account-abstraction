@@ -43,7 +43,7 @@ library UserOperationLib {
     unchecked {
         //when using a Paymaster, the verificationGas is used also to cover the postOp call.
         // our security model might call postOp eventually twice
-        uint mul = userOp.paymaster != address(0) ? 1 : 3;
+        uint mul = userOp.paymaster != address(0) ? 3 : 1;
         return userOp.callGas + userOp.verificationGas * mul + userOp.preVerificationGas;
     }
     }
