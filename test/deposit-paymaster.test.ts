@@ -117,7 +117,7 @@ describe("DepositPaymaster", async () => {
     });
 
     it('should reject if deposit is not locked', async () => {
-      await paymaster.addDepositFor(token.address, wallet.address, 1e6)
+      await paymaster.addDepositFor(token.address, wallet.address, ONE_ETH)
 
       const paymasterUnlock = await paymaster.populateTransaction.unlockTokenDeposit().then(tx => tx.data!)
       await wallet.exec(paymaster.address, 0, paymasterUnlock)
