@@ -40,6 +40,9 @@ contract EntryPoint is StakeManager {
      * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
     constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
+        require(_unstakeDelaySec > 0);
+        require(_create2factory != address(0));
+
         create2factory = _create2factory;
         paymasterStake = _paymasterStake;
     }

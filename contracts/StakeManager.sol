@@ -84,6 +84,7 @@ contract StakeManager {
      */
     function addStakeTo(address account, uint32 _unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[account];
+        require(_unstakeDelaySec >= unstakeDelaySec, "unstake delay too low");
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint112 amount = deposits[msg.sender].amount + uint112(msg.value);
         deposits[account] = DepositInfo(
