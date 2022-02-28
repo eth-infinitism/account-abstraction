@@ -73,7 +73,7 @@ contract StakeManager {
     function depositTo(address account) public payable {
         internalIncrementDeposit(account, msg.value);
         DepositInfo storage info = deposits[account];
-        emit Deposited(msg.sender, info.amount, info.unstakeDelaySec);
+        emit Deposited(account, info.amount, info.unstakeDelaySec);
     }
 
     /**
