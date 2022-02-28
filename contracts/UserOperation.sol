@@ -33,9 +33,9 @@ library UserOperationLib {
         uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         if (maxFeePerGas == maxPriorityFeePerGas) {
             //legacy mode (for networks that don't support basefee opcode)
-            return min(tx.gasprice, maxFeePerGas);
+            return maxFeePerGas;
         }
-        return min(tx.gasprice, min(maxFeePerGas, maxPriorityFeePerGas + block.basefee));
+        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
     }
 
