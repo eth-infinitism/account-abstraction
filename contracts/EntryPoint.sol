@@ -15,8 +15,8 @@ contract EntryPoint is StakeManager {
     using UserOperationLib for UserOperation;
 
     enum PaymentMode {
-        paymasterStake, // if paymaster is set, use paymaster's stake to pay.
-        walletStake // pay with wallet deposit.
+        ePaymasterStake, // if paymaster is set, use paymaster's stake to pay.
+        eWalletStake // pay with wallet deposit.
     }
 
     uint public immutable paymasterStake;
@@ -195,9 +195,9 @@ contract EntryPoint is StakeManager {
     function _getPaymentInfo(UserOperation calldata userOp) internal view returns (uint requiredPrefund, PaymentMode paymentMode) {
         requiredPrefund = userOp.requiredPreFund();
         if (userOp.hasPaymaster()) {
-            paymentMode = PaymentMode.paymasterStake;
+            paymentMode = PaymentMode.ePaymasterStake;
         } else {
-            paymentMode = PaymentMode.walletStake;
+            paymentMode = PaymentMode.eWalletStake;
         }
     }
 
@@ -238,7 +238,7 @@ contract EntryPoint is StakeManager {
         _createSenderIfNeeded(op);
         uint missingWalletFunds = 0;
         address sender = op.getSender();
-        if (paymentMode != PaymentMode.paymasterStake) {
+        if (paymentMode != PaymentMode.ePaymasterStake) {
             uint bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
@@ -248,7 +248,7 @@ contract EntryPoint is StakeManager {
         } catch {
             revert FailedOp(opIndex, address(0), "");
         }
-        if (paymentMode != PaymentMode.paymasterStake) {
+        if (paymentMode != PaymentMode.ePaymasterStake) {
             if (requiredPrefund > balanceOf(sender)) {
                 revert FailedOp(opIndex, address(0), "wallet didn't pay prefund");
             }
@@ -299,7 +299,7 @@ contract EntryPoint is StakeManager {
         uint marker = block.number;
         (marker);
 
-        if (paymentMode == PaymentMode.paymasterStake) {
+        if (paymentMode == PaymentMode.ePaymasterStake) {
             (context) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateUserOp);
         } else {
             context = "";
@@ -318,7 +318,7 @@ contract EntryPoint is StakeManager {
         uint gasPrice = UserOperationLib.gasPrice(op);
     unchecked {
         actualGasCost = actualGas * gasPrice;
-        if (opInfo.paymentMode != PaymentMode.paymasterStake) {
+        if (opInfo.paymentMode != PaymentMode.ePaymasterStake) {
             if (opInfo.prefund < actualGasCost) {
                 revert ("wallet prefund below actualGasCost");
             }
