@@ -15,6 +15,9 @@ import "./IOracle.sol";
  *  (but can't use the deposit for this or further operations)
  *
  * paymasterData should hold the token to use.
+ * @notice This paymaster is will be rejected by the standard rules of EIP4337, if it uses an external oracle.
+ * (the standard rules ban accessing data of an external contract)
+ * It can only be used if it is "whitelisted" by the bundler.
 */
 contract DepositPaymaster is BasePaymaster {
 
