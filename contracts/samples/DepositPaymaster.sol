@@ -20,10 +20,10 @@ contract DepositPaymaster is BasePaymaster {
 
     using UserOperationLib for UserOperation;
 
-    IOracle constant nullOracle = IOracle(address(0));
+    IOracle private constant nullOracle = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
     mapping(IERC20 => mapping(address => uint)) public balances;
-    mapping(address => uint) unlockBlock;
+    mapping(address => uint) public unlockBlock;
 
     constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {
         //owner account is unblocked, to allow withdraw of paid tokens;
