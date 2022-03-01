@@ -40,14 +40,15 @@ contract EntryPoint is StakeManager {
      * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
     constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
-        require(_unstakeDelaySec > 0);
-        require(_create2factory != address(0));
-
+        require(_create2factory != address(0), "invalid create2factory");
+        require(_unstakeDelaySec > 0, "invalid unstakeDelay");
+        require(_paymasterStake > 0, "invalid paymasterStake");
         create2factory = _create2factory;
         paymasterStake = _paymasterStake;
     }
 
-    function compensate(address payable beneficiary, uint amount) internal {
+    function _compensate(address payable beneficiary, uint amount) internal {
+        require(beneficiary != address(0), "invalid beneficiary");
         (bool success,) = beneficiary.call{value : amount}("");
         require(success);
     }
@@ -101,7 +102,7 @@ contract EntryPoint is StakeManager {
             }
         }
 
-        compensate(beneficiary, collected);
+        _compensate(beneficiary, collected);
     } //unchecked
     }
 
