@@ -29,7 +29,7 @@ contract SimpleWallet is IWallet {
         return ownerNonce.owner;
     }
 
-    event EntryPointChanged(EntryPoint oldEntryPoint, EntryPoint newEntryPoint);
+    event EntryPointChanged(EntryPoint indexed oldEntryPoint, EntryPoint indexed newEntryPoint);
 
     receive() external payable {}
 
