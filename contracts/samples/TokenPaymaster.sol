@@ -27,8 +27,8 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();
         //make it non-empty
-        _mint(address (this),1);
-        approve(owner(), type(uint).max);
+        _mint(address(this), 1);
+        _approve(address(this), msg.sender, type(uint).max);
     }
 
     // known wallet construct we support the creation of.
@@ -39,6 +39,14 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     //helpers for owner, to mint and withdraw tokens.
     function mintTokens(address recipient, uint amount) external onlyOwner {
         _mint(recipient, amount);
+    }
+
+    function transferOwnership(address newOwner) public override virtual onlyOwner {
+        //remove allowanec of current owner
+        _approve(address(this), owner(), 0);
+        super.transferOwnership(newOwner);
+        //set infinite allowance for new owner
+        _approve(address(this), newOwner, type(uint).max);
     }
 
     //TODO: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
