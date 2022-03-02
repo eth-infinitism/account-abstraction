@@ -7,6 +7,8 @@
 
 pragma solidity ^0.8.0;
 
+import 'hardhat/console.sol';
+
 /**
  * @dev Elliptic Curve Digital Signature Algorithm (ECDSA) operations.
  *
@@ -193,12 +195,15 @@ library ECDSA {
             mstore(add(pointer, 0x40), r)
             mstore(add(pointer, 0x60), s)
 
-
-            status := staticcall(not(0), 0x01, pointer, 0x80, pointer, 0x20)
-            signer := mload(pointer)
-        // not required by this code, but other solidity code assumes unused data is zero...
-            mstore(pointer, 0)
-            mstore(add(pointer, 0x20), 0)
+            //use address zero as return buffer, just like solidity's generated code for normal "ecrecover"
+            let retBuf := 0
+            mstore(retBuf,0)
+            status := staticcall(not(0), 0x01, pointer, 0x80, retBuf, 0x20)
+            if iszero(status) {
+                returndatacopy(0, 0, returndatasize())
+                revert(0, returndatasize())
+            }
+            signer := mload(retBuf)
         }
     }
 
