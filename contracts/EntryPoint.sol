@@ -239,7 +239,11 @@ contract EntryPoint is StakeManager {
         uint missingWalletFunds = 0;
         address sender = op.getSender();
         if (paymentMode != PaymentMode.paymasterStake) {
-            uint bal = balanceOf(sender);
+            DepositInfo memory deposit = getDepositInfo(sender);
+            if (deposit.unstakeDelaySec != 0 ) {
+                revert FailedOp(opIndex, address(0), "wallet should not have stake");
+            }
+            uint bal = deposit.amount;
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {

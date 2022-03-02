@@ -30,7 +30,7 @@ import {fillAndSign, getRequestId} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {parseEther} from "ethers/lib/utils";
+import {formatEther, parseEther} from "ethers/lib/utils";
 import {debugTransaction} from './debugTx';
 
 describe("EntryPoint", function () {
@@ -348,7 +348,7 @@ describe("EntryPoint", function () {
         expect(ops).to.not.include('BASEFEE')
       });
 
-      it('if wallet has a stake, it should use it to pay', async function () {
+      it('if wallet has a deposit, it should use it to pay', async function () {
         await wallet.addDeposit({value: ONE_ETH})
         const op = await fillAndSign({
           sender: wallet.address,
@@ -420,7 +420,26 @@ describe("EntryPoint", function () {
 
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+      });
 
+      it('should revert if wallet has a stake', async function () {
+        await wallet.addDeposit({value: ONE_ETH})
+        await ethersSigner.sendTransaction({to:walletOwner.address, value: ONE_ETH})
+        await wallet.connect(walletOwner).exec(
+          entryPoint.address, parseEther('0.1'),
+          entryPoint.interface.encodeFunctionData('addStake',[10]))
+          const op = await fillAndSign({
+          sender: wallet.address,
+          callData: walletExecFromEntryPoint.data,
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, walletOwner, entryPoint)
+        const beneficiaryAddress = createAddress()
+
+        expect( entryPoint.handleOps([op], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }) ).to.revertedWith('wallet should not have stake')
       });
     })
 
