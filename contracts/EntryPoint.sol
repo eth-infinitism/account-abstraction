@@ -40,44 +40,15 @@ contract EntryPoint is StakeManager {
      * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
     constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
+        require(_create2factory != address(0), "invalid create2factory");
+        require(_unstakeDelaySec > 0, "invalid unstakeDelay");
+        require(_paymasterStake > 0, "invalid paymasterStake");
         create2factory = _create2factory;
         paymasterStake = _paymasterStake;
     }
 
-    /**
-     * Execute the given UserOperation.
-     * @param op the operation to execute
-     * @param beneficiary the address to receive the fees
-     */
-    function handleOp(UserOperation calldata op, address payable beneficiary) public {
-
-        uint preGas = gasleft();
-
-    unchecked {
-        bytes32 requestId = getRequestId(op);
-        (uint256 prefund, PaymentMode paymentMode, bytes memory context) = _validatePrepayment(0, op, requestId);
-        UserOpInfo memory opInfo = UserOpInfo(
-            requestId,
-            prefund,
-            paymentMode,
-            0,
-            preGas - gasleft() + op.preVerificationGas
-        );
-
-        uint actualGasCost;
-
-        try this.innerHandleOp(op, opInfo, context) returns (uint _actualGasCost) {
-            actualGasCost = _actualGasCost;
-        } catch {
-            uint actualGas = preGas - gasleft() + opInfo.preOpGas;
-            actualGasCost = _handlePostOp(0, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
-        }
-
-        _compensate(beneficiary, actualGasCost);
-    } // unchecked
-    }
-
     function _compensate(address payable beneficiary, uint amount) internal {
+        require(beneficiary != address(0), "invalid beneficiary");
         (bool success,) = beneficiary.call{value : amount}("");
         require(success);
     }
@@ -243,7 +214,11 @@ contract EntryPoint is StakeManager {
         uint missingWalletFunds = 0;
         address sender = op.getSender();
         if (paymentMode != PaymentMode.paymasterStake) {
-            uint bal = balanceOf(sender);
+            DepositInfo memory deposit = getDepositInfo(sender);
+            if (deposit.unstakeDelaySec != 0 ) {
+                revert FailedOp(opIndex, address(0), "wallet should not have stake");
+            }
+            uint bal = deposit.amount;
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {
