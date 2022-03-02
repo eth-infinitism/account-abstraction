@@ -84,6 +84,7 @@ contract StakeManager {
      */
     function addStake(uint32 _unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[msg.sender];
+        require(_unstakeDelaySec >= unstakeDelaySec, "unstake delay too low");
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint112 amount = info.amount + uint112(msg.value);
         deposits[msg.sender] = DepositInfo(
@@ -126,7 +127,6 @@ contract StakeManager {
             info.amount - uint112(withdrawAmount),
             0,
             0);
-
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
         (bool success,) = withdrawAddress.call{value : withdrawAmount}("");
         require(success, "failed to withdraw");
