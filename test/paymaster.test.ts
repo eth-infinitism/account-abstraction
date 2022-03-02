@@ -190,7 +190,7 @@ describe("EntryPoint with paymaster", function () {
             callData: wallet2.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, approveCallData]),
             paymaster: paymaster.address
           }, walletOwner, entryPoint)
-          await entryPoint.handleOp(approveOp, beneficiaryAddress)
+          await entryPoint.handleOps([approveOp], beneficiaryAddress)
           expect(await paymaster.allowance(wallet2.address, wallet.address)).to.eq(ethers.constants.MaxUint256)
         })
 

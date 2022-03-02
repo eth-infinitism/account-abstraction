@@ -8,10 +8,12 @@ import {
   TestUtil,
   TestUtil__factory
 } from "../typechain";
-import {createWalletOwner, getBalance, ONE_ETH} from "./testutils";
+import {AddressZero, createWalletOwner, getBalance, HashZero, ONE_ETH} from "./testutils";
 import {fillUserOp, getRequestId, packUserOp, signUserOp} from "./UserOp";
-import {parseEther} from "ethers/lib/utils";
+import {hexlify, parseEther, splitSignature} from "ethers/lib/utils";
 import {UserOperation} from "./UserOperation";
+import { Signature, SignatureLike } from '@ethersproject/bytes';
+import { ECDSASignature, ecrecover, ecsign } from 'ethereumjs-util';
 
 
 describe("SimpleWallet", function () {
@@ -29,6 +31,42 @@ describe("SimpleWallet", function () {
     if (accounts.length < 2) this.skip()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     walletOwner = createWalletOwner()
+  })
+
+  interface SigTestParams {
+    title: string
+    expected: string
+    sig: Signature
+  }
+
+  function toSignature(sig: ECDSASignature): Signature {
+    return splitSignature({
+      s: hexlify(sig.s),
+      r: hexlify(sig.r),
+      v: sig.v
+    })
+  }
+  function toBuffer(data:any): Buffer {
+    return Buffer.from(hexlify(data).slice(2), 'hex')
+  }
+  describe("#ecrecover2", ()=>{
+    const wallet = createWalletOwner()
+    const signer = wallet.address
+    const message = "hello"
+    const hash =  ethers.utils.hashMessage(message)
+    const sig = toSignature(ecsign(toBuffer(hash), toBuffer(wallet.privateKey)))
+    const allFs = '0x'.padEnd(66,'f');
+    const badSig =  splitSignature({ r: allFs, s: HashZero, v:27 });
+
+    [
+      { title:'should recover with good sig signer', sig, expected: signer},
+      { title:'should return zeroes with invalid signature', sig: badSig, expected: AddressZero},
+    ].forEach( ({title, sig, expected}: SigTestParams)=> it(title, async()=>{
+      const solcResult = await testUtil.sol_ecrecover(hash, sig.v, sig.r, sig.s)
+      expect(solcResult).to.equal(expected, `sanity: normal solc ecrecover (sig=${JSON.stringify(sig)})`)
+      expect(await testUtil.ecdsa_ecrecover2(hash, sig.v, sig.r, sig.s)).to.equal(solcResult)
+    })
+    )
   })
 
   it('owner should be able to call transfer', async () => {

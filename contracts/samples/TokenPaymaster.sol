@@ -57,10 +57,10 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);
-            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
+            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance (pre-create)");
         } else {
 
-            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance");
+            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
         return abi.encode(userOp.sender);
