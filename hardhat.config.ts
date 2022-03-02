@@ -57,6 +57,7 @@ const config: HardhatUserConfig = {
     excludeContracts: [ 'TestToken', 'SimpleWallet', 'ERC20'],
     //"yarn gas-report" to dump report and create a no-color "txt" output, to be checked in.
     noColors: false,
+    currency: '',
     outputFile: 'reports/gas-used-output.color'
   }
 }

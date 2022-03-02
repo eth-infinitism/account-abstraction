@@ -52,7 +52,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param extraUnstakeDelaySec - extra delay (above the minimum required unstakeDelay of the entrypoint)
      */
     function addStake(uint32 extraUnstakeDelaySec) external payable onlyOwner {
-        entryPoint.addStakeTo{value:msg.value}(address(this), entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
+        entryPoint.addStake{value:msg.value}(entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
     }
 
     function getDeposit() public view returns (uint) {
