@@ -51,7 +51,7 @@ contract VerifyingPaymaster is BasePaymaster {
 
         bytes32 hash = getHash(userOp);
         uint sigLength = userOp.paymasterData.length;
-        require(sigLength >= 64 && sigLength <= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
+        require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterData");
         require(verifyingSigner == hash.toEthSignedMessageHash().recover(userOp.paymasterData), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked
