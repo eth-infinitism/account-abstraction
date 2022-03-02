@@ -204,9 +204,6 @@ library ECDSA {
                 revert(0, returndatasize())
             }
             signer := mload(retBuf)
-            // not required by this code, but other solidity code assumes unused data is zero...
-            // mstore(pointer, 0)
-            // mstore(add(pointer, 0x20), 0)
         }
     }
 
