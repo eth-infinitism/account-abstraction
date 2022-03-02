@@ -47,39 +47,6 @@ contract EntryPoint is StakeManager {
         paymasterStake = _paymasterStake;
     }
 
-    /**
-     * Execute the given UserOperation.
-     * @param op the operation to execute
-     * @param beneficiary the address to receive the fees
-     */
-    function handleOp(UserOperation calldata op, address payable beneficiary) public {
-
-        uint preGas = gasleft();
-
-    unchecked {
-        bytes32 requestId = getRequestId(op);
-        (uint256 prefund, PaymentMode paymentMode, bytes memory context) = _validatePrepayment(0, op, requestId);
-        UserOpInfo memory opInfo = UserOpInfo(
-            requestId,
-            prefund,
-            paymentMode,
-            0,
-            preGas - gasleft() + op.preVerificationGas
-        );
-
-        uint actualGasCost;
-
-        try this.internalHandleOp(op, opInfo, context) returns (uint _actualGasCost) {
-            actualGasCost = _actualGasCost;
-        } catch {
-            uint actualGas = preGas - gasleft() + opInfo.preOpGas;
-            actualGasCost = handlePostOp(0, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
-        }
-
-        compensate(beneficiary, actualGasCost);
-    } // unchecked
-    }
-
     function compensate(address payable beneficiary, uint amount) internal {
         (bool success,) = beneficiary.call{value : amount}("");
         require(success);

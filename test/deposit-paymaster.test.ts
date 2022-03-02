@@ -188,7 +188,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData: execApprove
       }, walletOwner, entryPoint)
-      await entryPoint.handleOp(userOp1, AddressZero)
+      await entryPoint.handleOps([userOp1], AddressZero)
 
 
       const userOp = await fillAndSign({
@@ -197,7 +197,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData
       }, walletOwner, entryPoint)
-      await entryPoint.handleOp(userOp, beneficiary)
+      await entryPoint.handleOps([userOp], beneficiary)
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), await ethers.provider.getBlockNumber())
       expect(log.args.success).to.eq(true)

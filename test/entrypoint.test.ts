@@ -246,7 +246,8 @@ describe("EntryPoint", function () {
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
       const op = await fillAndSign({
         preVerificationGas: BigNumber.from(2).pow(130),
-        sender: wallet1.address}, walletOwner1, entryPoint)
+        sender: wallet1.address
+      }, walletOwner1, entryPoint)
       await expect(
         entryPointView.callStatic.simulateValidation(op)
       ).to.revertedWith('gas values overflow')
@@ -412,7 +413,7 @@ describe("EntryPoint", function () {
         }, walletOwner, entryPoint)
 
         const countBefore = await counter.counters(wallet.address)
-        const rcpt = await entryPoint.handleOp(op, beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
         }).then(t => t.wait())
         const countAfter = await counter.counters(wallet.address)

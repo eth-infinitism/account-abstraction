@@ -151,7 +151,6 @@ describe("Batch gas testing", function () {
               data: execCounterCount.data!
             }), 'datacost=', callDataCost(execCounterCount.data!));
             console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress))
-            console.log('through single handleOp:', await entryPoint.estimateGas.handleOp(op1, beneficiaryAddress))
           }
 
         }
