@@ -2,6 +2,8 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../BasePaymaster.sol";
 import "./IOracle.sol";
@@ -19,6 +21,7 @@ import "./IOracle.sol";
 contract DepositPaymaster is BasePaymaster {
 
     using UserOperationLib for UserOperation;
+    using SafeERC20 for IERC20;
 
     IOracle constant nullOracle = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
@@ -50,7 +53,7 @@ contract DepositPaymaster is BasePaymaster {
      */
     function addDepositFor(IERC20 token, address account, uint amount) external {
         //(sender must have approval for the paymaster)
-        token.transferFrom(msg.sender, address(this), amount);
+        token.safeTransferFrom(msg.sender, address(this), amount);
         require(oracles[token] != nullOracle, "unsupported token");
         balances[token][account] += amount;
         if (msg.sender == account) {
@@ -86,7 +89,7 @@ contract DepositPaymaster is BasePaymaster {
     function withdrawTokensTo(IERC20 token, address target, uint amount) public {
         require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender], "DepositPaymaster: must unlockTokenDeposit");
         balances[token][msg.sender] -= amount;
-        token.transfer(target, amount);
+        token.safeTransfer(target, amount);
     }
 
     function getTokenToEthOutputPrice(IERC20 token, uint ethBought) internal view virtual returns (uint requiredTokens) {
@@ -119,7 +122,7 @@ contract DepositPaymaster is BasePaymaster {
         uint actualTokenCost = actualGasCost * maxTokenCost / maxCost;
         if (mode != PostOpMode.postOpReverted) {
             // attempt to pay with tokens:
-            token.transferFrom(account, address(this), actualTokenCost);
+            token.safeTransferFrom(account, address(this), actualTokenCost);
         } else {
             //in case above transferFrom failed, pay with deposit:
             balances[token][account] -= actualTokenCost;
