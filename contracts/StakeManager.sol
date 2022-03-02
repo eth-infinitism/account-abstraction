@@ -38,6 +38,10 @@ contract StakeManager {
     /// @param amount of ether deposited for this account
     /// @param unstakeDelaySec - time the deposit is locked, after calling unlock (or zero if deposit is not locked)
     /// @param withdrawTime - first block timestamp where 'withdrawTo' will be callable, or zero if not locked
+    /// @dev pack all values into a single storage cell:
+    /// - 112 bit for amount limits to 5e15 eth.
+    /// - delay is limited to 136 years
+    /// - absolute withdraw time (seconds since 1900)  is limited to year 500e9
     struct DepositInfo {
         uint112 amount;
         uint32 unstakeDelaySec;

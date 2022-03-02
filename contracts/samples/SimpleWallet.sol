@@ -14,7 +14,8 @@ contract SimpleWallet is IWallet {
     using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
 
-    //explicit sizes of nonce, to fit a single storage cell with "owner"
+    // explicit sizes of nonce, to fit a single storage cell with "owner"
+    //  (for incremental nonce, 2^96 is enough)
     uint96 public nonce;
     address public owner;
 
