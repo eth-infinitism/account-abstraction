@@ -126,8 +126,10 @@ contract StakeManager {
             info.amount - uint112(withdrawAmount),
             0,
             0);
-        withdrawAddress.transfer(withdrawAmount);
+
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
+        (bool success,) = withdrawAddress.call{value : withdrawAmount}("");
+        require(success, "failed to withdraw");
     }
 
     /**
