@@ -60,11 +60,16 @@ contract StakeManager {
     }
 
     function internalIncrementDeposit(address account, uint amount) internal {
-        deposits[account].amount += uint112(amount);
+        DepositInfo storage info = deposits[account];
+        uint256 newAmount = info.amount + amount;
+        require(newAmount <= type(uint112).max, 'deposit overflow');
+        info.amount = uint112(newAmount);
     }
 
     function internalDecrementDeposit(address account, uint amount) internal {
-        deposits[account].amount -= uint112(amount);
+        DepositInfo storage info = deposits[account];
+        uint256 newAmount = info.amount - amount;
+        info.amount = uint112(newAmount);
     }
 
     /**
