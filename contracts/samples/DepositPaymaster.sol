@@ -27,6 +27,9 @@ contract DepositPaymaster is BasePaymaster {
     using UserOperationLib for UserOperation;
     using SafeERC20 for IERC20;
 
+    //calculated cost of the postOp
+    uint constant COST_OF_POST = 35000;
+
     IOracle constant nullOracle = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
     mapping(IERC20 => mapping(address => uint)) public balances;
@@ -107,7 +110,7 @@ contract DepositPaymaster is BasePaymaster {
 
         (requestId);
         // make sure that verificationGas is high enough to handle postOp
-        require(userOp.verificationGas > 35000, "DepositPaymaster: gas too low for postOp");
+        require(userOp.verificationGas > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
         require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
         IERC20 token = abi.decode(userOp.paymasterData, (IERC20));
@@ -123,7 +126,7 @@ contract DepositPaymaster is BasePaymaster {
 
         (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
         //use same conversion rate as used for validation.
-        uint actualTokenCost = actualGasCost * maxTokenCost / maxCost;
+        uint actualTokenCost = (actualGasCost + COST_OF_POST) * maxTokenCost / maxCost;
         if (mode != PostOpMode.postOpReverted) {
             // attempt to pay with tokens:
             token.safeTransferFrom(account, address(this), actualTokenCost);
