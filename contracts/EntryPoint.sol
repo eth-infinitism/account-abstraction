@@ -40,6 +40,9 @@ contract EntryPoint is StakeManager {
      * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
     constructor(address _create2factory, uint _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
+        require(_unstakeDelaySec > 0);
+        require(_create2factory != address(0));
+
         create2factory = _create2factory;
         paymasterStake = _paymasterStake;
     }
@@ -206,7 +209,11 @@ contract EntryPoint is StakeManager {
         uint missingWalletFunds = 0;
         address sender = op.getSender();
         if (paymentMode != PaymentMode.paymasterStake) {
-            uint bal = balanceOf(sender);
+            DepositInfo memory deposit = getDepositInfo(sender);
+            if (deposit.unstakeDelaySec != 0 ) {
+                revert FailedOp(opIndex, address(0), "wallet should not have stake");
+            }
+            uint bal = deposit.amount;
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {

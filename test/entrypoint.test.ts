@@ -30,7 +30,7 @@ import {fillAndSign, getRequestId} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {parseEther} from "ethers/lib/utils";
+import {formatEther, parseEther} from "ethers/lib/utils";
 import {debugTransaction} from './debugTx';
 
 describe("EntryPoint", function () {
@@ -95,7 +95,7 @@ describe("EntryPoint", function () {
     })
     describe('with stake of 2 eth', () => {
       before(async () => {
-        await entryPoint.addStakeTo(signer, 2, {value: TWO_ETH})
+        await entryPoint.addStake(2, {value: TWO_ETH})
       })
       it('should report "staked" state', async () => {
         expect(await entryPoint.isPaymasterStaked(addr, 0)).to.eq(true)
@@ -109,7 +109,7 @@ describe("EntryPoint", function () {
 
       it('should succeed to stake again', async () => {
         const {amount} = await entryPoint.getDepositInfo(addr)
-        await entryPoint.addStakeTo(signer, 2, {value: ONE_ETH})
+        await entryPoint.addStake(2, {value: ONE_ETH})
         const {amount: amountAfter} = await entryPoint.getDepositInfo(addr)
         expect(amountAfter).to.eq(amount.add(ONE_ETH))
       })
@@ -151,7 +151,7 @@ describe("EntryPoint", function () {
               snap = await ethers.provider.send('evm_snapshot', [])
 
               await ethersSigner.sendTransaction({to: addr})
-              await entryPoint.addStakeTo(signer, 2, {value: ONE_ETH})
+              await entryPoint.addStake(2, {value: ONE_ETH})
               const {amount, unstakeDelaySec, withdrawTime} = await entryPoint.getDepositInfo(addr)
               expect({amount, unstakeDelaySec, withdrawTime}).to.eql({
                 amount: parseEther('4'),
@@ -349,7 +349,7 @@ describe("EntryPoint", function () {
         expect(ops).to.not.include('BASEFEE')
       });
 
-      it('if wallet has a stake, it should use it to pay', async function () {
+      it('if wallet has a deposit, it should use it to pay', async function () {
         await wallet.addDeposit({value: ONE_ETH})
         const op = await fillAndSign({
           sender: wallet.address,
@@ -421,7 +421,26 @@ describe("EntryPoint", function () {
 
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+      });
 
+      it('should revert if wallet has a stake', async function () {
+        await wallet.addDeposit({value: ONE_ETH})
+        await ethersSigner.sendTransaction({to:walletOwner.address, value: ONE_ETH})
+        await wallet.connect(walletOwner).exec(
+          entryPoint.address, parseEther('0.1'),
+          entryPoint.interface.encodeFunctionData('addStake',[10]))
+          const op = await fillAndSign({
+          sender: wallet.address,
+          callData: walletExecFromEntryPoint.data,
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, walletOwner, entryPoint)
+        const beneficiaryAddress = createAddress()
+
+        expect( entryPoint.handleOps([op], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }) ).to.revertedWith('wallet should not have stake')
       });
     })
 

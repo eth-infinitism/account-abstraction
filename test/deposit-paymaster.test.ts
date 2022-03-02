@@ -31,7 +31,7 @@ describe("DepositPaymaster", async () => {
   let paymaster: DepositPaymaster
   before(async function () {
 
-    entryPoint = await deployEntryPoint(0, 0)
+    entryPoint = await deployEntryPoint(1, 1)
     entryPointStatic = entryPoint.connect(AddressZero)
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
@@ -117,7 +117,7 @@ describe("DepositPaymaster", async () => {
     });
 
     it('should reject if deposit is not locked', async () => {
-      await paymaster.addDepositFor(token.address, wallet.address, 1e6)
+      await paymaster.addDepositFor(token.address, wallet.address, ONE_ETH)
 
       const paymasterUnlock = await paymaster.populateTransaction.unlockTokenDeposit().then(tx => tx.data!)
       await wallet.exec(paymaster.address, 0, paymasterUnlock)
