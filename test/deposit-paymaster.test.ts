@@ -176,6 +176,7 @@ describe("DepositPaymaster", async () => {
 
     it('should pay with tokens if available', async () => {
       const beneficiary = createAddress()
+      const beneficiary1 = createAddress()
       let initialTokens = parseEther('1')
       await token.mint(wallet.address, initialTokens)
 
@@ -188,7 +189,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData: execApprove
       }, walletOwner, entryPoint)
-      await entryPoint.handleOps([userOp1], AddressZero)
+      await entryPoint.handleOps([userOp1], beneficiary1)
 
 
       const userOp = await fillAndSign({
