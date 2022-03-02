@@ -20,7 +20,7 @@ contract SimpleWallet is IWallet {
 
     EntryPoint public entryPoint;
 
-    event EntryPointChanged(EntryPoint oldEntryPoint, EntryPoint newEntryPoint);
+    event EntryPointChanged(EntryPoint indexed oldEntryPoint, EntryPoint indexed newEntryPoint);
 
     receive() external payable {}
 
