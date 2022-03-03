@@ -27,7 +27,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();
         //make it non-empty
-        _mint(address (this),1);
+        _mint(address(this), 1);
         approve(owner(), type(uint).max);
     }
 

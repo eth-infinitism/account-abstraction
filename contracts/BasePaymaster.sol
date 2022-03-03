@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.7;
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IPaymaster.sol";
 import "./EntryPoint.sol";
@@ -47,12 +48,21 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         revert("must override");
     }
 
+    //add deposit, used for paying for transaction fees
+    function deposit() public payable {
+        entryPoint.depositTo{value : msg.value}(address(this));
+    }
+
+    function withdrawTo(address payable withdrawAddress, uint amount) public payable {
+        entryPoint.withdrawTo(withdrawAddress, amount);
+    }
+
     /**
      * add stake for this paymaster
      * @param extraUnstakeDelaySec - extra delay (above the minimum required unstakeDelay of the entrypoint)
      */
     function addStake(uint32 extraUnstakeDelaySec) external payable onlyOwner {
-        entryPoint.addStake{value:msg.value}(entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
+        entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
     }
 
     function getDeposit() public view returns (uint) {
@@ -60,11 +70,11 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /**
-     * attempt to unstake the deposit.
-     * The paymaster can't serve requests once unstaked.
+     * unlock the stake, in order to withdraw it.
+     * The paymaster can't serve requests once unlocked.
      */
-    function unstakeDeposit() external onlyOwner {
-        entryPoint.unstakeDeposit();
+    function unlockStake() external onlyOwner {
+        entryPoint.unlockStake();
     }
 
     /**
@@ -74,8 +84,8 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param withdrawAddress the address to send withdrawn value.
      * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawTo(address payable withdrawAddress, uint withdrawAmount) external onlyOwner {
-        entryPoint.withdrawTo(withdrawAddress, withdrawAmount);
+    function withdrawStake(address payable withdrawAddress, uint withdrawAmount) external onlyOwner {
+        entryPoint.withdrawStake(withdrawAddress, withdrawAmount);
     }
 
     /// validate the call is made from a valid entrypoint
