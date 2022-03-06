@@ -4,7 +4,6 @@ pragma solidity ^0.8.7;
 import "../IWallet.sol";
 import "../EntryPoint.sol";
 import "./ECDSA.sol";
-import "hardhat/console.sol";
 
 //minimal wallet
 // this is sample minimal wallet.
