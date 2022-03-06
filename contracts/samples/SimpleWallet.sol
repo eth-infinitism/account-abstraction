@@ -12,21 +12,12 @@ import "./ECDSA.sol";
 contract SimpleWallet is IWallet {
     using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
-    struct OwnerNonce {
-        uint96 nonce;
-        address owner;
-    }
 
-    OwnerNonce ownerNonce;
+    //explicit sizes of nonce, to fit a single storage cell with "owner"
+    uint96 public nonce;
+    address public owner;
+
     EntryPoint public entryPoint;
-
-    function nonce() public view returns (uint) {
-        return ownerNonce.nonce;
-    }
-
-    function owner() public view returns (address) {
-        return ownerNonce.owner;
-    }
 
     event EntryPointChanged(EntryPoint indexed oldEntryPoint, EntryPoint indexed newEntryPoint);
 
@@ -34,7 +25,7 @@ contract SimpleWallet is IWallet {
 
     constructor(EntryPoint _entryPoint, address _owner) {
         entryPoint = _entryPoint;
-        ownerNonce.owner = _owner;
+        owner = _owner;
     }
 
     modifier onlyOwner() {
@@ -44,7 +35,7 @@ contract SimpleWallet is IWallet {
 
     function _onlyOwner() internal view {
         //directly from EOA owner, or through the entryPoint (which gets redirected through execFromEntryPoint)
-        require(msg.sender == ownerNonce.owner || msg.sender == address(this), "only owner");
+        require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
 
     function transfer(address payable dest, uint amount) external onlyOwner {
@@ -98,13 +89,13 @@ contract SimpleWallet is IWallet {
         //during construction, the "nonce" field hold the salt.
         // if we assert it is zero, then we allow only a single wallet per owner.
         if (userOp.initCode.length == 0) {
-            require(ownerNonce.nonce++ == userOp.nonce, "wallet: invalid nonce");
+            require(nonce++ == userOp.nonce, "wallet: invalid nonce");
         }
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal view {
         bytes32 hash = requestId.toEthSignedMessageHash();
-        require(owner() == hash.recover(userOp.signature), "wallet: wrong signature");
+        require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
     }
 
     function _call(address sender, uint value, bytes memory data) internal {
