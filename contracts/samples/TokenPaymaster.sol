@@ -19,7 +19,7 @@ import "../BasePaymaster.sol";
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //calculated cost of the postOp
-    uint COST_OF_POST = 15000;
+    uint constant COST_OF_POST = 15000;
 
     bytes32 immutable knownWallet;
 
@@ -52,14 +52,14 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         uint tokenPrefund = getTokenToEthOutputPrice(requiredPreFund);
 
         // make sure that verificationGas is high enough to handle postOp
-        require(userOp.verificationGas > 16000, "TokenPaymaster: gas too low for postOp");
+        require(userOp.verificationGas > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);
-            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
+            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance (pre-create)");
         } else {
 
-            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance");
+            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
         return abi.encode(userOp.sender);

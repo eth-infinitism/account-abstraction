@@ -2,6 +2,8 @@
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../BasePaymaster.sol";
 import "./IOracle.sol";
@@ -15,10 +17,18 @@ import "./IOracle.sol";
  *  (but can't use the deposit for this or further operations)
  *
  * paymasterData should hold the token to use.
-*/
+ * @notice This paymaster will be rejected by the standard rules of EIP4337, as it uses an external oracle.
+ * (the standard rules ban accessing data of an external contract)
+ * It can only be used if it is "whitelisted" by the bundler.
+ * (technically, it can be used by an "oracle" which returns a static value, without accessing any storage)
+ */
 contract DepositPaymaster is BasePaymaster {
 
     using UserOperationLib for UserOperation;
+    using SafeERC20 for IERC20;
+
+    //calculated cost of the postOp
+    uint constant COST_OF_POST = 35000;
 
     IOracle constant nullOracle = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
@@ -50,7 +60,7 @@ contract DepositPaymaster is BasePaymaster {
      */
     function addDepositFor(IERC20 token, address account, uint amount) external {
         //(sender must have approval for the paymaster)
-        token.transferFrom(msg.sender, address(this), amount);
+        token.safeTransferFrom(msg.sender, address(this), amount);
         require(oracles[token] != nullOracle, "unsupported token");
         balances[token][account] += amount;
         if (msg.sender == account) {
@@ -86,7 +96,7 @@ contract DepositPaymaster is BasePaymaster {
     function withdrawTokensTo(IERC20 token, address target, uint amount) public {
         require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender], "DepositPaymaster: must unlockTokenDeposit");
         balances[token][msg.sender] -= amount;
-        token.transfer(target, amount);
+        token.safeTransfer(target, amount);
     }
 
     function getTokenToEthOutputPrice(IERC20 token, uint ethBought) internal view virtual returns (uint requiredTokens) {
@@ -100,7 +110,7 @@ contract DepositPaymaster is BasePaymaster {
 
         (requestId);
         // make sure that verificationGas is high enough to handle postOp
-        require(userOp.verificationGas > 35000, "DepositPaymaster: gas too low for postOp");
+        require(userOp.verificationGas > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
         require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
         IERC20 token = abi.decode(userOp.paymasterData, (IERC20));
@@ -115,10 +125,10 @@ contract DepositPaymaster is BasePaymaster {
 
         (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
         //use same conversion rate as used for validation.
-        uint actualTokenCost = actualGasCost * maxTokenCost / maxCost;
+        uint actualTokenCost = (actualGasCost + COST_OF_POST) * maxTokenCost / maxCost;
         if (mode != PostOpMode.postOpReverted) {
             // attempt to pay with tokens:
-            token.transferFrom(account, address(this), actualTokenCost);
+            token.safeTransferFrom(account, address(this), actualTokenCost);
         } else {
             //in case above transferFrom failed, pay with deposit:
             balances[token][account] -= actualTokenCost;
