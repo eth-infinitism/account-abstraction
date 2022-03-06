@@ -38,17 +38,17 @@ contract SimpleWallet is IWallet {
         require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
 
-    function transfer(address payable dest, uint amount) external onlyOwner {
+    function transfer(address payable dest, uint256 amount) external onlyOwner {
         dest.transfer(amount);
     }
 
-    function exec(address dest, uint value, bytes calldata func) external onlyOwner {
+    function exec(address dest, uint256 value, bytes calldata func) external onlyOwner {
         _call(dest, value, func);
     }
 
     function execBatch(address[] calldata dest, bytes[] calldata func) external onlyOwner {
         require(dest.length == func.length, "wrong array lengths");
-        for (uint i = 0; i < dest.length; i++) {
+        for (uint256 i = 0; i < dest.length; i++) {
             _call(dest[i], 0, func[i]);
         }
     }
@@ -62,25 +62,25 @@ contract SimpleWallet is IWallet {
         require(msg.sender == address(entryPoint), "wallet: not from EntryPoint");
     }
 
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint requiredPrefund) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 requiredPrefund) external override {
         _requireFromEntryPoint();
         _validateSignature(userOp, requestId);
         _validateAndIncrementNonce(userOp);
         _payPrefund(requiredPrefund);
     }
 
-    function _payPrefund(uint requiredPrefund) internal {
+    function _payPrefund(uint256 requiredPrefund) internal {
         if (requiredPrefund != 0) {
             //pay required prefund. make sure NOT to use the "gas" opcode, which is banned during validateUserOp
             // (and used by default by the "call")
-            (bool success,) = payable(msg.sender).call{value : requiredPrefund, gas : type(uint).max}("");
+            (bool success,) = payable(msg.sender).call{value : requiredPrefund, gas : type(uint256).max}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not wallet.)
         }
     }
 
     //called by entryPoint, only after validateUserOp succeeded.
-    function execFromEntryPoint(address dest, uint value, bytes calldata func) external {
+    function execFromEntryPoint(address dest, uint256 value, bytes calldata func) external {
         _requireFromEntryPoint();
         _call(dest, value, func);
     }
@@ -98,7 +98,7 @@ contract SimpleWallet is IWallet {
         require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
     }
 
-    function _call(address sender, uint value, bytes memory data) internal {
+    function _call(address sender, uint256 value, bytes memory data) internal {
         (bool success, bytes memory result) = sender.call{value : value}(data);
         if (!success) {
             assembly {
@@ -107,7 +107,7 @@ contract SimpleWallet is IWallet {
         }
     }
 
-    function getDeposit() public view returns (uint) {
+    function getDeposit() public view returns (uint256) {
         return entryPoint.balanceOf(address(this));
     }
 
@@ -117,7 +117,7 @@ contract SimpleWallet is IWallet {
         require(req);
     }
 
-    function withdrawDepositTo(address payable withdrawAddress, uint amount) public onlyOwner{
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner{
         entryPoint.withdrawTo(withdrawAddress, amount);
     }
 }

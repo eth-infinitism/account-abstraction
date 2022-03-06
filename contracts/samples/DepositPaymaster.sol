@@ -28,12 +28,12 @@ contract DepositPaymaster is BasePaymaster {
     using SafeERC20 for IERC20;
 
     //calculated cost of the postOp
-    uint constant COST_OF_POST = 35000;
+    uint256 constant COST_OF_POST = 35000;
 
     IOracle private constant nullOracle = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
-    mapping(IERC20 => mapping(address => uint)) public balances;
-    mapping(address => uint) public unlockBlock;
+    mapping(IERC20 => mapping(address => uint256)) public balances;
+    mapping(address => uint256) public unlockBlock;
 
     constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {
         //owner account is unblocked, to allow withdraw of paid tokens;
@@ -58,7 +58,7 @@ contract DepositPaymaster is BasePaymaster {
      * @param account the account to deposit for.
      * @param amount the amount of token to deposit.
      */
-    function addDepositFor(IERC20 token, address account, uint amount) external {
+    function addDepositFor(IERC20 token, address account, uint256 amount) external {
         //(sender must have approval for the paymaster)
         token.safeTransferFrom(msg.sender, address(this), amount);
         require(oracles[token] != nullOracle, "unsupported token");
@@ -68,7 +68,7 @@ contract DepositPaymaster is BasePaymaster {
         }
     }
 
-    function depositInfo(IERC20 token, address account) public view returns (uint amount, uint _unlockBlock) {
+    function depositInfo(IERC20 token, address account) public view returns (uint256 amount, uint256 _unlockBlock) {
         amount = balances[token][account];
         _unlockBlock = unlockBlock[account];
     }
@@ -93,19 +93,19 @@ contract DepositPaymaster is BasePaymaster {
      * withdraw tokens.
      * can only be called after unlock() is called in a previous block.
      */
-    function withdrawTokensTo(IERC20 token, address target, uint amount) public {
+    function withdrawTokensTo(IERC20 token, address target, uint256 amount) public {
         require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender], "DepositPaymaster: must unlockTokenDeposit");
         balances[token][msg.sender] -= amount;
         token.safeTransfer(target, amount);
     }
 
-    function getTokenToEthOutputPrice(IERC20 token, uint ethBought) internal view virtual returns (uint requiredTokens) {
+    function getTokenToEthOutputPrice(IERC20 token, uint256 ethBought) internal view virtual returns (uint256 requiredTokens) {
         IOracle oracle = oracles[token];
         require(oracle != nullOracle, "DepositPaymaster: unsupported token");
         return oracle.getTokenToEthOutputPrice(ethBought);
     }
 
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost)
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost)
     external view override returns (bytes memory context) {
 
         (requestId);
@@ -115,17 +115,17 @@ contract DepositPaymaster is BasePaymaster {
         require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
         IERC20 token = abi.decode(userOp.paymasterData, (IERC20));
         address account = userOp.getSender();
-        uint maxTokenCost = getTokenToEthOutputPrice(token, maxCost);
+        uint256 maxTokenCost = getTokenToEthOutputPrice(token, maxCost);
         require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");
         require(balances[token][account] >= maxTokenCost, "DepositPaymaster: deposit too low");
         return abi.encode(account, token, maxTokenCost, maxCost);
     }
 
-    function _postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) internal override {
+    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
 
-        (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
+        (address account, IERC20 token, uint256 maxTokenCost, uint256 maxCost) = abi.decode(context, (address, IERC20, uint256, uint256));
         //use same conversion rate as used for validation.
-        uint actualTokenCost = (actualGasCost + COST_OF_POST) * maxTokenCost / maxCost;
+        uint256 actualTokenCost = (actualGasCost + COST_OF_POST) * maxTokenCost / maxCost;
         if (mode != PostOpMode.postOpReverted) {
             // attempt to pay with tokens:
             token.safeTransferFrom(account, address(this), actualTokenCost);

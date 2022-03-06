@@ -186,7 +186,7 @@ library ECDSA {
     }
 
     function ecrecover2(bytes32 hash, uint8 v, bytes32 r, bytes32 s) internal view returns (address signer) {
-        uint status;
+        uint256 status;
         assembly {
             let pointer := mload(0x40)
 

@@ -19,7 +19,7 @@ interface IPaymaster {
      * @return context value to send to a postOp
      *  zero length to signify postOp is not required.
      */
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external view returns (bytes memory context);
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost) external view returns (bytes memory context);
 
     /**
      * post-operation handler.
@@ -32,7 +32,7 @@ interface IPaymaster {
      * @param context - the context value returned by validatePaymasterUserOp
      * @param actualGasCost - actual gas used so far (without this postOp call).
      */
-    function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external;
+    function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external;
 
     enum PostOpMode {
         opSucceeded, // user op succeeded

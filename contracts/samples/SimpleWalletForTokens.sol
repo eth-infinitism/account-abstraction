@@ -9,6 +9,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract SimpleWalletForTokens is SimpleWallet {
 
     constructor(EntryPoint _entryPoint, address _owner, IERC20 token, address paymaster) SimpleWallet(_entryPoint, _owner) {
-        token.approve(paymaster, type(uint).max);
+        token.approve(paymaster, type(uint256).max);
     }
 }

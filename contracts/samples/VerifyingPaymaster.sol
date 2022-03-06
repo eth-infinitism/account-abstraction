@@ -45,12 +45,12 @@ contract VerifyingPaymaster is BasePaymaster {
 
     // verify our external signer signed this request.
     // the "paymasterData" is supposed to be a signature over the entire request params
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund)
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
     external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
-        uint sigLength = userOp.paymasterData.length;
+        uint256 sigLength = userOp.paymasterData.length;
         require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterData");
         require(verifyingSigner == hash.toEthSignedMessageHash().recover(userOp.paymasterData), "VerifyingPaymaster: wrong signature");
 
