@@ -122,7 +122,6 @@ contract DepositPaymaster is BasePaymaster {
     }
 
     function _postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) internal override {
-        (mode);
 
         (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
         //use same conversion rate as used for validation.
