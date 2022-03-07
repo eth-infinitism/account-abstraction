@@ -309,8 +309,6 @@ contract EntryPoint is StakeManager {
                     }
                 }
             }
-            //paymaster balance known to be high enough, and to be locked for this block
-            internalDecrementDeposit(paymaster, actualGasCost);
         }
         actualGas += preGas - gasleft();
         actualGasCost = actualGas * gasPrice;

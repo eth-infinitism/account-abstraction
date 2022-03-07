@@ -233,7 +233,7 @@ describe("EntryPoint with paymaster", function () {
       it('should fail to withdraw before unstake', async () => {
         const amount = await paymaster.getDeposit()
         await expect(
-          paymaster.withdrawStake(withdrawAddress, amount)
+          paymaster.withdrawStake(withdrawAddress)
         ).to.revertedWith('must call unlockStake')
       })
       it('should be able to withdraw after unstake delay', async () => {
@@ -241,7 +241,7 @@ describe("EntryPoint with paymaster", function () {
         const amount = await entryPoint.getDepositInfo(paymaster.address).then(info=>info.stake)
         expect(amount).to.be.gte(ONE_ETH.div(2))
         await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
-        await paymaster.withdrawStake(withdrawAddress, amount)
+        await paymaster.withdrawStake(withdrawAddress)
         expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
         expect(await entryPoint.getDepositInfo(paymaster.address).then(info=>info.stake)).to.eq(0)
       });

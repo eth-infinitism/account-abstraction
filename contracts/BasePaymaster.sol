@@ -53,7 +53,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         entryPoint.depositTo{value : msg.value}(address(this));
     }
 
-    function withdrawTo(address payable withdrawAddress, uint amount) public payable {
+    function withdrawTo(address payable withdrawAddress, uint amount) public onlyOwner {
         entryPoint.withdrawTo(withdrawAddress, amount);
     }
 
@@ -82,10 +82,9 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * stake must be unlocked first.
      * after a paymaster unlocks and withdraws some of the value, it must call addStake() to stake the value again.
      * @param withdrawAddress the address to send withdrawn value.
-     * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawStake(address payable withdrawAddress, uint withdrawAmount) external onlyOwner {
-        entryPoint.withdrawStake(withdrawAddress, withdrawAmount);
+    function withdrawStake(address payable withdrawAddress) external onlyOwner {
+        entryPoint.withdrawStake(withdrawAddress);
     }
 
     /// validate the call is made from a valid entrypoint

@@ -119,7 +119,7 @@ describe("EntryPoint", function () {
         expect(stakeAfter).to.eq(stake.add(ONE_ETH))
       })
       it('should fail to withdraw before unlock', async () => {
-        await expect(entryPoint.withdrawStake(AddressZero, ONE_ETH)).to.revertedWith('must call unlockStake() first')
+        await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('must call unlockStake() first')
       })
       describe('with unlocked stake', () => {
         before(async () => {
@@ -139,7 +139,7 @@ describe("EntryPoint", function () {
           })
         })
         it('should fail to withdraw before unlock timeout', async () => {
-          await expect(entryPoint.withdrawStake(AddressZero, ONE_ETH)).to.revertedWith('Stake withdrawal is not due')
+          await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('Stake withdrawal is not due')
         })
         it('should fail to unlock again', async () => {
           await expect(entryPoint.unlockStake()).to.revertedWith('already unstaking')
@@ -172,26 +172,10 @@ describe("EntryPoint", function () {
           it('should fail to unlock again', async () => {
             await expect(entryPoint.unlockStake()).to.revertedWith('already unstaking')
           })
-          it('should fail to withdraw too much ', async () => {
-            await expect(entryPoint.withdrawStake(AddressZero, FIVE_ETH)).to.revertedWith('Withdraw amount too large')
-          })
-          it('should succeed to withdraw some deposit', async () => {
+          it('should succeed to withdraw', async () => {
             const {stake} = await entryPoint.getDepositInfo(addr)
             const addr1 = createAddress()
-            await entryPoint.withdrawStake(addr1, ONE_ETH)
-            expect(await ethers.provider.getBalance(addr1)).to.eq(ONE_ETH)
-            const {stake: stakeAfter, withdrawTime, unstakeDelaySec} = await entryPoint.getDepositInfo(addr)
-
-            expect({amountAfter: stakeAfter, withdrawTime, unstakeDelaySec}).to.eql({
-              amountAfter: stake.sub(ONE_ETH),
-              unstakeDelaySec: 0,
-              withdrawTime: 0
-            })
-          })
-          it('should succeed to withdraw the rest', async () => {
-            const {stake} = await entryPoint.getDepositInfo(addr)
-            const addr1 = createAddress()
-            await entryPoint.withdrawStake(addr1, stake)
+            await entryPoint.withdrawStake(addr1)
             expect(await ethers.provider.getBalance(addr1)).to.eq(stake)
             const {stake: stakeAfter, withdrawTime, unstakeDelaySec} = await entryPoint.getDepositInfo(addr)
 

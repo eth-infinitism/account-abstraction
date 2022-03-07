@@ -8,7 +8,7 @@ import "hardhat/console.sol";
  * deposit is just a balance used to pay for transaction (either by a paymaster or a wallet)
  * stake is value locked for at least "unstakeDelay" by a paymaster.
  */
-contract StakeManager {
+abstract contract StakeManager {
 
     /// minimum number of blocks to after 'unlock' before amount can be withdrawn.
     uint32 immutable public unstakeDelaySec;
@@ -145,20 +145,18 @@ contract StakeManager {
      * withdraw from the (unlocked) stake.
      * must first call unlockStake and wait for the unstakeDelay to pass
      * @param withdrawAddress the address to send withdrawn value.
-     * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawStake(address payable withdrawAddress, uint withdrawAmount) external {
+    function withdrawStake(address payable withdrawAddress) external {
         DepositInfo storage info = deposits[msg.sender];
-        if (info.unstakeDelaySec != 0) {
-            require(info.withdrawTime > 0, "must call unlockStake() first");
-            require(info.withdrawTime <= block.timestamp, "Stake withdrawal is not due");
-            info.unstakeDelaySec = 0;
-            info.withdrawTime = 0;
-        }
-        require(withdrawAmount <= info.stake, "Withdraw amount too large");
-        info.stake = info.stake - uint112(withdrawAmount);
-        emit StakeWithdrawn(msg.sender, withdrawAddress, withdrawAmount);
-        (bool success,) = withdrawAddress.call{value : withdrawAmount}("");
+        uint stake = info.stake;
+        require(stake > 0, "No stake to withdraw");
+        require(info.withdrawTime > 0, "must call unlockStake() first");
+        require(info.withdrawTime <= block.timestamp, "Stake withdrawal is not due");
+        info.unstakeDelaySec = 0;
+        info.withdrawTime = 0;
+        info.stake = 0;
+        emit StakeWithdrawn(msg.sender, withdrawAddress, stake);
+        (bool success,) = withdrawAddress.call{value : stake}("");
         require(success, "failed to withdraw stake");
     }
 
@@ -174,18 +172,5 @@ contract StakeManager {
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
         (bool success,) = withdrawAddress.call{value : withdrawAmount}("");
         require(success, "failed to withdraw");
-    }
-
-    /**
-     * check if the given account is staked and didn't unlock it yet.
-     * @param account the account (paymaster) to check
-     * @param requiredStake the minimum deposit
-     * @param requiredDelaySec the minimum required stake time.
-     */
-    function isStaked(address account, uint requiredStake, uint requiredDelaySec) public view returns (bool) {
-        DepositInfo memory info = deposits[account];
-        return info.deposit >= requiredStake &&
-        info.unstakeDelaySec >= requiredDelaySec &&
-        info.withdrawTime == 0;
     }
 }
