@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "./SimpleWallet.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";

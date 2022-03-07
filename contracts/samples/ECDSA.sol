@@ -5,7 +5,7 @@
 // instead, ecrecover2 uses assembly.
 // Had to change "pure" to "view", since the compiler can't tell this "staticcall" is pure
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.12;
 
 import 'hardhat/console.sol';
 
