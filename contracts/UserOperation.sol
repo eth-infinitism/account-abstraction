@@ -21,7 +21,7 @@ import "hardhat/console.sol";
 
 library UserOperationLib {
 
-    function getSender(UserOperation calldata userOp) internal pure returns (address ret) {
+    function getSender(UserOperation calldata userOp) internal pure returns (address) {
         address data;
         //read sender from userOp, which is first userOp member (saves 800 gas...)
         assembly {data := calldataload(userOp)}
