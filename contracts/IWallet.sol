@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "./UserOperation.sol";
 
@@ -7,7 +7,7 @@ interface IWallet {
 
     /**
      * Validate user's signature and nonce
-     * the entryPoint will make the call to the recipient only if this validation call returns successfuly.
+     * the entryPoint will make the call to the recipient only if this validation call returns successfully.
      *
      * @dev Must validate caller is the entryPoint.
      *      Must validate the signature and nonce
@@ -19,5 +19,5 @@ interface IWallet {
      *      can be withdrawn anytime using "entryPoint.withdrawTo()"
      *      In case there is a paymaster in the request (or the current deposit is high enough), this value will be zero.
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint missingWalletFunds) external;
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external;
 }
