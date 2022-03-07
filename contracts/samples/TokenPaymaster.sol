@@ -19,15 +19,15 @@ import "../BasePaymaster.sol";
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //calculated cost of the postOp
-    uint constant COST_OF_POST = 15000;
+    uint256 constant COST_OF_POST = 15000;
 
     bytes32 immutable public knownWallet;
 
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();
         //make it non-empty
-        _mint(address (this),1);
-        approve(owner(), type(uint).max);
+        _mint(address(this), 1);
+        _approve(address(this), msg.sender, type(uint).max);
     }
 
     // known wallet construct we support the creation of.
@@ -36,20 +36,28 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     }
 
     //helpers for owner, to mint and withdraw tokens.
-    function mintTokens(address recipient, uint amount) external onlyOwner {
+    function mintTokens(address recipient, uint256 amount) external onlyOwner {
         _mint(recipient, amount);
+    }
+
+    function transferOwnership(address newOwner) public override virtual onlyOwner {
+        //remove allowanec of current owner
+        _approve(address(this), owner(), 0);
+        super.transferOwnership(newOwner);
+        //set infinite allowance for new owner
+        _approve(address(this), newOwner, type(uint).max);
     }
 
     //TODO: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
     // or a setter.
-    function getTokenToEthOutputPrice(uint valueEth) internal view virtual returns (uint valueToken) {
+    function getTokenToEthOutputPrice(uint256 valueEth) internal view virtual returns (uint256 valueToken) {
         return valueEth / 100;
     }
 
     // verify that the user has enough tokens.
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund)
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
     external view override returns (bytes memory context) {
-        uint tokenPrefund = getTokenToEthOutputPrice(requiredPreFund);
+        uint256 tokenPrefund = getTokenToEthOutputPrice(requiredPreFund);
 
         // make sure that verificationGas is high enough to handle postOp
         require(userOp.verificationGas > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
@@ -82,11 +90,11 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     // this method will be called just after the user's TX with mode==OpSucceeded|OpReverted.
     // BUT: if the user changed its balance in a way that will cause  postOp to revert, then it gets called again, after reverting
     // the user's TX
-    function _postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) internal override {
+    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
         address sender = abi.decode(context, (address));
-        uint charge = getTokenToEthOutputPrice(actualGasCost + COST_OF_POST);
+        uint256 charge = getTokenToEthOutputPrice(actualGasCost + COST_OF_POST);
         //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
         _transfer(sender, address(this), charge);
     }

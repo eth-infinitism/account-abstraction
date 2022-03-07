@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "hardhat/console.sol";
 
@@ -9,11 +9,11 @@ import "hardhat/console.sol";
         uint256 nonce;
         bytes initCode;
         bytes callData;
-        uint callGas;
-        uint verificationGas;
-        uint preVerificationGas;
-        uint maxFeePerGas;
-        uint maxPriorityFeePerGas;
+        uint256 callGas;
+        uint256 verificationGas;
+        uint256 preVerificationGas;
+        uint256 maxFeePerGas;
+        uint256 maxPriorityFeePerGas;
         address paymaster;
         bytes paymasterData;
         bytes signature;
@@ -21,16 +21,19 @@ import "hardhat/console.sol";
 
 library UserOperationLib {
 
-    function getSender(UserOperation calldata userOp) internal pure returns (address ret) {
-        assembly {ret := calldataload(userOp)}
+    function getSender(UserOperation calldata userOp) internal pure returns (address) {
+        address data;
+        //read sender from userOp, which is first userOp member (saves 800 gas...)
+        assembly {data := calldataload(userOp)}
+        return address(uint160(data));
     }
 
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
-    function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
+    function gasPrice(UserOperation calldata userOp) internal view returns (uint256) {
     unchecked {
-        uint maxFeePerGas = userOp.maxFeePerGas;
-        uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        uint256 maxFeePerGas = userOp.maxFeePerGas;
+        uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         if (maxFeePerGas == maxPriorityFeePerGas) {
             //legacy mode (for networks that don't support basefee opcode)
             return maxFeePerGas;
@@ -39,16 +42,16 @@ library UserOperationLib {
     }
     }
 
-    function requiredGas(UserOperation calldata userOp) internal pure returns (uint) {
+    function requiredGas(UserOperation calldata userOp) internal pure returns (uint256) {
     unchecked {
         //when using a Paymaster, the verificationGas is used also to cover the postOp call.
         // our security model might call postOp eventually twice
-        uint mul = hasPaymaster(userOp) ? 3 : 1;
+        uint256 mul = hasPaymaster(userOp) ? 3 : 1;
         return userOp.callGas + userOp.verificationGas * mul + userOp.preVerificationGas;
     }
     }
 
-    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint prefund) {
+    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint256 prefund) {
     unchecked {
         return requiredGas(userOp) * gasPrice(userOp);
     }
@@ -61,6 +64,9 @@ library UserOperationLib {
     function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
         //lighter signature scheme. must match UserOp.ts#packUserOp
         bytes calldata sig = userOp.signature;
+        // copy directly the userOp from calldata up to (but not including) the signature.
+        // this encoding depends on the ABI encoding of calldata, but is much lighter to copy
+        // than referencing each field separately.
         assembly {
             let ofs := userOp
             let len := sub(sub(sig.offset, ofs), 32)
@@ -75,7 +81,7 @@ library UserOperationLib {
         return keccak256(pack(userOp));
     }
 
-    function min(uint a, uint b) internal pure returns (uint) {
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
 }

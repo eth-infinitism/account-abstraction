@@ -11,7 +11,7 @@ contract TestUtil {
         return op.pack();
     }
 
-    function prefund(UserOperation calldata op) public view returns (uint) {
+    function prefund(UserOperation calldata op) public view returns (uint256) {
         return op.requiredPreFund();
     }
 
