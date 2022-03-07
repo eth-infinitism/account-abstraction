@@ -75,7 +75,7 @@ contract SimpleWallet is IWallet {
             // (and used by default by the "call")
             (bool success,) = payable(msg.sender).call{value : requiredPrefund, gas : type(uint256).max}("");
             (success);
-            //ignore failure (its EntryPoint's job to verify, not wallet.)
+            //ignore failure (it's EntryPoint's job to verify, not wallet.)
         }
     }
 

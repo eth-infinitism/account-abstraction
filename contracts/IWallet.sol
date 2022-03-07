@@ -7,7 +7,7 @@ interface IWallet {
 
     /**
      * Validate user's signature and nonce
-     * the entryPoint will make the call to the recipient only if this validation call returns successfuly.
+     * the entryPoint will make the call to the recipient only if this validation call returns successfully.
      *
      * @dev Must validate caller is the entryPoint.
      *      Must validate the signature and nonce

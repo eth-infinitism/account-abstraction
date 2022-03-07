@@ -9,7 +9,7 @@ import "hardhat/console.sol";
  */
 contract StakeManager {
 
-    /// minimum number of blocks to after 'unlock' before amount can be withdrawn.
+    /// minimum number of seconds to wait after 'unlock' before amount can be withdrawn.
     uint32 immutable public unstakeDelaySec;
 
     constructor(uint32 _unstakeDelaySec) {
@@ -85,7 +85,7 @@ contract StakeManager {
      * stake the account's deposit.
      * any pending unstakeDeposit is first cancelled.
      * can also set (or increase) the deposit with the call.
-     * @param _unstakeDelaySec the new lock time before the deposit can be withdrawn.
+     * @param _unstakeDelaySec the new lock duration before the deposit can be withdrawn.
      */
     function addStake(uint32 _unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[msg.sender];

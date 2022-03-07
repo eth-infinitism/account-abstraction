@@ -26,8 +26,8 @@ contract EntryPoint is StakeManager {
     event UserOperationRevertReason(bytes32 indexed requestId, address indexed sender, uint256 nonce, bytes revertReason);
 
     //handleOps reverts with this error struct, to mark the offending op
-    // NOTE: if simulateOp passes successfully, there should be no reason for handleOps to fail on it.
-    // @param opIndex - index into the array of ops to the failed one (in simulateOp, this is always zero)
+    // NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
+    // @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
     // @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
     //      this value will be zero (since it failed before accessing the paymaster)
     // @param reason - revert reason
@@ -274,7 +274,7 @@ contract EntryPoint is StakeManager {
 
         (gasUsedByValidateUserOp, prefund) = _validateWalletPrepayment(opIndex, userOp, requestId, requiredPreFund, paymentMode);
 
-        //a "marker" where wallet opcode validation is done, by paymaster opcode validation is about to start
+        //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
         uint256 marker = block.number;
         (marker);

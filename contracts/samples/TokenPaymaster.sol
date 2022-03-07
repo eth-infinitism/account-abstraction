@@ -7,14 +7,14 @@ import "../BasePaymaster.sol";
 /**
  * A sample paymaster that define itself as a token to pay for gas.
  * The paymaster IS the token to use, since a paymaster cannot use an external contract.
- * Also, the exchange rate has to be fixed, since it can't reference an external Uniswap os other exchange contract.
+ * Also, the exchange rate has to be fixed, since it can't reference an external Uniswap or other exchange contract.
  * subclass should override "getTokenToEthOutputPrice to provide actual token exchange rate, settable by the owner.
  * Known Limitation: this paymaster is exploitable when put into a batch with multiple ops (of different wallets):
  * - while a single op can't exploit the paymaster (if postOp fails to withdraw the tokens, the user's op is reverted,
  *   and then we know we can withdraw the tokens), multiple ops with different senders (all using this paymaster)
  *   in a batch can withdraw funds from 2nd and further ops, forcing the paymaster itself to pay (from its stake)
  * - Possible workarounds are either use a more complex paymaster scheme (e.g. the DepositPaymaster) or
- *   to whitelist the wallet and the called method-ids.
+ *   to whitelist the wallet and the called method ids.
  */
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
@@ -81,7 +81,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         //verify the token constructor params:
         // first param (of 2) should be our entryPoint
         bytes32 entryPointParam = bytes32(userOp.initCode[userOp.initCode.length - 64 :]);
-        require(address(uint160(uint256(entryPointParam))) == address(entryPoint), "wrong paymaster in constructor");
+        require(address(uint160(uint256(entryPointParam))) == address(entryPoint), "wrong entryPoint in constructor");
 
         //the 2nd parameter is the owner, but we don't need to validate it (it is done in validateUserOp)
     }
