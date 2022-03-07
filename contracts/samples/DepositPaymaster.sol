@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -30,10 +30,10 @@ contract DepositPaymaster is BasePaymaster {
     //calculated cost of the postOp
     uint constant COST_OF_POST = 35000;
 
-    IOracle constant nullOracle = IOracle(address(0));
+    IOracle private constant nullOracle = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
     mapping(IERC20 => mapping(address => uint)) public balances;
-    mapping(address => uint) unlockBlock;
+    mapping(address => uint) public unlockBlock;
 
     constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {
         //owner account is unblocked, to allow withdraw of paid tokens;
@@ -122,7 +122,6 @@ contract DepositPaymaster is BasePaymaster {
     }
 
     function _postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) internal override {
-        (mode);
 
         (address account, IERC20 token, uint maxTokenCost, uint maxCost) = abi.decode(context, (address, IERC20, uint, uint));
         //use same conversion rate as used for validation.

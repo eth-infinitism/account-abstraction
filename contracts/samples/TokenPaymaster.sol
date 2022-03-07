@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./SimpleWalletForTokens.sol";
-import "hardhat/console.sol";
+import "./SimpleWallet.sol";
 import "../BasePaymaster.sol";
 /**
  * A sample paymaster that define itself as a token to pay for gas.
@@ -22,7 +21,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     //calculated cost of the postOp
     uint constant COST_OF_POST = 15000;
 
-    bytes32 immutable knownWallet;
+    bytes32 immutable public knownWallet;
 
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();

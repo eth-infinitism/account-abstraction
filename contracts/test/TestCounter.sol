@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
-
-import "../UserOperation.sol";
-import "../IWallet.sol";
+pragma solidity ^0.8.12;
 
 //sample "receiver" contract, for testing "exec" from wallet.
 contract TestCounter {
