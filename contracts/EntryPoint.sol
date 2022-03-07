@@ -221,10 +221,12 @@ contract EntryPoint is StakeManager {
             revert FailedOp(opIndex, address(0), "");
         }
         if (paymentMode != PaymentMode.paymasterStake) {
-            if (requiredPrefund > balanceOf(sender)) {
+            DepositInfo storage senderInfo = deposits[sender];
+            uint deposit = senderInfo.deposit;
+            if (requiredPrefund > deposit) {
                 revert FailedOp(opIndex, address(0), "wallet didn't pay prefund");
             }
-            internalDecrementDeposit(sender, requiredPrefund);
+            senderInfo.deposit = uint112(deposit - requiredPrefund);
         }
         gasUsedByValidateUserOp = preGas - gasleft();
     }
@@ -292,10 +294,10 @@ contract EntryPoint is StakeManager {
     unchecked {
         address refundAddress;
 
-        if (opInfo.paymentMode != PaymentMode.paymasterStake) {
+        address paymaster = op.paymaster;
+        if (paymaster == address(0)) {
             refundAddress = op.getSender();
         } else {
-            address paymaster = op.paymaster;
             refundAddress = paymaster;
             if (context.length > 0) {
                 actualGasCost = actualGas * gasPrice;
@@ -315,7 +317,7 @@ contract EntryPoint is StakeManager {
         actualGas += preGas - gasleft();
         actualGasCost = actualGas * gasPrice;
         if (opInfo.prefund < actualGasCost) {
-            revert ("prefund below actualGasCost");
+            revert FailedOp(opIndex, paymaster, "prefund below actualGasCost");
         }
         uint refund = opInfo.prefund - actualGasCost;
         internalIncrementDeposit(refundAddress, refund);

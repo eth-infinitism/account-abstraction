@@ -89,12 +89,6 @@ abstract contract StakeManager {
         info.deposit = uint112(newAmount);
     }
 
-    function internalDecrementDeposit(address account, uint amount) internal {
-        DepositInfo storage info = deposits[account];
-        uint256 newAmount = info.deposit - amount;
-        info.deposit = uint112(newAmount);
-    }
-
     /**
      * add to the deposit of the given account
      */
