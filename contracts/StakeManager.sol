@@ -51,7 +51,7 @@ contract StakeManager {
         return deposits[account];
     }
 
-    function balanceOf(address account) public view returns (uint) {
+    function balanceOf(address account) public view returns (uint256) {
         return deposits[account].amount;
     }
 
@@ -59,14 +59,14 @@ contract StakeManager {
         depositTo(msg.sender);
     }
 
-    function internalIncrementDeposit(address account, uint amount) internal {
+    function internalIncrementDeposit(address account, uint256 amount) internal {
         DepositInfo storage info = deposits[account];
         uint256 newAmount = info.amount + amount;
         require(newAmount <= type(uint112).max, 'deposit overflow');
         info.amount = uint112(newAmount);
     }
 
-    function internalDecrementDeposit(address account, uint amount) internal {
+    function internalDecrementDeposit(address account, uint256 amount) internal {
         DepositInfo storage info = deposits[account];
         uint256 newAmount = info.amount - amount;
         info.amount = uint112(newAmount);
@@ -119,7 +119,7 @@ contract StakeManager {
      * @param withdrawAddress the address to send withdrawn value.
      * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawTo(address payable withdrawAddress, uint withdrawAmount) external {
+    function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external {
         DepositInfo memory info = deposits[msg.sender];
         if (info.unstakeDelaySec != 0) {
             require(info.withdrawTime > 0, "must call unstakeDeposit() first");
@@ -143,7 +143,7 @@ contract StakeManager {
      * @param requiredStake the minimum deposit
      * @param requiredDelaySec the minimum required stake time.
      */
-    function isStaked(address account, uint requiredStake, uint requiredDelaySec) public view returns (bool) {
+    function isStaked(address account, uint256 requiredStake, uint256 requiredDelaySec) public view returns (bool) {
         DepositInfo memory info = deposits[account];
         return info.amount >= requiredStake &&
         info.unstakeDelaySec >= requiredDelaySec &&

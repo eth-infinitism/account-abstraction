@@ -9,11 +9,11 @@ import "hardhat/console.sol";
         uint256 nonce;
         bytes initCode;
         bytes callData;
-        uint callGas;
-        uint verificationGas;
-        uint preVerificationGas;
-        uint maxFeePerGas;
-        uint maxPriorityFeePerGas;
+        uint256 callGas;
+        uint256 verificationGas;
+        uint256 preVerificationGas;
+        uint256 maxFeePerGas;
+        uint256 maxPriorityFeePerGas;
         address paymaster;
         bytes paymasterData;
         bytes signature;
@@ -30,10 +30,10 @@ library UserOperationLib {
 
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
-    function gasPrice(UserOperation calldata userOp) internal view returns (uint) {
+    function gasPrice(UserOperation calldata userOp) internal view returns (uint256) {
     unchecked {
-        uint maxFeePerGas = userOp.maxFeePerGas;
-        uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        uint256 maxFeePerGas = userOp.maxFeePerGas;
+        uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         if (maxFeePerGas == maxPriorityFeePerGas) {
             //legacy mode (for networks that don't support basefee opcode)
             return maxFeePerGas;
@@ -42,16 +42,16 @@ library UserOperationLib {
     }
     }
 
-    function requiredGas(UserOperation calldata userOp) internal pure returns (uint) {
+    function requiredGas(UserOperation calldata userOp) internal pure returns (uint256) {
     unchecked {
         //when using a Paymaster, the verificationGas is used also to cover the postOp call.
         // our security model might call postOp eventually twice
-        uint mul = hasPaymaster(userOp) ? 3 : 1;
+        uint256 mul = hasPaymaster(userOp) ? 3 : 1;
         return userOp.callGas + userOp.verificationGas * mul + userOp.preVerificationGas;
     }
     }
 
-    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint prefund) {
+    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint256 prefund) {
     unchecked {
         return requiredGas(userOp) * gasPrice(userOp);
     }
@@ -81,7 +81,7 @@ library UserOperationLib {
         return keccak256(pack(userOp));
     }
 
-    function min(uint a, uint b) internal pure returns (uint) {
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
 }
