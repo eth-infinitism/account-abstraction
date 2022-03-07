@@ -231,17 +231,19 @@ contract EntryPoint is StakeManager {
     }
 
     //validate paymaster.validatePaymasterUserOp, and decrement its deposit
-    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPreFund, uint gasUsedByValidateUserOp) internal view returns (bytes memory context) {
+    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPreFund, uint gasUsedByValidateUserOp) internal returns (bytes memory context) {
     unchecked {
         address paymaster = op.paymaster;
-        DepositInfo memory paymasterInfo = getDepositInfo(paymaster);
-        if (!paymasterInfo.staked) {
+        DepositInfo storage paymasterInfo = deposits[paymaster];
+        uint deposit = paymasterInfo.deposit;
+        bool staked = paymasterInfo.staked;
+        if (!staked) {
             revert FailedOp(opIndex, paymaster, "not staked");
         }
-        if (paymasterInfo.deposit < requiredPreFund) {
+        if (deposit < requiredPreFund) {
             revert FailedOp(opIndex, paymaster, "paymaster deposit too low");
         }
-        paymasterInfo.deposit = uint112(paymasterInfo.deposit - requiredPreFund);
+        paymasterInfo.deposit = uint112(deposit - requiredPreFund);
 
         uint gas = op.verificationGas - gasUsedByValidateUserOp;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, requestId, requiredPreFund) returns (bytes memory _context){
