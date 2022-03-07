@@ -55,7 +55,7 @@ contract VerifyingPaymaster is BasePaymaster {
         require(verifyingSigner == hash.toEthSignedMessageHash().recover(userOp.paymasterData), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked
-        // by the external service prior signing it.
+        // by the external service prior to signing it.
         return "";
     }
 

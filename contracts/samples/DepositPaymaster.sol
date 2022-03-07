@@ -75,7 +75,7 @@ contract DepositPaymaster is BasePaymaster {
 
     /**
      * unlock deposit, so that it can be withdrawn.
-     * can't be called on in the same block as withdrawTo()
+     * can't be called in the same block as withdrawTo()
      */
     function unlockTokenDeposit() public {
         unlockBlock[msg.sender] = block.number;
