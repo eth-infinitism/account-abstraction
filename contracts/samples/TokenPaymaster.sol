@@ -8,7 +8,7 @@ import "../BasePaymaster.sol";
  * A sample paymaster that define itself as a token to pay for gas.
  * The paymaster IS the token to use, since a paymaster cannot use an external contract.
  * Also, the exchange rate has to be fixed, since it can't reference an external Uniswap os other exchange contract.
- * subclass should override "getTokenToEthOutputPrice to provide actual token exchange rate, settable by the owner.
+ * subclass should override "getTokenValueOfEth to provide actual token exchange rate, settable by the owner.
  * Known Limitation: this paymaster is exploitable when put into a batch with multiple ops (of different wallets):
  * - while a single op can't exploit the paymaster (if postOp fails to withdraw the tokens, the user's op is reverted,
  *   and then we know we can withdraw the tokens), multiple ops with different senders (all using this paymaster)
@@ -42,14 +42,14 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //TODO: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
     // or a setter.
-    function getTokenToEthOutputPrice(uint valueEth) internal view virtual returns (uint valueToken) {
+    function getTokenValueOfEth(uint valueEth) internal view virtual returns (uint valueToken) {
         return valueEth / 100;
     }
 
     // verify that the user has enough tokens.
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund)
     external view override returns (bytes memory context) {
-        uint tokenPrefund = getTokenToEthOutputPrice(requiredPreFund);
+        uint tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
         // make sure that verificationGas is high enough to handle postOp
         require(userOp.verificationGas > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
@@ -86,7 +86,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
         address sender = abi.decode(context, (address));
-        uint charge = getTokenToEthOutputPrice(actualGasCost + COST_OF_POST);
+        uint charge = getTokenValueOfEth(actualGasCost + COST_OF_POST);
         //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
         _transfer(sender, address(this), charge);
     }

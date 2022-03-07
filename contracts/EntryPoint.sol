@@ -208,7 +208,7 @@ contract EntryPoint is StakeManager {
 
     //call wallet.validateUserOp, and validate that it paid as needed.
     // return actual value sent from wallet to "this"
-    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPrefund, PaymentMode paymentMode) internal returns (uint gasUsedByValidateUserOp, uint prefund) {
+    function _validateWalletPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPrefund, PaymentMode paymentMode) internal returns (uint gasUsedByValidateWalletPrepayment, uint prefund) {
     unchecked {
         uint preGas = gasleft();
         _createSenderIfNeeded(op);
@@ -237,12 +237,12 @@ contract EntryPoint is StakeManager {
         } else {
             prefund = 0;
         }
-        gasUsedByValidateUserOp = preGas - gasleft();
+        gasUsedByValidateWalletPrepayment = preGas - gasleft();
     }
     }
 
     //validate paymaster.validatePaymasterUserOp
-    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPreFund, uint gasUsedByValidateUserOp) internal view returns (bytes memory context) {
+    function _validatePaymasterPrepayment(uint opIndex, UserOperation calldata op, bytes32 requestId, uint requiredPreFund, uint gasUsedByValidateWalletPrepayment) internal view returns (bytes memory context) {
     unchecked {
         //validate a paymaster has enough stake (including for payment for this TX)
         // NOTE: when submitting a batch, caller has to make sure a paymaster has enough stake to cover
@@ -251,7 +251,7 @@ contract EntryPoint is StakeManager {
             revert FailedOp(opIndex, op.paymaster, "not enough stake");
         }
         //no pre-pay from paymaster
-        uint gas = op.verificationGas - gasUsedByValidateUserOp;
+        uint gas = op.verificationGas - gasUsedByValidateWalletPrepayment;
         try IPaymaster(op.paymaster).validatePaymasterUserOp{gas : gas}(op, requestId, requiredPreFund) returns (bytes memory _context){
             context = _context;
         } catch Error(string memory revertReason) {
@@ -268,11 +268,11 @@ contract EntryPoint is StakeManager {
         uint maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
         userOp.callGas | userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
         require(maxGasValues < type(uint120).max, "gas values overflow");
-        uint gasUsedByValidateUserOp;
+        uint gasUsedByValidateWalletPrepayment;
         uint requiredPreFund;
         (requiredPreFund, paymentMode) = _getPaymentInfo(userOp);
 
-        (gasUsedByValidateUserOp, prefund) = _validateWalletPrepayment(opIndex, userOp, requestId, requiredPreFund, paymentMode);
+        (gasUsedByValidateWalletPrepayment, prefund) = _validateWalletPrepayment(opIndex, userOp, requestId, requiredPreFund, paymentMode);
 
         //a "marker" where wallet opcode validation is done, by paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
@@ -280,7 +280,7 @@ contract EntryPoint is StakeManager {
         (marker);
 
         if (paymentMode == PaymentMode.paymasterStake) {
-            (context) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateUserOp);
+            (context) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateWalletPrepayment);
         } else {
             context = "";
         }
