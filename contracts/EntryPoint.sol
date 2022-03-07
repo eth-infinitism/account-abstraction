@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "./StakeManager.sol";
 import "./UserOperation.sol";
@@ -134,6 +134,7 @@ contract EntryPoint is StakeManager {
 
     unchecked {
         uint actualGas = preGas - gasleft() + opInfo.preOpGas;
+        //note: opIndex is ignored (relevant only if mode==postOpReverted, which is only possible outside of innerHandleOp)
         return _handlePostOp(0, mode, op, opInfo, context, actualGas);
     }
     }
