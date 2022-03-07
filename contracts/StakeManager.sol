@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity ^0.8;
+pragma solidity ^0.8.12;
 
 import "hardhat/console.sol";
 
@@ -47,7 +47,7 @@ contract StakeManager {
     /// maps accounts to their deposits
     mapping(address => DepositInfo) public deposits;
 
-    function getDepositInfo(address account) external view returns (DepositInfo memory info) {
+    function getDepositInfo(address account) public view returns (DepositInfo memory info) {
         return deposits[account];
     }
 
@@ -60,11 +60,16 @@ contract StakeManager {
     }
 
     function internalIncrementDeposit(address account, uint amount) internal {
-        deposits[account].amount += uint112(amount);
+        DepositInfo storage info = deposits[account];
+        uint256 newAmount = info.amount + amount;
+        require(newAmount <= type(uint112).max, 'deposit overflow');
+        info.amount = uint112(newAmount);
     }
 
     function internalDecrementDeposit(address account, uint amount) internal {
-        deposits[account].amount -= uint112(amount);
+        DepositInfo storage info = deposits[account];
+        uint256 newAmount = info.amount - amount;
+        info.amount = uint112(newAmount);
     }
 
     /**
@@ -73,24 +78,25 @@ contract StakeManager {
     function depositTo(address account) public payable {
         internalIncrementDeposit(account, msg.value);
         DepositInfo storage info = deposits[account];
-        emit Deposited(msg.sender, info.amount, info.unstakeDelaySec);
+        emit Deposited(account, info.amount, info.unstakeDelaySec);
     }
 
     /**
      * stake the account's deposit.
      * any pending unstakeDeposit is first cancelled.
-     * can also set (or increase) the deposit with call.
+     * can also set (or increase) the deposit with the call.
      * @param _unstakeDelaySec the new lock time before the deposit can be withdrawn.
      */
-    function addStakeTo(address account, uint32 _unstakeDelaySec) public payable {
-        DepositInfo storage info = deposits[account];
+    function addStake(uint32 _unstakeDelaySec) public payable {
+        DepositInfo storage info = deposits[msg.sender];
+        require(_unstakeDelaySec >= unstakeDelaySec, "unstake delay too low");
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
-        uint112 amount = deposits[msg.sender].amount + uint112(msg.value);
-        deposits[account] = DepositInfo(
+        uint112 amount = info.amount + uint112(msg.value);
+        deposits[msg.sender] = DepositInfo(
             amount,
             _unstakeDelaySec,
             0);
-        emit Deposited(account, amount, _unstakeDelaySec);
+        emit Deposited(msg.sender, amount, _unstakeDelaySec);
     }
 
     /**
@@ -126,8 +132,9 @@ contract StakeManager {
             info.amount - uint112(withdrawAmount),
             0,
             0);
-        withdrawAddress.transfer(withdrawAmount);
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
+        (bool success,) = withdrawAddress.call{value : withdrawAmount}("");
+        require(success, "failed to withdraw");
     }
 
     /**

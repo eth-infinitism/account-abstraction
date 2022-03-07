@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "../EntryPoint.sol";
 import "../BasePaymaster.sol";
@@ -50,7 +50,8 @@ contract VerifyingPaymaster is BasePaymaster {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
-        require(userOp.paymasterData.length >= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
+        uint sigLength = userOp.paymasterData.length;
+        require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterData");
         require(verifyingSigner == hash.toEthSignedMessageHash().recover(userOp.paymasterData), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked

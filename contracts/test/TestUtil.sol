@@ -2,7 +2,6 @@
 pragma solidity ^0.8.7;
 
 import "../UserOperation.sol";
-import "../IWallet.sol";
 import "../samples/ECDSA.sol";
 
 contract TestUtil {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "hardhat/console.sol";
 
@@ -36,9 +36,9 @@ library UserOperationLib {
         uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         if (maxFeePerGas == maxPriorityFeePerGas) {
             //legacy mode (for networks that don't support basefee opcode)
-            return min(tx.gasprice, maxFeePerGas);
+            return maxFeePerGas;
         }
-        return min(tx.gasprice, min(maxFeePerGas, maxPriorityFeePerGas + block.basefee));
+        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
     }
 
@@ -46,7 +46,7 @@ library UserOperationLib {
     unchecked {
         //when using a Paymaster, the verificationGas is used also to cover the postOp call.
         // our security model might call postOp eventually twice
-        uint mul = userOp.paymaster != address(0) ? 1 : 3;
+        uint mul = hasPaymaster(userOp) ? 3 : 1;
         return userOp.callGas + userOp.verificationGas * mul + userOp.preVerificationGas;
     }
     }
@@ -75,7 +75,6 @@ library UserOperationLib {
             mstore(ret, len)
             calldatacopy(add(ret, 32), ofs, len)
         }
-        return ret;
     }
 
     function hash(UserOperation calldata userOp) internal pure returns (bytes32) {

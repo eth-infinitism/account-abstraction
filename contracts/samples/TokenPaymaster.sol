@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./SimpleWalletForTokens.sol";
-import "hardhat/console.sol";
+import "./SimpleWallet.sol";
 import "../BasePaymaster.sol";
 /**
  * A sample paymaster that define itself as a token to pay for gas.
@@ -20,9 +19,9 @@ import "../BasePaymaster.sol";
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //calculated cost of the postOp
-    uint COST_OF_POST = 15000;
+    uint constant COST_OF_POST = 15000;
 
-    bytes32 immutable knownWallet;
+    bytes32 immutable public knownWallet;
 
     constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();
@@ -53,14 +52,14 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         uint tokenPrefund = getTokenToEthOutputPrice(requiredPreFund);
 
         // make sure that verificationGas is high enough to handle postOp
-        require(userOp.verificationGas > 16000, "TokenPaymaster: gas too low for postOp");
+        require(userOp.verificationGas > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);
-            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance (pre-create)");
+            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance (pre-create)");
         } else {
 
-            require(balanceOf(userOp.sender) > tokenPrefund, "TokenPaymaster: no balance");
+            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
         return abi.encode(userOp.sender);
