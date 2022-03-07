@@ -62,11 +62,11 @@ contract SimpleWallet is IWallet {
         require(msg.sender == address(entryPoint), "wallet: not from EntryPoint");
     }
 
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 requiredPrefund) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external override {
         _requireFromEntryPoint();
         _validateSignature(userOp, requestId);
         _validateAndIncrementNonce(userOp);
-        _payPrefund(requiredPrefund);
+        _payPrefund(missingWalletFunds);
     }
 
     function _payPrefund(uint256 requiredPrefund) internal {
@@ -98,8 +98,8 @@ contract SimpleWallet is IWallet {
         require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
     }
 
-    function _call(address sender, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = sender.call{value : value}(data);
+    function _call(address target, uint256 value, bytes memory data) internal {
+        (bool success, bytes memory result) = target.call{value : value}(data);
         if (!success) {
             assembly {
                 revert(add(result,32), mload(result))

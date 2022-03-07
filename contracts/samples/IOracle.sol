@@ -6,6 +6,6 @@ interface IOracle {
     /**
      * return amount of tokens that are required to receive that much eth.
      */
-    function getTokenToEthOutputPrice(uint256 ethOutput) external view returns (uint256 tokenInput);
+    function getTokenValueOfEth(uint256 ethOutput) external view returns (uint256 tokenInput);
 }
 

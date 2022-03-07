@@ -99,10 +99,10 @@ contract DepositPaymaster is BasePaymaster {
         token.safeTransfer(target, amount);
     }
 
-    function getTokenToEthOutputPrice(IERC20 token, uint256 ethBought) internal view virtual returns (uint256 requiredTokens) {
+    function getTokenValueOfEth(IERC20 token, uint256 ethBought) internal view virtual returns (uint256 requiredTokens) {
         IOracle oracle = oracles[token];
         require(oracle != nullOracle, "DepositPaymaster: unsupported token");
-        return oracle.getTokenToEthOutputPrice(ethBought);
+        return oracle.getTokenValueOfEth(ethBought);
     }
 
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost)
@@ -115,7 +115,7 @@ contract DepositPaymaster is BasePaymaster {
         require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
         IERC20 token = abi.decode(userOp.paymasterData, (IERC20));
         address account = userOp.getSender();
-        uint256 maxTokenCost = getTokenToEthOutputPrice(token, maxCost);
+        uint256 maxTokenCost = getTokenValueOfEth(token, maxCost);
         require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");
         require(balances[token][account] >= maxTokenCost, "DepositPaymaster: deposit too low");
         return abi.encode(account, token, maxTokenCost, maxCost);
