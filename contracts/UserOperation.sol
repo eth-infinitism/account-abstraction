@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "hardhat/console.sol";
 
@@ -21,8 +21,11 @@ import "hardhat/console.sol";
 
 library UserOperationLib {
 
-    function getSender(UserOperation calldata userOp) internal pure returns (address ret) {
-        assembly {ret := calldataload(userOp)}
+    function getSender(UserOperation calldata userOp) internal pure returns (address) {
+        address data;
+        //read sender from userOp, which is first userOp member (saves 800 gas...)
+        assembly {data := calldataload(userOp)}
+        return address(uint160(data));
     }
 
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
@@ -61,6 +64,9 @@ library UserOperationLib {
     function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
         //lighter signature scheme. must match UserOp.ts#packUserOp
         bytes calldata sig = userOp.signature;
+        // copy directly the userOp from calldata up to (but not including) the signature.
+        // this encoding depends on the ABI encoding of calldata, but is much lighter to copy
+        // than referencing each field separately.
         assembly {
             let ofs := userOp
             let len := sub(sub(sig.offset, ofs), 32)
