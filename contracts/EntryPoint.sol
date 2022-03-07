@@ -136,6 +136,7 @@ contract EntryPoint is StakeManager {
 
     unchecked {
         uint actualGas = preGas - gasleft() + opInfo.preOpGas;
+        //note: opIndex is ignored (relevant only if mode==postOpReverted, which is only possible outside of innerHandleOp)
         return _handlePostOp(0, mode, op, opInfo, context, actualGas);
     }
     }
