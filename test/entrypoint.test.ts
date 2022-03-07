@@ -10,6 +10,8 @@ import {
   TestCounter__factory,
   TestUtil,
   TestUtil__factory,
+  TestPaymasterAcceptAll,
+  TestPaymasterAcceptAll__factory,
 } from "../typechain";
 import {
   AddressZero,
@@ -89,7 +91,7 @@ describe("EntryPoint", function () {
 
     describe('without stake', () => {
       it('should fail to stake too little value', async () => {
-        await expect(entryPoint.addStake(2 ,{ value: ONE_ETH})).to.revertedWith('stake value too low');
+        await expect(entryPoint.addStake(2, {value: ONE_ETH})).to.revertedWith('stake value too low');
       })
       it('should fail to stake too little delay', async () => {
         await expect(entryPoint.addStake(1)).to.revertedWith('stake delay too low');
@@ -126,7 +128,7 @@ describe("EntryPoint", function () {
           await entryPoint.unlockStake()
         })
         it('should report as "not staked"', async () => {
-          expect(await entryPoint.getDepositInfo(addr).then(info=>info.staked)).to.eq(false)
+          expect(await entryPoint.getDepositInfo(addr).then(info => info.staked)).to.eq(false)
         })
         it('should report unstake state', async () => {
           const withdrawTime1 = await ethers.provider.getBlock('latest').then(block => block.timestamp) + globalUnstakeDelaySec
@@ -476,7 +478,7 @@ describe("EntryPoint", function () {
     })
 
     describe('batch multiple requests', () => {
-      if ( process.env.COVERAGE != null ) {
+      if (process.env.COVERAGE != null) {
         return
       }
       /**
@@ -539,4 +541,52 @@ describe("EntryPoint", function () {
       })
     });
   })
+
+  describe('with paymaster (account with no eth)', () => {
+    let paymaster: TestPaymasterAcceptAll
+    let counter: TestCounter
+    let walletExecFromEntryPoint: PopulatedTransaction
+    let wallet2: SimpleWallet
+    const wallet2Owner = createWalletOwner()
+
+    before(async () => {
+
+      paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
+      await paymaster.addStake(0, {value: paymasterStake})
+      counter = await new TestCounter__factory(ethersSigner).deploy()
+      const count = await counter.populateTransaction.count()
+      walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+
+    })
+
+    it('should fail if paymaster has no deposit', async function () {
+      const op = await fillAndSign({
+        paymaster: paymaster.address,
+        callData: walletExecFromEntryPoint.data,
+        initCode: WalletConstructor(entryPoint.address, wallet2Owner.address),
+
+        verificationGas: 1e6,
+        callGas: 1e6
+      }, wallet2Owner, entryPoint)
+      const beneficiaryAddress = createAddress()
+      await expect( entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
+    })
+
+    it('paymaster should pay for tx', async function () {
+      await paymaster.deposit({value: ONE_ETH})
+      const op = await fillAndSign({
+        paymaster: paymaster.address,
+        callData: walletExecFromEntryPoint.data,
+        initCode: WalletConstructor(entryPoint.address, wallet2Owner.address),
+      }, wallet2Owner, entryPoint)
+      const beneficiaryAddress = createAddress()
+
+      const rcpt = await entryPoint.handleOps([op], beneficiaryAddress).then(t => t.wait())
+
+      const {actualGasCost} = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+      const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
+      expect(paymasterPaid).to.eql(actualGasCost)
+    });
+  })
+
 })
