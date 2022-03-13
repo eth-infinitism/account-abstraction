@@ -10,7 +10,7 @@ import "hardhat/console.sol";
  */
 abstract contract StakeManager {
 
-    /// minimum number of blocks to after 'unlock' before amount can be withdrawn.
+    /// minimum number of seconds to wait after 'unlock' before amount can be withdrawn.
     uint32 immutable public unstakeDelaySec;
     uint immutable public paymasterStake;
 
@@ -74,7 +74,7 @@ abstract contract StakeManager {
     }
 
     /// return the deposit (for gas payment) of the account
-    function balanceOf(address account) public view returns (uint) {
+    function balanceOf(address account) public view returns (uint256) {
         return deposits[account].deposit;
     }
 
@@ -82,7 +82,7 @@ abstract contract StakeManager {
         depositTo(msg.sender);
     }
 
-    function internalIncrementDeposit(address account, uint amount) internal {
+    function internalIncrementDeposit(address account, uint256 amount) internal {
         DepositInfo storage info = deposits[account];
         uint256 newAmount = info.deposit + amount;
         require(newAmount <= type(uint112).max, 'deposit overflow');
@@ -101,7 +101,7 @@ abstract contract StakeManager {
     /**
      * add to the account's stake - amount and delay
      * any pending unstake is first cancelled.
-     * @param _unstakeDelaySec the new lock time before the deposit can be withdrawn.
+     * @param _unstakeDelaySec the new lock duration before the deposit can be withdrawn.
      */
     function addStake(uint32 _unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[msg.sender];
@@ -159,7 +159,7 @@ abstract contract StakeManager {
      * @param withdrawAddress the address to send withdrawn value.
      * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawTo(address payable withdrawAddress, uint withdrawAmount) external {
+    function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external {
         DepositInfo memory info = deposits[msg.sender];
         require(withdrawAmount <= info.deposit, "Withdraw amount too large");
         info.deposit = uint112(info.deposit - withdrawAmount);

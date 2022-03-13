@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
-
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IPaymaster.sol";
 import "./EntryPoint.sol";
@@ -22,9 +21,9 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         entryPoint = _entryPoint;
     }
 
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external virtual override view returns (bytes memory context);
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost) external virtual override view returns (bytes memory context);
 
-    function postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) external override {
+    function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external override {
         _requireFromEntrypoint();
         _postOp(mode, context, actualGasCost);
     }
@@ -41,7 +40,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param context - the context value returned by validatePaymasterUserOp
      * @param actualGasCost - actual gas used so far (without this postOp call).
      */
-    function _postOp(PostOpMode mode, bytes calldata context, uint actualGasCost) internal virtual {
+    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal virtual {
 
         (mode,context,actualGasCost); // unused params
         // subclass must override this method if validatePaymasterUserOp returns a context
@@ -56,7 +55,6 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     function withdrawTo(address payable withdrawAddress, uint amount) public onlyOwner {
         entryPoint.withdrawTo(withdrawAddress, amount);
     }
-
     /**
      * add stake for this paymaster
      * @param extraUnstakeDelaySec - extra delay (above the minimum required unstakeDelay of the entrypoint)
@@ -65,7 +63,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
     }
 
-    function getDeposit() public view returns (uint) {
+    function getDeposit() public view returns (uint256) {
         return entryPoint.balanceOf(address(this));
     }
 

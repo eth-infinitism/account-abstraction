@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.7;
 
 import "../UserOperation.sol";
 import "../samples/ECDSA.sol";
@@ -11,7 +11,7 @@ contract TestUtil {
         return op.pack();
     }
 
-    function prefund(UserOperation calldata op) public view returns (uint) {
+    function prefund(UserOperation calldata op) public view returns (uint256) {
         return op.requiredPreFund();
     }
 
