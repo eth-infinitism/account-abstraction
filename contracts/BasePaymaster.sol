@@ -88,7 +88,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
 
     /**
      * withdraw the entire paymaster's stake.
-     * stake must be unlocked first (and also wait for the unstakeDelay)
+     * stake must be unlocked first (and then wait for the unstakeDelay to be over)
      * @param withdrawAddress the address to send withdrawn value.
      */
     function withdrawStake(address payable withdrawAddress) external onlyOwner {
