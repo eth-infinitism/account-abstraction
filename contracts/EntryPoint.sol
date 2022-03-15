@@ -1,5 +1,6 @@
 /**
- ** Account-Abstraction (EIP-4337) Implementation.
+ ** Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
+ ** Only one instance required on each chain.
  **/
 
 // SPDX-License-Identifier: GPL-3.0
@@ -27,7 +28,7 @@ contract EntryPoint is StakeManager {
 
     /***
      * An event emitted after each successful request
-     * @param requestId - unique identifier for the request (hash over its entire content, except signature.
+     * @param requestId - unique identifier for the request (hash its entire content, except signature).
      * @param sender - the account that generates this request.
      * @param paymaster - if non-null, the paymaster that pays for this request.
      * @param nonce - the nonce value from the request
@@ -47,13 +48,14 @@ contract EntryPoint is StakeManager {
     event UserOperationRevertReason(bytes32 indexed requestId, address indexed sender, uint256 nonce, bytes revertReason);
 
     /**
-     * a custom revert error of handleOps, to mark the offending op
+     * a custom revert error of handleOps, to identify the offending op.
      *  NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
      *  @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
      *  @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
      *       this value will be zero (since it failed before accessing the paymaster)
      *  @param reason - revert reason
-     *   only to aid troubleshooting of wallet/paymaster reverts
+     *   Should be caught in off-chain handleOps simulation and not happen on-chain.
+     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of wallet/paymaster reverts.
      */
     error FailedOp(uint256 opIndex, address paymaster, string reason);
 
@@ -239,7 +241,7 @@ contract EntryPoint is StakeManager {
 
     /**
      * call wallet.validateUserOp.
-     * revert (with FailOp) in case validateUserOp reverts, or wallet didn't send required prefund.
+     * revert (with FailedOp) in case validateUserOp reverts, or wallet didn't send required prefund.
      * decrement wallet's deposit if needed
      */
     function _validateWalletPrepayment(uint256 opIndex, UserOperation calldata op, bytes32 requestId, uint256 requiredPrefund, PaymentMode paymentMode) internal returns (uint256 gasUsedByValidateWalletPrepayment) {
@@ -340,8 +342,8 @@ contract EntryPoint is StakeManager {
     /**
      * process post-operation.
      * called just after the callData is executed.
-     * if a paymaster is defined, its postOp is called.
-     * the excess amount is paid back to the wallet (or paymaster - if it is was used in the request)
+     * if a paymaster is defined and its validation returned a non-empty context, its postOp is called.
+     * the excess amount is refunded to the wallet (or paymaster - if it is was used in the request)
      * @param opIndex index in the batch
      * @param mode - whether is called from innerHandleOp, or outside (postOpReverted)
      * @param op the user operation
