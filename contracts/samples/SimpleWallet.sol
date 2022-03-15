@@ -48,7 +48,7 @@ contract SimpleWallet is IWallet {
     }
 
     /**
-     * execute a transaction (called directly from owner, not through entryPoint)
+     * execute a transaction (called directly from owner, not by entryPoint)
      */
     function exec(address dest, uint256 value, bytes calldata func) external onlyOwner {
         _call(dest, value, func);
