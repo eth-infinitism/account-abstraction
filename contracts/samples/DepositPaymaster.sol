@@ -115,10 +115,10 @@ contract DepositPaymaster is BasePaymaster {
     }
 
     /**
-     * validate the request:
-     * the sender should have enough deposit to pay the max possible cost.
-     * note that the sender's balance is not checked. if it fails to pay with its balance,
-     * this deposit will be used to pay for the transaction to the paymaster.
+     * Validate the request:
+     * The sender should have enough deposit to pay the max possible cost.
+     * Note that the sender's balance is not checked. If it fails to pay from its balance,
+     * this deposit will be used to compensate the paymaster for the transaction.
      */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost)
     external view override returns (bytes memory context) {
@@ -137,7 +137,7 @@ contract DepositPaymaster is BasePaymaster {
     }
 
     /**
-     * perform the post-operation to pay for gas.
+     * perform the post-operation to charge the sender for the gas.
      * in normal mode, use transferFrom to withdraw enough tokens from the sender's balance.
      * in case the transferFrom fails, the _postOp reverts and the entryPoint will call it again,
      * this time in *postOpReverted* mode.
