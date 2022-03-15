@@ -25,7 +25,13 @@ contract VerifyingPaymaster is BasePaymaster {
         verifyingSigner = _verifyingSigner;
     }
 
-    // return the hash we're going to sign off-chain (and validate on-chain)
+    /**
+     * return the hash we're going to sign off-chain (and validate on-chain)
+     * this method is called by the off-chain service, to sign the request.
+     * it is called on-chain from the validatePaymasterUserOp, to validate the signature.
+     * note that this signature covers all fields of the UserOperation, except the "paymasterData",
+     * which will carry the signature itself.
+     */
     function getHash(UserOperation calldata userOp)
     public pure returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterData itself.
@@ -43,8 +49,10 @@ contract VerifyingPaymaster is BasePaymaster {
             ));
     }
 
-    // verify our external signer signed this request.
-    // the "paymasterData" is supposed to be a signature over the entire request params
+    /**
+     * verify our external signer signed this request.
+     * the "paymasterData" is supposed to be a signature over the entire request params
+     */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
     external view override returns (bytes memory context) {
         (requiredPreFund);
