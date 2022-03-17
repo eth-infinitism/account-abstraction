@@ -24,7 +24,7 @@ contract SimpleWallet is BaseWallet {
 
     EntryPoint private _entryPoint;
 
-    event EntryPointChanged(EntryPoint indexed oldEntryPoint, EntryPoint indexed newEntryPoint);
+    event EntryPointChanged(address indexed oldEntryPoint, address indexed newEntryPoint);
 
     receive() external payable {}
 
@@ -58,9 +58,13 @@ contract SimpleWallet is BaseWallet {
         }
     }
 
-    function updateEntryPoint(EntryPoint newEntryPoint) external onlyOwner {
-        emit EntryPointChanged(_entryPoint, newEntryPoint);
-        _entryPoint = newEntryPoint;
+    function _updateEntryPoint(address newEntryPoint) internal override {
+        emit EntryPointChanged(address(_entryPoint), newEntryPoint);
+        _entryPoint = EntryPoint(payable(newEntryPoint));
+    }
+
+    function _requireFromAdmin() internal view override {
+        _onlyOwner();
     }
 
     function _requireFromEntryPoint() internal override view {

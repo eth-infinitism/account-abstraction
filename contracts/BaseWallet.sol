@@ -23,7 +23,6 @@ abstract contract BaseWallet is IWallet {
     /**
      * return the entryPoint used by this wallet.
      * subclass should return the current entryPoint used by this wallet.
-     * The implementation must not assume that the entrypoint is static, and thus must allow the owner/admin to modify it.
      */
     function entryPoint() public view virtual returns (EntryPoint);
 
@@ -87,4 +86,28 @@ abstract contract BaseWallet is IWallet {
             //ignore failure (its EntryPoint's job to verify, not wallet.)
         }
     }
+
+    /**
+     * expose an api to modify the entryPoint.
+     * must be called by current "admin" of the wallet.
+     */
+    function updateEntryPoint(address newEntryPoint) external {
+        _requireFromAdmin();
+        _updateEntryPoint(newEntryPoint);
+    }
+
+    /**
+     * ensure the caller is allowed "admin" operations (such as changing the entryPoint)
+     * default implementation trust the wallet itself (or any signer that passes "validateUserOp")
+     * to be the "admin"
+     */
+    function _requireFromAdmin() internal view virtual {
+        require(msg.sender == address(this) || msg.sender == address(entryPoint()), "not admin");
+    }
+
+    /**
+     * update the current entrypoint.
+     * subclass should override and update current entrypoint
+     */
+    function _updateEntryPoint(address) internal virtual;
 }
