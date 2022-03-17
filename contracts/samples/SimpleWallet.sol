@@ -74,7 +74,7 @@ contract SimpleWallet is BaseWallet {
     }
 
     /// implement template method of BaseWallet
-    function _validateAndIncrementNonce(UserOperation calldata userOp) internal override {
+    function _validateAndUpdateNonce(UserOperation calldata userOp) internal override {
         require(_nonce++ == userOp.nonce, "wallet: invalid nonce");
     }
 
