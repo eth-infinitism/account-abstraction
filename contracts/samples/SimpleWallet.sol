@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./BaseWallet.sol";
+import "../BaseWallet.sol";
 
 //minimal wallet
 // this is sample minimal wallet.

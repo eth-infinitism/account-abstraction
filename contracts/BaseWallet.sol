@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.7;
 
-import "../IWallet.sol";
-import "../EntryPoint.sol";
-import "./ECDSA.sol";
+import "./IWallet.sol";
+import "./EntryPoint.sol";
+import "./samples/ECDSA.sol";
 
 /**
  * Basic wallet implmenetation.
