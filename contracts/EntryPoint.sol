@@ -359,14 +359,14 @@ contract EntryPoint is StakeManager {
      * During `simulateValidation`, allow these storage cells to be accessed
      *  (that is, a wallet/paymaster are allowed to access EntryPoint's storage related to this wallet, but no other)
      */
-    function getSenderStorage(address sender) external view returns (uint[] memory senderStorageCells) {
-        uint cell;
+    function getSenderStorage(address sender) external view returns (uint256[] memory senderStorageCells) {
+        uint256 cell;
         DepositInfo storage info = deposits[sender];
 
         assembly {
             cell := info.slot
         }
-        senderStorageCells = new uint[](1);
+        senderStorageCells = new uint256[](1);
         senderStorageCells[0] = cell;
     }
 }
