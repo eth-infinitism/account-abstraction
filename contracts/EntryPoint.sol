@@ -353,5 +353,21 @@ contract EntryPoint is StakeManager {
     function isPaymasterStaked(address paymaster, uint stake) public view returns (bool) {
         return isStaked(paymaster, stake, unstakeDelaySec);
     }
+
+    /**
+     * return the storage cells used internally by the EntryPoint for this sender address.
+     * During `simulateValidation`, allow these storage cells to be accessed
+     *  (that is, a wallet/paymaster are allowed to access EntryPoint's storage related to this wallet, but no other)
+     */
+    function getSenderStorage(address sender) external view returns (uint[] memory senderStorageCells) {
+        uint cell;
+        DepositInfo storage info = deposits[sender];
+
+        assembly {
+            cell := info.slot
+        }
+        senderStorageCells = new uint[](1);
+        senderStorageCells[0] = cell;
+    }
 }
 

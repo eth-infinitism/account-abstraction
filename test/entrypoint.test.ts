@@ -97,6 +97,12 @@ describe("EntryPoint", function () {
       before(async () => {
         await entryPoint.addStakeTo(signer, 2, {value: TWO_ETH})
       })
+      it( 'getStorageStake() should get storage cell', async() => {
+        const cells = await entryPoint.getSenderStorage(signer)
+        const val = await ethers.provider.getStorageAt(entryPoint.address, cells[0])
+        const mask = BigNumber.from(2).pow(112).sub(1)
+        expect(BigNumber.from(val).and(mask)).to.eq(TWO_ETH)
+      })
       it('should report "staked" state', async () => {
         expect(await entryPoint.isPaymasterStaked(addr, 0)).to.eq(true)
         const {amount, unstakeDelaySec, withdrawTime} = await entryPoint.getDepositInfo(addr)
