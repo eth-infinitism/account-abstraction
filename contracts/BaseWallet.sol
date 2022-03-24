@@ -6,7 +6,7 @@ import "./EntryPoint.sol";
 import "./samples/ECDSA.sol";
 
 /**
- * Basic wallet implmenetation.
+ * Basic wallet implementation.
  * this contract provides the basic logic for implementing the IWallet interface  - validateUserOp
  * specific wallet implementation should inherit it and provide the wallet-specific logic
  */
