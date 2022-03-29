@@ -3,7 +3,6 @@ pragma solidity ^0.8.7;
 
 import "./IWallet.sol";
 import "./EntryPoint.sol";
-import "./samples/ECDSA.sol";
 
 /**
  * Basic wallet implementation.
@@ -11,7 +10,6 @@ import "./samples/ECDSA.sol";
  * specific wallet implementation should inherit it and provide the wallet-specific logic
  */
 abstract contract BaseWallet is IWallet {
-    using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
 
     /**
@@ -41,25 +39,18 @@ abstract contract BaseWallet is IWallet {
         _payPrefund(missingWalletFunds);
     }
 
-    /// validate the request comes from the known entrypoint.
+    /**
+     * ensure the request comes from the known entrypoint.
+     */
     function _requireFromEntryPoint() internal virtual view {
         require(msg.sender == address(entryPoint()), "wallet: not from EntryPoint");
     }
 
     /**
-     * helper function: recover the signer of this UserOp.
-     * must be used instead of "ecrecover", since the GAS opcode is not allowed to be used by validateUserOp
-     * expected to by used by _validateSignature
-     */
-    function _recoverSigner(UserOperation calldata userOp, bytes32 requestId) internal virtual view returns (address) {
-        bytes32 hash = requestId.toEthSignedMessageHash();
-        return hash.recover(userOp.signature);
-    }
-
-    /**
      * validate the signature is valid for this message.
-     * must NOT use the "GAS" opcode while calling the "ecrecover" precompile, which is banned during validateUserOp
-     * should use "_recoverSigner" utility method.
+     * @param userOp validate the userOp.signature field
+     * @param requestId convenient field: the hash of the request, to check the signature against
+     *          (also hashes the entrypoint and chain-id)
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal virtual view;
 
@@ -67,6 +58,7 @@ abstract contract BaseWallet is IWallet {
      * validate the current nonce matches the UserOperation nonce.
      * then it should update the wallet's state to prevent replay of this UserOperation.
      * called only if initCode is empty (since "nonce" field is used as "salt" on wallet creation)
+     * @param userOp the op to validate.
      */
     function _validateAndUpdateNonce(UserOperation calldata userOp) internal virtual;
 
@@ -75,7 +67,8 @@ abstract contract BaseWallet is IWallet {
      * subclass MAY override this method for better funds management
      * (e.g. send to the entryPoint more than the minimum required, so that in future transactions
      * it will not be required to send again)
-     * note: in any case, should NOT use the "GAS" opcode.
+     * @param missingWalletFunds the minimum value this method should send the entrypoint.
+     *  this value MAY be zero, in case there is enough deposit, or the userOp has a paymaster.
      */
     function _payPrefund(uint256 missingWalletFunds) internal virtual {
         if (missingWalletFunds != 0) {
@@ -90,6 +83,7 @@ abstract contract BaseWallet is IWallet {
     /**
      * expose an api to modify the entryPoint.
      * must be called by current "admin" of the wallet.
+     * @param newEntryPoint the new entrypoint to trust.
      */
     function updateEntryPoint(address newEntryPoint) external {
         _requireFromAdmin();

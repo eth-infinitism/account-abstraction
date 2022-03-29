@@ -2,12 +2,14 @@
 pragma solidity ^0.8.12;
 
 import "../BaseWallet.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 //minimal wallet
 // this is sample minimal wallet.
 // has execute, eth handling methods
 // has a single signer that can send requests through the entryPoint.
 contract SimpleWallet is BaseWallet {
+    using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
 
     //explicit sizes of nonce, to fit a single storage cell with "owner"
@@ -84,7 +86,8 @@ contract SimpleWallet is BaseWallet {
 
     /// implement template method of BaseWallet
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal view override {
-        require(owner == _recoverSigner(userOp, requestId), "wallet: wrong signature");
+        bytes32 hash = requestId.toEthSignedMessageHash();
+        require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {
