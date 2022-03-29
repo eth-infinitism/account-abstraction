@@ -3,7 +3,7 @@ pragma solidity ^0.8.12;
 
 import "../IWallet.sol";
 import "../EntryPoint.sol";
-import "./ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 //minimal wallet
 // this is sample minimal wallet.

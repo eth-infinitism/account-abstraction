@@ -49,25 +49,6 @@ describe("SimpleWallet", function () {
   function toBuffer(data:any): Buffer {
     return Buffer.from(hexlify(data).slice(2), 'hex')
   }
-  describe("#ecrecover2", ()=>{
-    const wallet = createWalletOwner()
-    const signer = wallet.address
-    const message = "hello"
-    const hash =  ethers.utils.hashMessage(message)
-    const sig = toSignature(ecsign(toBuffer(hash), toBuffer(wallet.privateKey)))
-    const allFs = '0x'.padEnd(66,'f');
-    const badSig =  splitSignature({ r: allFs, s: HashZero, v:27 });
-
-    [
-      { title:'should recover with good sig signer', sig, expected: signer},
-      { title:'should return zeroes with invalid signature', sig: badSig, expected: AddressZero},
-    ].forEach( ({title, sig, expected}: SigTestParams)=> it(title, async()=>{
-      const solcResult = await testUtil.sol_ecrecover(hash, sig.v, sig.r, sig.s)
-      expect(solcResult).to.equal(expected, `sanity: normal solc ecrecover (sig=${JSON.stringify(sig)})`)
-      expect(await testUtil.ecdsa_ecrecover2(hash, sig.v, sig.r, sig.s)).to.equal(solcResult)
-    })
-    )
-  })
 
   it('owner should be able to call transfer', async () => {
     const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])

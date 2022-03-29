@@ -53,7 +53,8 @@ export async function getTokenBalance(token: IERC20, address: string): Promise<n
 }
 
 
-let counter=0
+let counter = 0
+
 //create non-random account, so gas calculations are deterministic
 export function createWalletOwner(): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
@@ -205,7 +206,12 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   const bannedOpCodes = new Set(['GAS', 'BASEFEE', 'GASPRICE', 'NUMBER'])
-  expect(ops.filter(op=>bannedOpCodes.has(op))).to.eql([])
+  expect(ops.filter((op, index) => {
+    //allow GAS if immediately followed by "*CALL"
+    if (op === 'GAS' && ops[index + 1].match(/CALL/))
+      return false
+    return bannedOpCodes.has(op)
+  })).to.eql([])
   if (checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
