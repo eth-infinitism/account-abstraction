@@ -264,7 +264,7 @@ contract EntryPoint is StakeManager {
         uint256 preGas = gasleft();
         uint256 maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
         userOp.callGas | userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
-        require(maxGasValues < type(uint120).max, "gas values overflow");
+        require(maxGasValues <= type(uint120).max, "gas values overflow");
         uint256 gasUsedByValidateWalletPrepayment;
         (requiredPreFund, paymentMode) = _getPaymentInfo(userOp);
 
