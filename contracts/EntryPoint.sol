@@ -9,10 +9,7 @@ import "./StakeManager.sol";
 import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
-
-interface ICreate2Deployer {
-    function deploy(bytes memory initCode, bytes32 salt) external returns (address);
-}
+import "./ICreate2Deployer.sol";
 
 contract EntryPoint is StakeManager {
 
@@ -36,6 +33,7 @@ contract EntryPoint is StakeManager {
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
     event UserOperationEvent(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
+
     /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length
      * @param requestId the request unique identifier.
@@ -58,8 +56,8 @@ contract EntryPoint is StakeManager {
     error FailedOp(uint256 opIndex, address paymaster, string reason);
 
     /**
-     * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that it can be upgraded)
-     * @param _paymasterStake - locked stake of paymaster (actual value should also cover TX cost)
+     * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that the EntryPoint can be upgraded)
+     * @param _paymasterStake - minimum required locked stake for a paymaster
      * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
     constructor(address _create2factory, uint256 _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_paymasterStake, _unstakeDelaySec) {
@@ -170,7 +168,7 @@ contract EntryPoint is StakeManager {
 
     /**
      * generate a request Id - unique identifier for this request.
-     * the request ID is a hash over the content of the userOp (except the signature).
+     * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      */
     function getRequestId(UserOperation calldata userOp) public view returns (bytes32) {
         return keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
