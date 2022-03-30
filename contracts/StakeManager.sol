@@ -10,8 +10,14 @@ import "hardhat/console.sol";
  */
 abstract contract StakeManager {
 
-    /// minimum number of seconds to wait after 'unlock' before amount can be withdrawn.
+    /**
+     * minimum time (in seconds) required to lock a paymaster stake before it can be withdraw.
+     */
     uint32 immutable public unstakeDelaySec;
+
+    /**
+     * minimum value required to stake for a paymaster
+     */
     uint256 immutable public paymasterStake;
 
     constructor(uint256 _paymasterStake, uint32 _unstakeDelaySec) {
@@ -34,7 +40,7 @@ abstract contract StakeManager {
     event StakeLocked(
         address indexed account,
         uint256 totalStaked,
-        uint256 unstakeDelay
+        uint256 withdrawTime
     );
 
     /// Emitted once a stake is scheduled for withdrawal

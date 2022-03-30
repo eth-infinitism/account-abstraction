@@ -1,3 +1,7 @@
+/**
+ ** Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
+ ** Only one instance required on each chain.
+ **/
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
@@ -5,10 +9,7 @@ import "./StakeManager.sol";
 import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
-
-interface ICreate2Deployer {
-    function deploy(bytes memory initCode, bytes32 salt) external returns (address);
-}
+import "./ICreate2Deployer.sol";
 
 contract EntryPoint is StakeManager {
 
@@ -21,21 +22,42 @@ contract EntryPoint is StakeManager {
 
     address public immutable create2factory;
 
+    /***
+     * An event emitted after each successful request
+     * @param requestId - unique identifier for the request (hash its entire content, except signature).
+     * @param sender - the account that generates this request.
+     * @param paymaster - if non-null, the paymaster that pays for this request.
+     * @param nonce - the nonce value from the request
+     * @param actualGasCost - the total cost (in gas) of this request.
+     * @param actualGasPrice - the actual gas price the sender agreed to pay.
+     * @param success - true if the sender transaction succeeded, false if reverted.
+     */
     event UserOperationEvent(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
+
+    /**
+     * An event emitted if the UserOperation "callData" reverted with non-zero length
+     * @param requestId the request unique identifier.
+     * @param sender the sender of this request
+     * @param nonce the nonce used in the request
+     * @param revertReason - the return bytes from the (reverted) call to "callData".
+     */
     event UserOperationRevertReason(bytes32 indexed requestId, address indexed sender, uint256 nonce, bytes revertReason);
 
-    //handleOps reverts with this error struct, to mark the offending op
-    // NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
-    // @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
-    // @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
-    //      this value will be zero (since it failed before accessing the paymaster)
-    // @param reason - revert reason
-    //  only to aid troubleshooting of wallet/paymaster reverts
+    /**
+     * a custom revert error of handleOps, to identify the offending op.
+     *  NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
+     *  @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
+     *  @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
+     *       this value will be zero (since it failed before accessing the paymaster)
+     *  @param reason - revert reason
+     *   Should be caught in off-chain handleOps simulation and not happen on-chain.
+     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of wallet/paymaster reverts.
+     */
     error FailedOp(uint256 opIndex, address paymaster, string reason);
 
     /**
-     * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that it can be upgraded)
-     * @param _paymasterStake - locked stake of paymaster (actual value should also cover TX cost)
+     * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that the EntryPoint can be upgraded)
+     * @param _paymasterStake - minimum required locked stake for a paymaster
      * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
      */
     constructor(address _create2factory, uint256 _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_paymasterStake, _unstakeDelaySec) {
@@ -45,6 +67,11 @@ contract EntryPoint is StakeManager {
         create2factory = _create2factory;
     }
 
+    /**
+     * compensate the caller's beneficiary address with the collected fees of all UserOperations.
+     * @param beneficiary the address to receive the fees
+     * @param amount amount to transfer.
+     */
     function _compensate(address payable beneficiary, uint256 amount) internal {
         require(beneficiary != address(0), "invalid beneficiary");
         (bool success,) = beneficiary.call{value : amount}("");
@@ -141,7 +168,7 @@ contract EntryPoint is StakeManager {
 
     /**
      * generate a request Id - unique identifier for this request.
-     * the request ID is a hash over the content of the userOp (except the signature).
+     * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      */
     function getRequestId(UserOperation calldata userOp) public view returns (bytes32) {
         return keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
@@ -188,8 +215,12 @@ contract EntryPoint is StakeManager {
         }
     }
 
-    /// Get counterfactual sender address.
-    ///  Calculate the sender contract address that will be generated by the initCode and salt in the UserOperation.
+    /**
+     * Get counterfactual sender address.
+     *  Calculate the sender contract address that will be generated by the initCode and salt in the UserOperation.
+     * @param initCode the constructor code to be passed into the UserOperation.
+     * @param salt the salt parameter, to be passed as "nonce" in the UserOperation.
+     */
     function getSenderAddress(bytes memory initCode, uint256 salt) public view returns (address) {
         bytes32 hash = keccak256(
             abi.encodePacked(
@@ -204,7 +235,11 @@ contract EntryPoint is StakeManager {
         return address(uint160(uint256(hash)));
     }
 
-    //call wallet.validateUserOp, validate that it paid as needed, and decrement wallet's deposit.
+    /**
+     * call wallet.validateUserOp.
+     * revert (with FailedOp) in case validateUserOp reverts, or wallet didn't send required prefund.
+     * decrement wallet's deposit if needed
+     */
     function _validateWalletPrepayment(uint256 opIndex, UserOperation calldata op, bytes32 requestId, uint256 requiredPrefund, PaymentMode paymentMode) internal returns (uint256 gasUsedByValidateWalletPrepayment) {
     unchecked {
         uint256 preGas = gasleft();
@@ -233,7 +268,13 @@ contract EntryPoint is StakeManager {
     }
     }
 
-    //validate paymaster.validatePaymasterUserOp, and decrement its deposit
+    /**
+     * in case the request has a paymaster:
+     * validate paymaster is staked and has enough deposit.
+     * call paymaster.validatePaymasterUserOp.
+     * revert with proper FailedOp in case paymaster reverts.
+     * decrement paymaster's deposit
+     */
     function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, bytes32 requestId, uint256 requiredPreFund, uint256 gasUsedByValidateWalletPrepayment) internal returns (bytes memory context) {
     unchecked {
         address paymaster = op.paymaster;
@@ -247,7 +288,6 @@ contract EntryPoint is StakeManager {
             revert FailedOp(opIndex, paymaster, "paymaster deposit too low");
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
-
         uint256 gas = op.verificationGas - gasUsedByValidateWalletPrepayment;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, requestId, requiredPreFund) returns (bytes memory _context){
             context = _context;
@@ -259,6 +299,11 @@ contract EntryPoint is StakeManager {
     }
     }
 
+    /**
+     * validate wallet and paymaster (if defined).
+     * also make sure total validation doesn't exceed verificationGas
+     * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
+     */
     function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, bytes32 requestId) private returns (uint256 requiredPreFund, PaymentMode paymentMode, bytes memory context){
 
         uint256 preGas = gasleft();
@@ -289,6 +334,18 @@ contract EntryPoint is StakeManager {
     }
     }
 
+    /**
+     * process post-operation.
+     * called just after the callData is executed.
+     * if a paymaster is defined and its validation returned a non-empty context, its postOp is called.
+     * the excess amount is refunded to the wallet (or paymaster - if it is was used in the request)
+     * @param opIndex index in the batch
+     * @param mode - whether is called from innerHandleOp, or outside (postOpReverted)
+     * @param op the user operation
+     * @param opInfo info collected during validation
+     * @param context the context returned in validatePaymasterUserOp
+     * @param actualGas the gas used so far by this user operation
+     */
     function _handlePostOp(uint256 opIndex, IPaymaster.PostOpMode mode, UserOperation calldata op, UserOpInfo memory opInfo, bytes memory context, uint256 actualGas) private returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
         uint256 gasPrice = UserOperationLib.gasPrice(op);
