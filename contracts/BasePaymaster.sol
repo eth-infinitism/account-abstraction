@@ -6,7 +6,7 @@ import "./EntryPoint.sol";
 
 /**
  * Helper class for creating a paymaster.
- * provider helper methods for staking.
+ * provides helper methods for staking.
  * validates that the postOp is called only by the entryPoint
  */
 abstract contract BasePaymaster is IPaymaster, Ownable {
@@ -48,34 +48,51 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /**
-     * add stake for this paymaster
-     * @param extraUnstakeDelaySec - extra delay (above the minimum required unstakeDelay of the entrypoint)
+     * add a deposit for this paymaster, used for paying for transaction fees
      */
-    function addStake(uint32 extraUnstakeDelaySec) external payable onlyOwner {
-        entryPoint.addStake{value:msg.value}(entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
+    function deposit() public payable {
+        entryPoint.depositTo{value : msg.value}(address(this));
     }
 
+    /**
+     * withdraw value from the deposit
+     * @param withdrawAddress target to send to
+     * @param amount to withdraw
+     */
+    function withdrawTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
+        entryPoint.withdrawTo(withdrawAddress, amount);
+    }
+    /**
+     * add stake for this paymaster.
+     * This method can also carry eth value to add to the current stake.
+     * @param extraUnstakeDelaySec - set the stake to the entrypoint's default unstakeDelay plus this value.
+     */
+    function addStake(uint32 extraUnstakeDelaySec) external payable onlyOwner {
+        entryPoint.addStake{value : msg.value}(entryPoint.unstakeDelaySec() + extraUnstakeDelaySec);
+    }
+
+    /**
+     * return current paymaster's deposit on the entryPoint.
+     */
     function getDeposit() public view returns (uint256) {
         return entryPoint.balanceOf(address(this));
     }
 
     /**
-     * attempt to unstake the deposit.
-     * The paymaster can't serve requests once unstaked.
+     * unlock the stake, in order to withdraw it.
+     * The paymaster can't serve requests once unlocked, until it calls addStake again
      */
-    function unstakeDeposit() external onlyOwner {
-        entryPoint.unstakeDeposit();
+    function unlockStake() external onlyOwner {
+        entryPoint.unlockStake();
     }
 
     /**
-     * withdraw from the paymaster's stake.
-     * stake must be unlocked first.
-     * after a paymaster unlocks and withdraws some of the value, it must call addStake() to stake the value again.
+     * withdraw the entire paymaster's stake.
+     * stake must be unlocked first (and then wait for the unstakeDelay to be over)
      * @param withdrawAddress the address to send withdrawn value.
-     * @param withdrawAmount the amount to withdraw.
      */
-    function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external onlyOwner {
-        entryPoint.withdrawTo(withdrawAddress, withdrawAmount);
+    function withdrawStake(address payable withdrawAddress) external onlyOwner {
+        entryPoint.withdrawStake(withdrawAddress);
     }
 
     /// validate the call is made from a valid entrypoint

@@ -92,6 +92,9 @@ contract DepositPaymaster is BasePaymaster {
     /**
      * withdraw tokens.
      * can only be called after unlock() is called in a previous block.
+     * @param token the token deposit to withdraw
+     * @param target address to send to
+     * @param amount amount to withdraw
      */
     function withdrawTokensTo(IERC20 token, address target, uint256 amount) public {
         require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender], "DepositPaymaster: must unlockTokenDeposit");
@@ -99,17 +102,29 @@ contract DepositPaymaster is BasePaymaster {
         token.safeTransfer(target, amount);
     }
 
+    /**
+     * translate the given eth value to token amount
+     * @param token the token to use
+     * @param ethBought the required eth value we want to "buy"
+     * @return requiredTokens the amount of tokens required to get this amount of eth
+     */
     function getTokenValueOfEth(IERC20 token, uint256 ethBought) internal view virtual returns (uint256 requiredTokens) {
         IOracle oracle = oracles[token];
         require(oracle != nullOracle, "DepositPaymaster: unsupported token");
         return oracle.getTokenValueOfEth(ethBought);
     }
 
+    /**
+     * Validate the request:
+     * The sender should have enough deposit to pay the max possible cost.
+     * Note that the sender's balance is not checked. If it fails to pay from its balance,
+     * this deposit will be used to compensate the paymaster for the transaction.
+     */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost)
     external view override returns (bytes memory context) {
 
         (requestId);
-        // make sure that verificationGas is high enough to handle postOp
+        // verificationGas is dual-purposed, as gas limit for postOp. make sure it is high enough
         require(userOp.verificationGas > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
         require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
@@ -121,6 +136,13 @@ contract DepositPaymaster is BasePaymaster {
         return abi.encode(account, token, maxTokenCost, maxCost);
     }
 
+    /**
+     * perform the post-operation to charge the sender for the gas.
+     * in normal mode, use transferFrom to withdraw enough tokens from the sender's balance.
+     * in case the transferFrom fails, the _postOp reverts and the entryPoint will call it again,
+     * this time in *postOpReverted* mode.
+     * In this mode, we use the deposit to pay (which we validated to be large enough)
+     */
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
 
         (address account, IERC20 token, uint256 maxTokenCost, uint256 maxCost) = abi.decode(context, (address, IERC20, uint256, uint256));

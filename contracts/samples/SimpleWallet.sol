@@ -4,10 +4,12 @@ pragma solidity ^0.8.12;
 import "../BaseWallet.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-//minimal wallet
-// this is sample minimal wallet.
-// has execute, eth handling methods
-// has a single signer that can send requests through the entryPoint.
+/**
+  * minimal wallet.
+  *  this is sample minimal wallet.
+  *  has execute, eth handling methods
+  *  has a single signer that can send requests through the entryPoint.
+  */
 contract SimpleWallet is BaseWallet {
     using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
@@ -45,14 +47,23 @@ contract SimpleWallet is BaseWallet {
         require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
 
+    /**
+     * transfer eth value to a destination address
+     */
     function transfer(address payable dest, uint256 amount) external onlyOwner {
         dest.transfer(amount);
     }
 
+    /**
+     * execute a transaction (called directly from owner, not by entryPoint)
+     */
     function exec(address dest, uint256 value, bytes calldata func) external onlyOwner {
         _call(dest, value, func);
     }
 
+    /**
+     * execute a sequence of transaction
+     */
     function execBatch(address[] calldata dest, bytes[] calldata func) external onlyOwner {
         require(dest.length == func.length, "wrong array lengths");
         for (uint256 i = 0; i < dest.length; i++) {
@@ -60,6 +71,11 @@ contract SimpleWallet is BaseWallet {
         }
     }
 
+    /**
+     * change entry-point:
+     * a wallet must have a method for replacing the entryPoint, in case the the entryPoint is
+     * upgraded to a newer version.
+     */
     function _updateEntryPoint(address newEntryPoint) internal override {
         emit EntryPointChanged(address(_entryPoint), newEntryPoint);
         _entryPoint = EntryPoint(payable(newEntryPoint));
@@ -69,11 +85,19 @@ contract SimpleWallet is BaseWallet {
         _onlyOwner();
     }
 
+    /**
+     * validate the userOp is correct.
+     * revert if it doesn't.
+     * - must only be called from the entryPoint.
+     * - make sure the signature is of our supported signer.
+     * - validate current nonce matches request nonce, and increment it.
+     * - pay prefund, in case current deposit is not enough
+     */
     function _requireFromEntryPoint() internal override view {
         require(msg.sender == address(entryPoint()), "wallet: not from EntryPoint");
     }
 
-    //called by entryPoint, only after validateUserOp succeeded.
+    // called by entryPoint, only after validateUserOp succeeded.
     function execFromEntryPoint(address dest, uint256 value, bytes calldata func) external {
         _requireFromEntryPoint();
         _call(dest, value, func);
@@ -99,16 +123,27 @@ contract SimpleWallet is BaseWallet {
         }
     }
 
+    /**
+     * check current wallet deposit in the entryPoint
+     */
     function getDeposit() public view returns (uint256) {
         return entryPoint().balanceOf(address(this));
     }
 
+    /**
+     * deposit more funds for this wallet in the entryPoint
+     */
     function addDeposit() public payable {
 
         (bool req,) = address(entryPoint()).call{value : msg.value}("");
         require(req);
     }
 
+    /**
+     * withdraw value from the wallet's deposit
+     * @param withdrawAddress target to send to
+     * @param amount to withdraw
+     */
     function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner{
         entryPoint().withdrawTo(withdrawAddress, amount);
     }

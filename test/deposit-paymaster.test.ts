@@ -36,6 +36,7 @@ describe("DepositPaymaster", async () => {
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
     paymaster.addStake(0, {value: parseEther('2')})
+    entryPoint.depositTo(paymaster.address, {value: parseEther('1')})
 
     token = await new TestToken__factory(ethersSigner).deploy()
     const testOracle = await new TestOracle__factory(ethersSigner).deploy()
