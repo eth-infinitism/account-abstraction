@@ -2,7 +2,6 @@
  ** Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  ** Only one instance required on each chain.
  **/
-
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
@@ -37,7 +36,6 @@ contract EntryPoint is StakeManager {
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
     event UserOperationEvent(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
-
     /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length
      * @param requestId the request unique identifier.
@@ -292,7 +290,6 @@ contract EntryPoint is StakeManager {
             revert FailedOp(opIndex, paymaster, "paymaster deposit too low");
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
-
         uint256 gas = op.verificationGas - gasUsedByValidateWalletPrepayment;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, requestId, requiredPreFund) returns (bytes memory _context){
             context = _context;
@@ -314,7 +311,7 @@ contract EntryPoint is StakeManager {
         uint256 preGas = gasleft();
         uint256 maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
         userOp.callGas | userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
-        require(maxGasValues < type(uint120).max, "gas values overflow");
+        require(maxGasValues <= type(uint120).max, "gas values overflow");
         uint256 gasUsedByValidateWalletPrepayment;
         (requiredPreFund, paymentMode) = _getPaymentInfo(userOp);
 

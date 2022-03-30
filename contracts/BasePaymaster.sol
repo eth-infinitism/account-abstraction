@@ -59,7 +59,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param withdrawAddress target to send to
      * @param amount to withdraw
      */
-    function withdrawTo(address payable withdrawAddress, uint amount) public onlyOwner {
+    function withdrawTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
         entryPoint.withdrawTo(withdrawAddress, amount);
     }
     /**

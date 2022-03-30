@@ -5,16 +5,16 @@ import "hardhat/console.sol";
 
 /**
  * manage deposits and stakes.
- * deposit is just a balance used to pay for transaction (either by a paymaster or a wallet)
+ * deposit is just a balance used to pay for UserOperations (either by a paymaster or a wallet)
  * stake is value locked for at least "unstakeDelay" by a paymaster.
  */
 abstract contract StakeManager {
 
     /// minimum number of seconds to wait after 'unlock' before amount can be withdrawn.
     uint32 immutable public unstakeDelaySec;
-    uint immutable public paymasterStake;
+    uint256 immutable public paymasterStake;
 
-    constructor(uint _paymasterStake, uint32 _unstakeDelaySec) {
+    constructor(uint256 _paymasterStake, uint32 _unstakeDelaySec) {
         unstakeDelaySec = _unstakeDelaySec;
         paymasterStake = _paymasterStake;
     }
@@ -49,15 +49,18 @@ abstract contract StakeManager {
         uint256 amount
     );
 
-
-    /// @param amount of ether deposited for this account
-    /// @param unstakeDelaySec - time the deposit is locked, after calling unlock (or zero if deposit is not locked)
-    /// @param withdrawTime - first block timestamp where 'withdrawTo' will be callable, or zero if not locked
-    /// @dev sizes were chosen so that (deposit,staked) fit into one cell (using during handleOps)
-    ///   and the rest fit into a 2nd cell.
-    ///   112 bit allows for 2^15 eth
-    ///   64 bit for full timestamp
-    ///   32 bit allow 150 years for unstake delay
+    /**
+     * @param deposit the account's deposit
+     * @param staked true if this account is staked as a paymaster
+     * @param stake actual amount of ether staked for this paymaster. must be above paymasterStake
+     * @param unstakeDelaySec minimum delay to withdraw the stake. must be above the global unstakeDelaySec
+     * @param withdrawTime - first block timestamp where 'withdrawStake' will be callable, or zero if already locked
+     * @dev sizes were chosen so that (deposit,staked) fit into one cell (used during handleOps)
+     *    and the rest fit into a 2nd cell.
+     *    112 bit allows for 2^15 eth
+     *    64 bit for full timestamp
+     *    32 bit allow 150 years for unstake delay
+     */
     struct DepositInfo {
         uint112 deposit;
         bool staked;
@@ -107,7 +110,7 @@ abstract contract StakeManager {
         DepositInfo storage info = deposits[msg.sender];
         require(_unstakeDelaySec >= unstakeDelaySec, "unstake delay too low");
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
-        uint stake = info.stake + msg.value;
+        uint256 stake = info.stake + msg.value;
         require(stake >= paymasterStake, "stake value too low");
         require(stake < type(uint112).max, "stake overflow");
         deposits[msg.sender] = DepositInfo(
@@ -126,8 +129,8 @@ abstract contract StakeManager {
      */
     function unlockStake() external {
         DepositInfo storage info = deposits[msg.sender];
-        require(info.withdrawTime == 0, "already unstaking");
         require(info.unstakeDelaySec != 0, "not staked");
+        require(info.staked, "already unstaking");
         uint64 withdrawTime = uint64(block.timestamp) + info.unstakeDelaySec;
         info.withdrawTime = withdrawTime;
         info.staked = false;
@@ -142,7 +145,7 @@ abstract contract StakeManager {
      */
     function withdrawStake(address payable withdrawAddress) external {
         DepositInfo storage info = deposits[msg.sender];
-        uint stake = info.stake;
+        uint256 stake = info.stake;
         require(stake > 0, "No stake to withdraw");
         require(info.withdrawTime > 0, "must call unlockStake() first");
         require(info.withdrawTime <= block.timestamp, "Stake withdrawal is not due");
