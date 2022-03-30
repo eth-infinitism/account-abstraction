@@ -53,7 +53,8 @@ export async function getTokenBalance(token: IERC20, address: string): Promise<n
 }
 
 
-let counter=0
+let counter = 0
+
 //create non-random account, so gas calculations are deterministic
 export function createWalletOwner(): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
@@ -71,7 +72,7 @@ export function callDataCost(data: string): number {
     .reduce((sum, x) => sum + x)
 }
 
-export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string) {
+export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const {actualGasCost, actualGasPrice} = logs[0].args
@@ -83,6 +84,7 @@ export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint
   if (beneficiaryAddress != null) {
     expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost.toNumber())
   }
+  return {actualGasCost}
 }
 
 //helper function to create a constructor call to our wallet.
@@ -205,7 +207,7 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
   const bannedOpCodes = new Set(['GAS', 'BASEFEE', 'GASPRICE', 'NUMBER'])
-  expect(ops.filter(op=>bannedOpCodes.has(op))).to.eql([])
+  expect(ops.filter(op => bannedOpCodes.has(op))).to.eql([])
   if (checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
