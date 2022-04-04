@@ -31,11 +31,12 @@ describe("DepositPaymaster", async () => {
   let paymaster: DepositPaymaster
   before(async function () {
 
-    entryPoint = await deployEntryPoint(0, 0)
+    entryPoint = await deployEntryPoint(1, 1)
     entryPointStatic = entryPoint.connect(AddressZero)
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
     paymaster.addStake(0, {value: parseEther('2')})
+    entryPoint.depositTo(paymaster.address, {value: parseEther('1')})
 
     token = await new TestToken__factory(ethersSigner).deploy()
     const testOracle = await new TestOracle__factory(ethersSigner).deploy()
@@ -117,7 +118,7 @@ describe("DepositPaymaster", async () => {
     });
 
     it('should reject if deposit is not locked', async () => {
-      await paymaster.addDepositFor(token.address, wallet.address, 1e6)
+      await paymaster.addDepositFor(token.address, wallet.address, ONE_ETH)
 
       const paymasterUnlock = await paymaster.populateTransaction.unlockTokenDeposit().then(tx => tx.data!)
       await wallet.exec(paymaster.address, 0, paymasterUnlock)
@@ -176,6 +177,7 @@ describe("DepositPaymaster", async () => {
 
     it('should pay with tokens if available', async () => {
       const beneficiary = createAddress()
+      const beneficiary1 = createAddress()
       let initialTokens = parseEther('1')
       await token.mint(wallet.address, initialTokens)
 
@@ -188,7 +190,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData: execApprove
       }, walletOwner, entryPoint)
-      await entryPoint.handleOp(userOp1, AddressZero)
+      await entryPoint.handleOps([userOp1], beneficiary1)
 
 
       const userOp = await fillAndSign({
@@ -197,7 +199,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData
       }, walletOwner, entryPoint)
-      await entryPoint.handleOp(userOp, beneficiary)
+      await entryPoint.handleOps([userOp], beneficiary)
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), await ethers.provider.getBlockNumber())
       expect(log.args.success).to.eq(true)

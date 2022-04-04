@@ -45,12 +45,36 @@ describe("EntryPoint with paymaster", function () {
     await fund(wallet)
   })
 
+  describe('#TokenPaymaster', () => {
+    let paymaster: TokenPaymaster
+    let otherAddr = createAddress()
+    let ownerAddr: string
+    let pmAddr: string
+
+    before(async () => {
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy('ttt', entryPoint.address)
+      pmAddr = paymaster.address
+      ownerAddr = await ethersSigner.getAddress()
+    })
+
+    it('owner should have allowance to withdraw funds', async () => {
+      expect(await paymaster.allowance(pmAddr, ownerAddr)).to.equal(ethers.constants.MaxUint256)
+      expect(await paymaster.allowance(pmAddr, otherAddr)).to.equal(0)
+    });
+
+    it('should allow only NEW owner to move funds after transferOwnership', async () => {
+      await paymaster.transferOwnership(otherAddr)
+      expect(await paymaster.allowance(pmAddr, otherAddr)).to.equal(ethers.constants.MaxUint256)
+      expect(await paymaster.allowance(pmAddr, ownerAddr)).to.equal(0)
+    });
+  })
+
   describe('using TokenPaymaster (account pays in paymaster tokens)', () => {
     let paymaster: TokenPaymaster
     before(async () => {
       paymaster = await new TokenPaymaster__factory(ethersSigner).deploy("tst", entryPoint.address)
-      paymaster.addStake(0, {value: parseEther('2')})
-      console.log('stake info=', cleanValue(await entryPoint.getDepositInfo(paymaster.address)))
+      entryPoint.depositTo(paymaster.address, {value: parseEther('1')})
+      await paymaster.addStake(0, {value: parseEther('2')})
     })
 
     describe('#handleOps', () => {
@@ -160,16 +184,16 @@ describe("EntryPoint with paymaster", function () {
           ops.push(op)
         }
 
-        const pmBalanceBefore = await paymaster.balanceOf(paymaster.address).then(b=>b.toNumber())
+        const pmBalanceBefore = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber())
         await entryPoint.handleOps(ops, beneficiaryAddress).then(tx => tx.wait())
-        const totalPaid = await paymaster.balanceOf(paymaster.address).then(b=>b.toNumber()) - pmBalanceBefore
+        const totalPaid = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber()) - pmBalanceBefore
         for (let i = 0; i < wallets.length; i++) {
           let bal = await getTokenBalance(paymaster, wallets[i].address);
           const paid = parseEther('1').sub(bal.toString()).toNumber()
 
-          //roughly each account should pay 1/4th of total price, within 10%
+          //roughly each account should pay 1/4th of total price, within 15%
           // (first account pays more, for warming up..)
-          expect(paid).to.be.closeTo(totalPaid/4, paid/10)
+          expect(paid).to.be.closeTo(totalPaid/4, paid*0.15)
         }
       });
 
@@ -190,7 +214,7 @@ describe("EntryPoint with paymaster", function () {
             callData: wallet2.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, approveCallData]),
             paymaster: paymaster.address
           }, walletOwner, entryPoint)
-          await entryPoint.handleOp(approveOp, beneficiaryAddress)
+          await entryPoint.handleOps([approveOp], beneficiaryAddress)
           expect(await paymaster.allowance(wallet2.address, wallet.address)).to.eq(ethers.constants.MaxUint256)
         })
 
@@ -233,17 +257,17 @@ describe("EntryPoint with paymaster", function () {
       it('should fail to withdraw before unstake', async () => {
         const amount = await paymaster.getDeposit()
         await expect(
-          paymaster.withdrawTo(withdrawAddress, amount)
-        ).to.revertedWith('must call unstakeDeposit')
+          paymaster.withdrawStake(withdrawAddress)
+        ).to.revertedWith('must call unlockStake')
       })
       it('should be able to withdraw after unstake delay', async () => {
-        await paymaster.unstakeDeposit()
-        const amount = await paymaster.getDeposit()
+        await paymaster.unlockStake()
+        const amount = await entryPoint.getDepositInfo(paymaster.address).then(info=>info.stake)
         expect(amount).to.be.gte(ONE_ETH.div(2))
         await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
-        await paymaster.withdrawTo(withdrawAddress, amount)
+        await paymaster.withdrawStake(withdrawAddress)
         expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
-        expect(await paymaster.getDeposit()).to.eq(0)
+        expect(await entryPoint.getDepositInfo(paymaster.address).then(info=>info.stake)).to.eq(0)
       });
     })
   })
