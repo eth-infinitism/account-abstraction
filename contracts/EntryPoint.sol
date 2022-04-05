@@ -388,7 +388,8 @@ contract EntryPoint is StakeManager {
     /**
      * return the storage cells used internally by the EntryPoint for this sender address.
      * During `simulateValidation`, allow these storage cells to be accessed
-     *  (that is, a wallet/paymaster are allowed to access EntryPoint's storage related to this wallet, but no other)
+     *  (that is, a wallet/paymaster are allowed to access their own deposit balance on the
+     *  EntryPoint's storage, but no other account)
      */
     function getSenderStorage(address sender) external view returns (uint256[] memory senderStorageCells) {
         uint256 cell;
