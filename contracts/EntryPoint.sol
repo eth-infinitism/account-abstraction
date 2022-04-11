@@ -17,8 +17,8 @@ contract EntryPoint is StakeManager {
     using UserOperationLib for UserOperation;
 
     enum PaymentMode {
-        paymasterStake, // if paymaster is set, use paymaster's stake to pay.
-        walletStake // pay with wallet deposit.
+        paymasterDeposit, // if paymaster is set, use paymaster's deposit to pay.
+        walletDeposit // pay with wallet deposit.
     }
 
     address public immutable create2factory;
@@ -177,7 +177,7 @@ contract EntryPoint is StakeManager {
 
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
-    * Validation succeeds of the call doesn't revert.
+    * Validation succeeds if the call doesn't revert.
     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
@@ -197,9 +197,9 @@ contract EntryPoint is StakeManager {
     function _getPaymentInfo(UserOperation calldata userOp) internal view returns (uint256 requiredPrefund, PaymentMode paymentMode) {
         requiredPrefund = userOp.requiredPreFund();
         if (userOp.hasPaymaster()) {
-            paymentMode = PaymentMode.paymasterStake;
+            paymentMode = PaymentMode.paymasterDeposit;
         } else {
-            paymentMode = PaymentMode.walletStake;
+            paymentMode = PaymentMode.walletDeposit;
         }
     }
 
@@ -247,7 +247,7 @@ contract EntryPoint is StakeManager {
         _createSenderIfNeeded(op);
         uint256 missingWalletFunds = 0;
         address sender = op.getSender();
-        if (paymentMode != PaymentMode.paymasterStake) {
+        if (paymentMode != PaymentMode.paymasterDeposit) {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
@@ -257,7 +257,7 @@ contract EntryPoint is StakeManager {
         } catch {
             revert FailedOp(opIndex, address(0), "");
         }
-        if (paymentMode != PaymentMode.paymasterStake) {
+        if (paymentMode != PaymentMode.paymasterDeposit) {
             DepositInfo storage senderInfo = deposits[sender];
             uint deposit = senderInfo.deposit;
             if (requiredPrefund > deposit) {
@@ -321,7 +321,7 @@ contract EntryPoint is StakeManager {
         uint256 marker = block.number;
         (marker);
 
-        if (paymentMode == PaymentMode.paymasterStake) {
+        if (paymentMode == PaymentMode.paymasterDeposit) {
             (context) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateWalletPrepayment);
         } else {
             context = "";
