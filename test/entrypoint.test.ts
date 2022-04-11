@@ -76,6 +76,14 @@ describe("EntryPoint", function () {
       addr = await ethersSigner.getAddress()
     })
 
+    it( '#getSenderStorage() should get storage cell', async() => {
+      await entryPoint.depositTo(signer, {value: FIVE_ETH})
+      const cells = await entryPoint.getSenderStorage(signer)
+      const val = await ethers.provider.getStorageAt(entryPoint.address, cells[0])
+      const mask = BigNumber.from(2).pow(112).sub(1)
+      expect(BigNumber.from(val).and(mask)).to.eq(FIVE_ETH)
+    })
+
     it('should deposit for transfer into EntryPoint', async () => {
       let signer2 = ethers.provider.getSigner(2);
       await signer2.sendTransaction({to: entryPoint.address, value: ONE_ETH})

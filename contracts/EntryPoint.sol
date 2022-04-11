@@ -9,6 +9,7 @@ import "./StakeManager.sol";
 import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
+
 import "./ICreate2Deployer.sol";
 
 contract EntryPoint is StakeManager {
@@ -382,6 +383,23 @@ contract EntryPoint is StakeManager {
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
         emit UserOperationEvent(opInfo.requestId, op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
     } // unchecked
+    }
+
+    /**
+     * return the storage cells used internally by the EntryPoint for this sender address.
+     * During `simulateValidation`, allow these storage cells to be accessed
+     *  (that is, a wallet/paymaster are allowed to access their own deposit balance on the
+     *  EntryPoint's storage, but no other account)
+     */
+    function getSenderStorage(address sender) external view returns (uint256[] memory senderStorageCells) {
+        uint256 cell;
+        DepositInfo storage info = deposits[sender];
+
+        assembly {
+            cell := info.slot
+        }
+        senderStorageCells = new uint256[](1);
+        senderStorageCells[0] = cell;
     }
 }
 
