@@ -5,9 +5,7 @@
 // instead, ecrecover2 uses assembly.
 // Had to change "pure" to "view", since the compiler can't tell this "staticcall" is pure
 
-pragma solidity ^0.8.0;
-
-import 'hardhat/console.sol';
+pragma solidity ^0.8.12;
 
 /**
  * @dev Elliptic Curve Digital Signature Algorithm (ECDSA) operations.

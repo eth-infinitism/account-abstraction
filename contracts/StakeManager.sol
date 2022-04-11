@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.12;
 
-import "hardhat/console.sol";
-
 /**
  * manage deposits and stakes.
  * deposit is just a balance used to pay for UserOperations (either by a paymaster or a wallet)

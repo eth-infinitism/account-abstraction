@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "hardhat/console.sol";
-
     /**
      * User Operation struct
      * @param sender the sender account of this request
