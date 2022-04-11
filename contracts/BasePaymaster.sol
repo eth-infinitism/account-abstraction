@@ -14,17 +14,17 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     EntryPoint public entryPoint;
 
     constructor(EntryPoint _entryPoint) {
-        setEntrypoint(_entryPoint);
+        setEntryPoint(_entryPoint);
     }
 
-    function setEntrypoint(EntryPoint _entryPoint) public onlyOwner {
+    function setEntryPoint(EntryPoint _entryPoint) public onlyOwner {
         entryPoint = _entryPoint;
     }
 
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost) external virtual override view returns (bytes memory context);
 
     function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external override {
-        _requireFromEntrypoint();
+        _requireFromEntryPoint();
         _postOp(mode, context, actualGasCost);
     }
 
@@ -96,7 +96,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /// validate the call is made from a valid entrypoint
-    function _requireFromEntrypoint() internal virtual {
+    function _requireFromEntryPoint() internal virtual {
         require(msg.sender == address(entryPoint));
     }
 }
