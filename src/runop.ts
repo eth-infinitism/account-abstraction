@@ -29,7 +29,7 @@ import {TransactionReceipt} from "@ethersproject/abstract-provider";
   const ethersSigner = provider.getSigner()
 
   const chainId = await  provider.getNetwork().then(x=>x.chainId)
-  if (chainId.match(/1337/)) {
+  if (chainId.toString().match(/1337/)) {
     SimpleWalletSigner.eventsPollingInterval = 100
   }
 

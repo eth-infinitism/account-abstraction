@@ -1384,12 +1384,13 @@
     lodash "^4.17.15"
     ts-essentials "^7.0.1"
 
-"@typechain/hardhat@^4.0.0":
-  version "4.0.0"
-  resolved "https://registry.yarnpkg.com/@typechain/hardhat/-/hardhat-4.0.0.tgz#976d4dcc0d9237602d722801d30adc573c529981"
-  integrity sha512-SeEKtiHu4Io3LHhE8VV3orJbsj7dwJZX8pzSTv7WQR38P18vOLm2M52GrykVinMpkLK0uVc88ICT58emvfn74w==
+"@typechain/hardhat@^6.0.0":
+  version "6.0.0"
+  resolved "https://registry.yarnpkg.com/@typechain/hardhat/-/hardhat-6.0.0.tgz#5e305641de67276efbfaa8c37c78e38f22b22ef4"
+  integrity sha512-AnhwODKHxx3+st5uc1j2NQh79Lv2OuvDQe4dKn8ZxhqYsAsTPnHTLBeI8KPZ+mfdE7v13D2QYssRTIkkGhK35A==
   dependencies:
     fs-extra "^9.1.0"
+    lodash "^4.17.15"
 
 "@types/abstract-leveldown@*":
   version "5.0.2"
@@ -6861,7 +6862,7 @@ mocha@^7.1.1:
     yargs-parser "13.1.2"
     yargs-unparser "1.6.0"
 
-mocha@^9.2.0:
+mocha@^9.2.0, mocha@^9.2.2:
   version "9.2.2"
   resolved "https://registry.yarnpkg.com/mocha/-/mocha-9.2.2.tgz#d70db46bdb93ca57402c809333e5a84977a88fb9"
   integrity sha512-L6XC3EdwT6YrIk0yXpavvLkn8h+EU+Y5UcCHKECyMbdUIxyMuZj4bX4U9e1nvnvUUvQVsV2VHQr5zLdcUkhW/g==

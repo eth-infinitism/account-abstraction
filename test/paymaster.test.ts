@@ -11,21 +11,19 @@ import {
   TokenPaymaster,
   TokenPaymaster__factory,
   TestCounter__factory
-} from "../typechain-types";
+} from "../typechain-types/index";
 import {
   createWalletOwner,
   fund,
   getBalance,
-  getTokenBalance, rethrow,
+  getTokenBalance,
   checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress,
-  ONE_ETH, objdump
-  tonumber
+  ONE_ETH, objdump, tonumber
 } from "./testutils";
 import {formatEther, parseEther} from "ethers/lib/utils";
-import {UserOperation} from "./UserOperation";
 import {cleanValue} from "./chaiHelper";
-import { AddressZero, rethrow } from '../src/userop/utils';
-import { fillAndSign, UserOperation } from '../src';
+import {AddressZero, rethrow} from '../src/userop/utils';
+import {fillAndSign, UserOperation} from '../src';
 
 describe("EntryPoint with paymaster", function () {
 
@@ -195,7 +193,7 @@ describe("EntryPoint with paymaster", function () {
 
           //roughly each account should pay 1/4th of total price, within 15%
           // (first account pays more, for warming up..)
-          expect(paid).to.be.closeTo(totalPaid/4, paid*0.15)
+          expect(paid).to.be.closeTo(totalPaid / 4, paid * 0.15)
         }
       });
 
@@ -264,12 +262,11 @@ describe("EntryPoint with paymaster", function () {
       })
       it('should be able to withdraw after unstake delay', async () => {
         await paymaster.unlockStake()
-        const amount = await entryPoint.getDepositInfo(paymaster.address).then(info=>info.stake)
+        const amount = await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)
         expect(amount).to.be.gte(ONE_ETH.div(2))
         await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
         await paymaster.withdrawStake(withdrawAddress)
-        expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
-        expect(await entryPoint.getDepositInfo(paymaster.address).then(info=>info.stake)).to.eq(0)
+        expect(await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)).to.eq(0)
       });
     })
   })

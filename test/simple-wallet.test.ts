@@ -7,13 +7,10 @@ import {
   SimpleWallet__factory,
   TestUtil,
   TestUtil__factory } from '../typechain-types'
-import {AddressZero, createWalletOwner, getBalance, HashZero, ONE_ETH} from "./testutils";
-import {parseEther} from "ethers/lib/utils";
-import {UserOperation} from "./UserOperation";
+import { createWalletOwner, getBalance, ONE_ETH} from "./testutils";
 import {hexlify, parseEther, splitSignature} from "ethers/lib/utils";
-import {UserOperation} from "./UserOperation";
-import { Signature, SignatureLike } from '@ethersproject/bytes';
-import { ECDSASignature, ecrecover, ecsign } from 'ethereumjs-util';
+import { Signature } from '@ethersproject/bytes';
+import { ECDSASignature } from 'ethereumjs-util';
 import {fillUserOp, getRequestId, packUserOp, signUserOp, UserOperation} from "../src";
 
 

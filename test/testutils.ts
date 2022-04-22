@@ -9,6 +9,7 @@ import {
   EntryPoint,
   EntryPoint__factory,
   IERC20,
+  TokenPaymaster,
   SimpleWallet__factory
 } from '../typechain-types'
 import {Create2Factory} from "../src/Create2Factory";
@@ -46,7 +47,7 @@ export async function getBalance(address: string): Promise<number> {
   return parseInt(balance.toString())
 }
 
-export async function getTokenBalance(token: IERC20, address: string): Promise<number> {
+export async function getTokenBalance(token: IERC20 | TokenPaymaster, address: string): Promise<number> {
   const balance = await token.balanceOf(address)
   return parseInt(balance.toString())
 }
@@ -175,4 +176,9 @@ export async function deployEntryPoint(paymasterStake: BigNumberish, unstakeDela
   const factory = await new EntryPoint__factory(provider.getSigner())
   const entrypoint = await factory.deploy(Create2Factory.contractAddress, paymasterStake, unstakeDelaySecs)
   return entrypoint
+}
+
+export async function isContractDeployed(address: string): Promise<boolean> {
+  const code = await ethers.provider.getCode(address)
+  return code.length > 2
 }

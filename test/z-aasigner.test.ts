@@ -1,12 +1,12 @@
-import {createWalletOwner, fund, getBalance} from "./testutils";
+import {createWalletOwner, fund, getBalance, isContractDeployed} from "./testutils";
 import {EntryPoint, EntryPoint__factory, TestCounter, TestCounter__factory} from "../typechain-types";
 import hre, {ethers} from 'hardhat'
-import {BigNumber, providers, Wallet} from 'ethers'
+import {providers, Wallet} from 'ethers'
 import {expect} from "chai";
 import {before} from "mocha";
 import {fail} from "assert";
 import {Create2Factory} from "../src/Create2Factory";
-import {formatEther, parseEther} from "ethers/lib/utils";
+import {parseEther} from "ethers/lib/utils";
 import './aa.init'
 import {SimpleWalletSigner} from "../src/ethers/SimpleWalletSigner";
 
@@ -69,7 +69,7 @@ describe('SimpleWalletSigner', function () {
       testCounter = deployedTestCounter.connect(mysigner)
     })
     it('should fail to execute before funding', async () => {
-      expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
+      expect(await isContractDeployed(mywallet)).to.eq(false)
       try {
         await testCounter.count({gasLimit: 2e6})
         fail('should fail')
@@ -78,7 +78,7 @@ describe('SimpleWalletSigner', function () {
       }
     });
     it('should fail to create with gasLimit too low', async () => {
-      expect(await entryPoint.isContractDeployed(mywallet)).to.eq(false)
+      expect(await isContractDeployed(mywallet)).to.eq(false)
       await fund(mywallet)
       await testCounter.count({gasLimit: 10000})
     });
@@ -90,13 +90,13 @@ describe('SimpleWalletSigner', function () {
       // const ret = await testCounter.count({gasLimit:19439, maxPriorityFeePerGas:1e9})
       const ret = await testCounter.count({gasLimit: 2e6})
       const rcpt = await ret.wait()
-      expect(await entryPoint.isContractDeployed(mywallet)).to.eq(true, 'failed to create wallet')
+      expect(await isContractDeployed(mywallet)).to.eq(true, 'failed to create wallet')
 
       console.log('1st tx (including create) gas=', rcpt.gasUsed.toNumber())
       expect(await testCounter.counters(mywallet)).to.eq(1)
     })
     it('execute 2nd tx (on created wallet)', async function () {
-      if (!await entryPoint.isContractDeployed(mywallet)) this.skip()
+      if (!await isContractDeployed(mywallet)) this.skip()
 
       const r2 = await testCounter.count().then(r => r.wait())
       console.log('2nd tx gas2=', r2.gasUsed.toNumber())
@@ -121,4 +121,4 @@ describe('SimpleWalletSigner', function () {
 
   })
 
-});
+})

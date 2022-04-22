@@ -12,7 +12,7 @@ import {
   TestUtil__factory,
   TestPaymasterAcceptAll,
   TestPaymasterAcceptAll__factory,
-} from "../typechain-types";
+} from "../typechain-types/index";
 import {
   createWalletOwner,
   fund,
