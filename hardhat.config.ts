@@ -16,6 +16,9 @@ let mnemonic = 'test '.repeat(11) + 'junk'
 if (fs.existsSync(mnemonicFileName))
   mnemonic = fs.readFileSync(mnemonicFileName!, "ascii");
 
+
+console.log(mnemonic)
+
 function getNetwork1(url: string) {
   return {
     url,

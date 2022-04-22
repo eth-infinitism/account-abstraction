@@ -27,8 +27,12 @@ import {TransactionReceipt} from "@ethersproject/abstract-provider/src.ts/index"
     hre.deployments.get('TestCounter').then(d => d.address),
   ])
 
-  let provider = ethers.provider;
-  const ethersSigner = provider.getSigner()
+  console.log('entryPointAddress:', entryPointAddress, 'testCounterAddress:', testCounterAddress)
+  const provider = ethers.provider;
+  const ethersSigner = provider.getSigner(0)
+  const prefundAccountAddress = await ethersSigner.getAddress()
+  const prefundAccountBalance =  await provider.getBalance(prefundAccountAddress)
+  console.log('using prefund account address', prefundAccountAddress, 'with balance', prefundAccountBalance.toString())
 
   let sendUserOp
 
