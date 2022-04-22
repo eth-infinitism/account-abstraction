@@ -9,12 +9,16 @@ import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
 import {TransactionReceipt} from "@ethersproject/abstract-provider";
 
 (async () => {
-  await hre.run('deploy')
   console.log('net=', hre.network.name)
-  const chainId = await hre.getChainId()
-  if (!chainId.match(/1337/)) {
-    console.log('chainid=', chainId)
-    await hre.run('etherscan-verify')
+  const aa_url = process.env.AA_URL
+
+  if ( aa_url==null && ! process.env.FORCE_DEPLOY ) {
+    await hre.run('deploy')
+    const chainId = await hre.getChainId()
+    if (!chainId.match(/1337/)) {
+      console.log('chainid=', chainId)
+      await hre.run('etherscan-verify')
+    }
   }
   const [entryPointAddress, testCounterAddress] = await Promise.all([
     hre.deployments.get('EntryPoint').then(d => d.address),
@@ -24,6 +28,7 @@ import {TransactionReceipt} from "@ethersproject/abstract-provider";
   let provider = ethers.provider;
   const ethersSigner = provider.getSigner()
 
+  const chainId = await  provider.getNetwork().then(x=>x.chainId)
   if (chainId.match(/1337/)) {
     SimpleWalletSigner.eventsPollingInterval = 100
   }
@@ -60,7 +65,7 @@ import {TransactionReceipt} from "@ethersproject/abstract-provider";
 
   const prebalance = await provider.getBalance(myAddress)
   console.log('balance=', prebalance.div(1e9).toString(), 'deposit=', preDeposit.div(1e9).toString())
-  console.log('direct call', {gasUsed: await testCounter.connect(ethersSigner).estimateGas.justemit().then(t => t.toNumber())})
+  console.log('estimate direct call', {gasUsed: await testCounter.connect(ethersSigner).estimateGas.justemit().then(t => t.toNumber())})
   const ret = await testCounter.justemit()
   console.log('waiting for mine, hash (reqId)=', ret.hash)
   const rcpt = await ret.wait()

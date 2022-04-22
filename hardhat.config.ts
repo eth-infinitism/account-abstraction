@@ -5,6 +5,8 @@ import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
 import "hardhat-gas-reporter"
 
+import 'solidity-coverage'
+
 import * as fs from "fs";
 
 let mnemonicFileName = process.env.MNEMONIC_FILE || process.env.HOME + '/.secret/testnet-mnemonic.txt'
@@ -29,7 +31,7 @@ function getNetwork(name: string) {
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.7",
+    version: "0.8.12",
     settings: {
       optimizer: {enabled: true}
     }
@@ -50,9 +52,10 @@ const config: HardhatUserConfig = {
 
   gasReporter: {
     enabled: process.env.GAS_REPORT != null,
-    excludeContracts: [ 'TestToken', 'SimpleWallet', 'ERC20'],
+    excludeContracts: ['TestUtil', 'TestToken', 'TestOracle', 'TestCounter', 'TestPaymasterAcceptAll', 'SimpleWallet', 'ERC20'],
     //"yarn gas-report" to dump report and create a no-color "txt" output, to be checked in.
     noColors: false,
+    currency: '',
     outputFile: 'reports/gas-used-output.color'
   }
 }

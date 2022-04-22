@@ -1,4 +1,4 @@
-import {ethers} from "hardhat";
+import hre, {ethers} from "hardhat";
 import {BytesLike} from "@ethersproject/bytes";
 import {expect} from "chai";
 import {decodeRevertReason, rethrow} from "../src/userop/utils";
@@ -11,7 +11,7 @@ import {
   IERC20,
   SimpleWallet__factory
 } from '../typechain-types'
-import {entryPointDeployer} from "../src";
+import {Create2Factory} from "../src/Create2Factory";
 
 export const HashZero = ethers.constants.HashZero
 export const ONE_ETH = parseEther('1');
@@ -71,7 +71,7 @@ export function callDataCost(data: string): number {
     .reduce((sum, x) => sum + x)
 }
 
-export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string) {
+export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const {actualGasCost, actualGasPrice} = logs[0].args
@@ -83,6 +83,7 @@ export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint
   if (beneficiaryAddress != null) {
     expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost.toNumber())
   }
+  return {actualGasCost}
 }
 
 //helper function to create a constructor call to our wallet.
@@ -153,8 +154,14 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + ops) //sanity
-  expect(ops).to.not.include('BASEFEE')
-  expect(ops).to.not.include('GASPRICE')
+  const bannedOpCodes = new Set(['GAS', 'BASEFEE', 'GASPRICE', 'NUMBER'])
+  expect(ops.filter((op, index) => {
+    //don't ban "GAS" op followed by "*CALL"
+    if (op == 'GAS' && ops[index + 1].match(/CALL/)) {
+      return false
+    }
+    return bannedOpCodes.has(op)
+  })).to.eql([])
   if (checkPaymaster) {
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + paymasterOps) //sanity
     expect(paymasterOps).to.not.include('BASEFEE')
@@ -164,6 +171,8 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
 
 export async function deployEntryPoint(paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish): Promise<EntryPoint> {
   let provider = ethers.provider;
-  const addr = await entryPointDeployer(provider, paymasterStake, unstakeDelaySecs)
-  return EntryPoint__factory.connect(addr, provider.getSigner())
+  await Create2Factory.init(provider)
+  const factory = await new EntryPoint__factory(provider.getSigner())
+  const entrypoint = await factory.deploy(Create2Factory.contractAddress, paymasterStake, unstakeDelaySecs)
+  return entrypoint
 }

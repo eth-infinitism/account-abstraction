@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.12;
 
 import "../EntryPoint.sol";
 import "../BasePaymaster.sol";
@@ -25,11 +25,18 @@ contract VerifyingPaymaster is BasePaymaster {
         verifyingSigner = _verifyingSigner;
     }
 
-    // return the hash we're going to sign off-chain (and validate on-chain)
-    function getHash(UserOperation calldata userOp) public pure returns (bytes32) {
+    /**
+     * return the hash we're going to sign off-chain (and validate on-chain)
+     * this method is called by the off-chain service, to sign the request.
+     * it is called on-chain from the validatePaymasterUserOp, to validate the signature.
+     * note that this signature covers all fields of the UserOperation, except the "paymasterData",
+     * which will carry the signature itself.
+     */
+    function getHash(UserOperation calldata userOp)
+    public pure returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterData itself.
         return keccak256(abi.encode(
-                userOp.sender,
+                userOp.getSender(),
                 userOp.nonce,
                 keccak256(userOp.initCode),
                 keccak256(userOp.callData),
@@ -42,17 +49,21 @@ contract VerifyingPaymaster is BasePaymaster {
             ));
     }
 
-    // verify our external signer signed this request.
-    // the "paymasterData" is supposed to be a signature over the entire request params
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint requiredPreFund) external view override returns (bytes memory context) {
+    /**
+     * verify our external signer signed this request.
+     * the "paymasterData" is supposed to be a signature over the entire request params
+     */
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
+    external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
-        require(userOp.paymasterData.length >= 65, "VerifyingPaymaster: invalid signature length in paymasterData");
+        uint256 sigLength = userOp.paymasterData.length;
+        require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterData");
         require(verifyingSigner == hash.toEthSignedMessageHash().recover(userOp.paymasterData), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked
-        // by the external service prior signing it.
+        // by the external service prior to signing it.
         return "";
     }
 

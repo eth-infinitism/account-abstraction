@@ -52,7 +52,7 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(0, 0)
+    entryPoint = await deployEntryPoint(1, 1)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
@@ -119,7 +119,6 @@ describe("Batch gas testing", function () {
             break;
           }
           opsGasCollected += txgas
-          // console.log('== estim=', estim1.gasUsedByPayForOp, estim, verificationGas)
           ops.push(op1)
           wallets.push({owner: walletOwner1, w: wallet1})
           if (wallets.length >= maxCount) break
@@ -153,7 +152,6 @@ describe("Batch gas testing", function () {
               data: execCounterCount.data!
             }), 'datacost=', callDataCost(execCounterCount.data!));
             console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress))
-            console.log('through single handleOp:', await entryPoint.estimateGas.handleOp(op1, beneficiaryAddress))
           }
 
         }

@@ -7,8 +7,13 @@ import {
   SimpleWallet__factory,
   TestUtil,
   TestUtil__factory } from '../typechain-types'
+import {AddressZero, createWalletOwner, getBalance, HashZero, ONE_ETH} from "./testutils";
 import {parseEther} from "ethers/lib/utils";
-import {createWalletOwner, getBalance, ONE_ETH} from "./testutils";
+import {UserOperation} from "./UserOperation";
+import {hexlify, parseEther, splitSignature} from "ethers/lib/utils";
+import {UserOperation} from "./UserOperation";
+import { Signature, SignatureLike } from '@ethersproject/bytes';
+import { ECDSASignature, ecrecover, ecsign } from 'ethereumjs-util';
 import {fillUserOp, getRequestId, packUserOp, signUserOp, UserOperation} from "../src";
 
 
@@ -28,6 +33,23 @@ describe("SimpleWallet", function () {
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
     walletOwner = createWalletOwner()
   })
+
+  interface SigTestParams {
+    title: string
+    expected: string
+    sig: Signature
+  }
+
+  function toSignature(sig: ECDSASignature): Signature {
+    return splitSignature({
+      s: hexlify(sig.s),
+      r: hexlify(sig.r),
+      v: sig.v
+    })
+  }
+  function toBuffer(data:any): Buffer {
+    return Buffer.from(hexlify(data).slice(2), 'hex')
+  }
 
   it('owner should be able to call transfer', async () => {
     const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
