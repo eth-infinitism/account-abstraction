@@ -10,12 +10,11 @@ import {
   VerifyingPaymaster__factory
 } from "../typechain-types";
 import {
-  createWalletOwner,
-  deployEntryPoint
+  createWalletOwner
 } from "./testutils";
 import {arrayify, parseEther} from "ethers/lib/utils";
 import {AddressZero} from "../src/userop/utils";
-import {fillAndSign} from "../src";
+import {debug_deployEntryPoint, fillAndSign} from "../src";
 
 describe("EntryPoint with VerifyingPaymaster", function () {
 
@@ -29,7 +28,7 @@ describe("EntryPoint with VerifyingPaymaster", function () {
   let paymaster: VerifyingPaymaster
   before(async function () {
 
-    entryPoint = await deployEntryPoint(1, 1)
+    entryPoint = await debug_deployEntryPoint(ethers.provider, 1, 1)
     entryPointStatic = entryPoint.connect(AddressZero)
 
     offchainSigner = createWalletOwner()

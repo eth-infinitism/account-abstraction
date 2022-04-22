@@ -170,14 +170,6 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
   }
 }
 
-export async function deployEntryPoint(paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish): Promise<EntryPoint> {
-  let provider = ethers.provider;
-  await Create2Factory.init(provider)
-  const factory = await new EntryPoint__factory(provider.getSigner())
-  const entrypoint = await factory.deploy(Create2Factory.contractAddress, paymasterStake, unstakeDelaySecs)
-  return entrypoint
-}
-
 export async function isContractDeployed(address: string): Promise<boolean> {
   const code = await ethers.provider.getCode(address)
   return code.length > 2

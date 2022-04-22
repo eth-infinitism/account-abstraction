@@ -17,13 +17,13 @@ import {
   fund,
   getBalance,
   getTokenBalance,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress,
+  checkForGeth, WalletConstructor, calcGasUsage, checkForBannedOps, createAddress,
   ONE_ETH, objdump, tonumber
 } from "./testutils";
 import {formatEther, parseEther} from "ethers/lib/utils";
 import {cleanValue} from "./chaiHelper";
 import {AddressZero, rethrow} from '../src/userop/utils';
-import {fillAndSign, UserOperation} from '../src';
+import {debug_deployEntryPoint, fillAndSign, UserOperation} from '../src';
 
 describe("EntryPoint with paymaster", function () {
 
@@ -38,7 +38,7 @@ describe("EntryPoint with paymaster", function () {
     await checkForGeth()
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(100, 10)
+    entryPoint = await debug_deployEntryPoint(ethers.provider, 100, 10)
 
     walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())

@@ -16,14 +16,14 @@ import {
   fund,
   checkForGeth,
   WalletConstructor,
-  tonumber, deployEntryPoint, createAddress,
+  tonumber, createAddress,
 } from "./testutils";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {toBuffer} from "ethereumjs-util";
 import {defaultAbiCoder} from "ethers/lib/utils";
 import {AddressZero, callDataCost, rethrow} from "../src/userop/utils";
-import {fillAndSign, UserOperation} from "../src";
+import {debug_deployEntryPoint, fillAndSign, UserOperation} from "../src";
 
 describe("Batch gas testing", function () {
   //silently skip..
@@ -52,7 +52,7 @@ describe("Batch gas testing", function () {
 
     await checkForGeth()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(1, 1)
+    entryPoint = await debug_deployEntryPoint(ethers.provider, 1, 1)
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()

@@ -23,10 +23,9 @@ import {
   checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
-  deployEntryPoint,
   getBalance, FIVE_ETH, objdump, createAddress
 } from "./testutils";
-import {fillAndSign, getRequestId, UserOperation} from "../src";
+import {debug_deployEntryPoint, fillAndSign, getRequestId, UserOperation} from "../src";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {formatEther, parseEther} from "ethers/lib/utils";
@@ -55,7 +54,7 @@ describe("EntryPoint", function () {
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(paymasterStake, globalUnstakeDelaySec)
+    entryPoint = await debug_deployEntryPoint(ethers.provider, paymasterStake, globalUnstakeDelaySec)
 
     //static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))

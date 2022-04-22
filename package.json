@@ -1,6 +1,6 @@
 {
   "name": "account-abstraction",
-  "version": "0.2",
+  "version": "0.2.1",
   "description": "",
   "main": "dist/src/index.js",
   "scripts": {
