@@ -9,6 +9,7 @@ import {UserOperation} from "../userop/UserOperation";
 import {clearTimeout} from "timers";
 import {localUserOpSender} from "./localUserOpSender";
 import {rpcUserOpSender} from "./rpcUserOpSender";
+import exp from "constants";
 
 const debug = require('debug')('aasigner')
 
@@ -17,7 +18,7 @@ const debug = require('debug')('aasigner')
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
 
 
-interface AASignerOptions {
+export interface AASignerOptions {
 
   /**
    * the entry point we're working with.
@@ -49,6 +50,14 @@ interface AASignerOptions {
   debug_handleOpSigner?: Signer
 }
 
+export function verifyAAOptions(signer: Signer, options: AASignerOptions): void {
+  if (signer == null || typeof signer.sendTransaction != 'function') {
+    throw new Error(`not a signer: ${signer}`)
+  }
+  if (options == null || typeof options.entryPointAddress != 'string') {
+    throw new Error('must specify entryPointAddress')
+  }
+}
 
 /**
  * Abstract base-class for AccountAbstraction signers.
@@ -81,6 +90,7 @@ export abstract class AbstractAASigner extends Signer {
    */
   constructor(readonly signer: Signer, options: AASignerOptions) {
     super();
+    verifyAAOptions(signer, options)
     this.index = options.index || 0
     this.provider = options.provider || signer.provider!
     this.entryPoint = EntryPoint__factory.connect(options.entryPointAddress, signer)
@@ -98,10 +108,13 @@ export abstract class AbstractAASigner extends Signer {
     const rpcProvider = options.sendUserOpUrl != null ?
       new providers.JsonRpcProvider(options.sendUserOpUrl) :
       (provider as providers.JsonRpcProvider)
+    if (rpcProvider == null) {
+      throw new Error('Must specify sendUserOpUrl, provider (or debug_handleOpSigner)')
+    }
     if (typeof rpcProvider.send != 'function') {
       throw new Error('not an rpc provider')
     }
-    return rpcUserOpSender(rpcProvider)
+    return rpcUserOpSender(rpcProvider, options.entryPointAddress)
   }
 
   /**
