@@ -1,5 +1,5 @@
 import {describe} from 'mocha'
-import {BigNumber, Wallet} from "ethers";
+import {Wallet} from "ethers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
@@ -18,10 +18,9 @@ import {
   getBalance,
   getTokenBalance,
   checkForGeth, WalletConstructor, calcGasUsage, checkForBannedOps, createAddress,
-  ONE_ETH, objdump, tonumber
+  ONE_ETH, tonumber
 } from "./testutils";
-import {formatEther, parseEther} from "ethers/lib/utils";
-import {cleanValue} from "./chaiHelper";
+import {parseEther} from "ethers/lib/utils";
 import {AddressZero, rethrow} from '../src/userop/utils';
 import {debug_deployEntryPoint, fillAndSign, UserOperation} from '../src';
 

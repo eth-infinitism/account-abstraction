@@ -1,7 +1,7 @@
 import hre, {ethers} from "hardhat";
 import {BytesLike} from "@ethersproject/bytes";
 import {expect} from "chai";
-import {decodeRevertReason, rethrow} from "../src/userop/utils";
+import {decodeRevertReason, objdump, rethrow} from "../src/userop/utils";
 import {debugTransaction} from "./debugTx";
 import {arrayify, keccak256, parseEther} from "ethers/lib/utils";
 import {BigNumber, BigNumberish, Contract, ContractReceipt, Event, Wallet} from "ethers";
@@ -18,8 +18,6 @@ export const HashZero = ethers.constants.HashZero
 export const ONE_ETH = parseEther('1');
 export const TWO_ETH = parseEther('2');
 export const FIVE_ETH = parseEther('5');
-
-export const tostr = (x: any) => x != null ? x.toString() : 'null'
 
 export function tonumber(x: any): number {
 
@@ -112,20 +110,6 @@ export async function checkForGeth() {
       await fund(acc)
     }
   }
-}
-
-//remove "array" members, convert values to strings.
-// so Result obj like
-// { '0': "a", '1': 20, first: "a", second: 20 }
-// becomes:
-// { first: "a", second: "20" }
-export function objdump(obj: { [key: string]: any }) {
-  return Object.keys(obj)
-    .filter(key => !key.match(/^[\d_]/))
-    .reduce((set, key) => ({
-      ...set,
-      [key]: decodeRevertReason(obj[key].toString(), false)
-    }), {})
 }
 
 export function eventDump(obj: Event | Event[]): any {

@@ -17,20 +17,19 @@ import {
   createWalletOwner,
   fund,
   checkForGeth,
-  tostr,
   WalletConstructor,
   calcGasUsage,
   checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
-  getBalance, FIVE_ETH, objdump, createAddress
+  getBalance, FIVE_ETH, createAddress
 } from "./testutils";
 import {debug_deployEntryPoint, fillAndSign, getRequestId, UserOperation} from "../src";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
 import {formatEther, parseEther} from "ethers/lib/utils";
 import {debugTransaction} from './debugTx';
-import {AddressZero, rethrow} from "../src/userop/utils";
+import {AddressZero, objdump, rethrow, tostr} from "../src/userop/utils";
 
 describe("EntryPoint", function () {
 

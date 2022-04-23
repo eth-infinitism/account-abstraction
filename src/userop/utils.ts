@@ -1,8 +1,9 @@
 import {utils, constants} from "ethers";
 import {hexValue} from "@ethersproject/bytes";
-import {tostr} from "../../test/testutils";
 
 export const AddressZero = constants.AddressZero
+
+export const tostr = (x: any) => x != null ? x.toString() : 'null'
 
 export function callDataCost(data: string): number {
   return utils.arrayify(data)
@@ -42,6 +43,20 @@ export function decodeRevertReason(data: string, nullIfNoMatch = true): string |
   }
   return null
 
+}
+
+//remove "array" members, convert values to strings.
+// so Result obj like
+// { '0': "a", '1': 20, first: "a", second: 20 }
+// becomes:
+// { first: "a", second: "20" }
+export function objdump(obj: { [key: string]: any }) {
+  return Object.keys(obj)
+    .filter(key => !key.match(/^[\d_]/))
+    .reduce((set, key) => ({
+      ...set,
+      [key]: decodeRevertReason(obj[key].toString(), false)
+    }), {})
 }
 
 //rethrow "cleaned up" exception.

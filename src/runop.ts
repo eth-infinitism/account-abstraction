@@ -1,12 +1,12 @@
 //run a single op
 // "yarn run runop [--network ...]"
 import hre, {ethers} from 'hardhat'
-import {objdump} from "../test/testutils";
 import {TestCounter__factory, EntryPoint__factory} from '../typechain-types'
 import '../test/aa.init'
 import {parseEther} from "ethers/lib/utils";
 import {SimpleWalletSigner} from "./ethers/SimpleWalletSigner";
 import {TransactionReceipt} from "@ethersproject/abstract-provider";
+import {objdump} from "./userop/utils";
 
 (async () => {
   console.log('net=', hre.network.name)
