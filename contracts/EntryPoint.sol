@@ -90,7 +90,7 @@ contract EntryPoint is StakeManager {
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
     unchecked {
-        for (uint256 i = 0; i < opslen; i++) {
+        for (uint256 i = 0; i < opslen; ) {
             uint256 preGas = gasleft();
             UserOperation calldata op = ops[i];
 
@@ -108,11 +108,12 @@ contract EntryPoint is StakeManager {
                 contextOffset,
                 preGas - gasleft() + op.preVerificationGas
             );
+            ++i;
         }
 
         uint256 collected = 0;
 
-        for (uint256 i = 0; i < ops.length; i++) {
+        for (uint256 i = 0; i < opslen; ) {
             uint256 preGas = gasleft();
             UserOperation calldata op = ops[i];
             UserOpInfo memory opInfo = opInfos[i];
@@ -126,6 +127,7 @@ contract EntryPoint is StakeManager {
                 uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
                 collected += _handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
             }
+            ++i;
         }
 
         _compensate(beneficiary, collected);
