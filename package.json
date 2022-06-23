@@ -7,6 +7,7 @@
     "compile": "./scripts/hh-wrapper compile && yarn run makeUserOps",
     "tsc": "tsc",
     "makeUserOps": "./scripts/makeUserOps",
+    "gas-checker": "hardhat run ./scripts/gas-checker.ts",
     "test": "./scripts/hh-wrapper test",
     "coverage": "COVERAGE=1 hardhat coverage",
     "deploy": "./scripts/hh-wrapper deploy",
