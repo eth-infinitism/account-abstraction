@@ -1,14 +1,19 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
-import {formatEther, formatUnits, parseEther} from "ethers/lib/utils";
+import {formatEther, parseEther} from "ethers/lib/utils";
 import {AddressZero, checkForGeth, createAddress, createWalletOwner, deployEntryPoint} from "../test/testutils";
 import {EntryPoint, EntryPoint__factory, SimpleWallet__factory} from "../typechain";
 import {BigNumberish, Wallet} from "ethers";
 import hre from 'hardhat'
-import {fillAndSign, packUserOp} from "../test/UserOp";
+import {fillAndSign} from "../test/UserOp";
 import {SimpleWalletInterface} from "../typechain/SimpleWallet";
 import 'colors'
 import {UserOperation} from "../test/UserOperation";
+import {TransactionReceipt} from "@ethersproject/abstract-provider";
+import {table, TableUserConfig} from 'table'
+import {Create2Factory} from "../src/Create2Factory";
+import {hexValue} from "@ethersproject/bytes";
+import * as fs from "fs";
 
 const ethers = hre.ethers
 const provider = hre.ethers.provider
@@ -23,15 +28,8 @@ function range(n: number): number[] {
   return Array(n).fill(0).map((val, index) => index)
 }
 
-// task("gascalc", "calculate gas costs")
-//   // .addParam<string>("entrypoint", "entryPoint address, or \"test\" to deploy")
-//   // .addFlag('withGsn', 'Spin up GSN contracts and relayer when starting node')
-//   .setAction(async (args, hre, runSuper) => {
-//     await gascalc(hre, args.entrypoint)
-//   })
-
 let walletInterface: SimpleWalletInterface
-let wallets: { wallet: string, walletOwner: Wallet }[] = []
+let wallets: { [wallet: string]: Wallet } = {}
 let entryPoint: EntryPoint
 let walletOwner: Wallet
 
@@ -62,38 +60,48 @@ async function init(entryPointAddress: string = 'test') {
   console.log('signer=', await ethersSigner.getAddress())
   DefaultInfo.beneficiary = createAddress()
 
-  if ((await getBalance(ethersSigner.getAddress())).gt(parseEther('100'))) {
+  let bal = await getBalance(ethersSigner.getAddress());
+  if (bal.gt(parseEther('100000000'))) {
+    console.log('bal=', formatEther(bal))
     console.log('DONT use geth miner.. use account 2 instead')
     await checkForGeth()
     ethersSigner = ethers.provider.getSigner(2)
   }
 
   if (entryPointAddress == 'test') {
-    console.debug('== deploy entryPoint'.yellow)
     entryPoint = await deployEntryPoint(1, 1, provider)
-    console.debug('== deployed Entrypoint'.green)
   } else {
     entryPoint = EntryPoint__factory.connect(entryPointAddress, ethersSigner)
   }
   walletOwner = createWalletOwner()
-  const simpleWalletFactory = new SimpleWallet__factory(ethersSigner)
 
   walletInterface = SimpleWallet__factory.createInterface()
+}
 
-  return
-
+/**
+ * create wallets up to this counter.
+ * make sure they all have balance.
+ * do nothing for wallet already created
+ * @param count
+ */
+async function createWallets1(count: number, entryPoint: EntryPoint) {
+  const simpleWalletFactory = new SimpleWallet__factory(ethersSigner)
+  const fact = new Create2Factory(provider)
   //create wallets
-  //todo: why create2 doesn't deploy?!?!
-  await Promise.all(range(1).map(async () => {
-    console.log('== deploy wallet'.yellow)
-    const w = await simpleWalletFactory.deploy(entryPoint.address, walletOwner.address, {
-      // gasPrice: 20e9
-    })
-    console.log('== submitted'.yellow, w.address, w.deployTransaction.hash)
-    await w.deployed()
-    console.log('== wallet deployed'.green, w.address)
-    wallets.push({wallet: w.address, walletOwner})
-  }))
+  for (let n in range(count)) {
+    const salt = parseInt(n)
+    const initCode = hexValue(await simpleWalletFactory.getDeployTransaction(entryPoint.address, walletOwner.address).data!)
+
+    const addr = fact.getDeployedAddress(initCode, salt)
+    wallets[addr] = walletOwner
+
+    //deploy if not already deployed.
+    await fact.deploy(initCode, salt)
+    let walletBalance = await entryPoint.balanceOf(addr);
+    if (walletBalance.lte(minDepositOrBalance)) {
+      await entryPoint.depositTo(addr, {value: minDepositOrBalance.mul(5)})
+    }
+  }
 }
 
 async function isDeployed(addr: string) {
@@ -104,7 +112,10 @@ async function isDeployed(addr: string) {
 //must be FALSE for automining (hardhat), otherwise "true"
 let useAutoNonce = false
 
-async function createWallets(count: number) {
+
+//create userOp to create multiple wallets.  this is quite slow on Hardhat/ganache nodes,
+// so we create the wallets in separate transactions
+async function createWalletsWithUserOps(count: number) {
   const constructorCode = new SimpleWallet__factory().getDeployTransaction(entryPoint.address, walletOwner.address).data!
 
   let nonce = await provider.getTransactionCount(ethersSigner.getAddress())
@@ -119,9 +130,9 @@ async function createWallets(count: number) {
 
   const ops1 = await Promise.all(range(count).map(async index => {
     const addr = await entryPoint.getSenderAddress(constructorCode, index)
-    wallets.push({wallet: addr, walletOwner})
+    wallets[addr] = walletOwner
     if (await isDeployed(addr)) {
-      console.log('== wallet', addr, 'already deployed'.yellow)
+      // console.log('== wallet', addr, 'already deployed'.yellow)
       return
     }
 
@@ -138,12 +149,13 @@ async function createWallets(count: number) {
     let addr = op.sender;
     let walletBalance = await entryPoint.balanceOf(addr);
     if (walletBalance.lte(minDepositOrBalance)) {
-      console.debug('== wallet', addr, 'depositing for create'.yellow)
-      await entryPoint.depositTo(addr, { value: minDepositOrBalance.mul(5)})
+      // console.debug('== wallet', addr, 'depositing for create'.yellow)
+      await entryPoint.depositTo(addr, {value: minDepositOrBalance.mul(5)})
     }
   }
 
   if (userOps.length > 0) {
+    console.log('createWallets: handleOps')
     const ret = await entryPoint.handleOps(userOps, DefaultInfo.beneficiary!)
     const rcpt = await ret.wait()
     console.log('deployment'.green, 'of', userOps.length, 'wallets, gas cost=', rcpt.gasUsed.toNumber())
@@ -152,14 +164,31 @@ async function createWallets(count: number) {
   }
 }
 
-async function runTest(params: Partial<TestInfo>) {
-  const info = {...params, ...DefaultInfo} as TestInfo
-  console.log('== running test count=', info.count)
+interface TestResult {
+  count: number
+  gasUsed: number // actual gas used
+  walletEst: number // estimateGas of the inner transaction (from EP to wallet)
+  gasDiff?: number // different from last test's gas used
+  receipt?: TransactionReceipt
+}
+
+//run a single test, with that many columns
+async function runTest(params: Partial<TestInfo>): Promise<TestResult> {
+  const info = {...DefaultInfo, ...params} as TestInfo
+  console.debug('== running test count=', info.count)
   //we send transaction sin parallel: must manage nonce manually.
   let nonce = await provider.getTransactionCount(ethersSigner.getAddress())
+
+  await createWallets1(info.count, entryPoint)
+
+  if (info.count > Object.keys(wallets).length) {
+    //TODO: maybe create more just here?
+    throw new Error(`count=${info.count}, but has only ${wallets.length} wallets.`)
+  }
+  let walletEst: number = 0
   const userOps = await Promise.all(range(info.count)
-    .map(index => wallets[index])
-    .map(async ({wallet, walletOwner}) => {
+    .map(index => Object.entries(wallets)[index])
+    .map(async ([wallet, walletOwner]) => {
       switch (info.payment) {
         case PaymentMethod.WalletDeposit:
           if ((await entryPoint.balanceOf(wallet)).lte(minDepositOrBalance)) {
@@ -169,7 +198,7 @@ async function runTest(params: Partial<TestInfo>) {
           break
         case PaymentMethod.WalletBalance:
           if ((await getBalance(wallet)).lte(minDepositOrBalance)) {
-            console.log('== send balance to wallet', wallet)
+            console.debug('== send balance to wallet', wallet)
             await ethersSigner.sendTransaction({nonce: nonce++, to: wallet, value: minDepositOrBalance.mul(5)})
           }
           break
@@ -178,19 +207,22 @@ async function runTest(params: Partial<TestInfo>) {
       }
       const walletExecFromEntryPoint = walletInterface.encodeFunctionData('execFromEntryPoint',
         [info.dest, info.destValue, info.destCallData])
-      const walletEst = await ethers.provider.estimateGas({
-        from: entryPoint.address,
-        to: wallet,
-        data: walletExecFromEntryPoint
-      })
-      // console.log('== wallet est=', walletEst.toString())
+      //technically, each UserOp needs estimate - but we know they are all the same for each test.
+      if (walletEst == 0) {
+        walletEst = (await ethers.provider.estimateGas({
+          from: entryPoint.address,
+          to: wallet,
+          data: walletExecFromEntryPoint
+        })).toNumber()
+      }
+      // console.debug('== wallet est=', walletEst.toString())
       const op = await fillAndSign({
         sender: wallet,
         callData: walletExecFromEntryPoint,
         maxPriorityFeePerGas: info.gasPrice,
         maxFeePerGas: info.gasPrice,
         callGas: walletEst,
-        verificationGas: 100000,
+        verificationGas: 1000000,
         preVerificationGas: 1
       }, walletOwner, entryPoint)
       // const packed = packUserOp(op, false)
@@ -198,29 +230,111 @@ async function runTest(params: Partial<TestInfo>) {
       return op
     }))
 
-  const ret = await entryPoint.handleOps(userOps, info.beneficiary)
+  const ret = await entryPoint.handleOps(userOps, info.beneficiary, {gasLimit: 20e6})
   const rcpt = await ret.wait()
   let gasUsed = rcpt.gasUsed.toNumber()
-  console.log('count', info.count, 'gasUsed', gasUsed)
+  console.debug('count', info.count, 'gasUsed', gasUsed)
+  let gasDiff = gasUsed - lastGasUsed;
   if (info.diffLastGas) {
-    console.log('\tgas diff=', gasUsed - lastGasUsed)
+    console.debug('\tgas diff=', gasDiff)
   }
   lastGasUsed = gasUsed
-  console.debug( 'handleOps tx.hash=', rcpt.transactionHash.yellow)
-  return rcpt
+  console.debug('handleOps tx.hash=', rcpt.transactionHash.yellow)
+  let ret1: TestResult = {
+    count: info.count,
+    gasUsed,
+    walletEst,
+    // receipt: rcpt
+  }
+  if (info.diffLastGas)
+    ret1.gasDiff = gasDiff
+  console.debug(ret1)
+  return ret1
+}
+
+interface Table {
+  addTableRow: (args: Array<any>) => void
+  doneTable: () => void
+}
+
+/**
+ * initialize our formatted table.
+ * each header define the width of the column, so make sure to pad with spaces
+ * (we stream the table, so can't learn the content length)
+ */
+function initTable(tableHeaders: string[]): Table {
+
+  //multiline header - check the length of the longest line.
+  function columnWidth(header: string) {
+    return Math.max(...header.split('\n').map(s => s.length))
+  }
+
+  const tableConfig: TableUserConfig = {
+    columnDefault: {alignment: 'right'},
+    columns: [{alignment: 'left'}]
+    // columns: tableHeaders.map((header, index) => ({
+    //   alignment: index == 0 ? 'left' : 'right',
+    //   width: columnWidth(header)
+    // })),
+    // columnCount: tableHeaders.length
+  };
+
+  let tab: any[] = [tableHeaders]
+
+  return {
+    addTableRow: (arr: any[]) => {
+      tab.push(arr)
+    },
+    doneTable: () => {
+      const outputFile = './reports/gas-checker.txt'
+      let tableOutput = table(tab, tableConfig);
+      fs.writeFileSync(outputFile, tableOutput)
+      console.log('Writing table to', outputFile)
+      console.log(tableOutput)
+    }
+  }
 }
 
 async function runGasCalcs() {
-  // await init('0x602aB3881Ff3Fa8dA60a8F44Cf633e91bA1FdB69')
   await init()
-  await createWallets(20)
 
+  const tableHeaders = [
+    'handleOps description         ',
+    'count',
+    'total gasUsed',
+    'per UserOp gas\n(delta for one UserOp)',
+    'wallet.exec()\nestimateGas',
+    'per UserOp overhead\n(compared to wallet.exec())']
+
+  const {addTableRow, doneTable} = initTable(tableHeaders)
+
+  function addRow(title: string, res: TestResult) {
+    let gasUsed = res.gasDiff ? '' : res.gasUsed; //hide "total gasUsed" if there is a diff
+    const perOp = res.gasDiff ? res.gasDiff - res.walletEst : ''
+    addTableRow([title, res.count, gasUsed, res.gasDiff ?? '', res.walletEst, perOp])
+  }
+
+  console.debug = () => {
+  }
+
+  //dummy run - first run is slower.
   await runTest({count: 1, diffLastGas: false})
-  await runTest({count: 2, diffLastGas: true})
-  await runTest({count: 4, diffLastGas: false})
-  await runTest({count: 5, diffLastGas: true})
-  await runTest({count: 19, diffLastGas: false})
-  await runTest({count: 20, diffLastGas: true})
+  addRow("simple", await runTest({count: 1, diffLastGas: false}))
+  addRow('simple - diff from previous', await runTest({count: 2, diffLastGas: true}))
+
+  addRow("simple", await runTest({count: 50, diffLastGas: false}))
+  addRow('simple - diff from previous', await runTest({count: 51, diffLastGas: true}))
+
+  const huge = '0x'.padEnd(20480, 'f')
+
+  addRow('big tx', await runTest({count: 1, destCallData: huge, diffLastGas: false}))
+  addRow('big tx - diff from previous', await runTest({count: 2, destCallData: huge, diffLastGas: true}))
+
+  addRow('big tx', await runTest({count: 50, destCallData: huge, diffLastGas: false}))
+  addRow('big tx - diff from previous', await runTest({count: 51, destCallData: huge, diffLastGas: true}))
+
+  doneTable()
+  return
 }
 
 runGasCalcs()
