@@ -9,6 +9,7 @@ import "./StakeManager.sol";
 import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
+import "./IAggregator.sol";
 
 import "./ICreate2Deployer.sol";
 
@@ -79,15 +80,79 @@ contract EntryPoint is StakeManager {
         require(success);
     }
 
+    struct AggregatorInfo {
+        IAggregator aggregator;
+        uint count;
+        bytes signature;
+    }
+
+    //save current free memory pointer
+    function getMemoryPointer() private returns (uint ptr) {
+        assembly {
+            ptr := mload(0x40)
+        }
+    }
+
+    //restore previously saved memory pointer.
+    // all allocations since getMemoryPointer are cleared.
+    function restoreMemoryPointer(uint ptr) private {
+        assembly {
+            mstore(0x40, ptr)
+        }
+    }
+
+    function copyOpsRange(UserOperation[] calldata ops, uint index, uint count) private returns (UserOperation[] memory ret)  {
+        ret = new UserOperation[](count);
+        for (uint i = 0; i < count; i++) {
+            ret[i] = ops[i + index];
+        }
+        return ret;
+    }
+
+    function validateAggregatedSignatures(
+        UserOperation[] calldata ops,
+        AggregatorInfo[] calldata aggregators
+    ) private returns (uint) {
+        if (aggregators.length == 0) return 0;
+        uint startPtr = getMemoryPointer();
+        AggregatorInfo[] memory _aggregators = aggregators;
+        UserOperation[] memory _ops = ops;
+
+
+        uint index = 0;
+        uint loopPtr = getMemoryPointer();
+        for (uint i = 0; i < _aggregators.length; i++) {
+            restoreMemoryPointer(loopPtr);
+            AggregatorInfo memory agg = _aggregators[i];
+            uint count = agg.count;
+            agg.aggregator.validateSignatures(
+                copyOpsRange(ops, index, index + count),
+                agg.signature
+            );
+            index += count;
+        }
+        restoreMemoryPointer(startPtr);
+        return index;
+    }
+
     /**
      * Execute a batch of UserOperation.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
+     * @param aggregators list of aggregators to validate signatures
+     * @param execOrder execution order of userOps.
      */
-    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
+    function handleOps(
+        UserOperation[] calldata ops,
+        address payable beneficiary,
+        AggregatorInfo[] calldata aggregators,
+        uint[] memory execOrder
+    ) public {
 
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
+
+        validateAggregatedSignatures(ops, aggregators);
 
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
@@ -111,11 +176,14 @@ contract EntryPoint is StakeManager {
         }
 
         uint256 collected = 0;
+        uint256 execOrderLen = execOrder.length;
+        require(execOrderLen == 0 || execOrderLen == ops.length);
 
         for (uint256 i = 0; i < ops.length; i++) {
             uint256 preGas = gasleft();
-            UserOperation calldata op = ops[i];
-            UserOpInfo memory opInfo = opInfos[i];
+            uint256 opIndex = execOrderLen == 0 ? i : execOrder[i];
+            UserOperation calldata op = ops[opIndex];
+            UserOpInfo memory opInfo = opInfos[opIndex];
             uint256 contextOffset = opInfo.contextOffset;
             bytes memory context;
             assembly {context := contextOffset}
