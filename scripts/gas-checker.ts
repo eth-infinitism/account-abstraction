@@ -2,7 +2,12 @@
 import '../test/aa.init'
 import {formatEther, parseEther} from "ethers/lib/utils";
 import {AddressZero, checkForGeth, createAddress, createWalletOwner, deployEntryPoint} from "../test/testutils";
-import {EntryPoint, EntryPoint__factory, SimpleWallet__factory} from "../typechain";
+import {
+  EntryPoint,
+  EntryPoint__factory,
+  SimpleWallet__factory,
+  TestPaymasterAcceptAll__factory
+} from "../typechain";
 import {BigNumberish, Wallet} from "ethers";
 import hre from 'hardhat'
 import {fillAndSign} from "../test/UserOp";
@@ -14,6 +19,7 @@ import {table, TableUserConfig} from 'table'
 import {Create2Factory} from "../src/Create2Factory";
 import {hexValue} from "@ethersproject/bytes";
 import * as fs from "fs";
+import {boolean} from "hardhat/internal/core/params/argumentTypes";
 
 const ethers = hre.ethers
 const provider = hre.ethers.provider
@@ -33,11 +39,13 @@ let wallets: { [wallet: string]: Wallet } = {}
 let entryPoint: EntryPoint
 let walletOwner: Wallet
 
-enum PaymentMethod { WalletBalance, WalletDeposit, Paymaster}
+let paymasterAddress: string
+let gasEstimatePerExec: { [key: string]: { title: string, walletEst: number } } = {}
 
 interface TestInfo {
-  diffLastGas: boolean;
-  payment: PaymentMethod,
+  title: string
+  diffLastGas: boolean
+  paymaster: string
   count: number
   dest: string
   destValue: BigNumberish
@@ -47,14 +55,25 @@ interface TestInfo {
 }
 
 const DefaultInfo: Partial<TestInfo> = {
-  payment: PaymentMethod.WalletDeposit,
   dest: AddressZero,
   destValue: parseEther('0'),
   destCallData: '0x',
   gasPrice: 10e9
 }
 
-async function init(entryPointAddress: string = 'test') {
+function writeLogToFile() {
+  const outputFile = './reports/gas-checker.txt'
+  fs.rmSync(outputFile, {force: true})
+  console.log('Writing output to', outputFile)
+
+  const saveLog = console.log
+  console.log = function (msg) {
+    saveLog(msg)
+    fs.appendFileSync(outputFile, msg + '\n')
+  }
+}
+
+async function init(entryPointAddressOrTest: string = 'test') {
   // await checkForGeth()
 
   console.log('signer=', await ethersSigner.getAddress())
@@ -68,14 +87,18 @@ async function init(entryPointAddress: string = 'test') {
     ethersSigner = ethers.provider.getSigner(2)
   }
 
-  if (entryPointAddress == 'test') {
+  if (entryPointAddressOrTest == 'test') {
     entryPoint = await deployEntryPoint(1, 1, provider)
   } else {
-    entryPoint = EntryPoint__factory.connect(entryPointAddress, ethersSigner)
+    entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
   }
   walletOwner = createWalletOwner()
 
   walletInterface = SimpleWallet__factory.createInterface()
+  const paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
+  paymasterAddress = paymaster.address
+  await paymaster.addStake(0, {value: 1})
+  await entryPoint.depositTo(paymaster.address, {value: parseEther('10')})
 }
 
 /**
@@ -165,6 +188,7 @@ async function createWalletsWithUserOps(count: number) {
 }
 
 interface TestResult {
+  title: string
   count: number
   gasUsed: number // actual gas used
   walletEst: number // estimateGas of the inner transaction (from EP to wallet)
@@ -189,31 +213,27 @@ async function runTest(params: Partial<TestInfo>): Promise<TestResult> {
   const userOps = await Promise.all(range(info.count)
     .map(index => Object.entries(wallets)[index])
     .map(async ([wallet, walletOwner]) => {
-      switch (info.payment) {
-        case PaymentMethod.WalletDeposit:
-          if ((await entryPoint.balanceOf(wallet)).lte(minDepositOrBalance)) {
-            console.log('== deposit to wallet', wallet)
-            await entryPoint.depositTo(wallet, {nonce: nonce++, value: minDepositOrBalance.mul(5)})
-          }
-          break
-        case PaymentMethod.WalletBalance:
-          if ((await getBalance(wallet)).lte(minDepositOrBalance)) {
-            console.debug('== send balance to wallet', wallet)
-            await ethersSigner.sendTransaction({nonce: nonce++, to: wallet, value: minDepositOrBalance.mul(5)})
-          }
-          break
-        case PaymentMethod.Paymaster:
-          throw new Error('=== paymaster mode not yet ready')
+
+      let paymaster = info.paymaster
+
+      let {dest, destValue, destCallData} = info
+      if (dest == null) {
+        dest = createAddress()
       }
       const walletExecFromEntryPoint = walletInterface.encodeFunctionData('execFromEntryPoint',
-        [info.dest, info.destValue, info.destCallData])
+        [dest, destValue, destCallData])
+
+      let est = gasEstimatePerExec[walletExecFromEntryPoint]
       //technically, each UserOp needs estimate - but we know they are all the same for each test.
-      if (walletEst == 0) {
+      if (est == null) {
         walletEst = (await ethers.provider.estimateGas({
           from: entryPoint.address,
           to: wallet,
           data: walletExecFromEntryPoint
         })).toNumber()
+        gasEstimatePerExec[walletExecFromEntryPoint] = {walletEst, title: info.title}
+      } else {
+        walletEst = est.walletEst
       }
       // console.debug('== wallet est=', walletEst.toString())
       const op = await fillAndSign({
@@ -223,6 +243,7 @@ async function runTest(params: Partial<TestInfo>): Promise<TestResult> {
         maxFeePerGas: info.gasPrice,
         callGas: walletEst,
         verificationGas: 1000000,
+        paymaster,
         preVerificationGas: 1
       }, walletOwner, entryPoint)
       // const packed = packUserOp(op, false)
@@ -244,6 +265,7 @@ async function runTest(params: Partial<TestInfo>): Promise<TestResult> {
     count: info.count,
     gasUsed,
     walletEst,
+    title: info.title
     // receipt: rcpt
   }
   if (info.diffLastGas)
@@ -286,10 +308,7 @@ function initTable(tableHeaders: string[]): Table {
       tab.push(arr)
     },
     doneTable: () => {
-      const outputFile = './reports/gas-checker.txt'
       let tableOutput = table(tab, tableConfig);
-      fs.writeFileSync(outputFile, tableOutput)
-      console.log('Writing table to', outputFile)
       console.log(tableOutput)
     }
   }
@@ -303,36 +322,64 @@ async function runGasCalcs() {
     'count',
     'total gasUsed',
     'per UserOp gas\n(delta for one UserOp)',
-    'wallet.exec()\nestimateGas',
-    'per UserOp overhead\n(compared to wallet.exec())']
+    // 'wallet.exec()\nestimateGas',
+    'per UserOp overhead\n(compared to wallet.exec())',
+  ]
 
   const {addTableRow, doneTable} = initTable(tableHeaders)
 
-  function addRow(title: string, res: TestResult) {
+  function addRow(res: TestResult) {
+
+    process.stdout.write('.')
     let gasUsed = res.gasDiff ? '' : res.gasUsed; //hide "total gasUsed" if there is a diff
     const perOp = res.gasDiff ? res.gasDiff - res.walletEst : ''
-    addTableRow([title, res.count, gasUsed, res.gasDiff ?? '', res.walletEst, perOp])
+    addTableRow([
+      res.title,
+      res.count,
+      gasUsed,
+      res.gasDiff ?? '',
+      // res.walletEst,
+      perOp])
   }
 
-  console.debug = () => {
-  }
+  // console.debug = () => {
+  // }
 
   //dummy run - first run is slower.
-  await runTest({count: 1, diffLastGas: false})
-  addRow("simple", await runTest({count: 1, diffLastGas: false}))
-  addRow('simple - diff from previous', await runTest({count: 2, diffLastGas: true}))
+  await runTest({title: 'simple', count: 1, diffLastGas: false})
+  addRow(await runTest({title: "simple", count: 1, diffLastGas: false}))
+  addRow(await runTest({title: 'simple - diff from previous', count: 2, diffLastGas: true}))
 
-  addRow("simple", await runTest({count: 50, diffLastGas: false}))
-  addRow('simple - diff from previous', await runTest({count: 51, diffLastGas: true}))
+  addRow(await runTest({title: "simple", count: 50, diffLastGas: false}))
+  addRow(await runTest({title: 'simple - diff from previous', count: 51, diffLastGas: true}))
+
+  addRow(await runTest({title: "simple paymaster", count: 1, paymaster: paymasterAddress, diffLastGas: false}))
+  addRow(await runTest({title: "simple paymaster with diff", count: 2, paymaster: paymasterAddress, diffLastGas: true}))
+
+  addRow(await runTest({title: "simple paymaster", count: 50, paymaster: paymasterAddress, diffLastGas: false}))
+  addRow(await runTest({
+    title: "simple paymaster with diff",
+    count: 51,
+    paymaster: paymasterAddress,
+    diffLastGas: true
+  }))
+
 
   const huge = '0x'.padEnd(20480, 'f')
 
-  addRow('big tx', await runTest({count: 1, destCallData: huge, diffLastGas: false}))
-  addRow('big tx - diff from previous', await runTest({count: 2, destCallData: huge, diffLastGas: true}))
+  addRow(await runTest({title: 'big tx', count: 1, destCallData: huge, diffLastGas: false}))
+  addRow(await runTest({title: 'big tx - diff from previous', count: 2, destCallData: huge, diffLastGas: true}))
 
-  addRow('big tx', await runTest({count: 50, destCallData: huge, diffLastGas: false}))
-  addRow('big tx - diff from previous', await runTest({count: 51, destCallData: huge, diffLastGas: true}))
+  addRow(await runTest({title: 'big tx', count: 50, destCallData: huge, diffLastGas: false}))
+  addRow(await runTest({title: 'big tx - diff from previous', count: 51, destCallData: huge, diffLastGas: true}))
 
+  writeLogToFile()
+
+  console.log('== gas estimate of direct calling wallet.exec()')
+  console.log('   (estimate the cost of calling directly the "wallet.execFromEntrypoint(dest,calldata)" )')
+  Object.values(gasEstimatePerExec).forEach(({title, walletEst}) => {
+    console.log(`- gas estimate "${title}" - ${walletEst}`)
+  })
   doneTable()
   return
 }
