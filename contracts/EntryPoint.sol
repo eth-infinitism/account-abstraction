@@ -10,6 +10,7 @@ import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
 import "./IAggregator.sol";
+import "./IAggregatedWallet.sol";
 
 import "./ICreate2Deployer.sol";
 
@@ -86,38 +87,14 @@ contract EntryPoint is StakeManager {
         bytes signature;
     }
 
-    //save current free memory pointer
-    function getMemoryPointer() private returns (uint ptr) {
-        assembly {
-            ptr := mload(0x40)
-        }
-    }
-
-    //restore previously saved memory pointer.
-    // all allocations since getMemoryPointer are cleared.
-    function restoreMemoryPointer(uint ptr) private {
-        assembly {
-            mstore(0x40, ptr)
-        }
-    }
-
-    function copyOpsRange(UserOperation[] calldata ops, uint index, uint count) private returns (UserOperation[] memory ret)  {
-        ret = new UserOperation[](count);
-        for (uint i = 0; i < count; i++) {
-            ret[i] = ops[i + index];
-        }
-        return ret;
-    }
-
+    //run all aggregators, each on its respective wallets
     function validateAggregatedSignatures(
         UserOperation[] calldata ops,
         AggregatorInfo[] calldata aggregators
-    ) private returns (uint) {
+    ) private view returns (uint totalCount) {
         if (aggregators.length == 0) return 0;
         uint startPtr = getMemoryPointer();
         AggregatorInfo[] memory _aggregators = aggregators;
-        UserOperation[] memory _ops = ops;
-
 
         uint index = 0;
         uint loopPtr = getMemoryPointer();
@@ -126,7 +103,7 @@ contract EntryPoint is StakeManager {
             AggregatorInfo memory agg = _aggregators[i];
             uint count = agg.count;
             agg.aggregator.validateSignatures(
-                copyOpsRange(ops, index, index + count),
+                copyOpsRange(agg.aggregator, ops, index, index + count),
                 agg.signature
             );
             index += count;
@@ -152,7 +129,7 @@ contract EntryPoint is StakeManager {
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
-        validateAggregatedSignatures(ops, aggregators);
+        uint totalAggregated = validateAggregatedSignatures(ops, aggregators);
 
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
@@ -165,6 +142,7 @@ contract EntryPoint is StakeManager {
             uint256 prefund;
             PaymentMode paymentMode;
             (prefund, paymentMode, context) = _validatePrepayment(i, op, requestId);
+            require(i < totalAggregated || op.signature.length >= 64);
             assembly {contextOffset := context}
             opInfos[i] = UserOpInfo(
                 requestId,
@@ -188,12 +166,14 @@ contract EntryPoint is StakeManager {
             bytes memory context;
             assembly {context := contextOffset}
 
+            uint ptr = getMemoryPointer();
             try this.innerHandleOp(op, opInfo, context) returns (uint256 _actualGasCost) {
                 collected += _actualGasCost;
             } catch {
                 uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
                 collected += _handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
             }
+            restoreMemoryPointer(ptr);
         }
 
         _compensate(beneficiary, collected);
@@ -249,10 +229,22 @@ contract EntryPoint is StakeManager {
     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
+     * @param userOp the user operation to validate.
+     * @param aggregatedSignature: if the wallet is an IAggregatedSignature, then the simulation of the
+     *      signature is done over a single-operation "bundle". The userOp parameter to simulate is
+     *      as it should be during aggregation (with signature removed).
+     *      If the wallet is not aggregatable, then this parameter is empty.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      */
-    function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund) {
+    function simulateValidation(UserOperation calldata userOp, bytes calldata aggregatedSignature) external returns (uint256 preOpGas, uint256 prefund) {
+        if (aggregatedSignature.length != 0) {
+            IAggregator aggregator = IAggregatedWallet(userOp.getSender()).getAggregator();
+            UserOperation[] memory arr = new UserOperation(1);
+            arr[0] = userOp;
+            aggregator.validateSignatures(arr, aggregatedSignature);
+        }
+
         uint256 preGas = gasleft();
 
         bytes32 requestId = getRequestId(userOp);
@@ -468,6 +460,32 @@ contract EntryPoint is StakeManager {
         }
         senderStorageCells = new uint256[](1);
         senderStorageCells[0] = cell;
+    }
+
+    //save current free memory pointer
+    function getMemoryPointer() private pure returns (uint ptr) {
+        assembly {
+            ptr := mload(0x40)
+        }
+    }
+
+    //restore previously saved memory pointer.
+    // all "memory" allocations since getMemoryPointer are freed, and their memory will be re-uased.
+    function restoreMemoryPointer(uint ptr) private pure {
+        assembly {
+            mstore(0x40, ptr)
+        }
+    }
+
+    function copyOpsRange(IAggregator aggregator, UserOperation[] calldata ops, uint index, uint count) private pure returns (UserOperation[] memory ret)  {
+    unchecked {
+        ret = new UserOperation[](count);
+        for (uint i = 0; i < count; i++) {
+            ret[i] = ops[i + index];
+            require(address(aggregator) == IAggregatedWallet(ret[i].getSender()).getAggregator(), "wrong wallet aggregator");
+        }
+        return ret;
+    }
     }
 }
 
