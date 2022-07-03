@@ -1,5 +1,4 @@
 import './aa.init'
-import {describe} from 'mocha'
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
@@ -96,7 +95,7 @@ describe("DepositPaymaster", async () => {
         sender: wallet.address,
         paymaster: paymaster.address,
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp)).to.be.revertedWith('paymasterData must specify token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, '0x')).to.be.revertedWith('paymasterData must specify token')
     });
 
     it('should fail with wrong token', async () => {
@@ -105,7 +104,7 @@ describe("DepositPaymaster", async () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad('0x1234', 32),
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, {gasPrice})).to.be.revertedWith('DepositPaymaster: unsupported token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, '0x', {gasPrice})).to.be.revertedWith('DepositPaymaster: unsupported token')
     });
 
     it('should reject if no deposit', async () => {
@@ -114,7 +113,7 @@ describe("DepositPaymaster", async () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad(token.address, 32)
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, {gasPrice})).to.be.revertedWith('DepositPaymaster: deposit too low')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, '0x', {gasPrice})).to.be.revertedWith('DepositPaymaster: deposit too low')
     });
 
     it('should reject if deposit is not locked', async () => {
@@ -128,7 +127,7 @@ describe("DepositPaymaster", async () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad(token.address, 32)
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, {gasPrice})).to.be.revertedWith('not locked')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, '0x', {gasPrice})).to.be.revertedWith('not locked')
     })
 
     it('succeed with valid deposit', async () => {
@@ -141,7 +140,7 @@ describe("DepositPaymaster", async () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad(token.address, 32)
       }, ethersSigner, entryPoint)
-      await entryPointStatic.callStatic.simulateValidation(userOp)
+      await entryPointStatic.callStatic.simulateValidation(userOp, '0x')
     });
   })
   describe('#handleOps', () => {
@@ -167,7 +166,7 @@ describe("DepositPaymaster", async () => {
         callData
       }, walletOwner, entryPoint)
 
-      await entryPoint.handleOps([userOp], beneficiary)
+      await entryPoint.handleOps([userOp], beneficiary, [], [])
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent())
       expect(log.args.success).to.eq(false)
@@ -190,7 +189,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData: execApprove
       }, walletOwner, entryPoint)
-      await entryPoint.handleOps([userOp1], beneficiary1)
+      await entryPoint.handleOps([userOp1], beneficiary1, [], [])
 
 
       const userOp = await fillAndSign({
@@ -199,7 +198,7 @@ describe("DepositPaymaster", async () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData
       }, walletOwner, entryPoint)
-      await entryPoint.handleOps([userOp], beneficiary)
+      await entryPoint.handleOps([userOp], beneficiary, [], [])
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), await ethers.provider.getBlockNumber())
       expect(log.args.success).to.eq(true)

@@ -110,7 +110,7 @@ describe("Batch gas testing", function () {
             maxPriorityFeePerGas: 1e9,
           }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
-          const {preOpGas} = await entryPointView.callStatic.simulateValidation(op1, {gasPrice: 1e9})
+          const {preOpGas} = await entryPointView.callStatic.simulateValidation(op1, '0x', {gasPrice: 1e9})
           const txgas = preOpGas.add(op1.callGas).toNumber()
 
           // console.log('colected so far', opsGasCollected, 'estim', verificationGas, 'max', maxTxGas)
@@ -150,7 +150,7 @@ describe("Batch gas testing", function () {
               to: wallet.address,
               data: execCounterCount.data!
             }), 'datacost=', callDataCost(execCounterCount.data!));
-            console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress))
+            console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress, [], []))
           }
 
         }
@@ -213,7 +213,7 @@ describe("Batch gas testing", function () {
     const beneficiaryAddress = createAddress()
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
-    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, beneficiaryAddress).then(tx => tx.data))
+    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, beneficiaryAddress, [], []).then(tx => tx.data))
 
     function callDataCost(data: Buffer | string): number {
       if (typeof data == 'string') {
@@ -234,7 +234,7 @@ describe("Batch gas testing", function () {
     //for slack testing, we set TX priority same as UserOp
     //(real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
     const {maxPriorityFeePerGas} = ops[0]
-    const ret = await entryPoint.connect(sender).handleOps(ops, beneficiaryAddress, {
+    const ret = await entryPoint.connect(sender).handleOps(ops, beneficiaryAddress, [], [], {
       gasLimit: 13e6,
       maxPriorityFeePerGas
     }).catch((rethrow())).then(r => r!.wait())

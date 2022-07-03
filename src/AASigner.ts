@@ -139,7 +139,7 @@ async function sendQueuedUserOps(queueSender: QueueSendUserOp, entryPoint: Entry
     }
     let signer = await (entryPoint.provider as any).getSigner().getAddress();
     console.log('==== sending batch of ', ops.length)
-    const ret = await entryPoint.handleOps(ops, signer, {maxPriorityFeePerGas: 2e9})
+    const ret = await entryPoint.handleOps(ops, signer, [], [], {maxPriorityFeePerGas: 2e9})
     console.log('handleop tx=', ret.hash)
     const rcpt = await ret.wait()
     console.log('events=', rcpt.events!.map(e => ({name: e.event, args: e.args})))
@@ -165,7 +165,7 @@ export function localUserOpSender(entryPointAddress: string, signer: Signer, ben
       })
     const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas);
     console.log('calc gaslimit=', gasLimit.toString())
-    const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), {
+    const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), [], [], {
       gasLimit,
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
       maxFeePerGas: userOp.maxFeePerGas

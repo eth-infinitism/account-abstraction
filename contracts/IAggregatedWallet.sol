@@ -15,5 +15,5 @@ interface IAggregatedWallet is IWallet {
     /**
      * return the address of the signature aggregator the wallet supports.
      */
-    function getAggregator() external view returns (IAggregator);
+    function getAggregator() external view returns (address);
 }

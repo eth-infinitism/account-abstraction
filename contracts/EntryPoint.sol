@@ -11,7 +11,6 @@ import "./IWallet.sol";
 import "./IPaymaster.sol";
 import "./IAggregator.sol";
 import "./IAggregatedWallet.sol";
-
 import "./ICreate2Deployer.sol";
 
 contract EntryPoint is StakeManager {
@@ -97,13 +96,14 @@ contract EntryPoint is StakeManager {
         AggregatorInfo[] memory _aggregators = aggregators;
 
         uint index = 0;
-        uint loopPtr = getMemoryPointer();
+        // uint loopPtr = getMemoryPointer();
         for (uint i = 0; i < _aggregators.length; i++) {
-            restoreMemoryPointer(loopPtr);
+            // restoreMemoryPointer(loopPtr);
             AggregatorInfo memory agg = _aggregators[i];
             uint count = agg.count;
-            agg.aggregator.validateSignatures(
-                copyOpsRange(agg.aggregator, ops, index, index + count),
+            UserOperation[] memory copyOfOps = copyOpsRange(agg.aggregator, ops, index, index + count);
+            agg.aggregator.validateSignatures(address(this),
+                copyOfOps,
                 agg.signature
             );
             index += count;
@@ -116,8 +116,8 @@ contract EntryPoint is StakeManager {
      * Execute a batch of UserOperation.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
-     * @param aggregators list of aggregators to validate signatures
-     * @param execOrder execution order of userOps.
+     * @param aggregators list of aggregators to validate signatures. each aggregator define a count it validates from userOps
+     * @param execOrder execution order of userOps. either an empty array, or an array of all userOps indices in the correct execution order
      */
     function handleOps(
         UserOperation[] calldata ops,
@@ -129,6 +129,7 @@ contract EntryPoint is StakeManager {
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
+        //all wallets there were tested using an aggregator
         uint totalAggregated = validateAggregatedSignatures(ops, aggregators);
 
     unchecked {
@@ -142,14 +143,17 @@ contract EntryPoint is StakeManager {
             uint256 prefund;
             PaymentMode paymentMode;
             (prefund, paymentMode, context) = _validatePrepayment(i, op, requestId);
-            require(i < totalAggregated || op.signature.length >= 64);
+            // valid signature must be 64 bytes or more.
+            // below that, it must be validated using an aggregator
+            require(i < totalAggregated || op.signature.length >= 64, "AggregatedWallet without aggregator");
             assembly {contextOffset := context}
             opInfos[i] = UserOpInfo(
                 requestId,
                 prefund,
                 paymentMode,
                 contextOffset,
-                preGas - gasleft() + op.preVerificationGas
+                preGas - gasleft() + op.preVerificationGas,
+                false
             );
         }
 
@@ -159,9 +163,19 @@ contract EntryPoint is StakeManager {
 
         for (uint256 i = 0; i < ops.length; i++) {
             uint256 preGas = gasleft();
-            uint256 opIndex = execOrderLen == 0 ? i : execOrder[i];
+            uint256 opIndex;
+            UserOpInfo memory opInfo;
+            if (execOrderLen == 0) {
+                opIndex = i;
+                opInfo = opInfos[opIndex];
+            } else {
+                opIndex = execOrder[i];
+                // opIndex is required to be 0..opslen
+                opInfo = opInfos[opIndex];
+                require(opInfo.executed == false, "execOrder duplicate entry");
+                opInfo.executed = true;
+            }
             UserOperation calldata op = ops[opIndex];
-            UserOpInfo memory opInfo = opInfos[opIndex];
             uint256 contextOffset = opInfo.contextOffset;
             bytes memory context;
             assembly {context := contextOffset}
@@ -186,6 +200,7 @@ contract EntryPoint is StakeManager {
         PaymentMode paymentMode;
         uint256 contextOffset;
         uint256 preOpGas;
+        bool executed;
     }
 
     /**
@@ -239,10 +254,10 @@ contract EntryPoint is StakeManager {
      */
     function simulateValidation(UserOperation calldata userOp, bytes calldata aggregatedSignature) external returns (uint256 preOpGas, uint256 prefund) {
         if (aggregatedSignature.length != 0) {
-            IAggregator aggregator = IAggregatedWallet(userOp.getSender()).getAggregator();
-            UserOperation[] memory arr = new UserOperation(1);
+            IAggregator aggregator = IAggregator(IAggregatedWallet(userOp.getSender()).getAggregator());
+            UserOperation[] memory arr = new UserOperation[](1);
             arr[0] = userOp;
-            aggregator.validateSignatures(arr, aggregatedSignature);
+            aggregator.validateSignatures(address(this), arr, aggregatedSignature);
         }
 
         uint256 preGas = gasleft();
@@ -311,12 +326,14 @@ contract EntryPoint is StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {
-        } catch Error(string memory revertReason) {
-            revert FailedOp(opIndex, address(0), revertReason);
-        } catch {
-            revert FailedOp(opIndex, address(0), "");
-        }
+        IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds);
+
+        //        try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {
+        //        } catch Error(string memory revertReason) {
+        //            revert FailedOp(opIndex, address(0), revertReason);
+        //        } catch {
+        //            revert FailedOp(opIndex, address(0), "");
+        //        }
         if (paymentMode != PaymentMode.paymasterDeposit) {
             DepositInfo storage senderInfo = deposits[sender];
             uint deposit = senderInfo.deposit;
@@ -477,14 +494,16 @@ contract EntryPoint is StakeManager {
         }
     }
 
-    function copyOpsRange(IAggregator aggregator, UserOperation[] calldata ops, uint index, uint count) private pure returns (UserOperation[] memory ret)  {
+    function copyOpsRange(
+        IAggregator aggregator, UserOperation[] calldata ops, uint index, uint count
+    ) private view returns (UserOperation[] memory ret)  {
     unchecked {
         ret = new UserOperation[](count);
         for (uint i = 0; i < count; i++) {
             ret[i] = ops[i + index];
-            require(address(aggregator) == IAggregatedWallet(ret[i].getSender()).getAggregator(), "wrong wallet aggregator");
+            IAggregatedWallet aggWallet = IAggregatedWallet(ret[i].sender);
+            require(address(aggregator) == aggWallet.getAggregator(), "wrong wallet aggregator");
         }
-        return ret;
     }
     }
 }

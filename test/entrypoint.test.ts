@@ -1,5 +1,4 @@
 import './aa.init'
-import {describe} from 'mocha'
 import {BigNumber, Wallet} from "ethers";
 import {expect} from "chai";
 import {
@@ -12,6 +11,8 @@ import {
   TestUtil__factory,
   TestPaymasterAcceptAll,
   TestPaymasterAcceptAll__factory,
+  TestAggregatedWallet,
+  TestAggregatedWallet__factory,
 } from "../typechain";
 import {
   AddressZero,
@@ -32,8 +33,10 @@ import {fillAndSign, getRequestId} from "./UserOp";
 import {UserOperation} from "./UserOperation";
 import {PopulatedTransaction} from "ethers/lib/ethers";
 import {ethers} from 'hardhat'
-import {formatEther, parseEther} from "ethers/lib/utils";
+import {hexZeroPad, parseEther} from "ethers/lib/utils";
 import {debugTransaction} from './debugTx';
+import {TestSignatureAggregator__factory} from '../typechain/factories/TestSignatureAggregator__factory';
+import {TestSignatureAggregator} from '../typechain/TestSignatureAggregator';
 
 describe("EntryPoint", function () {
 
@@ -76,7 +79,7 @@ describe("EntryPoint", function () {
       addr = await ethersSigner.getAddress()
     })
 
-    it( '#getSenderStorage() should get storage cell', async() => {
+    it('#getSenderStorage() should get storage cell', async () => {
       await entryPoint.depositTo(signer, {value: FIVE_ETH})
       const cells = await entryPoint.getSenderStorage(signer)
       const val = await ethers.provider.getStorageAt(entryPoint.address, cells[0])
@@ -226,14 +229,14 @@ describe("EntryPoint", function () {
     it('should fail if validateUserOp fails', async () => {
       //using wrong owner for wallet1
       const op = await fillAndSign({sender: wallet1.address}, walletOwner, entryPoint)
-      await expect(entryPointView.callStatic.simulateValidation(op).catch(rethrow())).to
+      await expect(entryPointView.callStatic.simulateValidation(op, '0x').catch(rethrow())).to
         .revertedWith('wrong signature')
     });
 
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({sender: wallet1.address}, walletOwner1, entryPoint)
       await fund(wallet1)
-      const ret = await entryPointView.callStatic.simulateValidation(op).catch(rethrow())
+      const ret = await entryPointView.callStatic.simulateValidation(op, '0x').catch(rethrow())
     });
 
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
@@ -242,13 +245,13 @@ describe("EntryPoint", function () {
         sender: wallet1.address
       }, walletOwner1, entryPoint)
       await expect(
-        entryPointView.callStatic.simulateValidation(op)
+        entryPointView.callStatic.simulateValidation(op, '0x')
       ).to.revertedWith('gas values overflow')
     });
 
     it('should fail on-chain', async () => {
       const op = await fillAndSign({sender: wallet1.address}, walletOwner1, entryPoint)
-      await expect(entryPoint.simulateValidation(op)).to.revertedWith('must be called off-chain')
+      await expect(entryPoint.simulateValidation(op, '0x')).to.revertedWith('must be called off-chain')
     });
 
     it('should fail creation for wrong sender', async () => {
@@ -256,7 +259,7 @@ describe("EntryPoint", function () {
         initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
         sender: '0x'.padEnd(42, '1')
       }, walletOwner1, entryPoint)
-      await expect(entryPointView.callStatic.simulateValidation(op1).catch(rethrow()))
+      await expect(entryPointView.callStatic.simulateValidation(op1, '0x').catch(rethrow()))
         .to.revertedWith('sender doesn\'t match create2 address')
     })
 
@@ -265,7 +268,7 @@ describe("EntryPoint", function () {
         initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
       }, walletOwner1, entryPoint)
       await fund(op1.sender)
-      await entryPointView.callStatic.simulateValidation(op1).catch(rethrow())
+      await entryPointView.callStatic.simulateValidation(op1, '0x').catch(rethrow())
     })
 
     it('should not use banned ops during simulateValidation', async () => {
@@ -276,7 +279,7 @@ describe("EntryPoint", function () {
       await fund(AddressZero)
       //we must create a real transaction to debug, and it must come from address zero:
       await ethers.provider.send('hardhat_impersonateAccount', [AddressZero])
-      const ret = await entryPointView.simulateValidation(op1)
+      const ret = await entryPointView.simulateValidation(op1, '0x')
       await checkForBannedOps(ret!.hash, false)
     })
 
@@ -304,11 +307,11 @@ describe("EntryPoint", function () {
 
         const countBefore = await counter.counters(wallet.address)
         //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, {maxFeePerGas: 1e9}).then(tostr))
+        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, [], [], {maxFeePerGas: 1e9}).then(tostr))
 
         //must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, [], [], {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(t => t.wait())
@@ -332,7 +335,7 @@ describe("EntryPoint", function () {
         const beneficiaryAddress = createAddress()
 
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, [], [], {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(t => t.wait())
@@ -354,13 +357,13 @@ describe("EntryPoint", function () {
 
         const countBefore = await counter.counters(wallet.address)
         //for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, {maxFeePerGas: 1e9}).then(tostr))
+        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, [], [], {maxFeePerGas: 1e9}).then(tostr))
 
         const balBefore = await getBalance(wallet.address)
         const depositBefore = await entryPoint.balanceOf(wallet.address)
         //must specify at least one of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, [], [], {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(t => t.wait())
@@ -387,7 +390,7 @@ describe("EntryPoint", function () {
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
 
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, [], [], {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(t => t.wait())
@@ -406,7 +409,7 @@ describe("EntryPoint", function () {
         }, walletOwner, entryPoint)
 
         const countBefore = await counter.counters(wallet.address)
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         }).then(t => t.wait())
         const countAfter = await counter.counters(wallet.address)
@@ -433,7 +436,7 @@ describe("EntryPoint", function () {
           sender: '0x'.padEnd(42, '1')
         }, walletOwner, entryPoint)
 
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         })).to.revertedWith('sender doesn\'t match create2 address')
       });
@@ -447,7 +450,7 @@ describe("EntryPoint", function () {
 
         expect(await ethers.provider.getBalance(op.sender)).to.eq(0)
 
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, [], [], {
           gasLimit: 1e7,
           gasPrice: await ethers.provider.getGasPrice()
         })).to.revertedWith('didn\'t pay prefund')
@@ -467,7 +470,7 @@ describe("EntryPoint", function () {
         }, walletOwner, entryPoint)
 
         await expect(await ethers.provider.getCode(preAddr).then(x => x.length)).to.equal(2, "wallet exists before creation")
-        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, [], [], {
           gasLimit: 1e7,
         }).then(tx => tx.wait()).catch(rethrow())
         created = true
@@ -479,7 +482,7 @@ describe("EntryPoint", function () {
         if (await ethers.provider.getCode(preAddr).then(x => x.length) == 2)
           this.skip()
 
-        await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         })).to.revertedWith('create2 failed')
       });
@@ -528,13 +531,13 @@ describe("EntryPoint", function () {
           verificationGas: 76000,
         }, walletOwner2, entryPoint)
 
-        const {preOpGas} = await entryPointView.callStatic.simulateValidation(op2, {gasPrice: 1e9})
+        const {preOpGas} = await entryPointView.callStatic.simulateValidation(op2, '0x', {gasPrice: 1e9})
 
         await fund(op1.sender)
         await fund(wallet2.address)
         prebalance1 = await ethers.provider.getBalance((wallet1))
         prebalance2 = await ethers.provider.getBalance((wallet2.address))
-        await entryPoint.handleOps([op1!, op2], beneficiaryAddress).catch((rethrow())).then(r => r!.wait())
+        await entryPoint.handleOps([op1!, op2], beneficiaryAddress, [], []).catch((rethrow())).then(r => r!.wait())
         // console.log(ret.events!.map(e=>({ev:e.event, ...objdump(e.args!)})))
       })
       it('should execute', async () => {
@@ -548,6 +551,89 @@ describe("EntryPoint", function () {
         // console.log('cost2=', cost2)
       })
     });
+  })
+
+  describe('aggregation tests', () => {
+    const beneficiaryAddress = createAddress()
+    let aggregator: TestSignatureAggregator
+    let aggWallet: TestAggregatedWallet
+    let aggWallet2: TestAggregatedWallet
+
+    before(async () => {
+      aggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
+      aggWallet = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+      aggWallet2 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+      await ethersSigner.sendTransaction({to: aggWallet.address, value: parseEther('0.1')})
+      await ethersSigner.sendTransaction({to: aggWallet2.address, value: parseEther('0.1')})
+    })
+    it('should fail to execute aggregated wallet if not with an aggregator', async () => {
+      const userOp = await fillAndSign({
+        sender: aggWallet.address,
+      }, walletOwner, entryPoint)
+
+      await expect(entryPoint.handleOps([userOp], beneficiaryAddress, [], [])).to.revertedWith('must not have a signature')
+    });
+    it('should fail to execute aggregated wallet if wrong aggregator', async () => {
+      const userOp = await fillAndSign({
+        sender: aggWallet.address,
+      }, walletOwner, entryPoint)
+
+      await expect(entryPoint.handleOps([userOp], beneficiaryAddress, [{
+        aggregator: createAddress(),
+        count: 1,
+        signature: '0x'
+      }], [])).to.revertedWith('wrong wallet aggregator')
+    });
+    it('should fail to execute aggregated wallet with wrong agg. signature', async () => {
+      const userOp = await fillAndSign({
+        sender: aggWallet.address,
+      }, walletOwner, entryPoint)
+
+      const wrongSig = hexZeroPad('0x123456', 32)
+      await expect(
+        entryPoint.handleOps([userOp], beneficiaryAddress, [{
+          aggregator: aggregator.address,
+          count: 1,
+          signature: wrongSig
+        }], [])).to.revertedWith('aggregated signature mismatch')
+    });
+    describe("execution ordering", () => {
+      let userOp1: UserOperation
+      let userOp2: UserOperation
+      before(async () => {
+        userOp1 = await fillAndSign({
+          sender: aggWallet.address,
+        }, walletOwner, entryPoint)
+        userOp2 = await fillAndSign({
+          sender: aggWallet2.address,
+        }, walletOwner, entryPoint)
+        userOp1.signature = '0x'
+        userOp2.signature = '0x'
+      })
+      it('should fail repeated entries in execution order', async () => {
+
+        const sig = hexZeroPad(BigNumber.from(userOp1.nonce).add(userOp2.nonce).toHexString(), 32)
+        await expect(entryPoint.handleOps([userOp1, userOp2], beneficiaryAddress, [{
+          aggregator: aggregator.address,
+          count: 2,
+          signature: sig
+        }], [1, 1])).to.revertedWith('execOrder duplicate entry')
+      })
+
+      it('should run in given execute order', async () => {
+
+        const sig = hexZeroPad(BigNumber.from(userOp1.nonce).add(userOp2.nonce).toHexString(), 32)
+        const ret = await entryPoint.handleOps([userOp1, userOp2], beneficiaryAddress, [{
+          aggregator: aggregator.address,
+          count: 2,
+          signature: sig
+        }], [1, 0])
+        const rcpt = await ret.wait()
+        const expectedSenders = [aggWallet2.address, aggWallet.address]
+        const actualSenders = rcpt.events!.filter(ev => ev.event == 'UserOperationEvent').map(ev => ev.args!.sender)
+        expect(actualSenders).to.eql(expectedSenders)
+      })
+    })
   })
 
   describe('with paymaster (account with no eth)', () => {
@@ -577,7 +663,7 @@ describe("EntryPoint", function () {
         callGas: 1e6
       }, wallet2Owner, entryPoint)
       const beneficiaryAddress = createAddress()
-      await expect( entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
+      await expect(entryPoint.handleOps([op], beneficiaryAddress, [], [])).to.revertedWith('"paymaster deposit too low"')
     })
 
     it('paymaster should pay for tx', async function () {
@@ -589,12 +675,11 @@ describe("EntryPoint", function () {
       }, wallet2Owner, entryPoint)
       const beneficiaryAddress = createAddress()
 
-      const rcpt = await entryPoint.handleOps([op], beneficiaryAddress).then(t => t.wait())
+      const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, [], []).then(t => t.wait())
 
       const {actualGasCost} = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
       const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
       expect(paymasterPaid).to.eql(actualGasCost)
     });
   })
-
 })
