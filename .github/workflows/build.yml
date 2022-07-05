@@ -39,6 +39,8 @@ jobs:
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
       - run: yarn install
 
+      - run: yarn lint
+
       - run: yarn compile
 
       - run: FORCE_COLOR=1 yarn coverage
