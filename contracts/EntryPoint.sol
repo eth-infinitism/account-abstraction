@@ -80,9 +80,13 @@ contract EntryPoint is StakeManager {
         require(success);
     }
 
+    //per aggregator information
     struct AggregatorInfo {
+        // aggregator address
         IAggregator aggregator;
+        // count of UserOps for this aggregator
         uint count;
+        // aggregated signature
         bytes signature;
     }
 

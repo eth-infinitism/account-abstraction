@@ -8,7 +8,10 @@ import "./IAggregator.sol";
 /**
  * Aggregated wallet, that support IAggregator.
  * - the validateUserOp will be called only after the aggregator validated this wallet (with all other wallets of this aggregator).
- * - the validateUserOp should validate that the signature field
+ * - the validateUserOp should still validate signature field is empty
+ *      (or, if the aggregator needs extra data per UserOp, that the signature contains that extra data)
+ *  - in any case, the UserOp.signature field length should be below 64 bytes
+ *  - e.g. with `require(userOp.signature.length<64)`
  */
 interface IAggregatedWallet is IWallet {
 
