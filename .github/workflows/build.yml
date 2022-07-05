@@ -2,10 +2,13 @@ name: Build
 on:
   push:
     branches:
-      - main
+      - '*'
   pull_request:
     types: [opened, reopened, synchronize]
 
+env:
+  TS_NODE_TRANSPILE_ONLY: 1
+  FORCE_COLORS: 1
 
 # todo: extract shared seto/checkout/install/compile, instead of repeat in each job.
 jobs:
@@ -24,7 +27,7 @@ jobs:
       - run: yarn install
       - run: yarn compile
 
-      - run: FORCE_COLOR=1 yarn run ci
+      - run: yarn run ci
 
   coverage:
     runs-on: ubuntu-latest
