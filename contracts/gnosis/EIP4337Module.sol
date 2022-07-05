@@ -1,63 +1,12 @@
 //SPDX-License-Identifier: GPL
 pragma solidity ^0.8.7;
 
-import "hardhat/console.sol";
-import "./safe-contracts/proxies/GnosisSafeProxy.sol";
-import "./safe-contracts/handler/DefaultCallbackHandler.sol";
-import "./safe-contracts/GnosisSafe.sol";
-import "../IWallet.sol";
-import "../EntryPoint.sol";
+import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import "./EIP4337Fallback.sol";
 import "../BaseWallet.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
     using ECDSA for bytes32;
-
-contract SafeProxy1 is GnosisSafeProxy {
-    constructor(address singleton, bytes memory initialiazer) GnosisSafeProxy(singleton){
-        (bool success,) = singleton.delegatecall(initialiazer);
-        require(success);
-    }
-}
-
-contract SafeProxy4337 is GnosisSafeProxy {
-    constructor(
-        address singleton, EIP4337Module aaModule,
-        address[] memory owners, uint threshold
-    ) GnosisSafeProxy(singleton) {
-        (bool success,bytes memory ret) = address(aaModule).delegatecall(abi.encodeCall(EIP4337Module.setupEIP4337, (singleton, aaModule, owners, threshold)));
-        require(success, string(ret));
-    }
-}
-
-contract EIP4337Fallback is DefaultCallbackHandler, IWallet {
-    address public immutable entryPoint;
-    address immutable public eip4337Module;
-    constructor(address _entryPoint, address _eip4337Module) {
-        entryPoint = _entryPoint;
-        eip4337Module = _eip4337Module;
-    }
-
-    /**
-     * handler is called from the Safe.
-     * - msg.sender == safe
-     * - calldata[:40] == entryPoint
-     * however, handler itself is global, so it can't
-     */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external {
-        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == address(entryPoint));
-        //this call doesn't validate msg.sender to be a safe, because it can't.
-        // the Safe itself should only accept this call from the Fallback handler, which is defined as a module.
-        (bool success, bytes memory ret) = GnosisSafe(payable(msg.sender)).execTransactionFromModuleReturnData(eip4337Module, 0,
-            abi.encodeCall(IWallet.validateUserOp, (userOp, requestId, missingWalletFunds)), Enum.Operation.DelegateCall);
-        if (!success) {
-            assembly {
-                revert(add(ret, 32), mload(ret))
-            }
-        }
-        console.log("end of fallback %s validateUserOp", address(this));
-    }
-}
 
 /**
  * storage layout of GnosisSafe.
@@ -75,7 +24,6 @@ contract GnosisSafeStorage {
     mapping(bytes32 => uint256) internal __signedMessages;
     mapping(address => mapping(bytes32 => uint)) internal __approvedHashes;
 }
-
 /**
  * main meta module.
  * Inherits GnosisSafe so that it can reference the memory storage
@@ -134,7 +82,6 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
         address[] memory owners,
         uint threshold
     ) external {
-        GnosisSafe pThis = GnosisSafe(payable(address(this)));
         address fallbackHandler = address(module.eip4337Fallback());
 
         //can't really use delegated data: it can't access any Safe public method, since we're still in the constructor.
@@ -284,16 +231,5 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
             }
         }
         return address(0);
-    }
-}
-
-contract DummyOwner {
-    // bytes4(keccak256("isValidSignature(bytes,bytes)")
-    bytes4 internal constant EIP1271_MAGIC_VALUE = 0x20c13b0b;
-
-    function isValidSignature(bytes memory data, bytes memory sig) public view virtual returns (bytes4) {
-        (data);
-        console.log("DummyOwner: approve sig %s", string(sig));
-        return EIP1271_MAGIC_VALUE;
     }
 }
