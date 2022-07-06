@@ -1,14 +1,12 @@
 //SPDX-License-Identifier: GPL
 pragma solidity ^0.8.7;
 
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "./EIP4337Fallback.sol";
-import "../BaseWallet.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "./GnosisSafeStorage.sol";
+import "../EntryPoint.sol";
 
     using ECDSA for bytes32;
-
 
 /**
  * Main EIP4337 module.
@@ -17,46 +15,39 @@ import "./GnosisSafeStorage.sol";
  * holds an immutable reference to the EntryPoint
  * Inherits GnosisSafeStorage so that it can reference the memory storage
  */
-contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
+contract EIP4337Module is GnosisSafe, IWallet {
 
     EIP4337Fallback public immutable eip4337Fallback;
-    EntryPoint immutable _entryPoint;
+    EntryPoint public immutable entryPoint;
 
     constructor(EntryPoint anEntryPoint) {
-        _entryPoint = anEntryPoint;
-        eip4337Fallback = new EIP4337Fallback(address(anEntryPoint), address(this));
+        entryPoint = anEntryPoint;
+        eip4337Fallback = new EIP4337Fallback(address(this));
     }
 
-    function nonce() public view virtual override returns (uint256) {
-        return __nonce;
-    }
+    /**
+     * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
+     */
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external override {
+        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(_msgSender == address(entryPoint), "wallet: not from entrypoint");
 
-    function entryPoint() public view virtual override returns (EntryPoint) {
-        return _entryPoint;
-    }
-
-    //not needed: we are callable from modules, and we add "entrypoint" as module.
-    function _requireFromEntryPoint() internal virtual override view {
-    }
-
-
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal view override {
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
         bytes32 hash = requestId.toEthSignedMessageHash();
         address recovered = hash.recover(userOp.signature);
-        require(__threshold == 1, "wallet: only threshold 1");
+        require(threshold == 1, "wallet: only threshold 1");
         require(pThis.isOwner(recovered), "wallet: wrong signature");
-    }
 
-    /// implement template method of BaseWallet
-    function _validateAndUpdateNonce(UserOperation calldata userOp) internal override {
-        require(__nonce++ == userOp.nonce, "wallet: invalid nonce");
-    }
+        if (userOp.initCode.length == 0) {
+            require(nonce++ == userOp.nonce, "wallet: invalid nonce");
+        }
 
-    function _payPrefund(uint256 missingWalletFunds) internal virtual override {
-        //pay for 4 TXs like this, to save on paying prefund on each call.
-        // (not required, but save gas on multiple requests)
-        super._payPrefund(missingWalletFunds * 4);
+        if (missingWalletFunds > 0) {
+            //TODO: MAY pay more than the minimum, to deposit for future transactions
+            (bool success,) = payable(_msgSender).call{value : missingWalletFunds}("");
+            (success);
+            //ignore failure (its EntryPoint's job to verify, not wallet.)
+        }
     }
 
     /**
@@ -108,7 +99,7 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
         pThis.enableModule(address(newModule));
         pThis.enableModule(eip4337fallback);
         pThis.enableModule(address(newModule.entryPoint()));
-        internalSetFallbackHandler(eip4337fallback);
+        _internalSetFallbackHandler(eip4337fallback);
 
         validateEip4337(pThis, newModule);
     }
@@ -124,13 +115,6 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
         _enableModule(address(newModule.entryPoint()));
     }
 
-    //can't change directly the entrypoint: need to change the EIP4337Module
-    // (together with the related fallback handler)
-    function _updateEntryPoint(address) internal virtual override {
-        revert("use EIP4337Module.setEntryPoint");
-    }
-
-    error FailedOp(uint256 opIndex, address paymaster, string reason);
     /**
      * Validate this gnosisSafe is callable through the EntryPoint.
      * the test is INCOMPLETE: we check that we reach our validateUserOp, which will fail, and we can't get the reason...
@@ -139,6 +123,7 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
 
         //TODO: make a call to validate the new entrypoint is valid
         // this prevent mistaken replaceModule to disable the module completely.
+        //minimal signature that pass "recover"
         bytes memory sig = new bytes(65);
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
@@ -169,9 +154,9 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
     /// enableModule is external, but can't be used during construction
 
     // keccak256("fallback_manager.handler.address")
-    bytes32 internal constant FALLBACK_HANDLER_STORAGE_SLOT = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+    //    bytes32 internal constant FALLBACK_HANDLER_STORAGE_SLOT = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
 
-    function internalSetFallbackHandler(address handler) internal {
+    function _internalSetFallbackHandler(address handler) internal {
         bytes32 slot = FALLBACK_HANDLER_STORAGE_SLOT;
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -179,22 +164,19 @@ contract EIP4337Module is IWallet, GnosisSafeStorage, BaseWallet {
         }
     }
 
-    address internal constant SENTINEL_MODULES = address(0x1);
     /// @dev Allows to add a module to the whitelist.
-    ///      This can only be done via a Safe transaction.
+    ///      this is a variant of enableModule that is used only during construction
     /// @notice Enables the module `module` for the Safe.
     /// @param module Module to be whitelisted.
-    function _enableModule(address module) internal {
+    function _enableModule(address module) private {
 
         // Module address cannot be null or sentinel.
         require(module != address(0) && module != SENTINEL_MODULES, "GS101");
         // Module cannot be added twice.
-        require(__modules[module] == address(0), "GS102");
-
-        __modules[module] = __modules[SENTINEL_MODULES];
-
-        __modules[SENTINEL_MODULES] = module;
-        //        emit EnabledModule(module);
+        require(modules[module] == address(0), "GS102");
+        modules[module] = modules[SENTINEL_MODULES];
+        modules[SENTINEL_MODULES] = module;
+        emit EnabledModule(module);
     }
 
     //enumerate modules, and find the currently active EIP4337 module (and previous module)

@@ -35,7 +35,7 @@ describe('Gnosis Proxy', () => {
 
     const modules = await proxySafe.getModulesPaginated(AddressZero.replace(/0$/, '1'), 10)
     console.log('modules=', modules.array)
-    entryPoint.depositTo(proxy.address, {value: parseEther('0.1')})
+    ethersSigner.sendTransaction({to:proxy.address, value: parseEther('0.1')})
 
   })
   it('should validate', async function () {
@@ -43,17 +43,18 @@ describe('Gnosis Proxy', () => {
   });
 
   it('should exec', async function () {
-    const counter_count = counter.interface.encodeFunctionData('count')
-    const safe_execTx = safeSingleton.interface.encodeFunctionData('execTransactionFromModule', [counter.address, 0, counter_count, 0])
+    const counter_countCallData = counter.interface.encodeFunctionData('count')
+    const safe_execTxCallData = safeSingleton.interface.encodeFunctionData('execTransactionFromModule', [counter.address, 0, counter_countCallData, 0])
     const op = await fillAndSign({
       sender: proxy.address,
       callGas: 1e6,
-      callData: safe_execTx
+      callData: safe_execTxCallData
     }, owner, entryPoint)
     const beneficiary = createAddress()
     const ret = await entryPoint.handleOps([op], beneficiary)
     let rcpt = await ret.wait();
     const ev = rcpt.events!.find(ev => ev.event == 'UserOperationEvent')!
     expect(ev.args!.success).to.eq(true)
+    expect(await getBalance( beneficiary)).to.eq(ev.args!.actualGasCost)
   });
 })
