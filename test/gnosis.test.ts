@@ -4,7 +4,7 @@ import {
   EIP4337Module, EIP4337Module__factory,
   EntryPoint, GnosisSafe, GnosisSafe__factory, SafeProxy4337, SafeProxy4337__factory, TestCounter, TestCounter__factory
 } from "../typechain";
-import {AddressZero, createAddress, createWalletOwner, deployEntryPoint} from "./testutils";
+import {AddressZero, createAddress, createWalletOwner, deployEntryPoint, getBalance} from "./testutils";
 import {fillAndSign} from "./UserOp";
 import {parseEther} from "ethers/lib/utils";
 import {expect} from "chai";
@@ -19,7 +19,7 @@ describe('Gnosis Proxy', () => {
   let entryPoint: EntryPoint
   let counter: TestCounter
   let proxySafe: GnosisSafe
-  before("setup proxy", async () => {
+  before("before", async () => {
     let provider = ethers.provider;
     ethersSigner = provider.getSigner()
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
@@ -29,7 +29,7 @@ describe('Gnosis Proxy', () => {
     ownerAddress = await owner.getAddress()
     counter = await new TestCounter__factory(ethersSigner).deploy()
 
-    proxy = await new SafeProxy4337__factory(ethersSigner).deploy(safeSingleton.address, module.address, [ownerAddress], 1)
+    proxy = await new SafeProxy4337__factory(ethersSigner).deploy(safeSingleton.address, module.address, ownerAddress)
 
     proxySafe = GnosisSafe__factory.connect(proxy.address, provider)
 
