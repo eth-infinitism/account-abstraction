@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable reason-string */
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -28,9 +30,9 @@ contract DepositPaymaster is BasePaymaster {
     using SafeERC20 for IERC20;
 
     //calculated cost of the postOp
-    uint256 constant COST_OF_POST = 35000;
+    uint256 constant public COST_OF_POST = 35000;
 
-    IOracle private constant nullOracle = IOracle(address(0));
+    IOracle private constant NULL_ORACLE = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
     mapping(IERC20 => mapping(address => uint256)) public balances;
     mapping(address => uint256) public unlockBlock;
@@ -44,7 +46,7 @@ contract DepositPaymaster is BasePaymaster {
      * owner of the paymaster should add supported tokens
      */
     function addToken(IERC20 token, IOracle tokenPriceOracle) external onlyOwner {
-        require(oracles[token] == nullOracle);
+        require(oracles[token] == NULL_ORACLE);
         oracles[token] = tokenPriceOracle;
     }
 
@@ -61,7 +63,7 @@ contract DepositPaymaster is BasePaymaster {
     function addDepositFor(IERC20 token, address account, uint256 amount) external {
         //(sender must have approval for the paymaster)
         token.safeTransferFrom(msg.sender, address(this), amount);
-        require(oracles[token] != nullOracle, "unsupported token");
+        require(oracles[token] != NULL_ORACLE, "unsupported token");
         balances[token][account] += amount;
         if (msg.sender == account) {
             lockTokenDeposit();
@@ -110,7 +112,7 @@ contract DepositPaymaster is BasePaymaster {
      */
     function getTokenValueOfEth(IERC20 token, uint256 ethBought) internal view virtual returns (uint256 requiredTokens) {
         IOracle oracle = oracles[token];
-        require(oracle != nullOracle, "DepositPaymaster: unsupported token");
+        require(oracle != NULL_ORACLE, "DepositPaymaster: unsupported token");
         return oracle.getTokenValueOfEth(ethBought);
     }
 

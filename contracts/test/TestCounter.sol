@@ -19,8 +19,8 @@ contract TestCounter {
     //helper method to waste gas
     // repeat - waste gas on writing storage in a loop
     // junk - dynamic buffer to stress the function size.
-    mapping(uint256 => uint256) xxx;
-    uint256 offset;
+    mapping(uint256 => uint256) public xxx;
+    uint256 public offset;
 
     function gasWaster(uint256 repeat, string calldata /*junk*/) external {
         for (uint256 i = 1; i <= repeat; i++) {

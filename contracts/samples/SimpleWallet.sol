@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable avoid-low-level-calls */
+/* solhint-disable no-inline-assembly */
+/* solhint-disable reason-string */
+
 import "../BaseWallet.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
@@ -30,6 +34,7 @@ contract SimpleWallet is BaseWallet {
 
     event EntryPointChanged(address indexed oldEntryPoint, address indexed newEntryPoint);
 
+    // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
     constructor(EntryPoint anEntryPoint, address anOwner) {
