@@ -41,6 +41,11 @@ describe('Gnosis Proxy', function () {
 
   before("before", async function () {
 
+    //EIP4337Manager fails to compile with solc-coverage
+    if (process.env.COVERAGE != null) {
+      return this.skip()
+    }
+
     const provider = ethers.provider;
     ethersSigner = provider.getSigner()
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
