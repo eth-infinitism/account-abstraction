@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: GPL
 pragma solidity ^0.8.7;
 
-import "./EIP4337Module.sol";
+import "./EIP4337Manager.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 
 /**
@@ -12,11 +12,11 @@ import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
  */
 contract SafeProxy4337 is GnosisSafeProxy {
     constructor(
-        address singleton, EIP4337Module aaModule,
+        address singleton, EIP4337Manager aaModule,
         address owner
     ) GnosisSafeProxy(singleton) {
         (bool success,bytes memory ret) = address(aaModule).delegatecall(abi.encodeCall(
-                EIP4337Module.setupEIP4337, (singleton, aaModule, owner)));
+                EIP4337Manager.setupEIP4337, (singleton, aaModule, owner)));
         require(success, string(ret));
     }
 }

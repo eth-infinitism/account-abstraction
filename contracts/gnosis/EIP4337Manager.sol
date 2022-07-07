@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "./EIP4337Fallback.sol";
 import "../EntryPoint.sol";
-
     using ECDSA for bytes32;
 
 /**
@@ -15,14 +14,14 @@ import "../EntryPoint.sol";
  * holds an immutable reference to the EntryPoint
  * Inherits GnosisSafeStorage so that it can reference the memory storage
  */
-contract EIP4337Module is GnosisSafe, IWallet {
+contract EIP4337Manager is GnosisSafe, IWallet {
 
-    EIP4337Fallback public immutable eip4337Fallback;
-    EntryPoint public immutable entryPoint;
+    address public immutable eip4337Fallback;
+    address public immutable entryPoint;
 
-    constructor(EntryPoint anEntryPoint) {
+    constructor(address anEntryPoint) {
         entryPoint = anEntryPoint;
-        eip4337Fallback = new EIP4337Fallback(address(this));
+        eip4337Fallback = address(new EIP4337Fallback(address(this)));
     }
 
     /**
@@ -30,7 +29,7 @@ contract EIP4337Module is GnosisSafe, IWallet {
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external override {
         address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == address(entryPoint), "wallet: not from entrypoint");
+        require(_msgSender == entryPoint, "wallet: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
         bytes32 hash = requestId.toEthSignedMessageHash();
@@ -58,72 +57,62 @@ contract EIP4337Module is GnosisSafe, IWallet {
      */
     function setupEIP4337(
         address singleton,
-        EIP4337Module module,
+        EIP4337Manager manager,
         address owner
     ) external {
-        address fallbackHandler = address(module.eip4337Fallback());
+        address eip4337fallback = manager.eip4337Fallback();
 
         address[] memory owners = new address[](1);
         owners[0] = owner;
         uint threshold = 1;
 
-        delegateCall(singleton, abi.encodeCall(GnosisSafe.setup, (
+        execute(singleton, 0, abi.encodeCall(GnosisSafe.setup, (
             owners, threshold,
             address(0), "", //no delegate call
-            fallbackHandler,
+            eip4337fallback,
             address(0), 0, payable(0) //no payment receiver
-            ))
+            )),
+            Enum.Operation.DelegateCall, gasleft()
         );
 
-        _setNewModule(module);
+        _enableModule(manager.entryPoint());
+        _enableModule(eip4337fallback);
     }
 
     /**
      * replace EIP4337 module, to support a new EntryPoint.
-     * must be called using Enum.Operation.DelegateCall
-     * @param prevModule Module that pointed to the module to be removed in the linked list
-     * @param oldModule the old EIP4337 module to remove.
-     * @param newModule the new EIP4337Module, usually with a new EntryPoint
+     * must be called using execTransaction and Enum.Operation.DelegateCall
+     * @param prevModule returned by getCurrentEIP4337Manager
+     * @param oldManager the old EIP4337 manager to remove, returned by getCurrentEIP4337Manager
+     * @param newManager the new EIP4337Manager, usually with a new EntryPoint
      */
-    function replaceEIP4337Module(address prevModule, EIP4337Module oldModule, EIP4337Module newModule) public {
+    function replaceEIP4337Manager(address prevModule, EIP4337Manager oldManager, EIP4337Manager newManager) public {
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
-        require(!pThis.isModuleEnabled(address(newModule)), "replaceEIP4337Module: newModule already enabled");
+        address oldFallback = oldManager.eip4337Fallback();
+        require(pThis.isModuleEnabled(oldFallback), "replaceEIP4337Manager: oldManager is not active");
+        pThis.disableModule(oldFallback, oldManager.entryPoint());
+        pThis.disableModule(prevModule, oldFallback);
 
-        require(pThis.isModuleEnabled(address(oldModule)), "replaceEIP4337Module: oldModule not enabled");
-        pThis.disableModule(address(oldModule.eip4337Fallback()), address(oldModule.entryPoint()));
-        pThis.disableModule(address(oldModule), address(oldModule.eip4337Fallback()));
-        pThis.disableModule(prevModule, address(oldModule));
+        address eip4337fallback = newManager.eip4337Fallback();
 
-        address eip4337fallback = address(newModule.eip4337Fallback());
-        pThis.enableModule(address(newModule));
+        pThis.enableModule(newManager.entryPoint());
         pThis.enableModule(eip4337fallback);
-        pThis.enableModule(address(newModule.entryPoint()));
-        _internalSetFallbackHandler(eip4337fallback);
 
-        validateEip4337(pThis, newModule);
-    }
+        pThis.setFallbackHandler(eip4337fallback);
 
-    /**
-     * enable the eip4337 module on this safe.
-     * called as a delegatecall - so "this" is a safe, and the module address is a parameter.
-     */
-    function _setNewModule(EIP4337Module newModule) private {
-        address eip4337fallback = address(newModule.eip4337Fallback());
-        _enableModule(address(newModule));
-        _enableModule(eip4337fallback);
-        _enableModule(address(newModule.entryPoint()));
+        validateEip4337(pThis, newManager);
     }
 
     /**
      * Validate this gnosisSafe is callable through the EntryPoint.
-     * the test is INCOMPLETE: we check that we reach our validateUserOp, which will fail, and we can't get the reason...
+     * the test is might be incomplete: we check that we reach our validateUserOp and fail on signature.
+     *  we don't test full transaction
      */
-    function validateEip4337(GnosisSafe safe, EIP4337Module module) public {
+    function validateEip4337(GnosisSafe safe, EIP4337Manager manager) public {
 
-        //TODO: make a call to validate the new entrypoint is valid
-        // this prevent mistaken replaceModule to disable the module completely.
-        //minimal signature that pass "recover"
+        // this prevent mistaken replaceEIP4337Manager to disable the module completely.
+        // minimal signature that pass "recover"
         bytes memory sig = new bytes(65);
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
@@ -131,7 +120,8 @@ contract EIP4337Module is GnosisSafe, IWallet {
         UserOperation memory userOp = UserOperation(address(safe), 0, "", "", 0, 1000000, 0, 0, 0, address(0), "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
-        try module.entryPoint().handleOps(userOps, payable(msg.sender)) {
+        EntryPoint _entryPoint = EntryPoint(payable(manager.entryPoint()));
+        try _entryPoint.handleOps(userOps, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
             if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "wallet: wrong signature"))) {
@@ -142,7 +132,6 @@ contract EIP4337Module is GnosisSafe, IWallet {
 
     function delegateCall(address to, bytes memory data) internal {
         bool success;
-        //        require(to != address(0), "why calling zero");
         assembly {
             success := delegatecall(sub(0, 1), to, add(data, 0x20), mload(data), 0, 0)
         }
@@ -150,19 +139,7 @@ contract EIP4337Module is GnosisSafe, IWallet {
     }
 
     /// copied from GnosisSafe ModuleManager, FallbackManager
-    /// setFallbackHandler is internal, so we must copy it
-    /// enableModule is external, but can't be used during construction
-
-    // keccak256("fallback_manager.handler.address")
-    //    bytes32 internal constant FALLBACK_HANDLER_STORAGE_SLOT = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
-
-    function _internalSetFallbackHandler(address handler) internal {
-        bytes32 slot = FALLBACK_HANDLER_STORAGE_SLOT;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            sstore(slot, handler)
-        }
-    }
+    /// enableModule is "external authorizeOnly", can't be used during construction using a "delegatecall"
 
     /// @dev Allows to add a module to the whitelist.
     ///      this is a variant of enableModule that is used only during construction
@@ -179,16 +156,21 @@ contract EIP4337Module is GnosisSafe, IWallet {
         emit EnabledModule(module);
     }
 
-    //enumerate modules, and find the currently active EIP4337 module (and previous module)
-    function getEnabledModule(GnosisSafe safe) public view returns (address prev, address module) {
+    /**
+     * enumerate modules, and find the currently active EIP4337 manager (and previous module)
+     * @return prev prev module, needed by replaceEIP4337Manager
+     * @return manager the current active EIP4337Manager
+     */
+    function getCurrentEIP4337Manager(GnosisSafe safe) public view returns (address prev, address manager) {
 
-        prev = address(0);
+        prev = address(SENTINEL_MODULES);
         (address[] memory modules,) = safe.getModulesPaginated(SENTINEL_MODULES, 100);
         for (uint i = 0; i < modules.length; i++) {
-            module = modules[i];
-            (bool success,) = module.staticcall(abi.encodeWithSignature("entryPoint()"));
+            address module = modules[i];
+            (bool success,bytes memory ret) = module.staticcall(abi.encodeWithSignature("eip4337manager()"));
             if (success) {
-                return (prev, module);
+                manager = abi.decode(ret, (address));
+                return (prev, manager);
             }
             prev = module;
         }
