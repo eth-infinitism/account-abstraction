@@ -27,7 +27,7 @@ import {
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance, FIVE_ETH, createAddress
+  getBalance, FIVE_ETH, createAddress, HashZero
 } from "./testutils";
 import {fillAndSign, getRequestId} from "./UserOp";
 import {UserOperation} from "./UserOperation";
@@ -571,18 +571,22 @@ describe("EntryPoint", function () {
         sender: aggWallet.address,
       }, walletOwner, entryPoint)
 
-      await expect(entryPoint.handleOps([userOp], beneficiaryAddress, [], [])).to.revertedWith('must not have a signature')
+      //no specific revert reason: calling aggregated wallet using IWallet's signature
+      await expect(entryPoint.handleOps([userOp], beneficiaryAddress, [], [])).to.revertedWith('FailedOp(0, "0x0000000000000000000000000000000000000000", "")')
     });
     it('should fail to execute aggregated wallet if wrong aggregator', async () => {
       const userOp = await fillAndSign({
         sender: aggWallet.address,
       }, walletOwner, entryPoint)
 
+      const wrongAggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
+      const sig = HashZero
+
       await expect(entryPoint.handleOps([userOp], beneficiaryAddress, [{
-        aggregator: createAddress(),
+        aggregator: wrongAggregator.address,
         count: 1,
-        signature: '0x'
-      }], [])).to.revertedWith('wrong wallet aggregator')
+        signature: sig
+      }], [])).to.revertedWith('wrong aggregator')
     });
     it('should fail to execute aggregated wallet with wrong agg. signature', async () => {
       const userOp = await fillAndSign({

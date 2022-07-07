@@ -72,8 +72,6 @@ abstract contract BaseWallet is IWallet {
      */
     function _payPrefund(uint256 missingWalletFunds) internal virtual {
         if (missingWalletFunds != 0) {
-            //pay required prefund. make sure NOT to use the "gas" opcode, which is banned during validateUserOp
-            // (and used by default by the "call")
             (bool success,) = payable(msg.sender).call{value : missingWalletFunds, gas : type(uint256).max}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not wallet.)

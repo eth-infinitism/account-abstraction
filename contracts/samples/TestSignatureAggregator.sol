@@ -11,8 +11,7 @@ import "./SimpleWallet.sol";
  */
 contract TestSignatureAggregator is IAggregator {
 
-    function validateSignatures(address entryPoint, UserOperation[] calldata userOps, bytes calldata signature) view override external {
-        (entryPoint);
+    function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) view override external {
         uint sum = 0;
         for (uint i = 0; i < userOps.length; i++) {
             SimpleWallet senderWallet = SimpleWallet(payable(userOps[i].sender));

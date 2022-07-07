@@ -12,5 +12,5 @@ interface IAggregator {
    * validate aggregated signature.
    * revert if the aggregated signature does not match the given list of operations.
    */
-  function validateSignatures(address entryPoint, UserOperation[] calldata userOps, bytes calldata signature) view external;
+  function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) view external;
 }
