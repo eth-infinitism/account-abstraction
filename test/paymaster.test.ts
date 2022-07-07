@@ -127,7 +127,7 @@ describe('EntryPoint with paymaster', function () {
 
         const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
-        }).catch(rethrow()).then(async tx => tx.wait())
+        }).catch(rethrow()).then(async tx => await tx!.wait())
         console.log('\t== create gasUsed=', rcpt.gasUsed.toString())
         await calcGasUsage(rcpt, entryPoint)
         created = true

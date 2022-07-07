@@ -229,12 +229,12 @@ describe('Batch gas testing', function () {
     const ret = await entryPoint.connect(sender).handleOps(ops, beneficiaryAddress, {
       gasLimit: 13e6,
       maxPriorityFeePerGas
-    }).catch((rethrow())).then(async r => r.wait())
+    }).catch((rethrow())).then(async r => await r!.wait())
     // const allocatedGas = ops.map(op => parseInt(op.callGas.toString()) + parseInt(op.verificationGas.toString())).reduce((sum, x) => sum + x)
     // console.log('total allocated gas (callGas+verificationGas):', allocatedGas)
 
     // remove "revert reason" events
-    const events1 = ret.events!.filter(e => e.event === 'UserOperationEvent')!
+    const events1 = ret.events!.filter((e: any) => e.event === 'UserOperationEvent')!
     // console.log(events1.map(e => ({ev: e.event, ...objdump(e.args!)})))
 
     if (events1.length !== ret.events!.length) {
@@ -243,7 +243,7 @@ describe('Batch gas testing', function () {
     // note that in theory, each could can have different gasPrice (depends on its prio/max), but in our
     // test they are all the same.
     const { actualGasPrice } = events1[0]!.args!
-    const totalEventsGasCost = parseInt(events1.map(x => x.args!.actualGasCost).reduce((sum, x) => sum.add(x)).toString())
+    const totalEventsGasCost = parseInt(events1.map((x: any) => x.args!.actualGasCost).reduce((sum: any, x: any) => sum.add(x)).toString())
 
     const senderPaid = parseInt(senderPrebalance.sub(await ethers.provider.getBalance(await sender.getAddress())).toString())
     let senderRedeemed = await ethers.provider.getBalance(beneficiaryAddress).then(tonumber)

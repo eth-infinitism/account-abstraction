@@ -458,7 +458,7 @@ describe('EntryPoint', function () {
         const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
         }).then(async tx => await tx.wait()).catch(rethrow())
-        await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+        await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
       })
 
       it('should reject if account already created', async function () {
@@ -520,7 +520,7 @@ describe('EntryPoint', function () {
         await fund(wallet2.address)
         // prebalance1 = await ethers.provider.getBalance((wallet1))
         // prebalance2 = await ethers.provider.getBalance((wallet2.address))
-        await entryPoint.handleOps([op1, op2], beneficiaryAddress).catch((rethrow())).then(async r => r.wait())
+        await entryPoint.handleOps([op1, op2], beneficiaryAddress).catch((rethrow())).then(async r => await r!.wait())
         // console.log(ret.events!.map(e=>({ev:e.event, ...objdump(e.args!)})))
       })
       it('should execute', async () => {
