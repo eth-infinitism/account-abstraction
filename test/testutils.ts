@@ -24,7 +24,7 @@ export const tostr = (x: any): string => x != null ? x.toString() : 'null'
 export function tonumber (x: any): number {
   try {
     return parseFloat(x.toString())
-  } catch (e) {
+  } catch (e: any) {
     console.log('=== failed to parseFloat:', x, (e).message)
     return NaN
   }
@@ -87,7 +87,7 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 
 // helper function to create a constructor call to our wallet.
 export function WalletConstructor (entryPoint: string, owner: string): BytesLike {
-  return new SimpleWallet__factory().getDeployTransaction(entryPoint, owner).data!
+  return new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
 }
 
 const panicCodes: { [key: number]: string } = {
@@ -218,7 +218,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish): Promise<EntryPoint> {
   const provider = ethers.provider
   const create2factory = new Create2Factory(provider)
-  const epf = new EntryPoint__factory()
+  const epf = new EntryPoint__factory(ethers.provider.getSigner())
   const ctrParams = defaultAbiCoder.encode(['address', 'uint256', 'uint256'],
     [Create2Factory.contractAddress, paymasterStake, unstakeDelaySecs])
 
