@@ -288,8 +288,7 @@ export class AASigner extends Signer {
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           if (revertReasonEvents[0]) {
             console.log('rejecting with reason')
-            reject(new Error('UserOp failed with reason: ' +
-              revertReasonEvents[0].args.revertReason)
+            reject(new Error(`UserOp failed with reason: ${revertReasonEvents[0].args.revertReason}`)
             )
             return
           }

@@ -29,6 +29,7 @@ module.exports = {
   rules: {
     'no-console': 'off',
     '@typescript-eslint/no-var-requires': 'off',
+    '@typescript-eslint/return-await': 'off',
     '@typescript-eslint/no-unnecessary-type-assertion': 'off',
     '@typescript-eslint/require-array-sort-compare': ['error',
       {
