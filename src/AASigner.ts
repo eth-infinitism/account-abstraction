@@ -1,26 +1,24 @@
-import {BigNumber, Bytes, ethers, Signer} from "ethers";
-import {BaseProvider, Provider, TransactionRequest} from "@ethersproject/providers";
-import {Event} from 'ethers'
-import {Deferrable, resolveProperties} from "@ethersproject/properties";
-import {SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory} from "../typechain";
-import {BytesLike, hexValue} from "@ethersproject/bytes";
-import {TransactionResponse} from "@ethersproject/abstract-provider";
-import {fillAndSign, getRequestId} from "../test/UserOp";
-import {UserOperation} from "../test/UserOperation";
-import {TransactionReceipt} from "@ethersproject/abstract-provider/src.ts/index";
-import {clearInterval} from "timers";
+import { BigNumber, Bytes, ethers, Signer, Event } from 'ethers'
+import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/providers'
+import { Deferrable, resolveProperties } from '@ethersproject/properties'
+import { SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory } from '../typechain'
+import { BytesLike, hexValue } from '@ethersproject/bytes'
+import { TransactionResponse } from '@ethersproject/abstract-provider'
+import { fillAndSign, getRequestId } from '../test/UserOp'
+import { UserOperation } from '../test/UserOperation'
+import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
+import { clearInterval } from 'timers'
 
-export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | void>
+export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
 
-export let debug = process.env.DEBUG != null
+export const debug = process.env.DEBUG != null
 
 /**
  * send a request using rpc.
  *
  * @param provider - rpc provider that supports "eth_sendUserOperation"
  */
-export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider, entryPointAddress: string): SendUserOp {
-
+export function rpcUserOpSender (provider: ethers.providers.JsonRpcProvider, entryPointAddress: string): SendUserOp {
   let chainId: number
 
   return async function (userOp) {
@@ -31,23 +29,22 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider, entr
         callData: (userOp.callData ?? '').length
       }, entryPointAddress)
     }
-    if (chainId == undefined) {
+    if (chainId === undefined) {
       chainId = await provider.getNetwork().then(net => net.chainId)
     }
 
     const cleanUserOp = Object.keys(userOp).map(key => {
-      let val = (userOp as any)[key];
-      if (typeof val != 'string' || !val.startsWith('0x'))
-        val = hexValue(val)
+      let val = (userOp as any)[key]
+      if (typeof val !== 'string' || !val.startsWith('0x')) { val = hexValue(val) }
       return [key, val]
     })
-      .reduce((set, [k, v]) => ({...set, [k]: v}), {})
+      .reduce((set, [k, v]) => ({ ...set, [k]: v }), {})
     await provider.send('eth_sendUserOperation', [cleanUserOp, entryPointAddress]).catch(e => {
       throw e.error ?? e
     })
+    return undefined
   }
 }
-
 
 interface QueueSendUserOp extends SendUserOp {
   lastQueueUpdate: number
@@ -64,17 +61,17 @@ interface QueueSendUserOp extends SendUserOp {
  * a SendUserOp that queue requests. need to call sendQueuedUserOps to create a bundle and send them.
  * the returned object handles the queue of userops and also interval control.
  */
-export function queueUserOpSender(entryPointAddress: string, signer: Signer, intervalMs = 3000): QueueSendUserOp {
+export function queueUserOpSender (entryPointAddress: string, signer: Signer, intervalMs = 3000): QueueSendUserOp {
   const entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
 
-  let ret = <QueueSendUserOp>async function (userOp: UserOperation) {
+  const ret = async function (userOp: UserOperation) {
     if (ret.queue[userOp.sender] == null) {
       ret.queue[userOp.sender] = []
     }
     ret.queue[userOp.sender].push(userOp)
     ret.lastQueueUpdate = Date.now()
     ret.queueSize++
-  }
+  } as QueueSendUserOp
 
   ret.queue = {}
   ret.push = async function () {
@@ -82,6 +79,7 @@ export function queueUserOpSender(entryPointAddress: string, signer: Signer, int
   }
   ret.setInterval = function (intervalMs: number) {
     ret.cancelInterval()
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     ret._cancelInterval = setInterval(ret.push, intervalMs)
   }
   ret.cancelInterval = function () {
@@ -107,42 +105,42 @@ export function queueUserOpSender(entryPointAddress: string, signer: Signer, int
 
 let sending = false
 
-//after that much time with no new TX, send whatever you can.
+// after that much time with no new TX, send whatever you can.
 const IDLE_TIME = 5000
 
-//when reaching this theshold, don't wait anymore and send a bundle
+// when reaching this theshold, don't wait anymore and send a bundle
 const BUNDLE_SIZE_IMMEDIATE = 3
 
-async function sendQueuedUserOps(queueSender: QueueSendUserOp, entryPoint: EntryPoint) {
+async function sendQueuedUserOps (queueSender: QueueSendUserOp, entryPoint: EntryPoint): Promise<void> {
   if (sending) {
     console.log('sending in progress. waiting')
     return
   }
-  sending = true;
+  sending = true
   try {
     if (queueSender.queueSize < BUNDLE_SIZE_IMMEDIATE || queueSender.lastQueueUpdate + IDLE_TIME > Date.now()) {
       console.log('queue too small/too young. waiting')
       return
     }
-    let ops: UserOperation[] = []
+    const ops: UserOperation[] = []
     const queue = queueSender.queue
     Object.keys(queue).forEach(sender => {
-      let op = queue[sender].shift();
+      const op = queue[sender].shift()
       if (op != null) {
         ops.push(op)
         queueSender.queueSize--
       }
     })
-    if (ops.length == 0) {
+    if (ops.length === 0) {
       console.log('no ops to send')
       return
     }
-    let signer = await (entryPoint.provider as any).getSigner().getAddress();
+    const signer = await (entryPoint.provider as any).getSigner().getAddress()
     console.log('==== sending batch of ', ops.length)
-    const ret = await entryPoint.handleOps(ops, signer, {maxPriorityFeePerGas: 2e9})
+    const ret = await entryPoint.handleOps(ops, signer, { maxPriorityFeePerGas: 2e9 })
     console.log('handleop tx=', ret.hash)
     const rcpt = await ret.wait()
-    console.log('events=', rcpt.events!.map(e => ({name: e.event, args: e.args})))
+    console.log('events=', rcpt.events!.map(e => ({ name: e.event, args: e.args })))
   } finally {
     sending = false
   }
@@ -155,34 +153,34 @@ async function sendQueuedUserOps(queueSender: QueueSendUserOp, entryPoint: Entry
  * @param signer ethers provider to send the request (must have eth balance to send)
  * @param beneficiary the account to receive the payment (from wallet/paymaster). defaults to the signer's address
  */
-export function localUserOpSender(entryPointAddress: string, signer: Signer, beneficiary?: string): SendUserOp {
+export function localUserOpSender (entryPointAddress: string, signer: Signer, beneficiary?: string): SendUserOp {
   const entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
   return async function (userOp) {
-    if (debug)
+    if (debug) {
       console.log('sending', {
         ...userOp,
-        initCode: userOp.initCode.length<=2 ? userOp.initCode : `<len=${userOp.initCode.length}>`,
+        initCode: userOp.initCode.length <= 2 ? userOp.initCode : `<len=${userOp.initCode.length}>`
       })
-    const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas);
+    }
+    const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas)
     console.log('calc gaslimit=', gasLimit.toString())
     const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), {
       gasLimit,
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
       maxFeePerGas: userOp.maxFeePerGas
     })
-    const rcpt = await ret.wait()
+    await ret.wait()
+    return undefined
   }
 }
 
-
 export class AAProvider extends BaseProvider {
-  private entryPoint: EntryPoint;
+  private readonly entryPoint: EntryPoint
 
-  constructor(entryPointAddress: string, provider: Provider) {
-    super(provider.getNetwork());
+  constructor (entryPointAddress: string, provider: Provider) {
+    super(provider.getNetwork())
     this.entryPoint = EntryPoint__factory.connect(entryPointAddress, provider)
   }
-
 }
 
 /**
@@ -194,7 +192,7 @@ export class AASigner extends Signer {
   private _isPhantom = true
   public entryPoint: EntryPoint
 
-  private _chainId : Promise<number> | undefined
+  private _chainId: Promise<number> | undefined
 
   /**
    * create account abstraction signer
@@ -203,14 +201,14 @@ export class AASigner extends Signer {
    * @param sendUserOp function to actually send the UserOp to the entryPoint.
    * @param index - index of this wallet for this signer.
    */
-  constructor(readonly signer: Signer, readonly entryPointAddress: string, readonly sendUserOp: SendUserOp, readonly index = 0, readonly provider = signer.provider) {
-    super();
+  constructor (readonly signer: Signer, readonly entryPointAddress: string, readonly sendUserOp: SendUserOp, readonly index = 0, readonly provider = signer.provider) {
+    super()
     this.entryPoint = EntryPoint__factory.connect(entryPointAddress, signer)
   }
 
-  //connect to a specific pre-deployed address
+  // connect to a specific pre-deployed address
   // (note: in order to send transactions, the underlying signer address must be valid signer for this wallet (its owner)
-  async connectWalletAddress(address: string) {
+  async connectWalletAddress (address: string): Promise<void> {
     if (this._wallet != null) {
       throw Error('already connected to wallet')
     }
@@ -218,40 +216,39 @@ export class AASigner extends Signer {
       throw new Error('cannot connect to non-existing contract')
     }
     this._wallet = SimpleWallet__factory.connect(address, this.signer)
-    this._isPhantom = false;
+    this._isPhantom = false
   }
 
-  connect(provider: Provider): Signer {
+  connect (provider: Provider): Signer {
     throw new Error('connect not implemented')
   }
 
-  async _deploymentTransaction(): Promise<BytesLike> {
-    let ownerAddress = await this.signer.getAddress();
+  async _deploymentTransaction (): Promise<BytesLike> {
+    const ownerAddress = await this.signer.getAddress()
     return new SimpleWallet__factory()
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
 
-  async getAddress(): Promise<string> {
+  async getAddress (): Promise<string> {
     await this.syncAccount()
     return this._wallet!.address
   }
 
-  signMessage(message: Bytes | string): Promise<string> {
+  async signMessage (message: Bytes | string): Promise<string> {
     throw new Error('signMessage: unsupported by AA')
   }
 
-  signTransaction(transaction: Deferrable<TransactionRequest>): Promise<string> {
+  async signTransaction (transaction: Deferrable<TransactionRequest>): Promise<string> {
     throw new Error('signMessage: unsupported by AA')
   }
 
-  async getWallet(): Promise<SimpleWallet> {
-
+  async getWallet (): Promise<SimpleWallet> {
     await this.syncAccount()
     return this._wallet!
   }
 
-  //fabricate a response in a format usable by ethers users...
-  async userEventResponse(userOp: UserOperation): Promise<TransactionResponse> {
+  // fabricate a response in a format usable by ethers users...
+  async userEventResponse (userOp: UserOperation): Promise<TransactionResponse> {
     const entryPoint = this.entryPoint
     const requestId = getRequestId(userOp, entryPoint.address, await this._chainId!)
     const provider = entryPoint.provider
@@ -259,49 +256,56 @@ export class AASigner extends Signer {
 
     let resolved = false
     const waitPromise = new Promise<TransactionReceipt>((resolve, reject) => {
-      let listener = async function (this: any, ...param: any) {
+      let listener = async function (this: any, ...param: any): Promise<void> {
         if (resolved) return
         const event = arguments[arguments.length - 1] as Event
-        if ( event.blockNumber<= await currentBLock) {
+        if (event.blockNumber <= await currentBLock) {
           // not sure why this callback is called first for previously-mined block..
           console.log('ignore previous block', event.blockNumber)
           return
         }
-        if ( event.args==null ) {
+        if (event.args == null) {
           console.error('got event without args', event)
           return
         }
-        if (event.args.requestId != requestId) {
-          console.log(`== event with wrong requestId: sender/nonce: event.${event.args.sender}@${event.args.nonce}!= userOp.${userOp.sender}@${parseInt(userOp.nonce.toString())}`)
+        if (event.args.requestId !== requestId) {
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions,@typescript-eslint/no-base-to-string
+          console.log(`== event with wrong requestId: sender/nonce: event.${event.args.sender}@${event.args.nonce.toString()}!= userOp.${userOp.sender}@${parseInt(userOp.nonce.toString())}`)
           return
         }
 
         const rcpt = await event.getTransactionReceipt()
-        console.log('got event with status=', event.args!.success, 'gasUsed=', rcpt.gasUsed)
+        console.log('got event with status=', event.args.success, 'gasUsed=', rcpt.gasUsed)
 
-        //TODO: should use "requestId" as "transactionId" (but this has to be done in a provider, not a signer)
+        // TODO: should use "requestId" as "transactionId" (but this has to be done in a provider, not a signer)
 
-        //before returning the receipt, update the status from the event.
-        if (!event.args!.success) {
+        // before returning the receipt, update the status from the event.
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+        if (!event.args.success) {
           console.log('mark tx as failed')
           rcpt.status = 0
           const revertReasonEvents = await entryPoint.queryFilter(entryPoint.filters.UserOperationRevertReason(userOp.sender), rcpt.blockHash)
+          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           if (revertReasonEvents[0]) {
             console.log('rejecting with reason')
-            reject('UserOp failed with reason: ' +
-              revertReasonEvents[0].args.revertReason)
+            reject(new Error(`UserOp failed with reason: ${revertReasonEvents[0].args.revertReason}`)
+            )
             return
           }
         }
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         entryPoint.off('UserOperationEvent', listener)
         resolve(rcpt)
         resolved = true
       }
       listener = listener.bind(listener)
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       entryPoint.on('UserOperationEvent', listener)
-      //for some reason, 'on' takes at least 2 seconds to be triggered on local network. so add a one-shot timer:
-      setTimeout(() => entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(requestId)).then(query => {
+      // for some reason, 'on' takes at least 2 seconds to be triggered on local network. so add a one-shot timer:
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      setTimeout(async () => await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(requestId)).then(query => {
         if (query.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
           listener(query[0])
         }
       }), 500)
@@ -311,51 +315,49 @@ export class AASigner extends Signer {
       confirmations: 0,
       from: userOp.sender,
       nonce: BigNumber.from(userOp.nonce).toNumber(),
-      gasLimit: BigNumber.from(userOp.callGas), //??
+      gasLimit: BigNumber.from(userOp.callGas), // ??
       value: BigNumber.from(0),
       data: hexValue(userOp.callData), // should extract the actual called method from this "execFromSingleton()" call
       chainId: await this._chainId!,
       wait: async function (confirmations?: number): Promise<TransactionReceipt> {
-        return waitPromise
+        return await waitPromise
       }
     }
     return resp
   }
 
-  async sendTransaction(transaction: Deferrable<TransactionRequest>): Promise<TransactionResponse> {
-
+  async sendTransaction (transaction: Deferrable<TransactionRequest>): Promise<TransactionResponse> {
     const userOp = await this._createUserOperation(transaction)
-    //get response BEFORE sending request: the response waits for events, which might be triggered before the actual send returns.
-    let reponse = await this.userEventResponse(userOp);
+    // get response BEFORE sending request: the response waits for events, which might be triggered before the actual send returns.
+    const reponse = await this.userEventResponse(userOp)
     await this.sendUserOp(userOp)
     return reponse
   }
 
-  async syncAccount() {
-    if (!this._wallet) {
+  async syncAccount (): Promise<void> {
+    if (this._wallet == null) {
       const address = await this.entryPoint.getSenderAddress(await this._deploymentTransaction(), this.index)
       this._wallet = SimpleWallet__factory.connect(address, this.signer)
     }
 
-    this._chainId = this.provider?.getNetwork().then(net=>net.chainId)
-    //once an account is deployed, it can no longer be a phantom.
+    this._chainId = this.provider?.getNetwork().then(net => net.chainId)
+    // once an account is deployed, it can no longer be a phantom.
     // but until then, we need to re-check
     if (this._isPhantom) {
       const size = await this.signer.provider?.getCode(this._wallet.address).then(x => x.length)
       // console.log(`== __isPhantom. addr=${this._wallet.address} re-checking code size. result = `, size)
-      this._isPhantom = size == 2
+      this._isPhantom = size === 2
       // !await this.entryPoint.isContractDeployed(await this.getAddress());
     }
   }
 
-  //return true if wallet not yet created.
-  async isPhantom(): Promise<boolean> {
+  // return true if wallet not yet created.
+  async isPhantom (): Promise<boolean> {
     await this.syncAccount()
     return this._isPhantom
   }
 
-  async _createUserOperation(transaction: Deferrable<TransactionRequest>): Promise<UserOperation> {
-
+  async _createUserOperation (transaction: Deferrable<TransactionRequest>): Promise<UserOperation> {
     const tx: TransactionRequest = await resolveProperties(transaction)
     await this.syncAccount()
 
@@ -365,8 +367,9 @@ export class AASigner extends Signer {
     }
     const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
 
-    let {gasPrice, maxPriorityFeePerGas, maxFeePerGas} = tx
-    //gasPrice is legacy, and overrides eip1559 values:
+    let { gasPrice, maxPriorityFeePerGas, maxFeePerGas } = tx
+    // gasPrice is legacy, and overrides eip1559 values:
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (gasPrice) {
       maxPriorityFeePerGas = gasPrice
       maxFeePerGas = gasPrice
@@ -378,7 +381,7 @@ export class AASigner extends Signer {
       callData: execFromEntryPoint.data!,
       callGas: tx.gasLimit,
       maxPriorityFeePerGas,
-      maxFeePerGas,
+      maxFeePerGas
     }, this.signer, this.entryPoint)
 
     return userOp
