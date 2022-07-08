@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.12;
 
+/* solhint-disable avoid-low-level-calls */
+/* solhint-disable not-rely-on-time */
 /**
  * manage deposits and stakes.
  * deposit is just a balance used to pay for UserOperations (either by a paymaster or a wallet)
@@ -92,7 +94,7 @@ abstract contract StakeManager {
     function internalIncrementDeposit(address account, uint256 amount) internal {
         DepositInfo storage info = deposits[account];
         uint256 newAmount = info.deposit + amount;
-        require(newAmount <= type(uint112).max, 'deposit overflow');
+        require(newAmount <= type(uint112).max, "deposit overflow");
         info.deposit = uint112(newAmount);
     }
 

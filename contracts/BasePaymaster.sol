@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
+
+
+/* solhint-disable reason-string */
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./IPaymaster.sol";
 import "./EntryPoint.sol";

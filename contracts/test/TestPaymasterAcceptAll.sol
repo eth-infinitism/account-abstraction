@@ -8,6 +8,7 @@ import "../BasePaymaster.sol";
  */
 contract TestPaymasterAcceptAll is BasePaymaster {
 
+    // solhint-disable-next-line no-empty-blocks
     constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {}
 
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external virtual override view returns (bytes memory context) {

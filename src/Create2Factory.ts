@@ -1,7 +1,7 @@
-//from https://eips.ethereum.org/EIPS/eip-2470
-import {BigNumber, BigNumberish, Contract, ethers, Signer} from "ethers";
-import {arrayify, hexConcat, hexlify, hexZeroPad, keccak256} from "ethers/lib/utils";
-import {Provider} from "@ethersproject/providers";
+// from https://eips.ethereum.org/EIPS/eip-2470
+import { BigNumber, BigNumberish, Contract, ethers, Signer } from 'ethers'
+import { arrayify, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
+import { Provider } from '@ethersproject/providers'
 import {TransactionRequest} from "@ethersproject/abstract-provider";
 
 export class Create2Factory {
@@ -13,15 +13,14 @@ export class Create2Factory {
   static readonly factoryTxHash = '0x803351deb6d745e91545a6a3e1c0ea3e9a6a02a1a4193b70edfcd2f40f71a01c'
   static readonly factoryDeploymentFee = (0.0247 * 1e18).toString()
 
-  constructor(readonly provider: Provider,
-              readonly signer = (provider as ethers.providers.JsonRpcProvider).getSigner()) {
+  constructor (readonly provider: Provider,
+    readonly signer = (provider as ethers.providers.JsonRpcProvider).getSigner()) {
   }
 
   /**
    * deploy a contract using our EIP-2470 deployer.
    * The delpoyer is deployed (unless it is already deployed)
    * NOTE: this transaction will fail if already deployed. use getDeployedAddress to check it first.
-   * @param initCode delpoyment code. can be a hex string or factory.getDeploymentTransaction(..)
    * @param salt
    */
   async deploy(initCode: string | TransactionRequest, salt: BigNumberish = 0, gasLimit?: BigNumberish | 'estimate'): Promise<string> {
@@ -37,11 +36,11 @@ export class Create2Factory {
 
     const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'], this.signer)
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
-    if (gasLimit == 'estimate') {
+    if (gasLimit === 'estimate') {
       gasLimit = await factory.estimateGas.deploy(initCode, saltBytes32)
     }
 
-    //manual estimation (its bit larger: we don't know actual deployed code size)
+    // manual estimation (its bit larger: we don't know actual deployed code size)
     if (gasLimit == undefined) {
       gasLimit = arrayify(initCode)
           .map(x => x == 0 ? 4 : 16)
@@ -64,8 +63,7 @@ export class Create2Factory {
    * @param initCode
    * @param salt
    */
-  getDeployedAddress(initCode: string, salt: BigNumberish): string {
-
+  getDeployedAddress (initCode: string, salt: BigNumberish): string {
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
     return '0x' + keccak256(hexConcat([
       '0xff',
@@ -75,9 +73,9 @@ export class Create2Factory {
     ])).slice(-40)
   }
 
-  //deploy the EIP2470 factory, if not already deployed.
+  // deploy the EIP2470 factory, if not already deployed.
   // (note that it requires to have a "signer" with 0.0247 eth, to fund the deployer's deployment
-  async deployFactory(signer?: Signer) {
+  async deployFactory (signer?: Signer): Promise<void> {
     if (await this._isFactoryDeployed()) {
       return
     }
@@ -91,7 +89,7 @@ export class Create2Factory {
     }
   }
 
-  async _isFactoryDeployed(): Promise<boolean> {
+  async _isFactoryDeployed (): Promise<boolean> {
     if (!this.factoryDeployed) {
       const deployed = await this.provider.getCode(Create2Factory.contractAddress)
       if (deployed.length > 2) {
@@ -101,4 +99,3 @@ export class Create2Factory {
     return this.factoryDeployed
   }
 }
-

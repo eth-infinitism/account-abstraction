@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract TestToken is ERC20 {
     constructor ()
+        // solhint-disable-next-line no-empty-blocks
         ERC20("TST", "TestToken") {
     }
 

@@ -5,10 +5,14 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable avoid-low-level-calls */
+/* solhint-disable no-inline-assembly */
+/* solhint-disable reason-string */
 import "./StakeManager.sol";
 import "./UserOperation.sol";
 import "./IWallet.sol";
 import "./IPaymaster.sol";
+
 import "./IAggregator.sol";
 import "./IAggregatedWallet.sol";
 import "./ICreate2Deployer.sol";
@@ -111,7 +115,6 @@ contract EntryPoint is StakeManager {
         restoreMemoryPointer(startPtr);
         return index;
     }
-
     /**
      * Execute a batch of UserOperation.
      * @param ops the operations to execute
@@ -141,7 +144,6 @@ contract EntryPoint is StakeManager {
             opCount = opslen;
             aggregator = address(0);
         }
-
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
             if (opCount-- == 0) {
@@ -281,7 +283,6 @@ contract EntryPoint is StakeManager {
             arr[0] = userOp;
             aggregator.validateSignatures(arr, aggregatedSignature);
         }
-
         uint256 preGas = gasleft();
 
         bytes32 requestId = getRequestId(userOp);
@@ -348,7 +349,7 @@ contract EntryPoint is StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-
+        // solhint-disable-next-line no-empty-blocks
         if (aggregator == address(0)) {
             try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {
             } catch Error(string memory revertReason) {
@@ -470,6 +471,7 @@ contract EntryPoint is StakeManager {
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
                     IPaymaster(paymaster).postOp{gas : op.verificationGas}(mode, context, actualGasCost);
                 } else {
+                    // solhint-disable-next-line no-empty-blocks
                     try IPaymaster(paymaster).postOp{gas : op.verificationGas}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
                         revert FailedOp(opIndex, paymaster, reason);
