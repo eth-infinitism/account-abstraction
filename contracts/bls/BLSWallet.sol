@@ -21,11 +21,9 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
         aggregator = anAggregator;
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32) internal pure override {
-        //if we get with signature to this point, then it means handleOps was called
-        // without assigning the aggregator to validate the signature of this userOp
-        require(userOp.signature.length<64, "BLSWallet: must user aggregator");
-
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address userOpAggregator) internal override view {
+        (userOp, requestId);
+        require(userOpAggregator == aggregator, "BLSWallet: wrong aggregator");
     }
 
     event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);
