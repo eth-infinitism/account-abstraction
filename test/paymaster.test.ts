@@ -1,4 +1,3 @@
-import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
@@ -121,7 +120,7 @@ describe('EntryPoint with paymaster', function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        await entryPoint.simulateValidation(createOp, '0x', { gasLimit: 5e6 }).catch(e => e.message)
+        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 
@@ -254,7 +253,7 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.unlockStake()
         const amount = await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)
         expect(amount).to.be.gte(ONE_ETH.div(2))
-        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
+        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 1000])
         await paymaster.withdrawStake(withdrawAddress)
         expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
         expect(await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)).to.eq(0)

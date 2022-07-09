@@ -144,8 +144,8 @@ contract EntryPoint is StakeManager {
             validateAggregatedSignatures(ops, aggregators);
             opCount = 0;
         } else {
-//            opCount = opslen;
-//            aggregator = address(0);
+            opCount = opslen;
+            aggregator = address(0);
         }
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
@@ -157,7 +157,7 @@ contract EntryPoint is StakeManager {
                 } else {
                     AggregatorInfo calldata agInfo = aggregators[agIndex++];
                     aggregator = address(agInfo.aggregator);
-                    opCount = agInfo.count-1;
+                    opCount = agInfo.count - 1;
                 }
             }
             uint256 preGas = gasleft();
@@ -276,12 +276,15 @@ contract EntryPoint is StakeManager {
      * @return aggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
      */
-    function simulateValidation(UserOperation calldata userOp, bytes memory /*ignored*/) external returns (uint256 preOpGas, uint256 prefund, address aggregator) {
+    function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund, address aggregator) {
 
         aggregator = address(0);
-        (bool success, bytes memory returnValue) = Executor.callWithReturnValue(userOp.getSender(), 0, abi.encodeCall(IAggregatedWallet.getAggregator, ()), gasleft());
-        if (success && returnValue.length == 32) {
-            aggregator = abi.decode(returnValue, (address));
+        bool success = Executor.call(userOp.getSender(), 0, abi.encodeCall(IAggregatedWallet.getAggregator, ()), gasleft());
+        if (success) {
+            bytes memory returnData = Executor.getReturnData();
+            if (returnData.length == 32) {
+                aggregator = abi.decode(returnData, (address));
+            }
         }
 
         uint256 preGas = gasleft();
