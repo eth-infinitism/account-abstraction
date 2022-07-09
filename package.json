@@ -6,7 +6,7 @@
     "clean": "rm -rf cache artifacts typechain typechain-types",
     "compile": "./scripts/hh-wrapper compile",
     "tsc": "tsc",
-    "lint": "yarn compile && yarn run lint:js && yarn run lint:sol",
+    "lint": "yarn compile && yarn run lint:sol && yarn run lint:js ",
     "lint:js": "eslint -f unix .",
     "lint-fix": "eslint -f unix . --fix",
     "lint:sol": "solhint -f unix \"contracts/**/*.sol\" --max-warnings 0",

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable reason-string */
+
 import "../IAggregator.sol";
 import "hardhat/console.sol";
 import "./SimpleWallet.sol";
@@ -11,7 +13,7 @@ import "./SimpleWallet.sol";
  */
 contract TestSignatureAggregator is IAggregator {
 
-    function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) view override external {
+    function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) external view override {
         uint sum = 0;
         for (uint i = 0; i < userOps.length; i++) {
             SimpleWallet senderWallet = SimpleWallet(payable(userOps[i].sender));
