@@ -1,3 +1,4 @@
+import 'hardhat/console.sol';
 /**
  ** Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  ** Only one instance required on each chain.
@@ -16,6 +17,8 @@ import "./IPaymaster.sol";
 import "./IAggregator.sol";
 import "./IAggregatedWallet.sol";
 import "./ICreate2Deployer.sol";
+import "./utils/Executor.sol";
+import "hardhat/console.sol";
 
 contract EntryPoint is StakeManager {
 
@@ -105,7 +108,7 @@ contract EntryPoint is StakeManager {
         for (uint i = 0; i < aggregators.length; i++) {
             AggregatorInfo memory agg = aggregators[i];
             uint count = agg.count;
-            UserOperation[] memory copyOfOps = copyOpsRange(ops, index, index + count);
+            UserOperation[] memory copyOfOps = copyOpsRange(ops, index, count);
             agg.aggregator.validateSignatures(
                 copyOfOps,
                 agg.signature
@@ -141,8 +144,8 @@ contract EntryPoint is StakeManager {
             validateAggregatedSignatures(ops, aggregators);
             opCount = 0;
         } else {
-            opCount = opslen;
-            aggregator = address(0);
+//            opCount = opslen;
+//            aggregator = address(0);
         }
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
@@ -152,10 +155,9 @@ contract EntryPoint is StakeManager {
                     aggregator = address(0);
                     opCount = opslen;
                 } else {
-                    AggregatorInfo calldata agInfo = aggregators[agIndex];
+                    AggregatorInfo calldata agInfo = aggregators[agIndex++];
                     aggregator = address(agInfo.aggregator);
-                    opCount = agInfo.count;
-                    agIndex++;
+                    opCount = agInfo.count-1;
                 }
             }
             uint256 preGas = gasleft();
@@ -182,6 +184,7 @@ contract EntryPoint is StakeManager {
         uint256 execOrderLen = execOrder.length;
         require(execOrderLen == 0 || execOrderLen == ops.length);
 
+        // avoid "stack too deep"
         UserOperation[] calldata _ops = ops;
 
         for (uint256 i = 0; i < opslen; i++) {
@@ -268,21 +271,19 @@ contract EntryPoint is StakeManager {
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
-     * @param aggregatedSignature: if the wallet is an IAggregatedSignature, then the simulation of the
-     *      signature is done over a single-operation "bundle". The userOp parameter to simulate is
-     *      as it should be during aggregation (with signature removed).
-     *      If the wallet is not aggregatable, then this parameter is empty.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
+     * @return aggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
+     *      aggregator.
      */
-    function simulateValidation(UserOperation calldata userOp, bytes calldata aggregatedSignature) external returns (uint256 preOpGas, uint256 prefund) {
-        IAggregator aggregator = IAggregator(address(0));
-        if (aggregatedSignature.length != 0) {
-            aggregator = IAggregator(IAggregatedWallet(userOp.getSender()).getAggregator());
-            UserOperation[] memory arr = new UserOperation[](1);
-            arr[0] = userOp;
-            aggregator.validateSignatures(arr, aggregatedSignature);
+    function simulateValidation(UserOperation calldata userOp, bytes memory /*ignored*/) external returns (uint256 preOpGas, uint256 prefund, address aggregator) {
+
+        aggregator = address(0);
+        (bool success, bytes memory returnValue) = Executor.callWithReturnValue(userOp.getSender(), 0, abi.encodeCall(IAggregatedWallet.getAggregator, ()), gasleft());
+        if (success && returnValue.length == 32) {
+            aggregator = abi.decode(returnValue, (address));
         }
+
         uint256 preGas = gasleft();
 
         bytes32 requestId = getRequestId(userOp);
@@ -350,20 +351,11 @@ contract EntryPoint is StakeManager {
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         // solhint-disable-next-line no-empty-blocks
-        if (aggregator == address(0)) {
-            try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {
-            } catch Error(string memory revertReason) {
-                revert FailedOp(opIndex, address(0), revertReason);
-            } catch {
-                revert FailedOp(opIndex, address(0), "");
-            }
-        } else {
-            try IAggregatedWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, aggregator, missingWalletFunds) {
-            } catch Error(string memory revertReason) {
-                revert FailedOp(opIndex, address(0), revertReason);
-            } catch {
-                revert FailedOp(opIndex, address(0), "");
-            }
+        try IAggregatedWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, aggregator, missingWalletFunds) {
+        } catch Error(string memory revertReason) {
+            revert FailedOp(opIndex, address(0), revertReason);
+        } catch {
+            revert FailedOp(opIndex, address(0), "");
         }
         if (paymentMode != PaymentMode.paymasterDeposit) {
             DepositInfo storage senderInfo = deposits[sender];
@@ -526,8 +518,8 @@ contract EntryPoint is StakeManager {
         }
     }
 
-    function copyOpsRange(UserOperation[] calldata ops, uint index, uint count
-    ) private view returns (UserOperation[] memory ret)  {
+    function copyOpsRange(UserOperation[] calldata ops, uint index, uint count)
+    private pure returns (UserOperation[] memory ret)  {
     unchecked {
         ret = new UserOperation[](count);
         for (uint i = 0; i < count; i++) {

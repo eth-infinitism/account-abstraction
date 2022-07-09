@@ -13,7 +13,6 @@ const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secr
 let mnemonic = 'test '.repeat(11) + 'junk'
 if (fs.existsSync(mnemonicFileName)) { mnemonic = fs.readFileSync(mnemonicFileName, 'ascii') }
 
-
 console.log(mnemonic)
 
 function getNetwork1 (url: string): { url: string, accounts: { mnemonic: string } } {
