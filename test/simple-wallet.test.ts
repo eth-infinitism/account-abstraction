@@ -8,7 +8,7 @@ import {
   TestUtil,
   TestUtil__factory
 } from '../typechain'
-import {AddressZero, createWalletOwner, getBalance, ONE_ETH} from './testutils'
+import { AddressZero, createWalletOwner, getBalance, ONE_ETH } from './testutils'
 import { fillUserOp, getRequestId, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
