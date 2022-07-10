@@ -39,7 +39,7 @@ library BLS {
     uint256 private constant MASK24 = 0xffffffffffffffffffffffffffffffffffffffffffffffff;
 
     // estimator address
-    address private constant COST_ESTIMATOR_ADDRESS = 0x22E4a5251C1F02de8369Dd6f192033F6CB7531A4;
+//    address private constant COST_ESTIMATOR_ADDRESS =  new 0x22E4a5251C1F02de8369Dd6f192033F6CB7531A4;
 
     function verifySingle(
         uint256[2] memory signature,
@@ -62,10 +62,10 @@ library BLS {
                 pubkey[2]
             ];
         uint256[1] memory out;
-        uint256 precompileGasCost =
-            BNPairingPrecompileCostEstimator(COST_ESTIMATOR_ADDRESS).getGasCost(
-                2
-            );
+        uint256 precompileGasCost = gasleft();
+//            BNPairingPrecompileCostEstimator(COST_ESTIMATOR_ADDRESS).getGasCost(
+//                2
+//            );
         bool callSuccess;
         // solium-disable-next-line security/no-inline-assembly
         assembly {
@@ -114,7 +114,8 @@ library BLS {
         uint256[1] memory out;
 
         // prettier-ignore
-        uint256 precompileGasCost = BNPairingPrecompileCostEstimator(COST_ESTIMATOR_ADDRESS).getGasCost(size + 1);
+        uint256 precompileGasCost = gasleft();
+//        uint256 precompileGasCost = BNPairingPrecompileCostEstimator(COST_ESTIMATOR_ADDRESS).getGasCost(size + 1);
         // solium-disable-next-line security/no-inline-assembly
         assembly {
             callSuccess := staticcall(
