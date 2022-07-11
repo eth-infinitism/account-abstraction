@@ -27,14 +27,15 @@ import {
   deployEntryPoint,
   getBalance, FIVE_ETH, createAddress, HashZero
 } from './testutils'
-import { fillAndSign, fillUserOp, getRequestId } from './UserOp'
+import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { formatEther, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { TestSignatureAggregator__factory } from '../typechain/factories/TestSignatureAggregator__factory'
 import { TestSignatureAggregator } from '../typechain/TestSignatureAggregator'
+import { BytesLike } from '@ethersproject/bytes'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -623,7 +624,7 @@ describe('EntryPoint', function () {
           count: 1,
           signature: HashZero
         }]
-        await entryPoint.handleOps(ops, beneficiaryAddress, aggInfos, [])
+        await entryPoint.handleOps(ops, beneficiaryAddress, aggInfos, [], { gasLimit: 3e6 })
       })
 
       describe('execution ordering', () => {
@@ -648,16 +649,34 @@ describe('EntryPoint', function () {
           }], [1, 1])).to.revertedWith('execOrder duplicate entry')
         })
 
-        it('should simulate wallet creation and return aggregator', async () => {
-          const initCode = await new TestAggregatedWallet__factory(ethersSigner).getDeployTransaction(entryPoint.address, aggregator.address).data!
-          const addr = await entryPoint.getSenderAddress(initCode, 10)
-          await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
-          const userOp = await fillAndSign({
-            initCode,
-            nonce: 10
-          }, walletOwner, entryPoint)
-          const ret = await entryPointView.callStatic.simulateValidation(userOp)
-          expect(ret.actualAggregator).to.equal(aggregator.address)
+        context('create wallet', async () => {
+          let initCode: BytesLike
+          let addr: string
+          let userOp: UserOperation
+          before(async () => {
+            initCode = await new TestAggregatedWallet__factory(ethersSigner).getDeployTransaction(entryPoint.address, aggregator.address).data!
+            addr = await entryPoint.getSenderAddress(initCode, 10)
+            await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
+            userOp = await fillAndSign({
+              initCode,
+              nonce: 10
+            }, walletOwner, entryPoint)
+          })
+          it('should simulate wallet creation', async () => {
+            const ret = await entryPointView.callStatic.simulateValidation(userOp)
+            expect(ret.actualAggregator).to.equal(aggregator.address)
+          })
+          it('should create wallet in handleOps', async () => {
+            const { sigForAggregation } = await aggregator.validateUserOpSignature(userOp)
+            const sig = await aggregator.aggregateSignatures([sigForAggregation])
+            await entryPoint.handleOps([userOp], beneficiaryAddress, [
+              {
+                aggregator: aggregator.address,
+                count: 1,
+                signature: sig
+              }
+            ], [], { gasLimit: 3e6 })
+          })
         })
 
         it('should run in given execute order', async () => {

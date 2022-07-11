@@ -143,13 +143,14 @@ contract EntryPoint is StakeManager {
         uint opCount;
         uint agIndex = 0;
         if (aggregatorsLen > 0) {
-            validateAggregatedSignatures(ops, aggregators);
             opCount = 0;
         } else {
             opCount = opslen;
             aggregator = address(0);
         }
     unchecked {
+
+        /// Validation Loop: call validateUserOp on each wallet (and paymaster). revert entire transaction on revert.
         for (uint256 i = 0; i < opslen; i++) {
             if (opCount-- == 0) {
                 if (agIndex >= aggregatorsLen) {
@@ -182,6 +183,11 @@ contract EntryPoint is StakeManager {
             );
         }
 
+        if (aggregatorsLen>0) {
+            /// Aggregated Sig loop: validate all aggregated signatures. revert entire transaction on revert.
+            validateAggregatedSignatures(ops, aggregators);
+        }
+
         uint256 collected = 0;
         uint256 execOrderLen = execOrder.length;
         require(execOrderLen == 0 || execOrderLen == ops.length);
@@ -189,6 +195,7 @@ contract EntryPoint is StakeManager {
         // avoid "stack too deep"
         UserOperation[] calldata _ops = ops;
 
+        /// Execution loop: revert single UserOp on failure.
         for (uint256 i = 0; i < opslen; i++) {
             uint256 preGas = gasleft();
             uint256 opIndex;
