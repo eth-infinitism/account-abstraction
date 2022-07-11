@@ -30,6 +30,9 @@ contract EntryPoint is StakeManager {
 
     address public immutable create2factory;
 
+    // internal value used during simulation
+    address private constant SIMULATE_NO_AGGREGATOR = address(1);
+
     /***
      * An event emitted after each successful request
      * @param requestId - unique identifier for the request (hash its entire content, except signature).
@@ -167,7 +170,7 @@ contract EntryPoint is StakeManager {
             bytes32 requestId = getRequestId(op);
             uint256 prefund;
             PaymentMode paymentMode;
-            (prefund, paymentMode, context) = _validatePrepayment(i, op, requestId, aggregator);
+            (prefund, paymentMode, context,) = _validatePrepayment(i, op, requestId, aggregator);
             assembly {contextOffset := context}
             opInfos[i] = UserOpInfo(
                 requestId,
@@ -272,24 +275,15 @@ contract EntryPoint is StakeManager {
      * @param userOp the user operation to validate.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return aggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
+     * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
      */
-    function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund, address aggregator) {
-
-        aggregator = address(0);
-        bool success = Executor.call(userOp.getSender(), 0, abi.encodeCall(IAggregatedWallet.getAggregator, ()), gasleft());
-        if (success) {
-            bytes memory returnData = Executor.getReturnData();
-            if (returnData.length == 32) {
-                aggregator = abi.decode(returnData, (address));
-            }
-        }
+    function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund, address actualAggregator) {
 
         uint256 preGas = gasleft();
 
         bytes32 requestId = getRequestId(userOp);
-        (prefund,,) = _validatePrepayment(0, userOp, requestId, address(aggregator));
+        (prefund,,,actualAggregator) = _validatePrepayment(0, userOp, requestId, SIMULATE_NO_AGGREGATOR);
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
 
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
@@ -305,7 +299,7 @@ contract EntryPoint is StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(UserOperation calldata op) internal {
+    function _createSenderIfNeeded(UserOperation calldata op) internal returns (bool){
         if (op.initCode.length != 0) {
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
@@ -314,6 +308,9 @@ contract EntryPoint is StakeManager {
             address sender1 = ICreate2Deployer(create2factory).deploy(op.initCode, bytes32(op.nonce));
             require(sender1 != address(0), "create2 failed");
             require(sender1 == op.getSender(), "sender doesn't match create2 address");
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -342,10 +339,18 @@ contract EntryPoint is StakeManager {
      * revert (with FailedOp) in case validateUserOp reverts, or wallet didn't send required prefund.
      * decrement wallet's deposit if needed
      */
-    function _validateWalletPrepayment(uint256 opIndex, UserOperation calldata op, bytes32 requestId, address aggregator, uint256 requiredPrefund, PaymentMode paymentMode) internal returns (uint256 gasUsedByValidateWalletPrepayment) {
+    function _validateWalletPrepayment(uint256 opIndex, UserOperation calldata op, bytes32 requestId, address aggregator, uint256 requiredPrefund, PaymentMode paymentMode)
+    internal returns (uint256 gasUsedByValidateWalletPrepayment, address actualAggregator) {
     unchecked {
         uint256 preGas = gasleft();
-        _createSenderIfNeeded(op);
+        if (_createSenderIfNeeded(op)) {
+            if (aggregator == SIMULATE_NO_AGGREGATOR) {
+                try IAggregatedWallet(op.getSender()).getAggregator() returns (address userOpAggregator) {
+                    aggregator = actualAggregator = userOpAggregator;
+                } catch {}
+            }
+        }
+
         uint256 missingWalletFunds = 0;
         address sender = op.getSender();
         if (paymentMode != PaymentMode.paymasterDeposit) {
@@ -407,7 +412,7 @@ contract EntryPoint is StakeManager {
      * also make sure total validation doesn't exceed verificationGas
      * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
      */
-    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, bytes32 requestId, address aggregator) private returns (uint256 requiredPreFund, PaymentMode paymentMode, bytes memory context){
+    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, bytes32 requestId, address aggregator) private returns (uint256 requiredPreFund, PaymentMode paymentMode, bytes memory context, address actualAggregator) {
 
         uint256 preGas = gasleft();
         uint256 maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
@@ -415,8 +420,7 @@ contract EntryPoint is StakeManager {
         require(maxGasValues <= type(uint120).max, "gas values overflow");
         uint256 gasUsedByValidateWalletPrepayment;
         (requiredPreFund, paymentMode) = _getPaymentInfo(userOp);
-
-        (gasUsedByValidateWalletPrepayment) = _validateWalletPrepayment(opIndex, userOp, requestId, aggregator, requiredPreFund, paymentMode);
+        (gasUsedByValidateWalletPrepayment, actualAggregator) = _validateWalletPrepayment(opIndex, userOp, requestId, aggregator, requiredPreFund, paymentMode);
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
