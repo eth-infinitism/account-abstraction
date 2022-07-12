@@ -649,7 +649,7 @@ describe('EntryPoint', function () {
           }], [1, 1])).to.revertedWith('execOrder duplicate entry')
         })
 
-        context('create wallet', async () => {
+        context('create wallet', () => {
           let initCode: BytesLike
           let addr: string
           let userOp: UserOperation

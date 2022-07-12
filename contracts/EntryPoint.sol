@@ -183,7 +183,7 @@ contract EntryPoint is StakeManager {
             );
         }
 
-        if (aggregatorsLen>0) {
+        if (aggregatorsLen > 0) {
             /// Aggregated Sig loop: validate all aggregated signatures. revert entire transaction on revert.
             validateAggregatedSignatures(ops, aggregators);
         }
@@ -354,7 +354,9 @@ contract EntryPoint is StakeManager {
             if (aggregator == SIMULATE_NO_AGGREGATOR) {
                 try IAggregatedWallet(op.getSender()).getAggregator() returns (address userOpAggregator) {
                     aggregator = actualAggregator = userOpAggregator;
-                } catch {}
+                } catch {
+                    aggregator = address(0);
+                }
             }
         }
 
