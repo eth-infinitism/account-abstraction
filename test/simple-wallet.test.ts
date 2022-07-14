@@ -9,7 +9,7 @@ import {
   TestUtil__factory
 } from '../typechain'
 import { AddressZero, createWalletOwner, getBalance, ONE_ETH } from './testutils'
-import { fillUserOp, getRequestId, packUserOp, signUserOp } from './UserOp'
+import { fillUserOpDefaults, getRequestId, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
@@ -40,7 +40,7 @@ describe('SimpleWallet', function () {
   })
 
   it('should pack in js the same as solidity', async () => {
-    const op = await fillUserOp({ sender: accounts[0] })
+    const op = await fillUserOpDefaults({ sender: accounts[0] })
     const packed = packUserOp(op)
     expect(await testUtil.packUserOp(op)).to.equal(packed)
   })
@@ -64,7 +64,7 @@ describe('SimpleWallet', function () {
       const maxFeePerGas = 3e9
       const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-      userOp = signUserOp(fillUserOp({
+      userOp = signUserOp(fillUserOpDefaults({
         sender: wallet.address,
         callGas,
         verificationGas,
