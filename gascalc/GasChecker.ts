@@ -1,25 +1,13 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
 import {formatEther, parseEther} from "ethers/lib/utils";
-import {
-  AddressZero,
-  checkForGeth,
-  createAddress,
-  createWalletOwner,
-  deployEntryPoint,
-  isDeployed
-} from "../test/testutils";
-import {
-  EntryPoint,
-  EntryPoint__factory,
-  SimpleWallet__factory,
-} from "../typechain";
+import {AddressZero, checkForGeth, createAddress, createWalletOwner, deployEntryPoint} from "../test/testutils";
+import {EntryPoint, EntryPoint__factory, SimpleWallet__factory,} from "../typechain";
 import {BigNumberish, Wallet} from "ethers";
 import hre from 'hardhat'
 import {fillAndSign} from "../test/UserOp";
 import {SimpleWalletInterface} from "../typechain/SimpleWallet";
 import 'colors'
-import {UserOperation} from "../test/UserOperation";
 import {TransactionReceipt} from "@ethersproject/abstract-provider";
 import {table, TableUserConfig} from 'table'
 import {Create2Factory} from "../src/Create2Factory";
@@ -69,12 +57,6 @@ interface GasTestResult {
   receipt?: TransactionReceipt
 }
 
-interface Table {
-  addTableRow: (args: Array<any>) => void
-  doneTable: () => void
-}
-
-
 /**
  * singleton contract used by all GasChecker modules ("tests")
  * init() static method -
@@ -82,57 +64,40 @@ interface Table {
  *  run
  */
 
-var gasCheckerInstance: any = null
+//gas estimate of the "execFromSingleton" methods
+// we assume a given call signature has the same gas usage
+// (TODO: the estimate also depends on contract code. for test purposes, assume each contract implementation has different method signature)
+// at the end of the checks, we report the gas usage of all those method calls
+const gasEstimatePerExec: { [key: string]: { title: string, walletEst: number } } = {}
 
+/**
+ * helper contract to generate gas test.
+ * see runTest() method for "test template" info
+ * override for different wallet implementation:
+ * - walletInitCode() - the constructor code
+ * - walletExec() the wallet execution method.
+ */
 export class GasChecker {
-
   wallets: { [wallet: string]: Wallet } = {}
 
-  gasCheckEntryPoint: EntryPoint
   walletOwner: Wallet
 
-  gasEstimatePerExec: { [key: string]: { title: string, walletEst: number } } = {}
-
-
-  saveConsoleLog: any = null
   walletInterface: SimpleWalletInterface
 
-  redirectConsoleLogToFile(outputFile: string) {
-    fs.rmSync(outputFile, {force: true})
-    console.log('Writing output to', outputFile)
-
-    //revert previous redirect if already exist
-    if (this.saveConsoleLog) {
-      console.log = this.saveConsoleLog
-    }
-
-    this.saveConsoleLog = console.log
-    console.log = (msg) => {
-      this.saveConsoleLog(msg)
-      fs.appendFileSync(outputFile, msg + '\n')
-    }
+  constructor() {
+    this.walletOwner = createWalletOwner()
+    this.walletInterface = SimpleWallet__factory.createInterface()
+    void GasCheckCollector.init()
   }
 
-  async _init(entryPointAddressOrTest: string = 'test') {
-    console.log('signer=', await ethersSigner.getAddress())
-    DefaultGasTestInfo.beneficiary = createAddress()
+  //generate the "exec" calldata for this wallet
+  walletExec(dest: string, value: BigNumberish, data = '0x'): string {
+    return this.walletInterface.encodeFunctionData('execFromEntryPoint', [dest, value, data])
+  }
 
-    let bal = await getBalance(ethersSigner.getAddress());
-    if (bal.gt(parseEther('100000000'))) {
-      console.log('bal=', formatEther(bal))
-      console.log('DONT use geth miner.. use account 2 instead')
-      await checkForGeth()
-      ethersSigner = ethers.provider.getSigner(2)
-    }
-
-    if (entryPointAddressOrTest == 'test') {
-      this.gasCheckEntryPoint = await deployEntryPoint(1, 1, provider)
-    } else {
-      this.gasCheckEntryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
-    }
-    this.walletOwner = createWalletOwner()
-
-    this.walletInterface = SimpleWallet__factory.createInterface()
+  // generate the wallet "creation code"
+  walletInitCode(): string {
+    return hexValue(new SimpleWallet__factory(ethersSigner).getDeployTransaction(GasCheckCollector.inst.entryPoint.address, this.walletOwner.address).data!)
   }
 
   /**
@@ -141,93 +106,48 @@ export class GasChecker {
    * do nothing for wallet already created
    * @param count
    */
-  async createWallets1(count: number, entryPoint: EntryPoint) {
+  async createWallets1(count: number) {
     const simpleWalletFactory = new SimpleWallet__factory(ethersSigner)
     const fact = new Create2Factory(provider)
     //create wallets
     for (let n in range(count)) {
       const salt = parseInt(n)
-      const initCode = hexValue(await simpleWalletFactory.getDeployTransaction(entryPoint.address, this.walletOwner.address).data!)
+      const initCode = this.walletInitCode()
 
       const addr = fact.getDeployedAddress(initCode, salt)
       this.wallets[addr] = this.walletOwner
 
       //deploy if not already deployed.
       await fact.deploy(initCode, salt)
-      let walletBalance = await entryPoint.balanceOf(addr);
+      let walletBalance = await GasCheckCollector.inst.entryPoint.balanceOf(addr);
       if (walletBalance.lte(minDepositOrBalance)) {
-        await entryPoint.depositTo(addr, {value: minDepositOrBalance.mul(5)})
+        await GasCheckCollector.inst.entryPoint.depositTo(addr, {value: minDepositOrBalance.mul(5)})
       }
-    }
-  }
-
-  // must be FALSE for automining (hardhat), otherwise "true"
-  useAutoNonce = false
-
-
-//create userOp to create multiple wallets.  this is quite slow on Hardhat/ganache nodes,
-// so we create the wallets in separate transactions
-  async createWalletsWithUserOps(count: number) {
-    const constructorCode = new SimpleWallet__factory(ethersSigner).getDeployTransaction(this.gasCheckEntryPoint.address, this.walletOwner.address).data!
-
-    let nonce = await provider.getTransactionCount(ethersSigner.getAddress())
-
-    const pThis = this
-
-    function autoNonce() {
-      if (pThis.useAutoNonce) {
-        return nonce++
-      } else {
-        return undefined
-      }
-    }
-
-    const ops1 = await Promise.all(range(count).map(async index => {
-      const addr = await this.gasCheckEntryPoint.getSenderAddress(constructorCode, index)
-      this.wallets[addr] = this.walletOwner
-      if (await isDeployed(addr)) {
-        // console.log('== wallet', addr, 'already deployed'.yellow)
-        return
-      }
-
-      return fillAndSign({
-        sender: addr,
-        initCode: constructorCode,
-        nonce: index
-      }, this.walletOwner, this.gasCheckEntryPoint)
-    }))
-
-    const userOps = ops1.filter(x => x != undefined) as UserOperation[]
-    //deposit balance for deployment (todo: excelent place to use a paymaster...)
-    for (let op of userOps) {
-      let addr = op.sender;
-      let walletBalance = await this.gasCheckEntryPoint.balanceOf(addr);
-      if (walletBalance.lte(minDepositOrBalance)) {
-        // console.debug('== wallet', addr, 'depositing for create'.yellow)
-        await this.gasCheckEntryPoint.depositTo(addr, {value: minDepositOrBalance.mul(5)})
-      }
-    }
-
-    if (userOps.length > 0) {
-      console.log('createWallets: handleOps')
-      const ret = await this.gasCheckEntryPoint.handleOps(userOps, DefaultGasTestInfo.beneficiary!)
-      const rcpt = await ret.wait()
-      console.log('deployment'.green, 'of', userOps.length, 'wallets, gas cost=', rcpt.gasUsed.toNumber())
-    } else {
-      console.log('all', count, 'wallets already deployed'.yellow)
     }
   }
 
   /**
-   * run a single gas calculation test, to calculate
+   * helper: run a test scenario, and add a table row
    * @param params - test parameters. missing values filled in from DefaultGasTestInfo
+   * note that 2 important params are methods: walletExec() and walletInitCode()
+   */
+  async addTestRow(params: Partial<GasTestInfo>) {
+    await GasCheckCollector.init()
+    GasCheckCollector.inst.addRow(await this.runTest(params))
+  }
+
+  /**
+   * run a single test scenario
+   * @param params - test parameters. missing values filled in from DefaultGasTestInfo
+   * note that 2 important params are methods: walletExec() and walletInitCode()
    */
   async runTest(params: Partial<GasTestInfo>): Promise<GasTestResult> {
     const info = {...DefaultGasTestInfo, ...params} as GasTestInfo
 
     console.debug('== running test count=', info.count)
 
-    await this.createWallets1(info.count, this.gasCheckEntryPoint)
+    //fill wallets up to this code.
+    await this.createWallets1(info.count)
 
     let walletEst: number = 0
     const userOps = await Promise.all(range(info.count)
@@ -240,22 +160,20 @@ export class GasChecker {
         if (dest == null) {
           dest = createAddress()
         }
-        const walletExecFromEntryPoint = this.walletInterface.encodeFunctionData('execFromEntryPoint',
-          [dest, destValue, destCallData])
+        const walletExecFromEntryPoint = this.walletExec(dest, destValue, destCallData)
 
-        let est = this.gasEstimatePerExec[walletExecFromEntryPoint]
+        let est = gasEstimatePerExec[walletExecFromEntryPoint]
         //technically, each UserOp needs estimate - but we know they are all the same for each test.
         if (est == null) {
-          walletEst = (await ethers.provider.estimateGas({
-            from: this.gasCheckEntryPoint.address,
+          const walletEst = (await ethers.provider.estimateGas({
+            from: GasCheckCollector.inst.entryPoint.address,
             to: wallet,
             data: walletExecFromEntryPoint
           })).toNumber()
-          this.gasEstimatePerExec[walletExecFromEntryPoint] = {walletEst, title: info.title}
-        } else {
-          walletEst = est.walletEst
+          est = gasEstimatePerExec[walletExecFromEntryPoint] = {walletEst, title: info.title}
         }
         // console.debug('== wallet est=', walletEst.toString())
+        walletEst = est.walletEst;
         const op = await fillAndSign({
           sender: wallet,
           callData: walletExecFromEntryPoint,
@@ -265,13 +183,13 @@ export class GasChecker {
           verificationGas: 1000000,
           paymaster,
           preVerificationGas: 1
-        }, walletOwner, this.gasCheckEntryPoint)
+        }, walletOwner, GasCheckCollector.inst.entryPoint)
         // const packed = packUserOp(op, false)
         // console.log('== packed cost=', callDataCost(packed), packed)
         return op
       }))
 
-    const ret = await this.gasCheckEntryPoint.handleOps(userOps, info.beneficiary, {gasLimit: 20e6})
+    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, {gasLimit: 20e6})
     const rcpt = await ret.wait()
     let gasUsed = rcpt.gasUsed.toNumber()
     console.debug('count', info.count, 'gasUsed', gasUsed)
@@ -294,6 +212,71 @@ export class GasChecker {
     return ret1
   }
 
+  //helper methods to access the GasCheckCollector singleton
+  addRow(res: GasTestResult) {
+    GasCheckCollector.inst.addRow(res)
+  }
+
+  entryPoint() {
+    return GasCheckCollector.inst.entryPoint
+  }
+
+  skipLong() {
+    return process.env.SKIP_LONG != null
+  }
+
+}
+
+export class GasCheckCollector {
+
+  static inst: GasCheckCollector
+  static initPromise?: Promise<GasCheckCollector>
+
+  entryPoint: EntryPoint
+
+  static async init(): Promise<void> {
+    if (this.inst == null) {
+      if (this.initPromise == null) {
+        this.initPromise = new GasCheckCollector()._init()
+      }
+      this.inst = await this.initPromise
+    }
+  }
+
+  async _init(entryPointAddressOrTest: string = 'test'): Promise<this> {
+
+    console.log('signer=', await ethersSigner.getAddress())
+    DefaultGasTestInfo.beneficiary = createAddress()
+
+    let bal = await getBalance(ethersSigner.getAddress());
+    if (bal.gt(parseEther('100000000'))) {
+      console.log('bal=', formatEther(bal))
+      console.log('DONT use geth miner.. use account 2 instead')
+      await checkForGeth()
+      ethersSigner = ethers.provider.getSigner(2)
+    }
+
+    if (entryPointAddressOrTest == 'test') {
+      this.entryPoint = await deployEntryPoint(1, 1, provider)
+    } else {
+      this.entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
+    }
+
+    const tableHeaders = [
+      'handleOps description         ',
+      'count',
+      'total gasUsed',
+      'per UserOp gas\n(delta for one UserOp)',
+      // 'wallet.exec()\nestimateGas',
+      'per UserOp overhead\n(compared to wallet.exec())',
+    ]
+
+    this.initTable(tableHeaders)
+    process.on('exit', () => this.doneTable())
+    return this
+  }
+
+
   tableConfig: TableUserConfig
   tabRows: any[]
 
@@ -305,6 +288,7 @@ export class GasChecker {
   initTable(tableHeaders: string[]) {
 
     console.log('inittable')
+
     //multiline header - check the length of the longest line.
     function columnWidth(header: string) {
       return Math.max(...header.split('\n').map(s => s.length))
@@ -323,14 +307,15 @@ export class GasChecker {
   }
 
   doneTable() {
+    fs.rmSync(gasCheckerLogFile, {force: true})
     const write = (s: string) => {
       console.log(s)
       fs.appendFileSync(gasCheckerLogFile, s + '\n')
     }
 
-    write('== gas estimate of direct calling wallet.exec()')
-    write('   (estimate the cost of calling directly the "wallet.execFromEntrypoint(dest,calldata)" )')
-    Object.values(this.gasEstimatePerExec).forEach(({title, walletEst}) => {
+    write('== gas estimate of direct calling the wallet\'s "execFromEntryPoint" method')
+    write('   (little higher than EOA call: its exec from entrypoint (or wallet owner) into wallet contract, verifying msg.sender and exec)')
+    Object.values(gasEstimatePerExec).forEach(({title, walletEst}) => {
       write(`- gas estimate "${title}" - ${walletEst}`)
     })
 
@@ -351,34 +336,5 @@ export class GasChecker {
       // res.walletEst,
       perOp])
   }
-
-
-  static async init(): Promise<GasChecker> {
-    if (gasCheckerInstance == null) {
-      gasCheckerInstance = new GasChecker()
-      await gasCheckerInstance.initGasChecker()
-    }
-    return gasCheckerInstance
-  }
-
-  async initGasChecker() {
-    await this._init()
-
-    const tableHeaders = [
-      'handleOps description         ',
-      'count',
-      'total gasUsed',
-      'per UserOp gas\n(delta for one UserOp)',
-      // 'wallet.exec()\nestimateGas',
-      'per UserOp overhead\n(compared to wallet.exec())',
-    ]
-
-    this.initTable(tableHeaders)
-    process.on('exit', () => this.doneTable())
-  }
-
-  skipLong() {
-    return true
-  }
-
 }
+
