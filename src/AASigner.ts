@@ -20,7 +20,6 @@ export let debug = process.env.DEBUG != null
  * @param provider - rpc provider that supports "eth_sendUserOperation"
  */
 export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider, entryPointAddress: string): SendUserOp {
-
   let chainId: number
 
   return async function (userOp) {
@@ -47,7 +46,6 @@ export function rpcUserOpSender(provider: ethers.providers.JsonRpcProvider, entr
     })
   }
 }
-
 
 interface QueueSendUserOp extends SendUserOp {
   lastQueueUpdate: number
@@ -174,7 +172,6 @@ export function localUserOpSender(entryPointAddress: string, signer: Signer, ben
   }
 }
 
-
 export class AAProvider extends BaseProvider {
   private entryPoint: EntryPoint;
 
@@ -182,7 +179,6 @@ export class AAProvider extends BaseProvider {
     super(provider.getNetwork());
     this.entryPoint = EntryPoint__factory.connect(entryPointAddress, provider)
   }
-
 }
 
 /**
@@ -225,8 +221,8 @@ export class AASigner extends Signer {
     throw new Error('connect not implemented')
   }
 
-  async _deploymentTransaction(): Promise<BytesLike> {
-    let ownerAddress = await this.signer.getAddress();
+  async _deploymentTransaction (): Promise<BytesLike> {
+    const ownerAddress = await this.signer.getAddress()
     return new SimpleWallet__factory()
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
@@ -245,7 +241,6 @@ export class AASigner extends Signer {
   }
 
   async getWallet(): Promise<SimpleWallet> {
-
     await this.syncAccount()
     return this._wallet!
   }
@@ -323,7 +318,6 @@ export class AASigner extends Signer {
   }
 
   async sendTransaction(transaction: Deferrable<TransactionRequest>): Promise<TransactionResponse> {
-
     const userOp = await this._createUserOperation(transaction)
     //get response BEFORE sending request: the response waits for events, which might be triggered before the actual send returns.
     let reponse = await this.userEventResponse(userOp);
@@ -355,7 +349,6 @@ export class AASigner extends Signer {
   }
 
   async _createUserOperation(transaction: Deferrable<TransactionRequest>): Promise<UserOperation> {
-
     const tx: TransactionRequest = await resolveProperties(transaction)
     await this.syncAccount()
 

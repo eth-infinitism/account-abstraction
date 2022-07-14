@@ -230,3 +230,9 @@ export async function deployEntryPoint(paymasterStake: BigNumberish, unstakeDela
   const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
+
+export async function isDeployed(addr: string) {
+  const code = await ethers.provider.getCode(addr)
+  return code.length > 2
+}
+
