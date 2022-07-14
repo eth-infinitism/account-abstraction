@@ -210,7 +210,7 @@ contract EntryPoint is StakeManager {
             address sender1;
             bool success;
             assembly {
-                success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 20)
+                success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
                 sender1 := mload(0)
             }
             require(sender1 == op.getSender(), "sender doesn't match initCode address");

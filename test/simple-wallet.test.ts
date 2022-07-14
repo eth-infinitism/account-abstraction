@@ -8,10 +8,11 @@ import {
   TestUtil,
   TestUtil__factory
 } from '../typechain'
-import { createWalletOwner, getBalance, ONE_ETH } from './testutils'
+import { createAddress, createWalletOwner, getBalance, isDeployed, ONE_ETH } from './testutils'
 import { fillUserOp, getRequestId, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
+import { SimpleWalletDeployer__factory } from '../typechain/factories/SimpleWalletDeployer__factory'
 
 describe('SimpleWallet', function () {
   const entryPoint = '0x'.padEnd(42, '2')
@@ -98,6 +99,17 @@ describe('SimpleWallet', function () {
       // the entrypoint
       const wrongRequestId = ethers.constants.HashZero
       await expect(wallet.validateUserOp(userOp, wrongRequestId, 0)).to.revertedWith('wallet: wrong signature')
+    })
+  })
+  context('SimpleWalletDeployer', () => {
+    it('sanity: check deployer', async () => {
+      const ownerAddr = createAddress()
+      const deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
+      const target = await deployer.getWalletAddress(entryPoint, ownerAddr, 1234)
+      expect(await isDeployed(target)).to.eq(false)
+      expect(await deployer.callStatic.deployWallet(entryPoint, ownerAddr, 1234)).to.eq(target)
+      await deployer.deployWallet(entryPoint, ownerAddr, 1234)
+      expect(await isDeployed(target)).to.eq(true)
     })
   })
 })
