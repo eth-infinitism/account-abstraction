@@ -3,9 +3,6 @@ import "@typechain/hardhat";
 import {HardhatUserConfig, subtask, task} from "hardhat/config";
 import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
-import {TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD} from "hardhat/builtin-tasks/task-names"
-import path from 'path'
-import "hardhat-gas-reporter"
 
 import 'solidity-coverage'
 
@@ -51,15 +48,6 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY
   },
-
-  gasReporter: {
-    enabled: process.env.GAS_REPORT != null,
-    excludeContracts: ['TestUtil', 'TestToken', 'TestOracle', 'TestCounter', 'TestPaymasterAcceptAll', 'SimpleWallet', 'ERC20'],
-    //"yarn gas-report" to dump report and create a no-color "txt" output, to be checked in.
-    noColors: false,
-    currency: '',
-    outputFile: 'reports/gas-used-output.color'
-  }
 }
 
 export default config
