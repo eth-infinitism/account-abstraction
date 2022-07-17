@@ -23,7 +23,7 @@
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
-    "@typechain/ethers-v5": "^7.0.1",
+    "@typechain/ethers-v5": "^10.1.0",
     "@types/chai": "^4.2.21",
     "@types/node": "^16.4.12",
     "chai": "^4.3.4",
@@ -33,7 +33,7 @@
     "ts-generator": "^0.1.1",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.1.0",
-    "typechain": "^5.1.2"
+    "typechain": "^8.1.0"
   },
   "dependencies": {
     "@nomiclabs/hardhat-etherscan": "^2.1.6",

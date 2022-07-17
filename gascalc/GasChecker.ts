@@ -6,12 +6,12 @@ import {EntryPoint, EntryPoint__factory, SimpleWallet__factory,} from "../typech
 import {BigNumberish, Wallet} from "ethers";
 import hre from 'hardhat'
 import {fillAndSign} from "../test/UserOp";
-import {SimpleWalletInterface} from "../typechain/SimpleWallet";
 import {TransactionReceipt} from "@ethersproject/abstract-provider";
 import {table, TableUserConfig} from 'table'
 import {Create2Factory} from "../src/Create2Factory";
 import {hexValue} from "@ethersproject/bytes";
 import * as fs from "fs";
+import { SimpleWalletInterface } from '../typechain/contracts/samples/SimpleWallet';
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
 
@@ -33,6 +33,7 @@ interface GasTestInfo {
   diffLastGas: boolean
   paymaster: string
   count: number
+  //address, or 'random' or 'self' (for wallet itself)
   dest: string
   destValue: BigNumberish
   destCallData: string
@@ -40,10 +41,10 @@ interface GasTestInfo {
   gasPrice: number
 }
 
-const DefaultGasTestInfo: Partial<GasTestInfo> = {
-  dest: AddressZero,
+export const DefaultGasTestInfo: Partial<GasTestInfo> = {
+  dest: 'self', //destination is the wallet itself.
   destValue: parseEther('0'),
-  destCallData: '0x',
+  destCallData: '0xaffed0e0', //nonce()
   gasPrice: 10e9
 }
 
@@ -90,7 +91,7 @@ export class GasChecker {
   }
 
   //generate the "exec" calldata for this wallet
-  walletExec(dest: string, value: BigNumberish, data = '0x'): string {
+  walletExec(dest: string, value: BigNumberish, data :string): string {
     return this.walletInterface.encodeFunctionData('execFromEntryPoint', [dest, value, data])
   }
 
@@ -156,12 +157,24 @@ export class GasChecker {
         let paymaster = info.paymaster
 
         let {dest, destValue, destCallData} = info
-        if (dest == null) {
+        if (dest == 'self') {
+          dest = wallet
+        } else
+        if (dest == 'random') {
           dest = createAddress()
+          const destBalance = await getBalance(dest)
+          if ( destBalance.eq(0)) {
+            console.log('dest replenish', dest)
+            ethersSigner.sendTransaction({to:dest, value: 1})
+          }
         }
         const walletExecFromEntryPoint = this.walletExec(dest, destValue, destCallData)
 
-        let est = gasEstimatePerExec[walletExecFromEntryPoint]
+        // remove the "dest" from the key to the saved estimations
+        // so we have a single estimation per method.
+        const estimateGasKey = this.walletExec(AddressZero, destValue, destCallData)
+
+        let est = gasEstimatePerExec[estimateGasKey]
         //technically, each UserOp needs estimate - but we know they are all the same for each test.
         if (est == null) {
           const walletEst = (await ethers.provider.estimateGas({
@@ -169,7 +182,7 @@ export class GasChecker {
             to: wallet,
             data: walletExecFromEntryPoint
           })).toNumber()
-          est = gasEstimatePerExec[walletExecFromEntryPoint] = {walletEst, title: info.title}
+          est = gasEstimatePerExec[estimateGasKey] = {walletEst, title: info.title}
         }
         // console.debug('== wallet est=', walletEst.toString())
         walletEst = est.walletEst;
@@ -188,7 +201,10 @@ export class GasChecker {
         return op
       }))
 
-    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, {gasLimit: 20e6})
+    let gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
+      userOps, info.beneficiary, {}
+    );
+    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, {gasLimit: gasEst.mul(3).div(2)})
     const rcpt = await ret.wait()
     let gasUsed = rcpt.gasUsed.toNumber()
     console.debug('count', info.count, 'gasUsed', gasUsed)
@@ -197,7 +213,7 @@ export class GasChecker {
       console.debug('\tgas diff=', gasDiff)
     }
     lastGasUsed = gasUsed
-    console.debug('handleOps tx.hash=', rcpt.transactionHash.yellow)
+    console.debug('handleOps tx.hash=', rcpt.transactionHash)
     let ret1: GasTestResult = {
       count: info.count,
       gasUsed,
@@ -265,9 +281,9 @@ export class GasCheckCollector {
       'handleOps description         ',
       'count',
       'total gasUsed',
-      'per UserOp gas\n(delta for one UserOp)',
+      'per UserOp gas\n(delta for\none UserOp)',
       // 'wallet.exec()\nestimateGas',
-      'per UserOp overhead\n(compared to wallet.exec())',
+      'per UserOp overhead\n(compared to\nwallet.exec())',
     ]
 
     this.initTable(tableHeaders)

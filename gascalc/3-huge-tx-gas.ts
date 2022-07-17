@@ -1,4 +1,4 @@
-import {GasChecker} from "./gasChecker";
+import {DefaultGasTestInfo, GasChecker} from "./gasChecker";
 
 context('huge tx', function () {
   this.timeout(20000)
@@ -6,7 +6,7 @@ context('huge tx', function () {
   let g = new GasChecker()
 
   it('big tx', async () => {
-    await g.addTestRow({title: 'big tx', count: 1, destCallData: huge, diffLastGas: false})
+    await g.addTestRow({title: 'big tx 10k', count: 1, destCallData: huge, diffLastGas: false})
     await g.addTestRow({title: 'big tx - diff from previous', count: 2, destCallData: huge, diffLastGas: true})
   });
   it('big tx 50', async function () {
