@@ -7,7 +7,6 @@ import {BigNumberish, Wallet} from "ethers";
 import hre from 'hardhat'
 import {fillAndSign} from "../test/UserOp";
 import {SimpleWalletInterface} from "../typechain/SimpleWallet";
-import 'colors'
 import {TransactionReceipt} from "@ethersproject/abstract-provider";
 import {table, TableUserConfig} from 'table'
 import {Create2Factory} from "../src/Create2Factory";
