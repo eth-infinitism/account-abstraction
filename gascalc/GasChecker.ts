@@ -11,7 +11,7 @@ import {table, TableUserConfig} from 'table'
 import {Create2Factory} from "../src/Create2Factory";
 import {hexValue} from "@ethersproject/bytes";
 import * as fs from "fs";
-import { SimpleWalletInterface } from '../typechain/contracts/samples/SimpleWallet';
+import {SimpleWalletInterface} from '../typechain/contracts/samples/SimpleWallet';
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
 
@@ -91,7 +91,7 @@ export class GasChecker {
   }
 
   //generate the "exec" calldata for this wallet
-  walletExec(dest: string, value: BigNumberish, data :string): string {
+  walletExec(dest: string, value: BigNumberish, data: string): string {
     return this.walletInterface.encodeFunctionData('execFromEntryPoint', [dest, value, data])
   }
 
@@ -159,13 +159,12 @@ export class GasChecker {
         let {dest, destValue, destCallData} = info
         if (dest == 'self') {
           dest = wallet
-        } else
-        if (dest == 'random') {
+        } else if (dest == 'random') {
           dest = createAddress()
           const destBalance = await getBalance(dest)
-          if ( destBalance.eq(0)) {
+          if (destBalance.eq(0)) {
             console.log('dest replenish', dest)
-            ethersSigner.sendTransaction({to:dest, value: 1})
+            ethersSigner.sendTransaction({to: dest, value: 1})
           }
         }
         const walletExecFromEntryPoint = this.walletExec(dest, destValue, destCallData)
@@ -329,7 +328,8 @@ export class GasCheckCollector {
     }
 
     write('== gas estimate of direct calling the wallet\'s "execFromEntryPoint" method')
-    write('   (little higher than EOA call: its exec from entrypoint (or wallet owner) into wallet contract, verifying msg.sender and exec)')
+    write('   the destination is "wallet.nonce()", which is known to be "hot" address used by this wallet')
+    write('   it little higher than EOA call: its an exec from entrypoint (or wallet owner) into wallet contract, verifying msg.sender and exec to target)')
     Object.values(gasEstimatePerExec).forEach(({title, walletEst}) => {
       write(`- gas estimate "${title}" - ${walletEst}`)
     })
