@@ -93,7 +93,7 @@ describe('DepositPaymaster', () => {
         sender: wallet.address,
         paymaster: paymaster.address
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp)).to.be.revertedWith('paymasterData must specify token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('paymasterData must specify token')
     })
 
     it('should fail with wrong token', async () => {
@@ -102,7 +102,7 @@ describe('DepositPaymaster', () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad('0x1234', 32)
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false, { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
     })
 
     it('should reject if no deposit', async () => {
@@ -111,7 +111,7 @@ describe('DepositPaymaster', () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad(token.address, 32)
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false, { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
     })
 
     it('should reject if deposit is not locked', async () => {
@@ -125,7 +125,7 @@ describe('DepositPaymaster', () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad(token.address, 32)
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('not locked')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false, { gasPrice })).to.be.revertedWith('not locked')
     })
 
     it('succeed with valid deposit', async () => {
@@ -138,7 +138,7 @@ describe('DepositPaymaster', () => {
         paymaster: paymaster.address,
         paymasterData: hexZeroPad(token.address, 32)
       }, ethersSigner, entryPoint)
-      await entryPointStatic.callStatic.simulateValidation(userOp)
+      await entryPointStatic.callStatic.simulateValidation(userOp, false)
     })
   })
   describe('#handleOps', () => {

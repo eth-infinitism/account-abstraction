@@ -79,14 +79,21 @@ contract BLSSignatureAggregator is IAggregator {
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
      *    (usually empty, unless wallet and aggregator support some kind of "multisig"
      * @return sigForAggregation the value to pass (for all wallets) to aggregateSignatures()
+     * @return offChainSigInfo in case offChainSigCheck is true, return raw data to be validated off-chain.
      */
-    function validateUserOpSignature(UserOperation calldata userOp) external view returns (bytes memory sigForUserOp, bytes memory sigForAggregation) {
+    function validateUserOpSignature(UserOperation calldata userOp, bool offChainSigCheck)
+    external view returns (bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
         uint256[4] memory pubkey = IBLSWallet(userOp.getSender()).getBlsPublicKey();
         uint256[2] memory message = userOpToMessage(userOp);
 
-        require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
-        return ("", userOp.signature);
+        if (offChainSigCheck) {
+            offChainSigInfo = abi.encode(signature, pubkey, getRequestId(userOp));
+        } else {
+            require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
+        }
+        sigForUserOp = "";
+        sigForAggregation = userOp.signature;
     }
 
     //copied from BLS.sol

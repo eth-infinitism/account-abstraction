@@ -30,7 +30,7 @@ contract EntryPoint is StakeManager {
 
     address public immutable create2factory;
 
-    // internal value used during simulation
+    // internal value used during simulation: need to query aggregator if wallet is created
     address private constant SIMULATE_NO_AGGREGATOR = address(1);
 
     /***
@@ -65,6 +65,11 @@ contract EntryPoint is StakeManager {
      *   Useful for mitigating DoS attempts against batchers or for troubleshooting of wallet/paymaster reverts.
      */
     error FailedOp(uint256 opIndex, address paymaster, string reason);
+
+    /**
+     * error case when a signature aggregator fails to verify the aggregated signature it had created.
+     */
+    error SignatureValidationFailed(address aggregator);
 
     /**
      * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that the EntryPoint can be upgraded)
@@ -111,10 +116,11 @@ contract EntryPoint is StakeManager {
             AggregatorInfo memory agg = aggregators[i];
             uint count = agg.count;
             UserOperation[] memory copyOfOps = copyOpsRange(ops, index, count);
-            agg.aggregator.validateSignatures(
-                copyOfOps,
-                agg.signature
-            );
+            // solhint-disable-next-line no-empty-blocks
+            try agg.aggregator.validateSignatures(copyOfOps, agg.signature) {}
+            catch {
+                revert SignatureValidationFailed(address(agg.aggregator));
+            }
             index += count;
         }
         restoreMemoryPointer(startPtr);
@@ -280,18 +286,29 @@ contract EntryPoint is StakeManager {
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
+     * @param offChainSigCheck if the wallet has an aggregator, skip on-chain aggregation check. In thus case, the bundler must
+     *          perform the equivalent check using an off-chain library code
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
+     * @return sigForUserOp - if Wallet has an aggregator, this value is returned from IAggregator.validateUserOpSignature
+     * @return sigForAggregation  - if Wallet has an aggregator, this value is returned from IAggregator.validateUserOpSignature
+     * @return offChainSigInfo - if the wallet has an aggregator and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
      */
-    function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund, address actualAggregator) {
+    function simulateValidation(UserOperation calldata userOp, bool offChainSigCheck)
+    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
 
         uint256 preGas = gasleft();
 
         bytes32 requestId = getRequestId(userOp);
         (prefund,,,actualAggregator) = _validatePrepayment(0, userOp, requestId, SIMULATE_NO_AGGREGATOR);
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
+
+        numberMarker();
+        if (actualAggregator != address(0)) {
+            (sigForUserOp, sigForAggregation, offChainSigInfo) = IAggregator(actualAggregator).validateUserOpSignature(userOp, offChainSigCheck);
+        }
 
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
     }
@@ -350,13 +367,12 @@ contract EntryPoint is StakeManager {
     internal returns (uint256 gasUsedByValidateWalletPrepayment, address actualAggregator) {
     unchecked {
         uint256 preGas = gasleft();
-        if (_createSenderIfNeeded(op)) {
-            if (aggregator == SIMULATE_NO_AGGREGATOR) {
-                try IAggregatedWallet(op.getSender()).getAggregator() returns (address userOpAggregator) {
-                    aggregator = actualAggregator = userOpAggregator;
-                } catch {
-                    aggregator = address(0);
-                }
+        _createSenderIfNeeded(op);
+        if (aggregator == SIMULATE_NO_AGGREGATOR) {
+            try IAggregatedWallet(op.getSender()).getAggregator() returns (address userOpAggregator) {
+                aggregator = actualAggregator = userOpAggregator;
+            } catch {
+                aggregator = address(0);
             }
         }
 
@@ -433,8 +449,7 @@ contract EntryPoint is StakeManager {
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
-        uint256 marker = block.number;
-        (marker);
+        numberMarker();
 
         if (paymentMode == PaymentMode.paymasterDeposit) {
             (context) = _validatePaymasterPrepayment(opIndex, userOp, requestId, requiredPreFund, gasUsedByValidateWalletPrepayment);
@@ -518,23 +533,30 @@ contract EntryPoint is StakeManager {
         senderStorageCells[0] = cell;
     }
 
+    //place the NUMBER opcode in the code.
+    // this is used as a marker during simulation, as this OP is completely banned from the simulated code of the
+    // wallet and paymaster.
+    function numberMarker() internal view {
+        assembly { mstore(0,number()) }
+    }
+
     //save current free memory pointer
-    function getMemoryPointer() private pure returns (uint ptr) {
+    function getMemoryPointer() internal pure returns (uint ptr) {
         assembly {
             ptr := mload(0x40)
         }
     }
 
     //restore previously saved memory pointer.
-    // all "memory" allocations since getMemoryPointer are freed, and their memory will be re-uased.
-    function restoreMemoryPointer(uint ptr) private pure {
+    // all "memory" allocations since getMemoryPointer are freed, and their memory will be re-used.
+    function restoreMemoryPointer(uint ptr) internal pure {
         assembly {
             mstore(0x40, ptr)
         }
     }
 
     function copyOpsRange(UserOperation[] calldata ops, uint index, uint count)
-    private pure returns (UserOperation[] memory ret)  {
+    internal pure returns (UserOperation[] memory ret)  {
     unchecked {
         ret = new UserOperation[](count);
         for (uint i = 0; i < count; i++) {

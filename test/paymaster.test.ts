@@ -120,7 +120,7 @@ describe('EntryPoint with paymaster', function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
+        await entryPoint.simulateValidation(createOp, false, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 

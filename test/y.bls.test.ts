@@ -1,5 +1,5 @@
 import { aggregate, BlsSignerFactory, BlsVerifier } from '@thehubbleproject/bls/dist/signer'
-import { arrayify, hexConcat } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
   BLSOpen__factory,
   BLSSignatureAggregator,
@@ -9,14 +9,16 @@ import {
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { deployEntryPoint } from './testutils'
+import { AddressZero, deployEntryPoint, fund } from './testutils'
 import { fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber } from 'ethers'
+import { BytesLike } from '@ethersproject/bytes'
 
-describe('bls wallet', () => {
+describe('bls wallet', function () {
+  this.timeout(20000)
   const BLS_DOMAIN = arrayify(keccak256(Buffer.from('eip4337.bls.domain')))
   const etherSigner = ethers.provider.getSigner()
   let fact: BlsSignerFactory
@@ -73,11 +75,13 @@ describe('bls wallet', () => {
     const verifier = new BlsVerifier(BLS_DOMAIN)
     expect(verifier.verify(sigParts, signer1.pubkey, requestHash)).to.equal(true)
 
-    await blsAgg.validateUserOpSignature(userOp1)
+    const ret = await blsAgg.validateUserOpSignature(userOp1, false)
+    expect(ret.sigForAggregation).to.equal(userOp1.signature)
+    expect(ret.sigForUserOp).to.equal('0x')
   })
 
   it('validateSignatures', async function () {
-    // yes, it does take long on hardhat..
+    // yes, it does take long on hardhat, but quick on geth.
     this.timeout(30000)
     const userOp1 = await fillUserOp({
       sender: wallet1.address
@@ -109,5 +113,67 @@ describe('bls wallet', () => {
     const now2 = Date.now()
     console.log('validateSignatures gas= ', await blsAgg.estimateGas.validateSignatures([userOp1, userOp2], aggregatedSig))
     console.log('validateSignatures (on-chain)', Date.now() - now2, 'ms')
+  })
+
+  describe('#EntryPoint.simulateValidation with aggregator', () => {
+    let initCode: BytesLike
+    let entryPointStatic: EntryPoint
+    let signer3: any
+    before(async () => {
+      signer3 = fact.getSigner(arrayify(BLS_DOMAIN), '0x03')
+      initCode = new BLSWallet__factory(etherSigner).getDeployTransaction(entrypoint.address, blsAgg.address, signer3.pubkey).data!
+      entryPointStatic = entrypoint.connect(AddressZero)
+    })
+    it('with on-chain sig validation', async () => {
+      const senderAddress = await entrypoint.getSenderAddress(initCode, 1)
+      await fund(senderAddress, '0.01')
+      const userOp = await fillUserOp({
+        sender: senderAddress,
+        initCode,
+        nonce: 1
+      }, entrypoint)
+      const requestHash = await blsAgg.getRequestId(userOp)
+      const sigParts = signer3.sign(requestHash)
+      userOp.signature = hexConcat(sigParts)
+      const {
+        actualAggregator,
+        sigForUserOp,
+        sigForAggregation,
+        offChainSigInfo
+      } = await entryPointStatic.callStatic.simulateValidation(userOp, false)
+      expect(offChainSigInfo).to.eq('0x')
+      expect(actualAggregator).to.eq(blsAgg.address)
+
+      expect(sigForUserOp).to.eq('0x')
+      expect(sigForAggregation).to.eq(userOp.signature)
+    })
+
+    it('with off-chain sig check', async () => {
+      const verifier = new BlsVerifier(BLS_DOMAIN)
+      const senderAddress = await entrypoint.getSenderAddress(initCode, 2)
+      await fund(senderAddress, '0.01')
+      const userOp = await fillUserOp({
+        sender: senderAddress,
+        initCode,
+        nonce: 2
+      }, entrypoint)
+      const requestHash = await blsAgg.getRequestId(userOp)
+      const sigParts = signer3.sign(requestHash)
+      userOp.signature = hexConcat(sigParts)
+
+      const {
+        actualAggregator,
+        sigForUserOp,
+        sigForAggregation,
+        offChainSigInfo
+      } = await entryPointStatic.callStatic.simulateValidation(userOp, true)
+      expect(actualAggregator).to.eq(blsAgg.address)
+
+      const [signature, pubkey, requestHash1] = defaultAbiCoder.decode(['bytes32[2]', 'bytes32[4]', 'bytes32'], offChainSigInfo)
+      expect(verifier.verify(signature, pubkey, requestHash1)).to.equal(true)
+
+      expect(sigForUserOp).to.eq('0x')
+      expect(sigForAggregation).to.eq(userOp.signature)
+    })
   })
 })

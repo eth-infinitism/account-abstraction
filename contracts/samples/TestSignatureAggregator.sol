@@ -25,8 +25,9 @@ contract TestSignatureAggregator is IAggregator {
         require(sig == sum, "TestSignatureValidator: aggregated signature mismatch (nonce sum)");
     }
 
-    function validateUserOpSignature(UserOperation calldata userOp) external pure returns (bytes memory sigForUserOp, bytes memory sigForAggregation) {
-        return ("", abi.encode(userOp.nonce));
+    function validateUserOpSignature(UserOperation calldata userOp, bool)
+    external pure returns (bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
+        return ("", abi.encode(userOp.nonce), abi.encodePacked(userOp.nonce));
     }
 
     /**
