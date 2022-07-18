@@ -1,7 +1,7 @@
 import { DefaultGasTestInfo, GasChecker } from './GasChecker'
 
 context('huge tx', function () {
-  this.timeout(20000)
+  this.timeout(60000)
   const huge = DefaultGasTestInfo.destCallData!.padEnd(20480, 'f')
   const g = new GasChecker()
 

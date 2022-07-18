@@ -1,7 +1,7 @@
 import { GasChecker } from './GasChecker'
 
 context('simple wallet', function () {
-  this.timeout(20000)
+  this.timeout(60000)
   const g = new GasChecker()
 
   it('simple 1', async function () {

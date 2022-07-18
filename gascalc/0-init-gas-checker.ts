@@ -1,7 +1,7 @@
 import { GasCheckCollector, GasChecker } from './GasChecker'
 
 describe('gas calculations', function () {
-  this.timeout(20000)
+  this.timeout(60000)
   const g = new GasChecker()
 
   it('warmup', async function () {

@@ -6,7 +6,7 @@ import { GasChecker } from './GasChecker'
 const ethersSigner = ethers.provider.getSigner()
 
 context('Minimal Paymaster', function () {
-  this.timeout(20000)
+  this.timeout(60000)
   const g = new GasChecker()
 
   let paymasterAddress: string
