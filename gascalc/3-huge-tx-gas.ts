@@ -9,7 +9,7 @@ context('huge tx', function () {
     await g.addTestRow({ title: 'big tx 10k', count: 1, destCallData: huge, diffLastGas: false })
     await g.addTestRow({ title: 'big tx - diff from previous', count: 2, destCallData: huge, diffLastGas: true })
   })
-  it('big tx 50', async function () {
+  it('big tx 20', async function () {
     if (g.skipLong()) this.skip()
     await g.addTestRow({ title: 'big tx', count: 20, destCallData: huge, diffLastGas: false })
     await g.addTestRow({ title: 'big tx - diff from previous', count: 21, destCallData: huge, diffLastGas: true })

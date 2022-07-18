@@ -9,7 +9,7 @@ context('simple wallet', function () {
     await g.addTestRow({ title: 'simple - diff from previous', count: 2, diffLastGas: true })
   })
 
-  it('simple 50', async function () {
+  it('simple 20', async function () {
     if (g.skipLong()) this.skip()
     await g.addTestRow({ title: 'simple', count: 20, diffLastGas: false })
     await g.addTestRow({ title: 'simple - diff from previous', count: 21, diffLastGas: true })

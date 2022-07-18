@@ -26,7 +26,7 @@ context('Minimal Paymaster', function () {
     })
   })
 
-  it('simple paymaster 50', async function () {
+  it('simple paymaster 20', async function () {
     if (g.skipLong()) this.skip()
 
     await g.addTestRow({ title: 'simple paymaster', count: 20, paymaster: paymasterAddress, diffLastGas: false })
