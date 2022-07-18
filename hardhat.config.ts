@@ -12,8 +12,6 @@ const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secr
 let mnemonic = 'test '.repeat(11) + 'junk'
 if (fs.existsSync(mnemonicFileName)) { mnemonic = fs.readFileSync(mnemonicFileName, 'ascii') }
 
-
-
 function getNetwork1 (url: string): { url: string, accounts: { mnemonic: string } } {
   return {
     url,
@@ -48,7 +46,7 @@ const config: HardhatUserConfig = {
 
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY
-  },
+  }
 
 }
 

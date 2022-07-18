@@ -1,4 +1,4 @@
-import { GasCheckCollector, GasChecker } from './GasChecker'
+import { GasChecker } from './GasChecker'
 
 context('simple wallet', function () {
   this.timeout(20000)

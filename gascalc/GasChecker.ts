@@ -106,12 +106,11 @@ export class GasChecker {
    * do nothing for wallet already created
    * @param count
    */
-  async createWallets1 (count: number) {
-    const simpleWalletFactory = new SimpleWallet__factory(ethersSigner)
+  async createWallets1 (count: number): Promise<void> {
     const fact = new Create2Factory(provider)
     // create wallets
-    for (const n in range(count)) {
-      const salt = parseInt(n)
+    for (const n of range(count)) {
+      const salt = n
       const initCode = this.walletInitCode()
 
       const addr = fact.getDeployedAddress(initCode, salt)
@@ -131,7 +130,7 @@ export class GasChecker {
    * @param params - test parameters. missing values filled in from DefaultGasTestInfo
    * note that 2 important params are methods: walletExec() and walletInitCode()
    */
-  async addTestRow (params: Partial<GasTestInfo>) {
+  async addTestRow (params: Partial<GasTestInfo>): Promise<void> {
     await GasCheckCollector.init()
     GasCheckCollector.inst.addRow(await this.runTest(params))
   }
@@ -142,7 +141,8 @@ export class GasChecker {
    * note that 2 important params are methods: walletExec() and walletInitCode()
    */
   async runTest (params: Partial<GasTestInfo>): Promise<GasTestResult> {
-    const info = { ...DefaultGasTestInfo, ...params } as GasTestInfo
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+    const info: GasTestInfo = { ...DefaultGasTestInfo, ...params } as GasTestInfo
 
     console.debug('== running test count=', info.count)
 
@@ -156,14 +156,14 @@ export class GasChecker {
         const paymaster = info.paymaster
 
         let { dest, destValue, destCallData } = info
-        if (dest == 'self') {
+        if (dest === 'self') {
           dest = wallet
-        } else if (dest == 'random') {
+        } else if (dest === 'random') {
           dest = createAddress()
           const destBalance = await getBalance(dest)
           if (destBalance.eq(0)) {
             console.log('dest replenish', dest)
-            ethersSigner.sendTransaction({ to: dest, value: 1 })
+            await ethersSigner.sendTransaction({ to: dest, value: 1 })
           }
         }
         const walletExecFromEntryPoint = this.walletExec(dest, destValue, destCallData)
@@ -225,15 +225,15 @@ export class GasChecker {
   }
 
   // helper methods to access the GasCheckCollector singleton
-  addRow (res: GasTestResult) {
+  addRow (res: GasTestResult): void {
     GasCheckCollector.inst.addRow(res)
   }
 
-  entryPoint () {
+  entryPoint (): EntryPoint {
     return GasCheckCollector.inst.entryPoint
   }
 
-  skipLong () {
+  skipLong (): boolean {
     return process.env.SKIP_LONG != null
   }
 }
@@ -265,7 +265,7 @@ export class GasCheckCollector {
       ethersSigner = ethers.provider.getSigner(2)
     }
 
-    if (entryPointAddressOrTest == 'test') {
+    if (entryPointAddressOrTest === 'test') {
       this.entryPoint = await deployEntryPoint(1, 1, provider)
     } else {
       this.entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
@@ -292,13 +292,13 @@ export class GasCheckCollector {
    * each header define the width of the column, so make sure to pad with spaces
    * (we stream the table, so can't learn the content length)
    */
-  initTable (tableHeaders: string[]) {
+  initTable (tableHeaders: string[]): void {
     console.log('inittable')
 
     // multiline header - check the length of the longest line.
-    function columnWidth (header: string) {
-      return Math.max(...header.split('\n').map(s => s.length))
-    }
+    // function columnWidth (header: string): number {
+    //   return Math.max(...header.split('\n').map(s => s.length))
+    // }
 
     this.tableConfig = {
       columnDefault: { alignment: 'right' },
@@ -312,9 +312,9 @@ export class GasCheckCollector {
     this.tabRows = [tableHeaders]
   }
 
-  doneTable () {
+  doneTable (): void {
     fs.rmSync(gasCheckerLogFile, { force: true })
-    const write = (s: string) => {
+    const write = (s: string): void => {
       console.log(s)
       fs.appendFileSync(gasCheckerLogFile, s + '\n')
     }
@@ -330,9 +330,9 @@ export class GasCheckCollector {
     write(tableOutput)
   }
 
-  addRow (res: GasTestResult) {
-    const gasUsed = res.gasDiff ? '' : res.gasUsed // hide "total gasUsed" if there is a diff
-    const perOp = res.gasDiff ? res.gasDiff - res.walletEst : ''
+  addRow (res: GasTestResult): void {
+    const gasUsed = res.gasDiff != null ? '' : res.gasUsed // hide "total gasUsed" if there is a diff
+    const perOp = res.gasDiff != null ? res.gasDiff - res.walletEst : ''
 
     this.tabRows.push([
       res.title,
