@@ -14,8 +14,9 @@
     "coverage": "COVERAGE=1 hardhat coverage",
     "deploy": "./scripts/hh-wrapper deploy",
     "test-dev": "hardhat test --network dev",
-    "ci": "yarn compile && GAS_REPORT=1 hardhat test && yarn gas-report && yarn run runop",
+    "ci": "yarn compile && GAS_REPORT=1 hardhat test && yarn gas-report && ./scripts/check-gas-reports && yarn run runop",
     "gas-report": "cat reports/gas-used-output.color; echo; perl -pe 's/\\e\\[\\d+m//g' reports/gas-used-output.color > reports/gas-used-output.txt",
+    "src-check-gas-report": "git diff --color=always src/ | grep . && exit 1",
     "runop": "hardhat run src/runop.ts ",
     "runop-goerli": "AA_URL=https://account-abstraction-goerli.nethermind.io yarn runop --network goerli",
     "runop3": "hardhat run src/runop3.ts "
