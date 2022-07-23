@@ -225,7 +225,7 @@ export class AASigner extends Signer {
 
   async _deploymentTransaction (): Promise<BytesLike> {
     const ownerAddress = await this.signer.getAddress()
-    return new SimpleWallet__factory()
+    return new SimpleWallet__factory(this.signer)
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
 
