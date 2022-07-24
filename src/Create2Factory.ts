@@ -34,17 +34,20 @@ export class Create2Factory {
     const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'], this.signer)
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
     if (gasLimit === 'estimate') {
-      gasLimit = await factory.deploy(initCode, saltBytes32)
+      gasLimit = (await factory.estimateGas.deploy(initCode, saltBytes32)).mul(64).div(63)
+    } else if (gasLimit === undefined) {
+      // manual estimation (its bit larger: we don't know actual deployed code size)
+      gasLimit = arrayify(initCode)
+        .map(x => x === 0 ? 4 : 16)
+        .reduce((sum, x) => sum + x) +
+        200 * initCode.length / 2 + // actual is usually somewhat smaller (only deposited code, not entire constructor)
+        6 * Math.ceil(initCode.length / 64) + // hash price. very minor compared to deposit costs
+        32000 +
+        21000
+
+      gasLimit = Math.round(gasLimit * 64 / 63)
     }
 
-    // manual estimation (its bit larger: we don't know actual deployed code size)
-    gasLimit = gasLimit ?? arrayify(initCode)
-      .map(x => x === 0 ? 4 : 16)
-      .reduce((sum, x) => sum + x) +
-      200 * initCode.length / 2 + // actual is usually somewhat smaller (only deposited code, not entire constructor)
-      6 * Math.ceil(initCode.length / 64) + // hash price. very minor compared to deposit costs
-      32000 +
-      21000
     const ret = await factory.deploy(initCode, saltBytes32, { gasLimit })
     await ret.wait()
     return addr
