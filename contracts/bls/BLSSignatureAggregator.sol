@@ -5,7 +5,7 @@ pragma abicoder v2;
 import "../IAggregator.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
 import "./IBLSWallet.sol";
-import "../BLSHelper.sol";
+import "./BLSHelper.sol";
 import "hardhat/console.sol";
 
 /**
