@@ -1,4 +1,3 @@
-import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
@@ -83,10 +82,10 @@ describe('EntryPoint with paymaster', function () {
           paymaster: paymaster.address,
           callData: calldata
         }, walletOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
-        await expect(entryPoint.handleOps([op], beneficiaryAddress, {
+        await expect(entryPoint.handleOps([op], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       })
@@ -103,7 +102,7 @@ describe('EntryPoint with paymaster', function () {
           verificationGas: 1e7,
           paymaster: paymaster.address
         }, walletOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
       })
@@ -121,11 +120,11 @@ describe('EntryPoint with paymaster', function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
+        await entryPoint.simulateValidation(createOp, false, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 
-        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         }).catch(rethrow()).then(async tx => await tx!.wait())
         console.log('\t== create gasUsed=', rcpt.gasUsed.toString())
@@ -146,7 +145,7 @@ describe('EntryPoint with paymaster', function () {
 
       it('should reject if account already created', async function () {
         if (!created) this.skip()
-        await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, [], [], {
           gasLimit: 1e7
         }).catch(rethrow())).to.revertedWith('create2 failed')
       })
@@ -177,7 +176,7 @@ describe('EntryPoint with paymaster', function () {
         }
 
         const pmBalanceBefore = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber())
-        await entryPoint.handleOps(ops, beneficiaryAddress).then(async tx => await tx.wait())
+        await entryPoint.handleOps(ops, beneficiaryAddress, [], []).then(async tx => tx.wait())
         const totalPaid = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber()) - pmBalanceBefore
         for (let i = 0; i < wallets.length; i++) {
           const bal = await getTokenBalance(paymaster, wallets[i].address)
@@ -206,7 +205,7 @@ describe('EntryPoint with paymaster', function () {
             callData: wallet2.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, approveCallData]),
             paymaster: paymaster.address
           }, walletOwner, entryPoint)
-          await entryPoint.handleOps([approveOp], beneficiaryAddress)
+          await entryPoint.handleOps([approveOp], beneficiaryAddress, [], [])
           expect(await paymaster.allowance(wallet2.address, wallet.address)).to.eq(ethers.constants.MaxUint256)
         })
 
@@ -238,7 +237,7 @@ describe('EntryPoint with paymaster', function () {
             entryPoint.handleOps([
               userOp1,
               userOp2
-            ], beneficiaryAddress)
+            ], beneficiaryAddress, [], [])
           ).to.be.revertedWith('transfer amount exceeds balance')
         })
       })
@@ -254,7 +253,7 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.unlockStake()
         const amount = await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)
         expect(amount).to.be.gte(ONE_ETH.div(2))
-        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
+        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 1000])
         await paymaster.withdrawStake(withdrawAddress)
         expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
         expect(await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)).to.eq(0)

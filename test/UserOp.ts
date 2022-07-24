@@ -139,7 +139,7 @@ export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: strin
   }
 }
 
-export function fillUserOp (op: Partial<UserOperation>, defaults = DefaultsForUserOp): UserOperation {
+export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = DefaultsForUserOp): UserOperation {
   const partial: any = { ...op }
   // we want "item:undefined" to be used from defaults, and not override defaults, so we must explicitly
   // remove those so "merge" will succeed.
@@ -166,7 +166,7 @@ export function fillUserOp (op: Partial<UserOperation>, defaults = DefaultsForUs
 // sender - only in case of construction: fill sender from initCode.
 // callGas: VERY crude estimation (by estimating call to wallet, and add rough entryPoint overhead
 // verificationGas: hard-code default at 100k. should add "create2" cost
-export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint): Promise<UserOperation> {
   const op1 = { ...op }
   const provider = entryPoint?.provider
   if (op.initCode != null) {
@@ -207,12 +207,18 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
   if (op1.maxPriorityFeePerGas == null) {
     op1.maxPriorityFeePerGas = DefaultsForUserOp.maxPriorityFeePerGas
   }
-  const op2 = fillUserOp(op1)
+  const op2 = fillUserOpDefaults(op1)
   // eslint-disable-next-line @typescript-eslint/no-base-to-string
   if (op2.preVerificationGas.toString() === '0') {
     // TODO: we don't add overhead, which is ~21000 for a single TX, but much lower in a batch.
     op2.preVerificationGas = callDataCost(packUserOp(op2, false))
   }
+  return op2
+}
+
+export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+  const provider = entryPoint?.provider
+  const op2 = await fillUserOp(op, entryPoint)
 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
   const message = arrayify(getRequestId(op2, entryPoint!.address, chainId))

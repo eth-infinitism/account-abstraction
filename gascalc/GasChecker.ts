@@ -200,9 +200,9 @@ export class GasChecker {
       }))
 
     const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
-      userOps, info.beneficiary, {}
+      userOps, info.beneficiary, [], [], {}
     )
-    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, { gasLimit: gasEst.mul(3).div(2) })
+    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, [], [], { gasLimit: gasEst.mul(3).div(2) })
     const rcpt = await ret.wait()
     const gasUsed = rcpt.gasUsed.toNumber()
     console.debug('count', info.count, 'gasUsed', gasUsed)

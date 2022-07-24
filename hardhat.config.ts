@@ -29,7 +29,7 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: '0.8.12',
+    version: '0.8.15',
     settings: {
       optimizer: { enabled: true, runs: 1000000 }
     }

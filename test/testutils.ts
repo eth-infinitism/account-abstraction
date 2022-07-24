@@ -193,9 +193,9 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
-  expect(blockHash.length).to.equal(1, 'expected exactly 1 call to NUMBER (Just before validatePaymasterUserOp)')
+  expect(blockHash.length).to.equal(2, 'expected exactly 2 call to NUMBER (Just before and after validatePaymasterUserOp)')
   const validateWalletOps = logs.slice(0, blockHash[0].index - 1)
-  const validatePaymasterOps = logs.slice(blockHash[0].index + 1)
+  const validatePaymasterOps = logs.slice(blockHash[0].index + 1, blockHash[1].index - 1)
   const ops = validateWalletOps.filter(log => log.depth > 1).map(log => log.op)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
@@ -212,6 +212,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + JSON.stringify(paymasterOps)) // sanity
     expect(paymasterOps).to.not.include('BASEFEE')
     expect(paymasterOps).to.not.include('GASPRICE')
+    expect(paymasterOps).to.not.include('NUMBER')
   }
 }
 
