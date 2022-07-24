@@ -10,7 +10,9 @@ import {
   TestPaymasterAcceptAll,
   TestPaymasterAcceptAll__factory,
   TestAggregatedWallet,
-  TestAggregatedWallet__factory
+  TestAggregatedWallet__factory,
+  TestSignatureAggregator__factory,
+  TestSignatureAggregator
 } from '../typechain'
 import {
   AddressZero,
@@ -33,8 +35,6 @@ import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
 import { hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
-import { TestSignatureAggregator__factory } from '../typechain/factories/TestSignatureAggregator__factory'
-import { TestSignatureAggregator } from '../typechain/TestSignatureAggregator'
 import { BytesLike } from '@ethersproject/bytes'
 
 describe('EntryPoint', function () {
