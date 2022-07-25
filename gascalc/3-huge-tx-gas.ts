@@ -11,7 +11,7 @@ context('huge tx', function () {
   })
   it('big tx 20', async function () {
     if (g.skipLong()) this.skip()
-    await g.addTestRow({ title: 'big tx', count: 15, destCallData: huge, diffLastGas: false })
-    await g.addTestRow({ title: 'big tx - diff from previous', count: 18, destCallData: huge, diffLastGas: true })
+    await g.addTestRow({ title: 'big tx', count: 20, destCallData: huge, diffLastGas: false })
+    await g.addTestRow({ title: 'big tx - diff from previous', count: 21, destCallData: huge, diffLastGas: true })
   })
 })
