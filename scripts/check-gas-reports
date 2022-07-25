@@ -6,7 +6,7 @@ folder=${1:-reports}
 git diff --color=always $folder
 git diff ${folder} | grep -q .
 
-if [ $? == 1 ]; then
+if [ "$?" == 1 ]; then
   #diff with no error - ok
   exit
 else
