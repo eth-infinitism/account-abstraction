@@ -9,7 +9,8 @@ import "../BasePaymaster.sol";
 contract TestPaymasterAcceptAll is BasePaymaster {
 
     constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {
-        //to support "deterministic address" deployer
+        // to support "deterministic address" deployer
+        // solhint-disable avoid-tx-origin
         if (tx.origin != msg.sender) {
             _transferOwnership(tx.origin);
         }
