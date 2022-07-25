@@ -199,6 +199,8 @@ export class GasChecker {
         return op
       }))
 
+    const txdata = GasCheckCollector.inst.entryPoint.interface.encodeFunctionData('handleOps', [userOps, info.beneficiary])
+    console.log('=== encoded data=', txdata.length)
     const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
       userOps, info.beneficiary, {}
     )
