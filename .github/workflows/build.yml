@@ -18,7 +18,7 @@ jobs:
     services:
       localgeth:
         image: ethereum/client-go:release-1.10
-        options: >-
+        command: >-
           --verbosity 1
           --http.vhosts '*,localhost,host.docker.internal'
           --http
