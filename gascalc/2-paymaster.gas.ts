@@ -1,7 +1,7 @@
 import { parseEther } from 'ethers/lib/utils'
 import { TestPaymasterAcceptAll__factory } from '../typechain'
 import { ethers } from 'hardhat'
-import { GasCheckCollector, GasChecker } from './GasChecker'
+import { GasChecker } from './GasChecker'
 import { Create2Factory } from '../src/Create2Factory'
 import { hexValue } from '@ethersproject/bytes'
 

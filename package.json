@@ -16,7 +16,8 @@
     "coverage": "COVERAGE=1 hardhat coverage",
     "deploy": "./scripts/hh-wrapper deploy",
     "test-dev": "hardhat test --network dev",
-    "ci": "yarn compile && hardhat test && yarn gas-calc && yarn check-gas-reports && yarn run runop",
+    "ci": "yarn compile && hardhat test && yarn run runop",
+    "ci-gas-calc": "yarn gas-calc && yarn check-gas-reports",
     "check-gas-reports": "./scripts/check-gas-reports",
 
     "runop": "hardhat run src/runop.ts ",
