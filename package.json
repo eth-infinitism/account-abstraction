@@ -18,6 +18,7 @@
     "test-dev": "hardhat test --network dev",
     "ci": "yarn compile && hardhat test && yarn gas-calc && yarn check-gas-reports && yarn run runop",
     "check-gas-report": "./scripts/check-gas-reports",
+
     "runop": "hardhat run src/runop.ts ",
     "runop-goerli": "AA_URL=https://account-abstraction-goerli.nethermind.io yarn runop --network goerli",
     "runop3": "hardhat run src/runop3.ts "
