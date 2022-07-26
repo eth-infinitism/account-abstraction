@@ -1,9 +1,7 @@
 // from https://eips.ethereum.org/EIPS/eip-2470
-import { BigNumber, BigNumberish, Contract, ContractFactory, ethers, Signer } from 'ethers'
-import { arrayify, defaultAbiCoder, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
+import { BigNumber, BigNumberish, Contract, ethers, Signer } from 'ethers'
+import { hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
 import { Provider } from '@ethersproject/providers'
-import { ContractInterface } from 'ethers/lib/ethers'
-import { HashZero } from '../test/testutils'
 
 export class Create2Factory {
   factoryDeployed = false

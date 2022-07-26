@@ -22,7 +22,7 @@ import {
   checkForBannedOps,
   createAddress,
   ONE_ETH,
-  getWalletAddress, isDeployed
+  getWalletAddress
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
