@@ -22,7 +22,6 @@ export const FIVE_ETH = parseEther('5')
 export const tostr = (x: any): string => x != null ? x.toString() : 'null'
 
 export function tonumber (x: any): number {
-
   try {
     return parseFloat(x.toString())
   } catch (e: any) {
@@ -51,7 +50,6 @@ export async function getTokenBalance (token: IERC20, address: string): Promise<
   const balance = await token.balanceOf(address)
   return parseInt(balance.toString())
 }
-
 
 let counter = 0
 
@@ -153,7 +151,6 @@ export function decodeRevertReason (data: string, nullIfNoMatch = true): string 
     return data
   }
   return null
-
 }
 
 let currentNode: string = ''
@@ -193,7 +190,6 @@ export function objdump (obj: { [key: string]: any }): any {
 }
 
 export async function checkForBannedOps (txHash: string, checkPaymaster: boolean): Promise<void> {
-
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
@@ -229,7 +225,7 @@ export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDel
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 
-export async function isDeployed (addr: string): Promise<boolean> {
+export async function isContractDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
 }

@@ -22,7 +22,6 @@ import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
 describe('EntryPoint with paymaster', function () {
-
   let entryPoint: EntryPoint
   let walletOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
@@ -74,7 +73,6 @@ describe('EntryPoint with paymaster', function () {
     describe('#handleOps', () => {
       let calldata: string
       before(async () => {
-
         const updateEntryPoint = await wallet.populateTransaction.updateEntryPoint(AddressZero).then(tx => tx.data!)
         calldata = await wallet.populateTransaction.execFromEntryPoint(wallet.address, 0, updateEntryPoint).then(tx => tx.data!)
       })
@@ -153,7 +151,6 @@ describe('EntryPoint with paymaster', function () {
       })
 
       it('batched request should each pay for its share', async () => {
-
         // validate context is passed correctly to postOp
         // (context is the account to pay with)
 
@@ -246,7 +243,6 @@ describe('EntryPoint with paymaster', function () {
       })
     })
     describe('withdraw', () => {
-
       const withdrawAddress = createAddress()
       it('should fail to withdraw before unstake', async () => {
         await expect(
@@ -264,5 +260,4 @@ describe('EntryPoint with paymaster', function () {
       })
     })
   })
-
 })

@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: GPL
 pragma solidity ^0.8.7;
 
+/* solhint-disable avoid-low-level-calls */
+
 import "./EIP4337Manager.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxy.sol";
 

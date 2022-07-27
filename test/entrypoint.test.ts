@@ -1,6 +1,6 @@
 import './aa.init'
-import {BigNumber, Wallet} from "ethers";
-import {expect} from "chai";
+import { BigNumber, Wallet } from 'ethers'
+import { expect } from 'chai'
 import {
   SimpleWallet,
   SimpleWallet__factory,
@@ -33,7 +33,6 @@ import { parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 
 describe('EntryPoint', function () {
-
   let entryPoint: EntryPoint
   let entryPointView: EntryPoint
 
@@ -46,7 +45,6 @@ describe('EntryPoint', function () {
   const paymasterStake = ethers.utils.parseEther('2')
 
   before(async function () {
-
     signer = await ethersSigner.getAddress()
     await checkForGeth()
 
@@ -274,7 +272,6 @@ describe('EntryPoint', function () {
       const ret = await entryPointView.simulateValidation(op1)
       await checkForBannedOps(ret.hash, false)
     })
-
   })
 
   describe('without paymaster (account pays in eth)', () => {
@@ -282,7 +279,6 @@ describe('EntryPoint', function () {
       let counter: TestCounter
       let walletExecFromEntryPoint: PopulatedTransaction
       before(async () => {
-
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
@@ -420,7 +416,6 @@ describe('EntryPoint', function () {
       const beneficiaryAddress = createAddress() // 1
 
       it('should reject create if sender address is wrong', async () => {
-
         const op = await fillAndSign({
           initCode: WalletConstructor(entryPoint.address, walletOwner.address),
           verificationGas: 2e6,
@@ -433,7 +428,6 @@ describe('EntryPoint', function () {
       })
 
       it('should reject create if account not funded', async () => {
-
         const op = await fillAndSign({
           initCode: WalletConstructor(entryPoint.address, walletOwner.address),
           verificationGas: 2e6
@@ -450,7 +444,6 @@ describe('EntryPoint', function () {
       })
 
       it('should succeed to create account after prefund', async () => {
-
         const preAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
         await fund(preAddr)
         createOp = await fillAndSign({
@@ -549,13 +542,11 @@ describe('EntryPoint', function () {
     const wallet2Owner = createWalletOwner()
 
     before(async () => {
-
       paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
       await paymaster.addStake(0, { value: paymasterStake })
       counter = await new TestCounter__factory(ethersSigner).deploy()
       const count = await counter.populateTransaction.count()
       walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
-
     })
 
     it('should fail if paymaster has no deposit', async function () {
@@ -587,5 +578,4 @@ describe('EntryPoint', function () {
       expect(paymasterPaid).to.eql(actualGasCost)
     })
   })
-
 })

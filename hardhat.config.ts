@@ -12,7 +12,6 @@ const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secr
 let mnemonic = 'test '.repeat(11) + 'junk'
 if (fs.existsSync(mnemonicFileName)) { mnemonic = fs.readFileSync(mnemonicFileName, 'ascii') }
 
-
 function getNetwork1 (url: string): { url: string, accounts: { mnemonic: string } } {
   return {
     url,
@@ -30,7 +29,7 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.15",
+    version: '0.8.15',
     settings: {
       optimizer: { enabled: true, runs: 1000000 }
     }
