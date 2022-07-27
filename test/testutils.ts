@@ -225,7 +225,7 @@ export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDel
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 
-export async function isDeployed (addr: string): Promise<boolean> {
+export async function isContractDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
 }
