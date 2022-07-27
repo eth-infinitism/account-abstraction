@@ -5,6 +5,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable avoid-low-level-calls */
+/* solhint-disable no-inline-assembly */
+/* solhint-disable reason-string */
+
 import "./StakeManager.sol";
 import "./UserOperation.sol";
 import "./IWallet.sol";
@@ -251,6 +255,7 @@ contract EntryPoint is StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
+        // solhint-disable-next-line no-empty-blocks
         try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, missingWalletFunds) {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
@@ -363,6 +368,7 @@ contract EntryPoint is StakeManager {
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
                     IPaymaster(paymaster).postOp{gas : op.verificationGas}(mode, context, actualGasCost);
                 } else {
+                    // solhint-disable-next-line no-empty-blocks
                     try IPaymaster(paymaster).postOp{gas : op.verificationGas}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
                         revert FailedOp(opIndex, paymaster, reason);

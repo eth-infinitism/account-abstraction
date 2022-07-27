@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable reason-string */
+
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SimpleWallet.sol";
 import "../BasePaymaster.sol";
@@ -20,7 +22,7 @@ import "../BasePaymaster.sol";
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
     //calculated cost of the postOp
-    uint256 constant COST_OF_POST = 15000;
+    uint256 constant public COST_OF_POST = 15000;
 
     bytes32 immutable public knownWallet;
 

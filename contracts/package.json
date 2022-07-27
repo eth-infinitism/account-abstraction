@@ -1,0 +1,31 @@
+{
+  "name": "@account-abstraction/contracts",
+  "description": "Account Abstraction (EIP 4337) contracts",
+  "version": "0.1.0",
+  "nofiles": [
+    "**/*.sol",
+    "artifacts/**.json",
+    "typechain/**",
+    "!typechain/factories/*"
+  ],
+  "scripts": {
+    "prepack": "cd ..; yarn clean && yarn compile && bash ./scripts/prepare-contracts-package.sh",
+    "postpack": "rm -rf artifacts typechain"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eth-infinitism/account-abstraction"
+  },
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "smart",
+    "contracts",
+    "accipt-abstraction",
+    "eip-4337"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/eth-infinitism/account-abstraction/issues"
+  }
+}

@@ -2,10 +2,13 @@ name: Build
 on:
   push:
     branches:
-      - main
+      - '*'
   pull_request:
     types: [opened, reopened, synchronize]
 
+env:
+  TS_NODE_TRANSPILE_ONLY: 1
+  FORCE_COLORS: 1
 
 # todo: extract shared seto/checkout/install/compile, instead of repeat in each job.
 jobs:
@@ -24,7 +27,21 @@ jobs:
       - run: yarn install
       - run: yarn compile
 
-      - run: FORCE_COLOR=1 yarn run ci
+      - run: yarn run ci
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+      - uses: actions/checkout@v1
+      - uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: yarn install
+      - run: yarn lint
 
   coverage:
     runs-on: ubuntu-latest
