@@ -114,8 +114,7 @@ contract SimpleWallet is BaseWallet {
     }
 
     /// implement template method of BaseWallet
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address aggregator) internal view virtual override {
-        (aggregator);
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address) internal view virtual override {
         bytes32 hash = requestId.toEthSignedMessageHash();
         require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
     }
