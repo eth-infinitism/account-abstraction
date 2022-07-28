@@ -10,12 +10,16 @@
     "lint:js": "eslint -f unix .",
     "lint-fix": "eslint -f unix . --fix",
     "lint:sol": "solhint -f unix \"contracts/**/*.sol\" --max-warnings 0",
-    "gas-calc": "npx ts-mocha gascalc/*",
+    "gas-calc": "./scripts/gascalc",
+    "mocha-gascalc": "TS_NODE_TRANSPILE_ONLY=1 npx ts-mocha gascalc/*",
     "test": "./scripts/hh-wrapper test",
     "coverage": "COVERAGE=1 hardhat coverage",
     "deploy": "./scripts/hh-wrapper deploy",
     "test-dev": "hardhat test --network dev",
-    "ci": "yarn compile && hardhat test && yarn gas-calc && yarn run runop",
+    "ci": "yarn compile && hardhat test && yarn run runop",
+    "ci-gas-calc": "yarn gas-calc && yarn check-gas-reports",
+    "check-gas-reports": "./scripts/check-gas-reports",
+
     "runop": "hardhat run src/runop.ts ",
     "runop-goerli": "AA_URL=https://account-abstraction-goerli.nethermind.io yarn runop --network goerli",
     "runop3": "hardhat run src/runop3.ts "
