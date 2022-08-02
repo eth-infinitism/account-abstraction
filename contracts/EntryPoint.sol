@@ -205,16 +205,25 @@ contract EntryPoint is StakeManager {
         bytes calldata initCode = op.initCode;
         if (initCode.length != 0) {
             require(op.getSender().code.length == 0, "sender already constructed");
-            address initAddress = address(bytes20(initCode[0 : 20]));
-            bytes memory initCallData = initCode[20 :];
-            address sender1;
-            bool success;
-            assembly {
-                success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
-                sender1 := mload(0)
-            }
+            address sender1 = createSender(initCode);
             require(sender1 == op.getSender(), "sender doesn't match initCode address");
         }
+    }
+
+    /**
+     * call the "initCode" factory to create and return the sender wallet address
+     * @param initCode the initCode value from a UserOp. contains 20 bytes of factory address, followed by calldata
+     * @return sender the returned address of the created wallet.
+     */
+    function createSender(bytes calldata initCode) public returns (address sender) {
+        address initAddress = address(bytes20(initCode[0 : 20]));
+        bytes memory initCallData = initCode[20 :];
+        bool success;
+        assembly {
+            success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
+            sender := mload(0)
+        }
+        require(success);
     }
 
     /**

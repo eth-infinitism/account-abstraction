@@ -117,7 +117,7 @@ describe('EntryPoint with paymaster', function () {
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: await getWalletDeployer(entryPoint.address, walletOwner.address),
+          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
           paymaster: paymaster.address
         }, walletOwner, entryPoint)
@@ -128,7 +128,7 @@ describe('EntryPoint with paymaster', function () {
 
       it('should succeed to create account with tokens', async () => {
         createOp = await fillAndSign({
-          initCode: await getWalletDeployer(entryPoint.address, walletOwner.address),
+          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
           paymaster: paymaster.address,
           nonce: 0
