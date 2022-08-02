@@ -31,7 +31,7 @@ contract BLSSignatureAggregator is IAggregator {
 
             blsPublicKeys[i] = blsWallet.getBlsPublicKey{gas : 30000}();
 
-            messages[i] = userOpToMessage(userOp);
+            messages[i] = _userOpToMessage(userOp, keccak256(abi.encode(blsPublicKeys[i])));
         }
         require(BLSOpen.verifyMultiple(blsSignature, blsPublicKeys, messages), "BLS: validateSignatures failed");
     }
@@ -62,19 +62,32 @@ contract BLSSignatureAggregator is IAggregator {
      * the wallet should sign this value using its public-key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
-        bytes32 requestId = getRequestId(userOp);
+        bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
+        return _userOpToMessage(userOp, hashPublicKey);
+    }
+
+    function _userOpToMessage(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (uint256[2] memory) {
+        bytes32 requestId = _getRequestId(userOp, publicKeyHash);
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(requestId));
     }
 
-    function getRequestId(UserOperation memory userOp) public view returns (bytes32) {
-        bytes32 hashPublicKey;
+    //return the public-key hash of a userOp.
+    // if its a constructor UserOp, then return constructor hash.
+    function _getUserOpPubkeyHash(UserOperation memory userOp) internal view returns (bytes32 hashPublicKey) {
         if (userOp.initCode.length == 0) {
             uint256[4] memory publicKey = IBLSWallet(userOp.sender).getBlsPublicKey();
-            hashPublicKey = keccak256(abi.encode(publicKey[0], publicKey[1], publicKey[2], publicKey[3]));
+            hashPublicKey = keccak256(abi.encode(publicKey));
         } else {
             hashPublicKey = keccak256(userOp.initCode);
         }
+    }
 
+    function getRequestId(UserOperation memory userOp) public view returns (bytes32) {
+        bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
+        return _getRequestId(userOp, hashPublicKey);
+    }
+
+    function _getRequestId(UserOperation memory userOp, bytes32 hashPublicKey) internal view returns (bytes32) {
         return keccak256(abi.encode(getUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
     }
 
