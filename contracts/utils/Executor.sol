@@ -3,7 +3,7 @@ pragma solidity >=0.7.5 <0.9.0;
 
 // solhint-disable no-inline-assembly
 
-library Executor {
+library Exec {
 
     function call(
         address to,

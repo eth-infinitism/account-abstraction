@@ -120,9 +120,9 @@ contract SimpleWallet is BaseWallet {
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {
-        bool success = Executor.call(target, value, data, gasleft());
+        bool success = Exec.call(target, value, data, gasleft());
         if (!success) {
-            Executor.revertWithData(Executor.getReturnData());
+            Exec.revertWithData(Exec.getReturnData());
         }
     }
 
