@@ -67,8 +67,15 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     function getRequestId(UserOperation memory userOp) public view returns (bytes32) {
-        // requestId similar to entryPoint.getRequestId()
-        return keccak256(abi.encode(getUserOpHash(userOp), address(this), block.chainid));
+        bytes32 hashPublicKey;
+        if (userOp.initCode.length == 0) {
+            uint256[4] memory publicKey = IBLSWallet(userOp.sender).getBlsPublicKey();
+            hashPublicKey = keccak256(abi.encode(publicKey[0], publicKey[1], publicKey[2], publicKey[3]));
+        } else {
+            hashPublicKey = keccak256(userOp.initCode);
+        }
+
+        return keccak256(abi.encode(getUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
     }
 
     /**
