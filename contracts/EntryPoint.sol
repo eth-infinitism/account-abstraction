@@ -145,28 +145,30 @@ contract EntryPoint is StakeManager {
 
         //all wallets there were tested using an aggregator
         uint aggregatorsLen = aggregators.length;
-        address aggregator;
-        uint opCount;
+        address currentAggregator;
+        uint opsLeftForAggregator;
         uint agIndex = 0;
         if (aggregatorsLen > 0) {
-            opCount = 0;
+            opsLeftForAggregator = 0;
         } else {
-            opCount = opslen;
-            aggregator = address(0);
+            opsLeftForAggregator = opslen;
+            currentAggregator = address(0);
         }
     unchecked {
 
         /// Validation Loop: call validateUserOp on each wallet (and paymaster). revert entire transaction on revert.
         for (uint256 i = 0; i < opslen; i++) {
-            if (opCount-- == 0) {
+            if (opsLeftForAggregator-- == 0) {
                 if (agIndex >= aggregatorsLen) {
                     //no more aggregators.
-                    aggregator = address(0);
-                    opCount = opslen;
+                    currentAggregator = address(0);
+                    // enough for all the ops left.
+                    opsLeftForAggregator = opslen;
                 } else {
                     AggregatorInfo calldata agInfo = aggregators[agIndex++];
-                    aggregator = address(agInfo.aggregator);
-                    opCount = agInfo.count - 1;
+                    currentAggregator = address(agInfo.aggregator);
+                    // how many ops left to process for this aggregator after the end of this one
+                    opsLeftForAggregator = agInfo.count - 1;
                 }
             }
             uint256 preGas = gasleft();
@@ -177,7 +179,7 @@ contract EntryPoint is StakeManager {
             bytes32 requestId = getRequestId(op);
             uint256 prefund;
             PaymentMode paymentMode;
-            (prefund, paymentMode, context,) = _validatePrepayment(i, op, requestId, aggregator);
+            (prefund, paymentMode, context,) = _validatePrepayment(i, op, requestId, currentAggregator);
             assembly {contextOffset := context}
             opInfos[i] = UserOpInfo(
                 requestId,
@@ -196,7 +198,7 @@ contract EntryPoint is StakeManager {
 
         uint256 collected = 0;
         uint256 execOrderLen = execOrder.length;
-        require(execOrderLen == 0 || execOrderLen == ops.length);
+        require(execOrderLen == 0 || execOrderLen == opslen);
 
         // avoid "stack too deep"
         UserOperation[] calldata _ops = ops;
