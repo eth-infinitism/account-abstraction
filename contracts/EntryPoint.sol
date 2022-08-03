@@ -325,7 +325,7 @@ contract EntryPoint is StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(UserOperation calldata op) internal returns (bool){
+    function _createSenderIfNeeded(UserOperation calldata op) internal {
         if (op.initCode.length != 0) {
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
@@ -334,9 +334,6 @@ contract EntryPoint is StakeManager {
             address sender1 = ICreate2Deployer(create2factory).deploy(op.initCode, bytes32(op.nonce));
             require(sender1 != address(0), "create2 failed");
             require(sender1 == op.getSender(), "sender doesn't match create2 address");
-            return true;
-        } else {
-            return false;
         }
     }
 
@@ -374,7 +371,7 @@ contract EntryPoint is StakeManager {
             try IAggregatedWallet(op.getSender()).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
-                aggregator = address(0);
+                aggregator = actualAggregator = address(0);
             }
         }
 
