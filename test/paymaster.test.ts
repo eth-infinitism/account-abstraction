@@ -7,7 +7,9 @@ import {
   EntryPoint,
   TokenPaymaster,
   TokenPaymaster__factory,
-  TestCounter__factory
+  TestCounter__factory,
+  SimpleWalletDeployer,
+  SimpleWalletDeployer__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -27,8 +29,6 @@ import {
 import { fillAndSign } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
-import { SimpleWalletDeployer__factory } from '../typechain/factories/SimpleWalletDeployer__factory'
-import { SimpleWalletDeployer } from '../typechain/SimpleWalletDeployer'
 import { hexValue } from '@ethersproject/bytes'
 
 describe('EntryPoint with paymaster', function () {
@@ -271,7 +271,7 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.unlockStake()
         const amount = await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)
         expect(amount).to.be.gte(ONE_ETH.div(2))
-        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 100])
+        await ethers.provider.send('evm_mine', [Math.floor(Date.now() / 1000) + 1000])
         await paymaster.withdrawStake(withdrawAddress)
         expect(await ethers.provider.getBalance(withdrawAddress)).to.eql(amount)
         expect(await entryPoint.getDepositInfo(paymaster.address).then(info => info.stake)).to.eq(0)

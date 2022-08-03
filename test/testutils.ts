@@ -228,10 +228,9 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   }
 }
 
-export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish): Promise<EntryPoint> {
-  const provider = ethers.provider
+export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish, provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
-  const epf = new EntryPoint__factory(ethers.provider.getSigner())
+  const epf = new EntryPoint__factory(provider.getSigner())
   const ctrParams = defaultAbiCoder.encode(['uint256', 'uint256'],
     [paymasterStake, unstakeDelaySecs])
 

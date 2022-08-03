@@ -1,0 +1,17 @@
+#!/bin/bash
+# make sure gas reports are checked in with this commit
+# dump report diff
+# exit with "1" if there is a diff, zero if no diff
+
+folder=${1:-reports}
+git diff --color=always $folder
+git diff ${folder} | grep -q .
+
+if [ "$?" == 1 ]; then
+  #diff with no error - ok
+  exit
+else
+  echo ERROR: found above unchecked reports. 
+  exit 1
+fi
+

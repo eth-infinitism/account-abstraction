@@ -1,0 +1,20 @@
+version: '2'
+
+services:
+  test:
+    image: node
+    container_name: gascalc
+    depends_on:
+      - localgeth
+    volumes:
+      - ..:/app
+    working_dir: /app
+    restart: "no"
+    environment:
+      - HARDHAT_NETWORK=localgeth
+    command: "yarn mocha-gascalc"
+
+  #configuration is a copy of github/.workflows/build.xml
+  localgeth:
+    image: dtr22/geth-dev
+    container_name: localgeth

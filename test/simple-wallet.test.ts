@@ -4,6 +4,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleWallet,
+  SimpleWalletDeployer__factory,
   SimpleWallet__factory,
   TestUtil,
   TestUtil__factory
@@ -12,7 +13,6 @@ import { createAddress, createWalletOwner, getBalance, isDeployed, ONE_ETH } fro
 import { fillUserOp, getRequestId, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
-import { SimpleWalletDeployer__factory } from '../typechain/factories/SimpleWalletDeployer__factory'
 
 describe('SimpleWallet', function () {
   const entryPoint = '0x'.padEnd(42, '2')
