@@ -1,7 +1,14 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
 import { formatEther, parseEther } from 'ethers/lib/utils'
-import { AddressZero, checkForGeth, createAddress, createWalletOwner, deployEntryPoint } from '../test/testutils'
+import {
+  AddressZero,
+  checkForGeth,
+  createAddress,
+  createWalletOwner,
+  deployEntryPoint,
+  userOpsWithoutAgg
+} from '../test/testutils'
 import { EntryPoint, EntryPoint__factory, SimpleWallet__factory } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
@@ -199,12 +206,12 @@ export class GasChecker {
         return op
       }))
 
-    const txdata = GasCheckCollector.inst.entryPoint.interface.encodeFunctionData('handleOps', [userOps, info.beneficiary, [], []])
+    const txdata = GasCheckCollector.inst.entryPoint.interface.encodeFunctionData('handleOps', [userOpsWithoutAgg(userOps), info.beneficiary])
     console.log('=== encoded data=', txdata.length)
     const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
-      userOps, info.beneficiary, [], [], {}
+      userOpsWithoutAgg(userOps), info.beneficiary, {}
     )
-    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, [], [], { gasLimit: gasEst.mul(3).div(2) })
+    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOpsWithoutAgg(userOps), info.beneficiary, { gasLimit: gasEst.mul(3).div(2) })
     const rcpt = await ret.wait()
     const gasUsed = rcpt.gasUsed.toNumber()
     console.debug('count', info.count, 'gasUsed', gasUsed)

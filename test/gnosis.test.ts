@@ -19,7 +19,7 @@ import {
   deployEntryPoint,
   getBalance,
   HashZero,
-  isContractDeployed
+  isContractDeployed, userOpsWithoutAgg
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
@@ -79,7 +79,7 @@ describe('Gnosis Proxy', function () {
 
     const anotherEntryPoint = await deployEntryPoint(2, 2)
 
-    await expect(anotherEntryPoint.handleOps([op], beneficiary, [], [])).to.revertedWith('wallet: not from entrypoint')
+    await expect(anotherEntryPoint.handleOps(userOpsWithoutAgg([op]), beneficiary)).to.revertedWith('wallet: not from entrypoint')
   })
 
   it('should fail on invalid userop', async function () {
@@ -89,10 +89,10 @@ describe('Gnosis Proxy', function () {
       callGas: 1e6,
       callData: safe_execTxCallData
     }, owner, entryPoint)
-    await expect(entryPoint.handleOps([op], beneficiary, [], [])).to.revertedWith('wallet: invalid nonce')
+    await expect(entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiary)).to.revertedWith('wallet: invalid nonce')
 
     op.callGas = 1
-    await expect(entryPoint.handleOps([op], beneficiary, [], [])).to.revertedWith('wallet: wrong signature')
+    await expect(entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiary)).to.revertedWith('wallet: wrong signature')
   })
 
   it('should exec', async function () {
@@ -101,7 +101,7 @@ describe('Gnosis Proxy', function () {
       callGas: 1e6,
       callData: safe_execTxCallData
     }, owner, entryPoint)
-    const rcpt = await entryPoint.handleOps([op], beneficiary, [], []).then(async r => r.wait())
+    const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
 
     const ev = rcpt.events!.find(ev => ev.event === 'UserOperationEvent')!
@@ -124,7 +124,7 @@ describe('Gnosis Proxy', function () {
       verificationGas: 400000
     }, owner, entryPoint)
 
-    const rcpt = await entryPoint.handleOps([op], beneficiary, [], []).then(async r => r.wait())
+    const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
     expect(await isContractDeployed(counterfactualAddress))
 
@@ -141,7 +141,7 @@ describe('Gnosis Proxy', function () {
       callData: safe_execTxCallData
     }, owner, entryPoint)
 
-    const rcpt = await entryPoint.handleOps([op], beneficiary, [], []).then(async r => r.wait())
+    const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
   })
 

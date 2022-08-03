@@ -1,17 +1,13 @@
 import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import {
-  IERC20,
-  EntryPoint,
-  EntryPoint__factory,
-  SimpleWallet__factory
-} from '../typechain'
+import { EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { keccak256 } from 'ethereumjs-util'
+import { UserOperation } from './UserOperation'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -229,4 +225,13 @@ export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDel
 export async function isContractDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
+}
+
+// internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
+export function userOpsWithoutAgg (userOps: UserOperation[]): EntryPoint.UserOpsPerAggregatorStruct[] {
+  return [{
+    userOps,
+    aggregator: AddressZero,
+    signature: '0x'
+  }]
 }

@@ -19,7 +19,7 @@ import {
   WalletConstructor,
   tonumber,
   deployEntryPoint,
-  callDataCost, createAddress
+  callDataCost, createAddress, userOpsWithoutAgg
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -144,7 +144,7 @@ describe('Batch gas testing', function () {
               to: wallet.address,
               data: execCounterCount.data!
             }), 'datacost=', callDataCost(execCounterCount.data!))
-            console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress, [], []))
+            console.log('through handleOps:', await entryPoint.estimateGas.handleOps(userOpsWithoutAgg([op1]), beneficiaryAddress))
           }
         }
 
@@ -205,7 +205,7 @@ describe('Batch gas testing', function () {
     const beneficiaryAddress = createAddress()
     const sender = ethersSigner // ethers.provider.getSigner(5)
     const senderPrebalance = await ethers.provider.getBalance(await sender.getAddress())
-    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(ops, beneficiaryAddress, [], []).then(tx => tx.data))
+    const entireTxEncoded = toBuffer(await entryPoint.populateTransaction.handleOps(userOpsWithoutAgg(ops), beneficiaryAddress).then(tx => tx.data))
 
     function callDataCost (data: Buffer | string): number {
       if (typeof data === 'string') {
@@ -226,7 +226,7 @@ describe('Batch gas testing', function () {
     // for slack testing, we set TX priority same as UserOp
     // (real miner may create tx with priorityFee=0, to avoid paying from the "sender" to coinbase)
     const { maxPriorityFeePerGas } = ops[0]
-    const ret = await entryPoint.connect(sender).handleOps(ops, beneficiaryAddress, [], [], {
+    const ret = await entryPoint.connect(sender).handleOps(userOpsWithoutAgg(ops), beneficiaryAddress, {
       gasLimit: 13e6,
       maxPriorityFeePerGas
     }).catch((rethrow())).then(async r => await r!.wait())

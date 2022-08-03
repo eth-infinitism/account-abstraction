@@ -16,7 +16,7 @@ import {
 import {
   AddressZero, createAddress,
   createWalletOwner,
-  deployEntryPoint, FIVE_ETH, ONE_ETH
+  deployEntryPoint, FIVE_ETH, ONE_ETH, userOpsWithoutAgg
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { hexZeroPad, parseEther } from 'ethers/lib/utils'
@@ -163,7 +163,7 @@ describe('DepositPaymaster', () => {
         callData
       }, walletOwner, entryPoint)
 
-      await entryPoint.handleOps([userOp], beneficiary, [], [])
+      await entryPoint.handleOps(userOpsWithoutAgg([userOp]), beneficiary)
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent())
       expect(log.args.success).to.eq(false)
@@ -186,7 +186,7 @@ describe('DepositPaymaster', () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData: execApprove
       }, walletOwner, entryPoint)
-      await entryPoint.handleOps([userOp1], beneficiary1, [], [])
+      await entryPoint.handleOps(userOpsWithoutAgg([userOp1]), beneficiary1)
 
       const userOp = await fillAndSign({
         sender: wallet.address,
@@ -194,7 +194,7 @@ describe('DepositPaymaster', () => {
         paymasterData: hexZeroPad(token.address, 32),
         callData
       }, walletOwner, entryPoint)
-      await entryPoint.handleOps([userOp], beneficiary, [], [])
+      await entryPoint.handleOps(userOpsWithoutAgg([userOp]), beneficiary)
 
       const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), await ethers.provider.getBlockNumber())
       expect(log.args.success).to.eq(true)

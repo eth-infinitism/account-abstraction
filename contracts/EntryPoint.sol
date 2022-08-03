@@ -94,143 +94,118 @@ contract EntryPoint is StakeManager {
         require(success);
     }
 
-    //per aggregator information
-    struct AggregatorInfo {
+    //UserOps handled, per aggregator
+    struct UserOpsPerAggregator {
+        UserOperation[] userOps;
+
         // aggregator address
         IAggregator aggregator;
-        // count of UserOps for this aggregator
-        uint count;
         // aggregated signature
         bytes signature;
     }
 
     //run all aggregators, each on its respective wallets
     function validateAggregatedSignatures(
-        UserOperation[] calldata ops,
-        AggregatorInfo[] memory aggregators
-    ) private view returns (uint totalCount) {
-        uint startPtr = getMemoryPointer();
+        UserOpsPerAggregator[] calldata opsPerAggregator
+    ) internal view {
 
-        uint index = 0;
-        for (uint i = 0; i < aggregators.length; i++) {
-            AggregatorInfo memory agg = aggregators[i];
-            uint count = agg.count;
-            UserOperation[] memory copyOfOps = copyOpsRange(ops, index, count);
-            // solhint-disable-next-line no-empty-blocks
-            try agg.aggregator.validateSignatures(copyOfOps, agg.signature) {}
-            catch {
-                revert SignatureValidationFailed(address(agg.aggregator));
-            }
-            index += count;
-        }
-        restoreMemoryPointer(startPtr);
-        return index;
-    }
-    /**
-     * Execute a batch of UserOperation.
-     * @param ops the operations to execute
-     * @param beneficiary the address to receive the fees
-     * @param aggregators list of aggregators to validate signatures. each aggregator define a count it validates from userOps
-     * @param execOrder execution order of userOps. either an empty array, or an array of all userOps indices in the correct execution order
-     */
-    function handleOps(
-        UserOperation[] calldata ops,
-        address payable beneficiary,
-        AggregatorInfo[] calldata aggregators,
-        uint[] memory execOrder
-    ) public {
-
-        uint256 opslen = ops.length;
-        UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
-
-        //all wallets there were tested using an aggregator
-        uint aggregatorsLen = aggregators.length;
-        address currentAggregator;
-        uint opsLeftForAggregator;
-        uint agIndex = 0;
-        if (aggregatorsLen > 0) {
-            opsLeftForAggregator = 0;
-        } else {
-            opsLeftForAggregator = opslen;
-            currentAggregator = address(0);
-        }
-    unchecked {
-
-        /// Validation Loop: call validateUserOp on each wallet (and paymaster). revert entire transaction on revert.
-        for (uint256 i = 0; i < opslen; i++) {
-            if (opsLeftForAggregator-- == 0) {
-                if (agIndex >= aggregatorsLen) {
-                    //no more aggregators.
-                    currentAggregator = address(0);
-                    // enough for all the ops left.
-                    opsLeftForAggregator = opslen;
-                } else {
-                    AggregatorInfo calldata agInfo = aggregators[agIndex++];
-                    currentAggregator = address(agInfo.aggregator);
-                    // how many ops left to process for this aggregator after the end of this one
-                    opsLeftForAggregator = agInfo.count - 1;
+        uint256 startPtr = getMemoryPointer();
+        uint256 len = opsPerAggregator.length;
+        for (uint256 i = 0; i < len; i++) {
+            UserOpsPerAggregator calldata opa = opsPerAggregator[i];
+            if (address(opa.aggregator) != address(0)) {
+                // solhint-disable-next-line no-empty-blocks
+                try opa.aggregator.validateSignatures(opa.userOps, opa.signature) {}
+                catch {
+                    revert SignatureValidationFailed(address(opa.aggregator));
                 }
             }
-            uint256 preGas = gasleft();
-            UserOperation calldata op = ops[i];
+        }
+        restoreMemoryPointer(startPtr);
+    }
 
-            bytes memory context;
-            uint256 contextOffset;
-            bytes32 requestId = getRequestId(op);
-            uint256 prefund;
-            PaymentMode paymentMode;
-            (prefund, paymentMode, context,) = _validatePrepayment(i, op, requestId, currentAggregator);
-            assembly {contextOffset := context}
-            opInfos[i] = UserOpInfo(
-                requestId,
-                prefund,
-                paymentMode,
-                contextOffset,
-                preGas - gasleft() + op.preVerificationGas,
-                false
-            );
+    /**
+     * Execute a batch of UserOperation.
+     * @param opsPerAggregator the operations to execute, grouped by aggregator (or address(0) for no-aggregator wallets)
+     * @param beneficiary the address to receive the fees
+     */
+    function handleOps(
+        UserOpsPerAggregator[] calldata opsPerAggregator,
+        address payable beneficiary
+    ) public {
+
+        uint256 totalOps = 0;
+        for (uint256 i = 0; i < opsPerAggregator.length; i++) {
+            totalOps += opsPerAggregator[i].userOps.length;
         }
 
-        if (aggregatorsLen > 0) {
-            /// Aggregated Sig loop: validate all aggregated signatures. revert entire transaction on revert.
-            validateAggregatedSignatures(ops, aggregators);
+        UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
+        uint256 opasLen = opsPerAggregator.length;
+
+    unchecked {
+
+        bool hasAggregators = false;
+        /// Validation Loop: call validateUserOp on each wallet (and paymaster). revert entire transaction on revert.
+        uint256 opIndex = 0;
+        for (uint256 a = 0; a < opasLen; a++) {
+            UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+            if (address(opa.aggregator) != address(0)) {
+                hasAggregators = true;
+            }
+            uint256 opslen = opa.userOps.length;
+            for (uint256 i = 0; i < opslen; i++) {
+
+                uint256 preGas = gasleft();
+                UserOperation calldata op = opa.userOps[i];
+
+                bytes memory context;
+                uint256 contextOffset;
+                bytes32 requestId = getRequestId(op);
+                uint256 prefund;
+                PaymentMode paymentMode;
+
+                (prefund, paymentMode, context,) = _validatePrepayment(opIndex, op, requestId, address(opa.aggregator));
+                assembly {contextOffset := context}
+                opInfos[opIndex++] = UserOpInfo(
+                    requestId,
+                    prefund,
+                    paymentMode,
+                    contextOffset,
+                    preGas - gasleft() + op.preVerificationGas
+                );
+            }
+        }
+
+        /// Aggregated Sig loop: validate all aggregated signatures. revert entire transaction on revert.
+        if (hasAggregators) {
+            validateAggregatedSignatures(opsPerAggregator);
         }
 
         uint256 collected = 0;
-        uint256 execOrderLen = execOrder.length;
-        require(execOrderLen == 0 || execOrderLen == opslen);
-
-        // avoid "stack too deep"
-        UserOperation[] calldata _ops = ops;
 
         /// Execution loop: revert single UserOp on failure.
-        for (uint256 i = 0; i < opslen; i++) {
-            uint256 preGas = gasleft();
-            uint256 opIndex;
-            UserOpInfo memory opInfo;
-            if (execOrderLen == 0) {
-                opIndex = i;
-                opInfo = opInfos[opIndex];
-            } else {
-                opIndex = execOrder[i];
-                // opIndex is required to be 0..opslen
-                opInfo = opInfos[opIndex];
-                require(opInfo.executed == false, "execOrder duplicate entry");
-                opInfo.executed = true;
-            }
-            UserOperation calldata op = _ops[opIndex];
-            uint256 contextOffset = opInfo.contextOffset;
-            bytes memory context;
-            assembly {context := contextOffset}
+        opIndex = 0;
+        for (uint256 a = 0; a < opasLen; a++) {
+            UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+            uint256 opslen = opa.userOps.length;
+            for (uint256 i = 0; i < opslen; i++) {
 
-            uint ptr = getMemoryPointer();
-            try this.innerHandleOp(op, opInfo, context) returns (uint256 _actualGasCost) {
-                collected += _actualGasCost;
-            } catch {
-                uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-                collected += _handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
+                uint256 preGas = gasleft();
+                UserOperation calldata op = opa.userOps[i];
+                UserOpInfo memory opInfo = opInfos[opIndex++];
+                uint256 contextOffset = opInfo.contextOffset;
+                bytes memory context;
+                assembly {context := contextOffset}
+
+                uint256 ptr = getMemoryPointer();
+                try this.innerHandleOp(op, opInfo, context) returns (uint256 _actualGasCost) {
+                    collected += _actualGasCost;
+                } catch {
+                    uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+                    collected += _handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
+                }
+                restoreMemoryPointer(ptr);
             }
-            restoreMemoryPointer(ptr);
         }
 
         _compensate(beneficiary, collected);
@@ -243,7 +218,6 @@ contract EntryPoint is StakeManager {
         PaymentMode paymentMode;
         uint256 contextOffset;
         uint256 preOpGas;
-        bool executed;
     }
 
     /**
@@ -382,7 +356,7 @@ contract EntryPoint is StakeManager {
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         // solhint-disable-next-line no-empty-blocks
-        try IAggregatedWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, aggregator, missingWalletFunds) {
+        try IWallet(sender).validateUserOp{gas : op.verificationGas}(op, requestId, aggregator, missingWalletFunds) {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
@@ -390,7 +364,7 @@ contract EntryPoint is StakeManager {
         }
         if (paymentMode != PaymentMode.paymasterDeposit) {
             DepositInfo storage senderInfo = deposits[sender];
-            uint deposit = senderInfo.deposit;
+            uint256 deposit = senderInfo.deposit;
             if (requiredPrefund > deposit) {
                 revert FailedOp(opIndex, address(0), "wallet didn't pay prefund");
             }
@@ -411,7 +385,7 @@ contract EntryPoint is StakeManager {
     unchecked {
         address paymaster = op.paymaster;
         DepositInfo storage paymasterInfo = deposits[paymaster];
-        uint deposit = paymasterInfo.deposit;
+        uint256 deposit = paymasterInfo.deposit;
         bool staked = paymasterInfo.staked;
         if (!staked) {
             revert FailedOp(opIndex, paymaster, "not staked");
@@ -508,7 +482,7 @@ contract EntryPoint is StakeManager {
         if (opInfo.prefund < actualGasCost) {
             revert FailedOp(opIndex, paymaster, "prefund below actualGasCost");
         }
-        uint refund = opInfo.prefund - actualGasCost;
+        uint256 refund = opInfo.prefund - actualGasCost;
         internalIncrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
         emit UserOperationEvent(opInfo.requestId, op.getSender(), op.paymaster, op.nonce, actualGasCost, gasPrice, success);
@@ -536,11 +510,11 @@ contract EntryPoint is StakeManager {
     // this is used as a marker during simulation, as this OP is completely banned from the simulated code of the
     // wallet and paymaster.
     function numberMarker() internal view {
-        assembly { mstore(0,number()) }
+        assembly {mstore(0, number())}
     }
 
     //save current free memory pointer
-    function getMemoryPointer() internal pure returns (uint ptr) {
+    function getMemoryPointer() internal pure returns (uint256 ptr) {
         assembly {
             ptr := mload(0x40)
         }
@@ -548,20 +522,10 @@ contract EntryPoint is StakeManager {
 
     //restore previously saved memory pointer.
     // all "memory" allocations since getMemoryPointer are freed, and their memory will be re-used.
-    function restoreMemoryPointer(uint ptr) internal pure {
+    function restoreMemoryPointer(uint256 ptr) internal pure {
         assembly {
             mstore(0x40, ptr)
         }
-    }
-
-    function copyOpsRange(UserOperation[] calldata ops, uint index, uint count)
-    internal pure returns (UserOperation[] memory ret)  {
-    unchecked {
-        ret = new UserOperation[](count);
-        for (uint i = 0; i < count; i++) {
-            ret[i] = ops[i + index];
-        }
-    }
     }
 }
 
