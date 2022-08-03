@@ -109,7 +109,6 @@ contract EntryPoint is StakeManager {
         UserOpsPerAggregator[] calldata opsPerAggregator
     ) internal view {
 
-        uint256 startPtr = getMemoryPointer();
         uint256 len = opsPerAggregator.length;
         for (uint256 i = 0; i < len; i++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[i];
@@ -121,7 +120,6 @@ contract EntryPoint is StakeManager {
                 }
             }
         }
-        restoreMemoryPointer(startPtr);
     }
 
     /**
@@ -197,14 +195,12 @@ contract EntryPoint is StakeManager {
                 bytes memory context;
                 assembly {context := contextOffset}
 
-                uint256 ptr = getMemoryPointer();
                 try this.innerHandleOp(op, opInfo, context) returns (uint256 _actualGasCost) {
                     collected += _actualGasCost;
                 } catch {
                     uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
                     collected += _handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
                 }
-                restoreMemoryPointer(ptr);
             }
         }
 
@@ -511,21 +507,6 @@ contract EntryPoint is StakeManager {
     // wallet and paymaster.
     function numberMarker() internal view {
         assembly {mstore(0, number())}
-    }
-
-    //save current free memory pointer
-    function getMemoryPointer() internal pure returns (uint256 ptr) {
-        assembly {
-            ptr := mload(0x40)
-        }
-    }
-
-    //restore previously saved memory pointer.
-    // all "memory" allocations since getMemoryPointer are freed, and their memory will be re-used.
-    function restoreMemoryPointer(uint256 ptr) internal pure {
-        assembly {
-            mstore(0x40, ptr)
-        }
     }
 }
 
