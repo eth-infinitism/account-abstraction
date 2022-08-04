@@ -8,6 +8,7 @@ import { fillAndSign, getRequestId } from '../test/UserOp'
 import { UserOperation } from '../test/UserOperation'
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
 import { clearInterval } from 'timers'
+import { userOpsWithoutAgg } from '../test/testutils'
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
 
@@ -137,7 +138,7 @@ async function sendQueuedUserOps (queueSender: QueueSendUserOp, entryPoint: Entr
     }
     const signer = await (entryPoint.provider as any).getSigner().getAddress()
     console.log('==== sending batch of ', ops.length)
-    const ret = await entryPoint.handleOps(ops, signer, [], [], { maxPriorityFeePerGas: 2e9 })
+    const ret = await entryPoint.handleOps(userOpsWithoutAgg(ops), signer, { maxPriorityFeePerGas: 2e9 })
     console.log('handleop tx=', ret.hash)
     const rcpt = await ret.wait()
     console.log('events=', rcpt.events!.map(e => ({ name: e.event, args: e.args })))
@@ -164,8 +165,7 @@ export function localUserOpSender (entryPointAddress: string, signer: Signer, be
     }
     const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas)
     console.log('calc gaslimit=', gasLimit.toString())
-    const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), [], [], {
-      gasLimit,
+    const ret = await entryPoint.handleOps(userOpsWithoutAgg([userOp]), beneficiary ?? await signer.getAddress(), {
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
       maxFeePerGas: userOp.maxFeePerGas
     })
