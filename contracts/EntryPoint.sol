@@ -264,9 +264,9 @@ contract EntryPoint is StakeManager {
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
-     * @return sigForUserOp - if Wallet has an aggregator, this value is returned from IAggregator.validateUserOpSignature
-     * @return sigForAggregation  - if Wallet has an aggregator, this value is returned from IAggregator.validateUserOpSignature
-     * @return offChainSigInfo - if the wallet has an aggregator and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
+     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
+     * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
+     * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
      */
     function simulateValidation(UserOperation calldata userOp, bool offChainSigCheck)
     external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
