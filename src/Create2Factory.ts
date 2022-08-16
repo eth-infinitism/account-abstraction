@@ -1,6 +1,6 @@
 // from https://eips.ethereum.org/EIPS/eip-2470
 import { BigNumber, BigNumberish, Contract, ethers, Signer } from 'ethers'
-import { hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
+import { arrayify, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
 import { Provider } from '@ethersproject/providers'
 
 export class Create2Factory {
@@ -31,17 +31,23 @@ export class Create2Factory {
       return addr
     }
 
-    const data = this.getDeployTransactionCallData(initCode, salt)
-    if (gasLimit == null) {
-      gasLimit = await this.provider.estimateGas({ to: Create2Factory.contractAddress, data })
-      gasLimit = gasLimit.mul(64).div(63)
-      gasLimit = 2e6
+    const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'], this.signer)
+    const saltBytes32 = hexZeroPad(hexlify(salt), 32)
+    if (gasLimit === 'estimate') {
+      gasLimit = (await factory.estimateGas.deploy(initCode, saltBytes32)).mul(64).div(63)
+    } else if (gasLimit === undefined) {
+      // manual estimation (its bit larger: we don't know actual deployed code size)
+      gasLimit = arrayify(initCode)
+        .map(x => x === 0 ? 4 : 16)
+        .reduce((sum, x) => sum + x) +
+        200 * initCode.length / 2 + // actual is usually somewhat smaller (only deposited code, not entire constructor)
+        6 * Math.ceil(initCode.length / 64) + // hash price. very minor compared to deposit costs
+        32000 +
+        21000
+
+      gasLimit = Math.round(gasLimit * 64 / 63)
     }
-    const ret = await this.signer.sendTransaction({
-      to: Create2Factory.contractAddress,
-      data,
-      gasLimit
-    })
+    const ret = await factory.deploy(initCode, saltBytes32, { gasLimit })
     await ret.wait()
     if (await this.provider.getCode(addr).then(code => code.length) === 2) {
       throw new Error('failed to deploy')

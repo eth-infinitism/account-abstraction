@@ -10,7 +10,7 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
 import { clearInterval } from 'timers'
 import { Create2Factory } from './Create2Factory'
 import { getCreate2Address, hexConcat, keccak256 } from 'ethers/lib/utils'
-import { AddressZero, HashZero } from '../test/testutils'
+import { HashZero } from '../test/testutils'
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
 
