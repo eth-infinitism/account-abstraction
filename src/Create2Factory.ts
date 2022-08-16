@@ -35,14 +35,17 @@ export class Create2Factory {
     if (gasLimit == null) {
       gasLimit = await this.provider.estimateGas({ to: Create2Factory.contractAddress, data })
       gasLimit = gasLimit.mul(64).div(63)
+      gasLimit = 2e6
     }
-
     const ret = await this.signer.sendTransaction({
       to: Create2Factory.contractAddress,
       data,
       gasLimit
     })
     await ret.wait()
+    if (await this.provider.getCode(addr).then(code => code.length) === 2) {
+      throw new Error('failed to deploy')
+    }
     return addr
   }
 

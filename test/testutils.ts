@@ -234,7 +234,7 @@ export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDel
   const ctrParams = defaultAbiCoder.encode(['uint256', 'uint256'],
     [paymasterStake, unstakeDelaySecs])
 
-  const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
+  const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0, 4e6)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 

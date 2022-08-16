@@ -9,8 +9,8 @@ import { UserOperation } from '../test/UserOperation'
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
 import { clearInterval } from 'timers'
 import { Create2Factory } from './Create2Factory'
-import { getCreate2Address, hexConcat } from 'ethers/lib/utils'
-import { AddressZero } from '../test/testutils'
+import { getCreate2Address, hexConcat, keccak256 } from 'ethers/lib/utils'
+import { AddressZero, HashZero } from '../test/testutils'
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
 
@@ -229,7 +229,7 @@ export class AASigner extends Signer {
   }
 
   async _deploymentAddress (): Promise<string> {
-    return getCreate2Address(Create2Factory.contractAddress, AddressZero, await this._deploymentTransaction())
+    return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(await this._deploymentTransaction()))
   }
 
   async _deploymentTransaction (): Promise<BytesLike> {
@@ -372,9 +372,11 @@ export class AASigner extends Signer {
 
     let initCode: BytesLike | undefined
     if (this._isPhantom) {
+      const initCallData = new Create2Factory(this.provider!).getDeployTransactionCallData(hexValue(await this._deploymentTransaction()), HashZero)
+
       initCode = hexConcat([
         Create2Factory.contractAddress,
-        await this._deploymentTransaction()
+        initCallData
       ])
     }
     const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
