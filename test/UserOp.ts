@@ -192,14 +192,12 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
     }
     if (op1.verificationGas == null) {
       if (provider == null) throw new Error('no entrypoint/provider')
-      console.log('before est')
       const initEstimate = await provider.estimateGas({
         from: entryPoint?.address,
         to: initAddr,
         data: initCallData,
         gasLimit: 10e6
       })
-      console.log('after est', initEstimate.toString())
       op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(initEstimate)
     }
   }
