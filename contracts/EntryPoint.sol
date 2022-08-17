@@ -223,7 +223,7 @@ contract EntryPoint is StakeManager {
             success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
             sender := mload(0)
         }
-        require(success);
+        require(success, "initCode failed");
     }
 
     /**
