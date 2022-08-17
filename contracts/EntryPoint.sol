@@ -142,14 +142,11 @@ contract EntryPoint is StakeManager {
 
     unchecked {
 
-        bool hasAggregators = false;
         /// Validation Loop: call validateUserOp on each wallet (and paymaster). revert entire transaction on revert.
         uint256 opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
-            if (address(opa.aggregator) != address(0)) {
-                hasAggregators = true;
-            }
+            address aggregator = address(opa.aggregator);
             uint256 opslen = opa.userOps.length;
             for (uint256 i = 0; i < opslen; i++) {
 
@@ -162,7 +159,7 @@ contract EntryPoint is StakeManager {
                 uint256 prefund;
                 PaymentMode paymentMode;
 
-                (prefund, paymentMode, context,) = _validatePrepayment(opIndex, op, requestId, address(opa.aggregator));
+                (prefund, paymentMode, context,) = _validatePrepayment(opIndex, op, requestId, aggregator);
                 assembly {contextOffset := context}
                 opInfos[opIndex++] = UserOpInfo(
                     requestId,
@@ -175,9 +172,7 @@ contract EntryPoint is StakeManager {
         }
 
         /// Aggregated Sig loop: validate all aggregated signatures. revert entire transaction on revert.
-        if (hasAggregators) {
-            validateAggregatedSignatures(opsPerAggregator);
-        }
+        validateAggregatedSignatures(opsPerAggregator);
 
         uint256 collected = 0;
 
