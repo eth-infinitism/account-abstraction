@@ -146,9 +146,10 @@ contract EntryPoint is StakeManager {
         require(msg.sender == address(this));
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
-        if (op.callData.length > 0) {
+        bytes calldata callData = op.callData;
+        if (callData.length > 0) {
 
-            (bool success,bytes memory result) = address(op.getSender()).call{gas : op.callGas}(op.callData);
+            (bool success,bytes memory result) = address(op.getSender()).call{gas : op.callGas}(callData);
             if (!success) {
                 if (result.length > 0) {
                     emit UserOperationRevertReason(opInfo.requestId, op.getSender(), op.nonce, result);
@@ -206,12 +207,13 @@ contract EntryPoint is StakeManager {
 
     // create the sender's contract if needed.
     function _createSenderIfNeeded(UserOperation calldata op) internal {
-        if (op.initCode.length != 0) {
+        bytes calldata initCode = op.initCode;
+        if (initCode.length != 0) {
             // note that we're still under the gas limit of validate, so probably
             // this create2 creates a proxy account.
             // @dev initCode must be unique (e.g. contains the signer address), to make sure
             //   it can only be executed from the entryPoint, and called with its initialization code (callData)
-            address sender1 = ICreate2Deployer(create2factory).deploy(op.initCode, bytes32(op.nonce));
+            address sender1 = ICreate2Deployer(create2factory).deploy(initCode, bytes32(op.nonce));
             require(sender1 != address(0), "create2 failed");
             require(sender1 == op.getSender(), "sender doesn't match create2 address");
         }
