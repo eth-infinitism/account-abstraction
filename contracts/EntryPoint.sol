@@ -92,9 +92,7 @@ contract EntryPoint is StakeManager {
      */
     function _executeUserOp(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory opInfo) private returns (uint256 collected) {
         uint256 preGas = gasleft();
-        uint256 contextOffset = opInfo.contextOffset;
-        bytes memory context;
-        assembly {context := contextOffset}
+        bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
 
         try this.innerHandleOp(userOp, opInfo, context) returns (uint256 _actualGasCost) {
             collected = _actualGasCost;
@@ -339,13 +337,11 @@ contract EntryPoint is StakeManager {
             revert FailedOp(opIndex, userOp.paymaster, "Used more than verificationGas");
         }
 
-        uint contextOffset;
-        assembly {contextOffset := context}
         opInfos[opIndex] = UserOpInfo(
             requestId,
             requiredPreFund,
             paymaster,
-            contextOffset,
+            getOffsetOfMemoryBytes(context),
             preGas - gasleft() + userOp.preVerificationGas
         );
     }
@@ -417,6 +413,14 @@ contract EntryPoint is StakeManager {
         }
         senderStorageCells = new uint256[](1);
         senderStorageCells[0] = cell;
+    }
+
+    function getOffsetOfMemoryBytes(bytes memory data) internal pure returns (uint256 offset) {
+        assembly {offset := data}
+    }
+
+    function getMemoryBytesFromOffset(uint256 offset) internal pure returns (bytes memory data) {
+        assembly { data :=  offset }
     }
 }
 
