@@ -84,6 +84,27 @@ contract EntryPoint is StakeManager {
     }
 
     /**
+     * execute a user op
+     * @param opIndex into into the opInfo array
+     * @param userOp the userOp to execute
+     * @param opInfo the opInfo filled by validatePrepayment for this userOp.
+     * @return collected the total amount this userOp paid.
+     */
+    function _executeUserOp(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory opInfo) private returns (uint256 collected) {
+        uint256 preGas = gasleft();
+        uint256 contextOffset = opInfo.contextOffset;
+        bytes memory context;
+        assembly {context := contextOffset}
+
+        try this.innerHandleOp(userOp, opInfo, context) returns (uint256 _actualGasCost) {
+            collected = _actualGasCost;
+        } catch {
+            uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+            collected = _handlePostOp(opIndex, IPaymaster.PostOpMode.postOpReverted, userOp, opInfo, context, actualGas);
+        }
+    }
+
+    /**
      * Execute a batch of UserOperation.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
@@ -95,41 +116,13 @@ contract EntryPoint is StakeManager {
 
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
-            uint256 preGas = gasleft();
-            UserOperation calldata op = ops[i];
-
-            bytes memory context;
-            uint256 contextOffset;
-            bytes32 requestId = getRequestId(op);
-            uint256 prefund;
-            PaymentMode paymentMode;
-            (prefund, paymentMode, context) = _validatePrepayment(i, op, requestId);
-            assembly {contextOffset := context}
-            opInfos[i] = UserOpInfo(
-                requestId,
-                prefund,
-                paymentMode,
-                contextOffset,
-                preGas - gasleft() + op.preVerificationGas
-            );
+            _validatePrepayment(i, ops[i], opInfos);
         }
 
         uint256 collected = 0;
 
         for (uint256 i = 0; i < ops.length; i++) {
-            uint256 preGas = gasleft();
-            UserOperation calldata op = ops[i];
-            UserOpInfo memory opInfo = opInfos[i];
-            uint256 contextOffset = opInfo.contextOffset;
-            bytes memory context;
-            assembly {context := contextOffset}
-
-            try this.innerHandleOp(op, opInfo, context) returns (uint256 _actualGasCost) {
-                collected += _actualGasCost;
-            } catch {
-                uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-                collected += _handlePostOp(i, IPaymaster.PostOpMode.postOpReverted, op, opInfo, context, actualGas);
-            }
+            collected += _executeUserOp(i, ops[i], opInfos[i]);
         }
 
         _compensate(beneficiary, collected);
@@ -191,8 +184,9 @@ contract EntryPoint is StakeManager {
     function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund) {
         uint256 preGas = gasleft();
 
-        bytes32 requestId = getRequestId(userOp);
-        (prefund,,) = _validatePrepayment(0, userOp, requestId);
+        UserOpInfo[] memory opInfos = new UserOpInfo[](1);
+        _validatePrepayment(0, userOp, opInfos);
+        prefund = opInfos[0].prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
 
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
@@ -310,9 +304,15 @@ contract EntryPoint is StakeManager {
      * also make sure total validation doesn't exceed verificationGas
      * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
      */
-    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, bytes32 requestId) private returns (uint256 requiredPreFund, PaymentMode paymentMode, bytes memory context){
+    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo[] memory opInfos) private {
+
+        uint256 requiredPreFund;
+        PaymentMode paymentMode;
+        bytes memory context;
 
         uint256 preGas = gasleft();
+        bytes32 requestId = getRequestId(userOp);
+
         uint256 maxGasValues = userOp.preVerificationGas | userOp.verificationGas |
         userOp.callGas | userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "gas values overflow");
@@ -337,6 +337,16 @@ contract EntryPoint is StakeManager {
         if (userOp.verificationGas < gasUsed) {
             revert FailedOp(opIndex, userOp.paymaster, "Used more than verificationGas");
         }
+
+        uint contextOffset;
+        assembly {contextOffset := context}
+        opInfos[opIndex] = UserOpInfo(
+            requestId,
+            requiredPreFund,
+            paymentMode,
+            contextOffset,
+            preGas - gasleft() + userOp.preVerificationGas
+        );
     }
     }
 
