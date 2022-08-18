@@ -180,15 +180,15 @@ contract EntryPoint is StakeManager {
     /**
      * copy general fields from userOp into the memory opInfo structure.
      */
-    function _copyFromUserOp(UserOperation calldata userOp, UserOpInfo memory opInfo) internal pure {
-        opInfo.mUserOp.sender = userOp.sender;
-        opInfo.mUserOp.nonce = userOp.nonce;
-        opInfo.mUserOp.callGas = userOp.callGas;
-        opInfo.mUserOp.verificationGas = userOp.verificationGas;
-        opInfo.mUserOp.preVerificationGas = userOp.preVerificationGas;
-        opInfo.mUserOp.paymaster = userOp.paymaster;
-        opInfo.mUserOp.maxFeePerGas = userOp.maxFeePerGas;
-        opInfo.mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+    function _copyUserOpToMemory(UserOperation calldata userOp, MemoryUserOp memory mUserOp) internal pure {
+        mUserOp.sender = userOp.sender;
+        mUserOp.nonce = userOp.nonce;
+        mUserOp.callGas = userOp.callGas;
+        mUserOp.verificationGas = userOp.verificationGas;
+        mUserOp.preVerificationGas = userOp.preVerificationGas;
+        mUserOp.paymaster = userOp.paymaster;
+        mUserOp.maxFeePerGas = userOp.maxFeePerGas;
+        mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
     }
 
     /**
@@ -212,7 +212,7 @@ contract EntryPoint is StakeManager {
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
     }
 
-    function _getPaymentInfo(UserOpInfo memory opInfo) internal view returns (uint256 requiredPrefund) {
+    function _getRequiredPrefund(UserOpInfo memory opInfo) internal view returns (uint256 requiredPrefund) {
     unchecked {
         //when using a Paymaster, the verificationGas is used also to as a limit for the postOp call.
         // our security model might call postOp eventually twice
@@ -337,14 +337,14 @@ contract EntryPoint is StakeManager {
         uint256 preGas = gasleft();
 
         UserOpInfo memory opInfo = opInfos[opIndex];
-        _copyFromUserOp(userOp, opInfo);
+        _copyUserOpToMemory(userOp, opInfo.mUserOp);
         opInfo.requestId = getRequestId(userOp);
 
         uint256 maxGasValues = opInfo.mUserOp.preVerificationGas | opInfo.mUserOp.verificationGas | opInfo.mUserOp.callGas |
         userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "gas values overflow");
         uint256 gasUsedByValidateWalletPrepayment;
-        (uint256 requiredPreFund) = _getPaymentInfo(opInfo);
+        (uint256 requiredPreFund) = _getRequiredPrefund(opInfo);
 
         (gasUsedByValidateWalletPrepayment) = _validateWalletPrepayment(opIndex, userOp, opInfo, requiredPreFund);
 
