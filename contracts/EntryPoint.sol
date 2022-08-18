@@ -20,11 +20,6 @@ contract EntryPoint is StakeManager {
 
     using UserOperationLib for UserOperation;
 
-    enum PaymentMode {
-        paymasterDeposit, // if paymaster is set, use paymaster's deposit to pay.
-        walletDeposit // pay with wallet deposit.
-    }
-
     address public immutable create2factory;
 
     /***
