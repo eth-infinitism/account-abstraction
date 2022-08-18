@@ -128,7 +128,7 @@ contract EIP4337Manager is GnosisSafe, IWallet {
         EntryPoint.UserOpsPerAggregator[] memory opas = new EntryPoint.UserOpsPerAggregator[](1);
         opas[0] = EntryPoint.UserOpsPerAggregator(userOps, IAggregator(address(0)), "");
         EntryPoint _entryPoint = EntryPoint(payable(manager.entryPoint()));
-        try _entryPoint.handleOps(opas, payable(msg.sender)) {
+        try _entryPoint.handleAggregatedOps(opas, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
             if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "wallet: wrong signature"))) {

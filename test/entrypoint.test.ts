@@ -5,14 +5,10 @@ import {
   EntryPoint,
   SimpleWallet,
   SimpleWallet__factory,
-  TestAggregatedWallet,
-  TestAggregatedWallet__factory,
   TestCounter,
   TestCounter__factory,
   TestPaymasterAcceptAll,
-  TestPaymasterAcceptAll__factory,
-  TestSignatureAggregator,
-  TestSignatureAggregator__factory
+  TestPaymasterAcceptAll__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -30,7 +26,6 @@ import {
   rethrow,
   tostr,
   TWO_ETH,
-  userOpsWithoutAgg,
   WalletConstructor
 } from './testutils'
 import { fillAndSign, getRequestId } from './UserOp'
@@ -40,6 +35,10 @@ import { ethers } from 'hardhat'
 import { hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
+import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
+import { TestAggregatedWallet } from '../typechain/contracts/samples/TestAggregatedWallet'
+import { TestSignatureAggregator__factory } from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
+import { TestAggregatedWallet__factory } from '../typechain/factories/contracts/samples/TestAggregatedWallet__factory'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -304,11 +303,11 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
         const countBefore = await counter.counters(wallet.address)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
 
         // must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(async t => await t.wait())
@@ -332,7 +331,7 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
 
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(async t => await t.wait())
@@ -354,13 +353,13 @@ describe('EntryPoint', function () {
 
         const countBefore = await counter.counters(wallet.address)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
 
         const balBefore = await getBalance(wallet.address)
         const depositBefore = await entryPoint.balanceOf(wallet.address)
         // must specify at least one of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(async t => await t.wait())
@@ -387,7 +386,7 @@ describe('EntryPoint', function () {
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
 
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 1e7
         }).then(async t => await t.wait())
@@ -406,7 +405,7 @@ describe('EntryPoint', function () {
         }, walletOwner, entryPoint)
 
         const countBefore = await counter.counters(wallet.address)
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
         }).then(async t => await t.wait())
         const countAfter = await counter.counters(wallet.address)
@@ -431,7 +430,7 @@ describe('EntryPoint', function () {
           sender: '0x'.padEnd(42, '1')
         }, walletOwner, entryPoint)
 
-        await expect(entryPoint.callStatic.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
         })).to.revertedWith('sender doesn\'t match create2 address')
       })
@@ -444,7 +443,7 @@ describe('EntryPoint', function () {
 
         expect(await ethers.provider.getBalance(op.sender)).to.eq(0)
 
-        await expect(entryPoint.callStatic.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7,
           gasPrice: await ethers.provider.getGasPrice()
         })).to.revertedWith('didn\'t pay prefund')
@@ -463,7 +462,7 @@ describe('EntryPoint', function () {
         }, walletOwner, entryPoint)
 
         await expect(await ethers.provider.getCode(preAddr).then(x => x.length)).to.equal(2, 'wallet exists before creation')
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([createOp]), beneficiaryAddress, {
+        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
         }).then(async tx => await tx.wait()).catch(rethrow())
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
@@ -475,7 +474,7 @@ describe('EntryPoint', function () {
           this.skip()
         }
 
-        await expect(entryPoint.callStatic.handleOps(userOpsWithoutAgg([createOp]), beneficiaryAddress, {
+        await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
         })).to.revertedWith('create2 failed')
       })
@@ -526,7 +525,7 @@ describe('EntryPoint', function () {
 
         await fund(op1.sender)
         await fund(wallet2.address)
-        await entryPoint.handleOps(userOpsWithoutAgg([op1!, op2]), beneficiaryAddress).catch((rethrow())).then(async r => r!.wait())
+        await entryPoint.handleOps([op1!, op2], beneficiaryAddress).catch((rethrow())).then(async r => r!.wait())
         // console.log(ret.events!.map(e=>({ev:e.event, ...objdump(e.args!)})))
       })
       it('should execute', async () => {
@@ -560,7 +559,7 @@ describe('EntryPoint', function () {
         }, walletOwner, entryPoint)
 
         // no aggregator is kind of "wrong aggregator"
-        await expect(entryPoint.handleOps(userOpsWithoutAgg([userOp]), beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('wrong aggregator')
       })
       it('should fail to execute aggregated wallet with wrong aggregator', async () => {
         const userOp = await fillAndSign({
@@ -570,7 +569,7 @@ describe('EntryPoint', function () {
         const wrongAggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
         const sig = HashZero
 
-        await expect(entryPoint.handleOps([{
+        await expect(entryPoint.handleAggregatedOps([{
           userOps: [userOp],
           aggregator: wrongAggregator.address,
           signature: sig
@@ -585,7 +584,7 @@ describe('EntryPoint', function () {
         const wrongSig = hexZeroPad('0x123456', 32)
         const aggAddress: string = aggregator.address
         await expect(
-          entryPoint.handleOps([{
+          entryPoint.handleAggregatedOps([{
             userOps: [userOp],
             aggregator: aggregator.address,
             signature: wrongSig
@@ -631,7 +630,7 @@ describe('EntryPoint', function () {
           aggregator: AddressZero,
           signature: '0x'
         }]
-        await entryPoint.handleOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 })
+        await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 })
       })
 
       describe('execution ordering', () => {
@@ -668,7 +667,7 @@ describe('EntryPoint', function () {
           it('should create wallet in handleOps', async () => {
             const { sigForAggregation } = await aggregator.validateUserOpSignature(userOp, false)
             const sig = await aggregator.aggregateSignatures([sigForAggregation])
-            await entryPoint.handleOps([{
+            await entryPoint.handleAggregatedOps([{
               userOps: [userOp],
               aggregator: aggregator.address,
               signature: sig
@@ -702,7 +701,7 @@ describe('EntryPoint', function () {
           callGas: 1e6
         }, wallet2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
-        await expect(entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
+        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
       })
 
       it('paymaster should pay for tx', async function () {
@@ -714,7 +713,7 @@ describe('EntryPoint', function () {
         }, wallet2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
 
-        const rcpt = await entryPoint.handleOps(userOpsWithoutAgg([op]), beneficiaryAddress).then(async t => t.wait())
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => t.wait())
 
         const { actualGasCost } = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
         const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
