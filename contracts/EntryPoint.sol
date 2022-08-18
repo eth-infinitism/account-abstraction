@@ -138,6 +138,9 @@ contract EntryPoint is StakeManager {
 
     /**
      * Execute a batch of UserOperation.
+     * no signature aggregator is used.
+     * if any wallet requires an aggregator (that is, it returned an "actualAggregator" when
+     * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */

@@ -19,7 +19,7 @@ import {
   deployEntryPoint,
   getBalance,
   HashZero,
-  isContractDeployed, userOpsWithoutAgg
+  isContractDeployed
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
