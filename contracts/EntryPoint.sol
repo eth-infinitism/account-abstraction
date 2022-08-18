@@ -344,13 +344,14 @@ contract EntryPoint is StakeManager {
         _copyUserOpToMemory(userOp, mUserOp);
         opInfo.requestId = getRequestId(userOp);
 
+        // validate all numeric values in userOp are well below 128 bit, so they can safely be added
+        // and multiplied without causing overflow
         uint256 maxGasValues = mUserOp.preVerificationGas | mUserOp.verificationGas | mUserOp.callGas |
         userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "gas values overflow");
-        uint256 gasUsedByValidateWalletPrepayment;
-        (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
 
-        (gasUsedByValidateWalletPrepayment) = _validateWalletPrepayment(opIndex, userOp, opInfo, requiredPreFund);
+        (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
+        (uint256 gasUsedByValidateWalletPrepayment) = _validateWalletPrepayment(opIndex, userOp, opInfo, requiredPreFund);
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
@@ -359,7 +360,7 @@ contract EntryPoint is StakeManager {
 
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
-            (context) = _validatePaymasterPrepayment(opIndex, userOp, opInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            context = _validatePaymasterPrepayment(opIndex, userOp, opInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
         } else {
             context = "";
         }
