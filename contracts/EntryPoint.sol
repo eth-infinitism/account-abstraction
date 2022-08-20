@@ -99,23 +99,6 @@ contract EntryPoint is StakeManager {
         bytes signature;
     }
 
-    //run all aggregators, each on its respective wallets
-    function validateAggregatedSignatures(
-        UserOpsPerAggregator[] calldata opsPerAggregator
-    ) internal view {
-
-        uint256 len = opsPerAggregator.length;
-        for (uint256 i = 0; i < len; i++) {
-            UserOpsPerAggregator calldata opa = opsPerAggregator[i];
-            if (address(opa.aggregator) != address(0)) {
-                // solhint-disable-next-line no-empty-blocks
-                try opa.aggregator.validateSignatures(opa.userOps, opa.signature) {}
-                catch {
-                    revert SignatureValidationFailed(address(opa.aggregator));
-                }
-            }
-        }
-    }
     /**
      * execute a user op
      * @param opIndex into into the opInfo array
@@ -192,7 +175,7 @@ contract EntryPoint is StakeManager {
                 opIndex++;
             }
 
-            if (address(opa.aggregator) != address(0)) {
+            if (address(aggregator) != address(0)) {
                 // solhint-disable-next-line no-empty-blocks
                 try aggregator.validateSignatures(ops, opa.signature) {}
                 catch {
