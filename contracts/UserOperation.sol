@@ -56,25 +56,6 @@ library UserOperationLib {
     }
     }
 
-    function requiredGas(UserOperation calldata userOp) internal pure returns (uint256) {
-    unchecked {
-        //when using a Paymaster, the verificationGas is used also to cover the postOp call.
-        // our security model might call postOp eventually twice
-        uint256 mul = hasPaymaster(userOp) ? 3 : 1;
-        return userOp.callGas + userOp.verificationGas * mul + userOp.preVerificationGas;
-    }
-    }
-
-    function requiredPreFund(UserOperation calldata userOp) internal view returns (uint256 prefund) {
-    unchecked {
-        return requiredGas(userOp) * gasPrice(userOp);
-    }
-    }
-
-    function hasPaymaster(UserOperation calldata userOp) internal pure returns (bool) {
-        return userOp.paymaster != address(0);
-    }
-
     function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
         //lighter signature scheme. must match UserOp.ts#packUserOp
         bytes calldata sig = userOp.signature;
