@@ -109,7 +109,7 @@ contract EntryPoint is StakeManager {
 
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
-            _validatePrepayment(i, ops[i], opInfos);
+            _validatePrepayment(i, ops[i], opInfos[i]);
         }
 
         uint256 collected = 0;
@@ -204,10 +204,10 @@ contract EntryPoint is StakeManager {
     function simulateValidation(UserOperation calldata userOp) external returns (uint256 preOpGas, uint256 prefund) {
         uint256 preGas = gasleft();
 
-        UserOpInfo[] memory opInfos = new UserOpInfo[](1);
+        UserOpInfo memory outOpInfo;
 
-        _validatePrepayment(0, userOp, opInfos);
-        prefund = opInfos[0].prefund;
+        _validatePrepayment(0, userOp, outOpInfo);
+        prefund = outOpInfo.prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
 
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
@@ -332,17 +332,15 @@ contract EntryPoint is StakeManager {
      * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
-     * @param opInfos - the "opIndex" item into this array is filled with a copy of the userOp static fields, and the results of
-     *              of the validation.
+     * @param outOpInfo - output opInfo struct.
      */
-    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo[] memory opInfos) private {
+    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo) private {
 
         uint256 preGas = gasleft();
 
-        UserOpInfo memory opInfo = opInfos[opIndex];
-        MemoryUserOp memory mUserOp = opInfo.mUserOp;
+        MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
         _copyUserOpToMemory(userOp, mUserOp);
-        opInfo.requestId = getRequestId(userOp);
+        outOpInfo.requestId = getRequestId(userOp);
 
         // validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow
@@ -351,7 +349,7 @@ contract EntryPoint is StakeManager {
         require(maxGasValues <= type(uint120).max, "gas values overflow");
 
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
-        (uint256 gasUsedByValidateWalletPrepayment) = _validateWalletPrepayment(opIndex, userOp, opInfo, requiredPreFund);
+        (uint256 gasUsedByValidateWalletPrepayment) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, requiredPreFund);
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
@@ -360,7 +358,7 @@ contract EntryPoint is StakeManager {
 
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
-            context = _validatePaymasterPrepayment(opIndex, userOp, opInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            context = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
         } else {
             context = "";
         }
@@ -371,9 +369,9 @@ contract EntryPoint is StakeManager {
             revert FailedOp(opIndex, userOp.paymaster, "Used more than verificationGas");
         }
 
-        opInfo.prefund = requiredPreFund;
-        opInfo.contextOffset = getOffsetOfMemoryBytes(context);
-        opInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
+        outOpInfo.prefund = requiredPreFund;
+        outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
+        outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
     }
     }
 

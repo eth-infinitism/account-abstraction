@@ -15,7 +15,7 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
     'EntryPoint', {
       from,
       args: [Create2Factory.contractAddress, PAYMASTER_STAKE, UNSTAKE_DELAY_SEC],
-      gasLimit: 3e6,
+      gasLimit: 4e6,
       deterministicDeployment: true
     })
   console.log('==entrypoint addr=', ret.address)
