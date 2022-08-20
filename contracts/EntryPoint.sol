@@ -24,7 +24,6 @@ contract EntryPoint is StakeManager {
 
     using UserOperationLib for UserOperation;
 
-
     address public immutable create2factory;
 
     // internal value used during simulation: need to query aggregator if wallet is created
@@ -151,7 +150,7 @@ contract EntryPoint is StakeManager {
 
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
-            _validatePrepayment(i, ops[i], opInfos, address(0));
+            _validatePrepayment(i, ops[i], opInfos[i], address(0));
         }
 
         uint256 collected = 0;
@@ -189,7 +188,8 @@ contract EntryPoint is StakeManager {
             IAggregator aggregator = opa.aggregator;
             uint256 opslen = ops.length;
             for (uint256 i = 0; i < opslen; i++) {
-                _validatePrepayment(opIndex++, ops[i], opInfos, address(aggregator));
+                _validatePrepayment(opIndex, ops[i], opInfos[opIndex], address(aggregator));
+                opIndex++;
             }
 
             if (address(opa.aggregator) != address(0)) {
@@ -308,10 +308,10 @@ contract EntryPoint is StakeManager {
     external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
         uint256 preGas = gasleft();
 
-        UserOpInfo[] memory opInfos = new UserOpInfo[](1);
+        UserOpInfo memory outOpInfo;
 
-        actualAggregator = _validatePrepayment(0, userOp, opInfos, SIMULATE_NO_AGGREGATOR);
-        prefund = opInfos[0].prefund;
+        actualAggregator = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
+        prefund = outOpInfo.prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
 
         numberMarker();
@@ -378,7 +378,7 @@ contract EntryPoint is StakeManager {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         _createSenderIfNeeded(mUserOp, op.initCode);
         if (aggregator == SIMULATE_NO_AGGREGATOR) {
-            try IAggregatedWallet(op.getSender()).getAggregator() returns (address userOpAggregator) {
+            try IAggregatedWallet(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
                 aggregator = actualAggregator = address(0);
@@ -448,17 +448,14 @@ contract EntryPoint is StakeManager {
      * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
-     * @param opInfos - the "opIndex" item into this array is filled with a copy of the userOp static fields, and the results of
-     *              of the validation.
      */
-    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo[] memory opInfos, address aggregator)
+    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, address aggregator)
     private returns(address actualAggregator) {
 
         uint256 preGas = gasleft();
-        UserOpInfo memory opInfo = opInfos[opIndex];
-        MemoryUserOp memory mUserOp = opInfo.mUserOp;
+        MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
         _copyUserOpToMemory(userOp, mUserOp);
-        opInfo.requestId = getRequestId(userOp);
+        outOpInfo.requestId = getRequestId(userOp);
 
         // validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow
@@ -468,7 +465,7 @@ contract EntryPoint is StakeManager {
 
         uint256 gasUsedByValidateWalletPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
-        (gasUsedByValidateWalletPrepayment, actualAggregator) = _validateWalletPrepayment(opIndex, userOp, opInfo, aggregator, requiredPreFund);
+        (gasUsedByValidateWalletPrepayment, actualAggregator) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
@@ -476,7 +473,7 @@ contract EntryPoint is StakeManager {
 
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
-            context = _validatePaymasterPrepayment(opIndex, userOp, opInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            context = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
         } else {
             context = "";
         }
@@ -486,9 +483,9 @@ contract EntryPoint is StakeManager {
         if (userOp.verificationGas < gasUsed) {
             revert FailedOp(opIndex, userOp.paymaster, "Used more than verificationGas");
         }
-        opInfo.prefund = requiredPreFund;
-        opInfo.contextOffset = getOffsetOfMemoryBytes(context);
-        opInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
+        outOpInfo.prefund = requiredPreFund;
+        outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
+        outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
     }
     }
 
