@@ -1,5 +1,5 @@
 import { aggregate, BlsSignerFactory, BlsVerifier } from '@thehubbleproject/bls/dist/signer'
-import { arrayify, defaultAbiCoder, hexConcat, hexValue } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
 import {
   BLSOpen__factory,
   BLSSignatureAggregator,
