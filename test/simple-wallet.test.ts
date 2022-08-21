@@ -1,4 +1,3 @@
-import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
@@ -103,9 +102,8 @@ describe('SimpleWallet', function () {
     it('sanity: check deployer', async () => {
       const ownerAddr = createAddress()
       const deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
-      const target = await deployer.getWalletAddress(entryPoint, ownerAddr, 1234)
+      const target = await deployer.callStatic.deployWallet(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(false)
-      expect(await deployer.callStatic.deployWallet(entryPoint, ownerAddr, 1234)).to.eq(target)
       await deployer.deployWallet(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(true)
     })
