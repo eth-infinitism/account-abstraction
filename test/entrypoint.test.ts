@@ -2,9 +2,9 @@ import './aa.init'
 import { BigNumber, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
+  EntryPoint,
   SimpleWallet,
   SimpleWallet__factory,
-  EntryPoint,
   TestCounter,
   TestCounter__factory,
   TestPaymasterAcceptAll,
@@ -12,25 +12,33 @@ import {
 } from '../typechain'
 import {
   AddressZero,
-  createWalletOwner,
-  fund,
-  checkForGeth,
-  rethrow,
-  tostr,
-  WalletConstructor,
   calcGasUsage,
   checkForBannedOps,
-  ONE_ETH,
-  TWO_ETH,
+  checkForGeth,
+  createAddress,
+  createWalletOwner,
   deployEntryPoint,
-  getBalance, FIVE_ETH, createAddress
+  FIVE_ETH,
+  fund,
+  getBalance,
+  HashZero,
+  ONE_ETH,
+  rethrow,
+  tostr,
+  TWO_ETH,
+  WalletConstructor
 } from './testutils'
 import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { parseEther } from 'ethers/lib/utils'
+import { hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
+import { BytesLike } from '@ethersproject/bytes'
+import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
+import { TestAggregatedWallet } from '../typechain/contracts/samples/TestAggregatedWallet'
+import { TestSignatureAggregator__factory } from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
+import { TestAggregatedWallet__factory } from '../typechain/factories/contracts/samples/TestAggregatedWallet__factory'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -219,14 +227,14 @@ describe('EntryPoint', function () {
     it('should fail if validateUserOp fails', async () => {
       // using wrong owner for wallet1
       const op = await fillAndSign({ sender: wallet1.address }, walletOwner, entryPoint)
-      await expect(entryPointView.callStatic.simulateValidation(op).catch(rethrow())).to
+      await expect(entryPointView.callStatic.simulateValidation(op, false).catch(rethrow())).to
         .revertedWith('wrong signature')
     })
 
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({ sender: wallet1.address }, walletOwner1, entryPoint)
       await fund(wallet1)
-      await entryPointView.callStatic.simulateValidation(op).catch(rethrow())
+      await entryPointView.callStatic.simulateValidation(op, false).catch(rethrow())
     })
 
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
@@ -235,13 +243,13 @@ describe('EntryPoint', function () {
         sender: wallet1.address
       }, walletOwner1, entryPoint)
       await expect(
-        entryPointView.callStatic.simulateValidation(op)
+        entryPointView.callStatic.simulateValidation(op, false)
       ).to.revertedWith('gas values overflow')
     })
 
     it('should fail on-chain', async () => {
       const op = await fillAndSign({ sender: wallet1.address }, walletOwner1, entryPoint)
-      await expect(entryPoint.simulateValidation(op)).to.revertedWith('must be called off-chain')
+      await expect(entryPoint.simulateValidation(op, false)).to.revertedWith('must be called off-chain')
     })
 
     it('should fail creation for wrong sender', async () => {
@@ -249,7 +257,7 @@ describe('EntryPoint', function () {
         initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
         sender: '0x'.padEnd(42, '1')
       }, walletOwner1, entryPoint)
-      await expect(entryPointView.callStatic.simulateValidation(op1).catch(rethrow()))
+      await expect(entryPointView.callStatic.simulateValidation(op1, false).catch(rethrow()))
         .to.revertedWith('sender doesn\'t match create2 address')
     })
 
@@ -258,7 +266,8 @@ describe('EntryPoint', function () {
         initCode: WalletConstructor(entryPoint.address, walletOwner1.address)
       }, walletOwner1, entryPoint)
       await fund(op1.sender)
-      await entryPointView.callStatic.simulateValidation(op1).catch(rethrow())
+
+      await entryPointView.callStatic.simulateValidation(op1, false).catch(rethrow())
     })
 
     it('should not use banned ops during simulateValidation', async () => {
@@ -269,7 +278,7 @@ describe('EntryPoint', function () {
       await fund(AddressZero)
       // we must create a real transaction to debug, and it must come from address zero:
       await ethers.provider.send('hardhat_impersonateAccount', [AddressZero])
-      const ret = await entryPointView.simulateValidation(op1)
+      const ret = await entryPointView.simulateValidation(op1, false)
       await checkForBannedOps(ret.hash, false)
     })
   })
@@ -292,7 +301,6 @@ describe('EntryPoint', function () {
           callGas: 1e6
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
-
         const countBefore = await counter.counters(wallet.address)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
         console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
@@ -462,7 +470,9 @@ describe('EntryPoint', function () {
 
       it('should reject if account already created', async function () {
         const preAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
-        if (await ethers.provider.getCode(preAddr).then(x => x.length) === 2) { this.skip() }
+        if (await ethers.provider.getCode(preAddr).then(x => x.length) === 2) {
+          this.skip()
+        }
 
         await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
@@ -487,8 +497,6 @@ describe('EntryPoint', function () {
       let wallet1: string
       const walletOwner2 = createWalletOwner()
       let wallet2: SimpleWallet
-      // let prebalance1: BigNumber
-      // let prebalance2: BigNumber
 
       before('before', async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
@@ -498,7 +506,7 @@ describe('EntryPoint', function () {
         wallet2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner2.address)
         await fund(wallet1)
         await fund(wallet2.address)
-        // execute and incremtn counter
+        // execute and increment counter
         const op1 = await fillAndSign({
           initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
           callData: walletExecCounterFromEntryPoint.data,
@@ -513,13 +521,11 @@ describe('EntryPoint', function () {
           verificationGas: 76000
         }, walletOwner2, entryPoint)
 
-        await entryPointView.callStatic.simulateValidation(op2, { gasPrice: 1e9 })
+        await entryPointView.callStatic.simulateValidation(op2, false, { gasPrice: 1e9 })
 
         await fund(op1.sender)
         await fund(wallet2.address)
-        // prebalance1 = await ethers.provider.getBalance((wallet1))
-        // prebalance2 = await ethers.provider.getBalance((wallet2.address))
-        await entryPoint.handleOps([op1, op2], beneficiaryAddress).catch((rethrow())).then(async r => await r!.wait())
+        await entryPoint.handleOps([op1!, op2], beneficiaryAddress).catch((rethrow())).then(async r => r!.wait())
         // console.log(ret.events!.map(e=>({ev:e.event, ...objdump(e.args!)})))
       })
       it('should execute', async () => {
@@ -533,49 +539,186 @@ describe('EntryPoint', function () {
         // console.log('cost2=', cost2)
       })
     })
-  })
 
-  describe('with paymaster (account with no eth)', () => {
-    let paymaster: TestPaymasterAcceptAll
-    let counter: TestCounter
-    let walletExecFromEntryPoint: PopulatedTransaction
-    const wallet2Owner = createWalletOwner()
+    describe('aggregation tests', () => {
+      const beneficiaryAddress = createAddress()
+      let aggregator: TestSignatureAggregator
+      let aggWallet: TestAggregatedWallet
+      let aggWallet2: TestAggregatedWallet
 
-    before(async () => {
-      paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
-      await paymaster.addStake(0, { value: paymasterStake })
-      counter = await new TestCounter__factory(ethersSigner).deploy()
-      const count = await counter.populateTransaction.count()
-      walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+      before(async () => {
+        aggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
+        aggWallet = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+        aggWallet2 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+        await ethersSigner.sendTransaction({ to: aggWallet.address, value: parseEther('0.1') })
+        await ethersSigner.sendTransaction({ to: aggWallet2.address, value: parseEther('0.1') })
+      })
+      it('should fail to execute aggregated wallet without an aggregator', async () => {
+        const userOp = await fillAndSign({
+          sender: aggWallet.address
+        }, walletOwner, entryPoint)
+
+        // no aggregator is kind of "wrong aggregator"
+        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+      })
+      it('should fail to execute aggregated wallet with wrong aggregator', async () => {
+        const userOp = await fillAndSign({
+          sender: aggWallet.address
+        }, walletOwner, entryPoint)
+
+        const wrongAggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
+        const sig = HashZero
+
+        await expect(entryPoint.handleAggregatedOps([{
+          userOps: [userOp],
+          aggregator: wrongAggregator.address,
+          signature: sig
+        }], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+      })
+
+      it('should fail to execute aggregated wallet with wrong agg. signature', async () => {
+        const userOp = await fillAndSign({
+          sender: aggWallet.address
+        }, walletOwner, entryPoint)
+
+        const wrongSig = hexZeroPad('0x123456', 32)
+        const aggAddress: string = aggregator.address
+        await expect(
+          entryPoint.handleAggregatedOps([{
+            userOps: [userOp],
+            aggregator: aggregator.address,
+            signature: wrongSig
+          }], beneficiaryAddress)).to.revertedWith(`SignatureValidationFailed("${aggAddress}")`)
+      })
+
+      it('should run with multiple aggregators (and non-aggregated-wallets)', async () => {
+        const aggregator3 = await new TestSignatureAggregator__factory(ethersSigner).deploy()
+        const aggWallet3 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
+        await ethersSigner.sendTransaction({ to: aggWallet3.address, value: parseEther('0.1') })
+
+        const userOp1 = await fillAndSign({
+          sender: aggWallet.address
+        }, walletOwner, entryPoint)
+        const userOp2 = await fillAndSign({
+          sender: aggWallet2.address
+        }, walletOwner, entryPoint)
+        const userOp_agg3 = await fillAndSign({
+          sender: aggWallet3.address
+        }, walletOwner, entryPoint)
+        const userOp_noAgg = await fillAndSign({
+          sender: wallet.address
+        }, walletOwner, entryPoint)
+
+        // extract signature from userOps, and create aggregated signature
+        // (not really required with the test aggregator, but should work with any aggregator
+        const { sigForAggregation: agg1, sigForUserOp: sigOp1 } = await aggregator.validateUserOpSignature(userOp1, false)
+        const { sigForAggregation: agg2, sigForUserOp: sigOp2 } = await aggregator.validateUserOpSignature(userOp1, false)
+        userOp1.signature = sigOp1
+        userOp2.signature = sigOp2
+        const aggSig = await aggregator.aggregateSignatures([agg1, agg2])
+
+        const aggInfos = [{
+          userOps: [userOp1, userOp2],
+          aggregator: aggregator.address,
+          signature: aggSig
+        }, {
+          userOps: [userOp_agg3],
+          aggregator: aggregator3.address,
+          signature: HashZero
+        }, {
+          userOps: [userOp_noAgg],
+          aggregator: AddressZero,
+          signature: '0x'
+        }]
+        await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 })
+      })
+
+      describe('execution ordering', () => {
+        let userOp1: UserOperation
+        let userOp2: UserOperation
+        before(async () => {
+          userOp1 = await fillAndSign({
+            sender: aggWallet.address
+          }, walletOwner, entryPoint)
+          userOp2 = await fillAndSign({
+            sender: aggWallet2.address
+          }, walletOwner, entryPoint)
+          userOp1.signature = '0x'
+          userOp2.signature = '0x'
+        })
+
+        context('create wallet', () => {
+          let initCode: BytesLike
+          let addr: string
+          let userOp: UserOperation
+          before(async () => {
+            initCode = await new TestAggregatedWallet__factory(ethersSigner).getDeployTransaction(entryPoint.address, aggregator.address).data!
+            addr = await entryPoint.getSenderAddress(initCode, 10)
+            await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
+            userOp = await fillAndSign({
+              initCode,
+              nonce: 10
+            }, walletOwner, entryPoint)
+          })
+          it('should simulate wallet creation', async () => {
+            const ret = await entryPointView.callStatic.simulateValidation(userOp, false)
+            expect(ret.actualAggregator).to.equal(aggregator.address)
+          })
+          it('should create wallet in handleOps', async () => {
+            const { sigForAggregation } = await aggregator.validateUserOpSignature(userOp, false)
+            const sig = await aggregator.aggregateSignatures([sigForAggregation])
+            await entryPoint.handleAggregatedOps([{
+              userOps: [userOp],
+              aggregator: aggregator.address,
+              signature: sig
+            }], beneficiaryAddress, { gasLimit: 3e6 })
+          })
+        })
+      })
     })
 
-    it('should fail if paymaster has no deposit', async function () {
-      const op = await fillAndSign({
-        paymaster: paymaster.address,
-        callData: walletExecFromEntryPoint.data,
-        initCode: WalletConstructor(entryPoint.address, wallet2Owner.address),
+    describe('with paymaster (account with no eth)', () => {
+      let paymaster: TestPaymasterAcceptAll
+      let counter: TestCounter
+      let walletExecFromEntryPoint: PopulatedTransaction
+      const wallet2Owner = createWalletOwner()
 
-        verificationGas: 1e6,
-        callGas: 1e6
-      }, wallet2Owner, entryPoint)
-      const beneficiaryAddress = createAddress()
-      await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
-    })
+      before(async () => {
+        paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
+        await paymaster.addStake(0, { value: paymasterStake })
+        counter = await new TestCounter__factory(ethersSigner).deploy()
+        const count = await counter.populateTransaction.count()
+        walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+      })
 
-    it('paymaster should pay for tx', async function () {
-      await paymaster.deposit({ value: ONE_ETH })
-      const op = await fillAndSign({
-        paymaster: paymaster.address,
-        callData: walletExecFromEntryPoint.data,
-        initCode: WalletConstructor(entryPoint.address, wallet2Owner.address)
-      }, wallet2Owner, entryPoint)
-      const beneficiaryAddress = createAddress()
+      it('should fail if paymaster has no deposit', async function () {
+        const op = await fillAndSign({
+          paymaster: paymaster.address,
+          callData: walletExecFromEntryPoint.data,
+          initCode: WalletConstructor(entryPoint.address, wallet2Owner.address),
 
-      const rcpt = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
+          verificationGas: 1e6,
+          callGas: 1e6
+        }, wallet2Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
+      })
 
-      const { actualGasCost } = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
-      const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
-      expect(paymasterPaid).to.eql(actualGasCost)
+      it('paymaster should pay for tx', async function () {
+        await paymaster.deposit({ value: ONE_ETH })
+        const op = await fillAndSign({
+          paymaster: paymaster.address,
+          callData: walletExecFromEntryPoint.data,
+          initCode: WalletConstructor(entryPoint.address, wallet2Owner.address)
+        }, wallet2Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => t.wait())
+
+        const { actualGasCost } = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+        const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
+        expect(paymasterPaid).to.eql(actualGasCost)
+      })
     })
   })
 })

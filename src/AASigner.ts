@@ -165,7 +165,6 @@ export function localUserOpSender (entryPointAddress: string, signer: Signer, be
     const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas)
     console.log('calc gaslimit=', gasLimit.toString())
     const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), {
-      gasLimit,
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
       maxFeePerGas: userOp.maxFeePerGas
     })

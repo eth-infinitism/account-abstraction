@@ -2,6 +2,7 @@
 import { BigNumber, BigNumberish, Contract, ethers, Signer } from 'ethers'
 import { arrayify, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
 import { Provider } from '@ethersproject/providers'
+import { TransactionRequest } from '@ethersproject/abstract-provider'
 
 export class Create2Factory {
   factoryDeployed = false
@@ -20,11 +21,16 @@ export class Create2Factory {
    * deploy a contract using our EIP-2470 deployer.
    * The delpoyer is deployed (unless it is already deployed)
    * NOTE: this transaction will fail if already deployed. use getDeployedAddress to check it first.
-   * @param initCode
-   * @param salt
+   * @param initCode delpoyment code. can be a hex string or factory.getDeploymentTransaction(..)
+   * @param salt specific salt for deployment
+   * @param gasLimit gas limit or 'estimate' to use estimateGas. by default, calculate gas based on data size.
    */
-  async deploy (initCode: string, salt: BigNumberish, gasLimit?: BigNumberish | 'estimate'): Promise<string> {
+  async deploy (initCode: string | TransactionRequest, salt: BigNumberish = 0, gasLimit?: BigNumberish | 'estimate'): Promise<string> {
     await this.deployFactory()
+    if (typeof initCode !== 'string') {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      initCode = (initCode as TransactionRequest).data!.toString()
+    }
 
     const addr = this.getDeployedAddress(initCode, salt)
     if (await this.provider.getCode(addr).then(code => code.length) > 2) {
@@ -34,9 +40,11 @@ export class Create2Factory {
     const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'], this.signer)
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
     if (gasLimit === 'estimate') {
-      gasLimit = (await factory.estimateGas.deploy(initCode, saltBytes32)).mul(64).div(63)
-    } else if (gasLimit === undefined) {
-      // manual estimation (its bit larger: we don't know actual deployed code size)
+      gasLimit = await factory.estimateGas.deploy(initCode, saltBytes32)
+    }
+
+    // manual estimation (its bit larger: we don't know actual deployed code size)
+    if (gasLimit === undefined) {
       gasLimit = arrayify(initCode)
         .map(x => x === 0 ? 4 : 16)
         .reduce((sum, x) => sum + x) +
@@ -44,10 +52,9 @@ export class Create2Factory {
         6 * Math.ceil(initCode.length / 64) + // hash price. very minor compared to deposit costs
         32000 +
         21000
-
-      gasLimit = Math.round(gasLimit * 64 / 63)
+      // deployer requires some extra gas
+      gasLimit = Math.floor(gasLimit * 64 / 63)
     }
-
     const ret = await factory.deploy(initCode, saltBytes32, { gasLimit })
     await ret.wait()
     return addr

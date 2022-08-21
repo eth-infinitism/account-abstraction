@@ -104,7 +104,7 @@ describe('Batch gas testing', function () {
             maxPriorityFeePerGas: 1e9
           }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
-          const { preOpGas } = await entryPointView.callStatic.simulateValidation(op1, { gasPrice: 1e9 })
+          const { preOpGas } = await entryPointView.callStatic.simulateValidation(op1, false, { gasPrice: 1e9 })
           const txgas = preOpGas.add(op1.callGas).toNumber()
 
           // console.log('colected so far', opsGasCollected, 'estim', verificationGas, 'max', maxTxGas)
