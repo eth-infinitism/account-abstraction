@@ -114,7 +114,7 @@ contract SimpleWallet is BaseWallet {
     }
 
     /// implement template method of BaseWallet
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal view override {
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address) internal view virtual override {
         bytes32 hash = requestId.toEthSignedMessageHash();
         require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
     }
@@ -149,7 +149,7 @@ contract SimpleWallet is BaseWallet {
      * @param withdrawAddress target to send to
      * @param amount to withdraw
      */
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner{
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 }

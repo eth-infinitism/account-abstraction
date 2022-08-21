@@ -1,7 +1,13 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
 import { formatEther, parseEther } from 'ethers/lib/utils'
-import { AddressZero, checkForGeth, createAddress, createWalletOwner, deployEntryPoint } from '../test/testutils'
+import {
+  AddressZero,
+  checkForGeth,
+  createAddress,
+  createWalletOwner,
+  deployEntryPoint
+} from '../test/testutils'
 import { EntryPoint, EntryPoint__factory, SimpleWallet__factory } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'

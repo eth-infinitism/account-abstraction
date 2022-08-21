@@ -14,8 +14,15 @@ import {
   createWalletOwner,
   fund,
   getBalance,
-  getTokenBalance, rethrow,
-  checkForGeth, WalletConstructor, calcGasUsage, deployEntryPoint, checkForBannedOps, createAddress, ONE_ETH
+  getTokenBalance,
+  rethrow,
+  checkForGeth,
+  WalletConstructor,
+  calcGasUsage,
+  deployEntryPoint,
+  checkForBannedOps,
+  createAddress,
+  ONE_ETH
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
@@ -120,7 +127,7 @@ describe('EntryPoint with paymaster', function () {
           nonce: 0
         }, walletOwner, entryPoint)
 
-        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
+        await entryPoint.simulateValidation(createOp, false, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 
@@ -176,7 +183,7 @@ describe('EntryPoint with paymaster', function () {
         }
 
         const pmBalanceBefore = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber())
-        await entryPoint.handleOps(ops, beneficiaryAddress).then(async tx => await tx.wait())
+        await entryPoint.handleOps(ops, beneficiaryAddress).then(async tx => tx.wait())
         const totalPaid = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber()) - pmBalanceBefore
         for (let i = 0; i < wallets.length; i++) {
           const bal = await getTokenBalance(paymaster, wallets[i].address)

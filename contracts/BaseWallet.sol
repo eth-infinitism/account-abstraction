@@ -32,9 +32,9 @@ abstract contract BaseWallet is IWallet {
      * Validate user's signature and nonce.
      * subclass doesn't override this method. instead, it should override the specific internal validation methods.
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address aggregator, uint256 missingWalletFunds) external override {
         _requireFromEntryPoint();
-        _validateSignature(userOp, requestId);
+        _validateSignature(userOp, requestId, aggregator);
         //during construction, the "nonce" field hold the salt.
         // if we assert it is zero, then we allow only a single wallet per owner.
         if (userOp.initCode.length == 0) {
@@ -55,8 +55,9 @@ abstract contract BaseWallet is IWallet {
      * @param userOp validate the userOp.signature field
      * @param requestId convenient field: the hash of the request, to check the signature against
      *          (also hashes the entrypoint and chain-id)
+     * @param aggregator the current aggregator. can be ignored by wallets that don't use aggregators
      */
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId) internal virtual view;
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address aggregator) internal virtual view;
 
     /**
      * validate the current nonce matches the UserOperation nonce.
@@ -76,8 +77,6 @@ abstract contract BaseWallet is IWallet {
      */
     function _payPrefund(uint256 missingWalletFunds) internal virtual {
         if (missingWalletFunds != 0) {
-            //pay required prefund. make sure NOT to use the "gas" opcode, which is banned during validateUserOp
-            // (and used by default by the "call")
             (bool success,) = payable(msg.sender).call{value : missingWalletFunds, gas : type(uint256).max}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not wallet.)

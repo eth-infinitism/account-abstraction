@@ -1,17 +1,13 @@
 import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import {
-  IERC20,
-  EntryPoint,
-  EntryPoint__factory,
-  SimpleWallet__factory
-} from '../typechain'
+import { EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { keccak256 } from 'ethereumjs-util'
+import { UserOperation } from './UserOperation'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -193,9 +189,9 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
-  expect(blockHash.length).to.equal(1, 'expected exactly 1 call to NUMBER (Just before validatePaymasterUserOp)')
+  expect(blockHash.length).to.equal(2, 'expected exactly 2 call to NUMBER (Just before and after validatePaymasterUserOp)')
   const validateWalletOps = logs.slice(0, blockHash[0].index - 1)
-  const validatePaymasterOps = logs.slice(blockHash[0].index + 1)
+  const validatePaymasterOps = logs.slice(blockHash[0].index + 1, blockHash[1].index - 1)
   const ops = validateWalletOps.filter(log => log.depth > 1).map(log => log.op)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
@@ -212,6 +208,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + JSON.stringify(paymasterOps)) // sanity
     expect(paymasterOps).to.not.include('BASEFEE')
     expect(paymasterOps).to.not.include('GASPRICE')
+    expect(paymasterOps).to.not.include('NUMBER')
   }
 }
 
@@ -228,4 +225,13 @@ export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDel
 export async function isContractDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
+}
+
+// internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
+export function userOpsWithoutAgg (userOps: UserOperation[]): EntryPoint.UserOpsPerAggregatorStruct[] {
+  return [{
+    userOps,
+    aggregator: AddressZero,
+    signature: '0x'
+  }]
 }
