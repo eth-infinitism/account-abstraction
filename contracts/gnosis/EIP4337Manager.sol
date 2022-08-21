@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "./EIP4337Fallback.sol";
 import "../EntryPoint.sol";
+
     using ECDSA for bytes32;
 
 /**
@@ -31,7 +32,7 @@ contract EIP4337Manager is GnosisSafe, IWallet {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 missingWalletFunds) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address /*aggregator*/, uint256 missingWalletFunds) external override {
         address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(_msgSender == entryPoint, "wallet: not from entrypoint");
 
@@ -124,8 +125,10 @@ contract EIP4337Manager is GnosisSafe, IWallet {
         UserOperation memory userOp = UserOperation(address(safe), 0, "", "", 0, 1000000, 0, 0, 0, address(0), "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
+        EntryPoint.UserOpsPerAggregator[] memory opas = new EntryPoint.UserOpsPerAggregator[](1);
+        opas[0] = EntryPoint.UserOpsPerAggregator(userOps, IAggregator(address(0)), "");
         EntryPoint _entryPoint = EntryPoint(payable(manager.entryPoint()));
-        try _entryPoint.handleOps(userOps, payable(msg.sender)) {
+        try _entryPoint.handleAggregatedOps(opas, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
             if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "wallet: wrong signature"))) {

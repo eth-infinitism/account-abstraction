@@ -1,16 +1,12 @@
 import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import {
-  IERC20,
-  EntryPoint,
-  EntryPoint__factory,
-  SimpleWallet__factory
-} from '../typechain'
+import { EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory, TestAggregatedWallet__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
+import { UserOperation } from './UserOperation'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -89,6 +85,17 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 // with each deployment. a better deployer will only receive the constructor parameters.
 export function getWalletDeployer (entryPoint: string, owner: string): BytesLike {
   const walletCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+  const factory = new Create2Factory(ethers.provider)
+  const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)
+  return hexConcat([
+    Create2Factory.contractAddress,
+    initCallData
+  ])
+}
+
+export async function getAggregatedWalletDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
+  const walletCtr = await new TestAggregatedWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
+
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)
   return hexConcat([
@@ -206,9 +213,9 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
-  expect(blockHash.length).to.equal(1, 'expected exactly 1 call to NUMBER (Just before validatePaymasterUserOp)')
+  expect(blockHash.length).to.equal(2, 'expected exactly 2 call to NUMBER (Just before and after validatePaymasterUserOp)')
   const validateWalletOps = logs.slice(0, blockHash[0].index - 1)
-  const validatePaymasterOps = logs.slice(blockHash[0].index + 1)
+  const validatePaymasterOps = logs.slice(blockHash[0].index + 1, blockHash[1].index - 1)
   const ops = validateWalletOps.filter(log => log.depth > 1).map(log => log.op)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
@@ -225,6 +232,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
     expect(paymasterOps).to.include('POP', 'not a valid ops list: ' + JSON.stringify(paymasterOps)) // sanity
     expect(paymasterOps).to.not.include('BASEFEE')
     expect(paymasterOps).to.not.include('GASPRICE')
+    expect(paymasterOps).to.not.include('NUMBER')
   }
 }
 
@@ -241,4 +249,13 @@ export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDel
 export async function isDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
+}
+
+// internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
+export function userOpsWithoutAgg (userOps: UserOperation[]): EntryPoint.UserOpsPerAggregatorStruct[] {
+  return [{
+    userOps,
+    aggregator: AddressZero,
+    signature: '0x'
+  }]
 }

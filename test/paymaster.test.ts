@@ -138,7 +138,7 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.mintTokens(preAddr, parseEther('1'))
         // paymaster is the token, so no need for "approve" or any init function...
 
-        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
+        await entryPoint.simulateValidation(createOp, false, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 
@@ -194,7 +194,7 @@ describe('EntryPoint with paymaster', function () {
         }
 
         const pmBalanceBefore = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber())
-        await entryPoint.handleOps(ops, beneficiaryAddress).then(async tx => await tx.wait())
+        await entryPoint.handleOps(ops, beneficiaryAddress).then(async tx => tx.wait())
         const totalPaid = await paymaster.balanceOf(paymaster.address).then(b => b.toNumber()) - pmBalanceBefore
         for (let i = 0; i < wallets.length; i++) {
           const bal = await getTokenBalance(paymaster, wallets[i].address)

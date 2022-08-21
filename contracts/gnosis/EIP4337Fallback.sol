@@ -17,7 +17,7 @@ contract EIP4337Fallback is DefaultCallbackHandler, IWallet {
     /**
      * handler is called from the Safe. delegate actual work to EIP4337Manager
      */
-    function validateUserOp(UserOperation calldata, bytes32, uint256) external {
+    function validateUserOp(UserOperation calldata, bytes32, address , uint256 ) override external {
         //delegate entire msg.data (including the appended "msg.sender") to the EIP4337Manager
         // will work only for GnosisSafe contracts
         GnosisSafe safe = GnosisSafe(payable(msg.sender));
