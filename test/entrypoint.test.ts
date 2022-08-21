@@ -471,7 +471,7 @@ describe('EntryPoint', function () {
 
         await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
-        })).to.revertedWith('sender already constructed')
+        })).to.revertedWith('initCode failed')
       })
     })
 

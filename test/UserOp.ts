@@ -187,7 +187,7 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
       } else {
         // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
         if (provider == null) throw new Error('no entrypoint/provider')
-        op1.sender = await entryPoint!.callStatic.createSender(op1.initCode!)
+        op1.sender = await entryPoint!.connect(AddressZero).callStatic.getSenderAddress(op1.initCode!)
       }
     }
     if (op1.verificationGas == null) {
