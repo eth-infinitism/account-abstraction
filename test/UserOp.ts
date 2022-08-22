@@ -39,8 +39,7 @@ export function packUserOp (op: UserOperation, forSignature = true): string {
         { type: 'uint256', name: 'preVerificationGas' },
         { type: 'uint256', name: 'maxFeePerGas' },
         { type: 'uint256', name: 'maxPriorityFeePerGas' },
-        { type: 'address', name: 'paymaster' },
-        { type: 'bytes', name: 'paymasterData' },
+        { type: 'bytes', name: 'paymasterAndData' },
         { type: 'bytes', name: 'signature' }
       ],
       name: 'userOp',
@@ -61,8 +60,7 @@ export function packUserOp (op: UserOperation, forSignature = true): string {
     { type: 'uint256', val: op.preVerificationGas },
     { type: 'uint256', val: op.maxFeePerGas },
     { type: 'uint256', val: op.maxPriorityFeePerGas },
-    { type: 'address', val: op.paymaster },
-    { type: 'bytes', val: op.paymasterData }
+    { type: 'bytes', val: op.paymasterAndData }
   ]
   if (!forSignature) {
     // for the purpose of calculating gas cost, also hash signature
@@ -82,8 +80,7 @@ export function packUserOp1 (op: UserOperation): string {
     'uint', // preVerificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
-    'address', // paymaster
-    'bytes32' // paymasterData
+    'bytes32' // paymasterAndData
   ], [
     op.sender,
     op.nonce,
@@ -94,8 +91,7 @@ export function packUserOp1 (op: UserOperation): string {
     op.preVerificationGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
-    op.paymaster,
-    keccak256(op.paymasterData)
+    keccak256(op.paymasterAndData)
   ])
 }
 
@@ -117,8 +113,7 @@ export const DefaultsForUserOp: UserOperation = {
   preVerificationGas: 21000, // should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
-  paymaster: AddressZero,
-  paymasterData: '0x',
+  paymasterAndData: '0x',
   signature: '0x'
 }
 

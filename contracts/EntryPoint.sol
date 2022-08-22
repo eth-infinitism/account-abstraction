@@ -265,9 +265,15 @@ contract EntryPoint is StakeManager {
         mUserOp.callGas = userOp.callGas;
         mUserOp.verificationGas = userOp.verificationGas;
         mUserOp.preVerificationGas = userOp.preVerificationGas;
-        mUserOp.paymaster = userOp.paymaster;
         mUserOp.maxFeePerGas = userOp.maxFeePerGas;
         mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        bytes calldata paymasterAndData = userOp.paymasterAndData;
+        if (paymasterAndData.length > 0) {
+            require(paymasterAndData.length >= 20, "invalid paymasterAndData");
+            mUserOp.paymaster = address(bytes20(paymasterAndData[: 20]));
+        } else {
+            mUserOp.paymaster = address(0);
+        }
     }
 
     /**
@@ -433,7 +439,7 @@ contract EntryPoint is StakeManager {
      * @param userOp the userOp to validate
      */
     function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, address aggregator)
-    private returns(address actualAggregator) {
+    private returns (address actualAggregator) {
 
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
@@ -464,7 +470,7 @@ contract EntryPoint is StakeManager {
         uint256 gasUsed = preGas - gasleft();
 
         if (userOp.verificationGas < gasUsed) {
-            revert FailedOp(opIndex, userOp.paymaster, "Used more than verificationGas");
+            revert FailedOp(opIndex, mUserOp.paymaster, "Used more than verificationGas");
         }
         outOpInfo.prefund = requiredPreFund;
         outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);

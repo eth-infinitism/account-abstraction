@@ -693,7 +693,7 @@ describe('EntryPoint', function () {
 
       it('should fail if paymaster has no deposit', async function () {
         const op = await fillAndSign({
-          paymaster: paymaster.address,
+          paymasterAndData: paymaster.address,
           callData: walletExecFromEntryPoint.data,
           initCode: WalletConstructor(entryPoint.address, wallet2Owner.address),
 
@@ -707,7 +707,7 @@ describe('EntryPoint', function () {
       it('paymaster should pay for tx', async function () {
         await paymaster.deposit({ value: ONE_ETH })
         const op = await fillAndSign({
-          paymaster: paymaster.address,
+          paymasterAndData: paymaster.address,
           callData: walletExecFromEntryPoint.data,
           initCode: WalletConstructor(entryPoint.address, wallet2Owner.address)
         }, wallet2Owner, entryPoint)
