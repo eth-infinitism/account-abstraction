@@ -314,6 +314,7 @@ contract EntryPoint is StakeManager {
             require(mUserOp.sender.code.length == 0, "sender already constructed");
             address sender1 = _createSender(initCode);
             require(sender1 == mUserOp.sender, "sender doesn't match initCode address");
+            require(sender1.code.length != 0, "initCode failed to create sender");
         }
     }
 
@@ -332,7 +333,7 @@ contract EntryPoint is StakeManager {
             success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
             sender := mload(0)
         }
-        require(success && sender != address(0), "initCode failed");
+        require(success, "initCode failed");
     }
 
     /**
