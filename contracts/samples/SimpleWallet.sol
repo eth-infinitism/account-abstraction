@@ -5,7 +5,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "../BaseWallet.sol";
+import "../core/BaseWallet.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -26,18 +26,18 @@ contract SimpleWallet is BaseWallet {
         return _nonce;
     }
 
-    function entryPoint() public view virtual override returns (EntryPoint) {
+    function entryPoint() public view virtual override returns (IEntryPoint) {
         return _entryPoint;
     }
 
-    EntryPoint private _entryPoint;
+    IEntryPoint private _entryPoint;
 
     event EntryPointChanged(address indexed oldEntryPoint, address indexed newEntryPoint);
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
-    constructor(EntryPoint anEntryPoint, address anOwner) {
+    constructor(IEntryPoint anEntryPoint, address anOwner) {
         _entryPoint = anEntryPoint;
         owner = anOwner;
     }
@@ -83,7 +83,7 @@ contract SimpleWallet is BaseWallet {
      */
     function _updateEntryPoint(address newEntryPoint) internal override {
         emit EntryPointChanged(address(_entryPoint), newEntryPoint);
-        _entryPoint = EntryPoint(payable(newEntryPoint));
+        _entryPoint = IEntryPoint(payable(newEntryPoint));
     }
 
     function _requireFromAdmin() internal view override {

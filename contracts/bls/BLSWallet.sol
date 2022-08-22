@@ -15,7 +15,7 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
     address public immutable aggregator;
     uint256[4] private publicKey;
 
-    constructor(EntryPoint anEntryPoint, address anAggregator, uint256[4] memory aPublicKey)
+    constructor(IEntryPoint anEntryPoint, address anAggregator, uint256[4] memory aPublicKey)
     SimpleWallet(anEntryPoint, address(0)) {
         publicKey = aPublicKey;
         aggregator = anAggregator;

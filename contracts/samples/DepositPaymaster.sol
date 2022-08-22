@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "../BasePaymaster.sol";
+import "../core/BasePaymaster.sol";
 import "./IOracle.sol";
 
 /**
@@ -37,7 +37,7 @@ contract DepositPaymaster is BasePaymaster {
     mapping(IERC20 => mapping(address => uint256)) public balances;
     mapping(address => uint256) public unlockBlock;
 
-    constructor(EntryPoint _entryPoint) BasePaymaster(_entryPoint) {
+    constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint) {
         //owner account is unblocked, to allow withdraw of paid tokens;
         unlockTokenDeposit();
     }

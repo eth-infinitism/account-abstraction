@@ -5,7 +5,7 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SimpleWallet.sol";
-import "../BasePaymaster.sol";
+import "../core/BasePaymaster.sol";
 
 /**
  * A sample paymaster that define itself as a token to pay for gas.
@@ -26,7 +26,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
     bytes32 immutable public knownWallet;
 
-    constructor(string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
+    constructor(string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         knownWallet = _knownWallet();
         //make it non-empty
         _mint(address(this), 1);

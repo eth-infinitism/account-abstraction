@@ -5,7 +5,7 @@ pragma solidity ^0.8.7;
 
 import "@gnosis.pm/safe-contracts/contracts/handler/DefaultCallbackHandler.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
-import "../IWallet.sol";
+import "../interfaces/IWallet.sol";
 import "./EIP4337Manager.sol";
 
 contract EIP4337Fallback is DefaultCallbackHandler, IWallet {

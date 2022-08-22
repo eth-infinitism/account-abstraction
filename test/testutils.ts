@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import { EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory } from '../typechain'
+import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleWallet__factory } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
@@ -228,7 +228,7 @@ export async function isContractDeployed (addr: string): Promise<boolean> {
 }
 
 // internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
-export function userOpsWithoutAgg (userOps: UserOperation[]): EntryPoint.UserOpsPerAggregatorStruct[] {
+export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOpsPerAggregatorStruct[] {
   return [{
     userOps,
     aggregator: AddressZero,

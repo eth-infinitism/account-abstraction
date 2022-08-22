@@ -9,18 +9,16 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
+import "../interfaces/IWallet.sol";
+import "../interfaces/IPaymaster.sol";
+
+import "../interfaces/IAggregatedWallet.sol";
+import "../interfaces/IEntryPoint.sol";
+import "../interfaces/ICreate2Deployer.sol";
+import "../utils/Exec.sol";
 import "./StakeManager.sol";
-import "./UserOperation.sol";
-import "./IWallet.sol";
-import "./IPaymaster.sol";
 
-import "./IAggregator.sol";
-import "./IAggregatedWallet.sol";
-import "./ICreate2Deployer.sol";
-import "./utils/Executor.sol";
-import "hardhat/console.sol";
-
-contract EntryPoint is StakeManager {
+contract EntryPoint is IEntryPoint, StakeManager {
 
     using UserOperationLib for UserOperation;
 
@@ -28,43 +26,6 @@ contract EntryPoint is StakeManager {
 
     // internal value used during simulation: need to query aggregator if wallet is created
     address private constant SIMULATE_NO_AGGREGATOR = address(1);
-    /***
-     * An event emitted after each successful request
-     * @param requestId - unique identifier for the request (hash its entire content, except signature).
-     * @param sender - the account that generates this request.
-     * @param paymaster - if non-null, the paymaster that pays for this request.
-     * @param nonce - the nonce value from the request
-     * @param actualGasCost - the total cost (in gas) of this request.
-     * @param actualGasPrice - the actual gas price the sender agreed to pay.
-     * @param success - true if the sender transaction succeeded, false if reverted.
-     */
-    event UserOperationEvent(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
-
-    /**
-     * An event emitted if the UserOperation "callData" reverted with non-zero length
-     * @param requestId the request unique identifier.
-     * @param sender the sender of this request
-     * @param nonce the nonce used in the request
-     * @param revertReason - the return bytes from the (reverted) call to "callData".
-     */
-    event UserOperationRevertReason(bytes32 indexed requestId, address indexed sender, uint256 nonce, bytes revertReason);
-
-    /**
-     * a custom revert error of handleOps, to identify the offending op.
-     *  NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
-     *  @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
-     *  @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
-     *       this value will be zero (since it failed before accessing the paymaster)
-     *  @param reason - revert reason
-     *   Should be caught in off-chain handleOps simulation and not happen on-chain.
-     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of wallet/paymaster reverts.
-     */
-    error FailedOp(uint256 opIndex, address paymaster, string reason);
-
-    /**
-     * error case when a signature aggregator fails to verify the aggregated signature it had created.
-     */
-    error SignatureValidationFailed(address aggregator);
 
     /**
      * @param _create2factory - contract to "create2" wallets (not the EntryPoint itself, so that the EntryPoint can be upgraded)
@@ -87,16 +48,6 @@ contract EntryPoint is StakeManager {
         require(beneficiary != address(0), "invalid beneficiary");
         (bool success,) = beneficiary.call{value : amount}("");
         require(success);
-    }
-
-    //UserOps handled, per aggregator
-    struct UserOpsPerAggregator {
-        UserOperation[] userOps;
-
-        // aggregator address
-        IAggregator aggregator;
-        // aggregated signature
-        bytes signature;
     }
 
     /**
