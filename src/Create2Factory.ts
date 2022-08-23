@@ -52,12 +52,23 @@ export class Create2Factory {
         6 * Math.ceil(initCode.length / 64) + // hash price. very minor compared to deposit costs
         32000 +
         21000
+
       // deployer requires some extra gas
       gasLimit = Math.floor(gasLimit * 64 / 63)
     }
+
     const ret = await factory.deploy(initCode, saltBytes32, { gasLimit })
     await ret.wait()
+    if (await this.provider.getCode(addr).then(code => code.length) === 2) {
+      throw new Error('failed to deploy')
+    }
     return addr
+  }
+
+  getDeployTransactionCallData (initCode: string, salt: BigNumberish = 0): string {
+    const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'])
+    const saltBytes32 = hexZeroPad(hexlify(salt), 32)
+    return factory.interface.encodeFunctionData('deploy', [initCode, saltBytes32])
   }
 
   /**

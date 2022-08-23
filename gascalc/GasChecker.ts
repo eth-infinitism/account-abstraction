@@ -123,7 +123,7 @@ export class GasChecker {
       this.wallets[addr] = this.walletOwner
 
       // deploy if not already deployed.
-      await fact.deploy(initCode, salt)
+      await fact.deploy(initCode, salt, 2e6)
       const walletBalance = await GasCheckCollector.inst.entryPoint.balanceOf(addr)
       if (walletBalance.lte(minDepositOrBalance)) {
         await GasCheckCollector.inst.entryPoint.depositTo(addr, { value: minDepositOrBalance.mul(5) })
@@ -197,7 +197,7 @@ export class GasChecker {
           maxFeePerGas: info.gasPrice,
           callGas: walletEst,
           verificationGas: 1000000,
-          paymaster,
+          paymasterAndData: paymaster,
           preVerificationGas: 1
         }, walletOwner, GasCheckCollector.inst.entryPoint)
         // const packed = packUserOp(op, false)

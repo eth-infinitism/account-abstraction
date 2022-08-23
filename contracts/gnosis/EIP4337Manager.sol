@@ -123,7 +123,7 @@ contract EIP4337Manager is GnosisSafe, IWallet {
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
-        UserOperation memory userOp = UserOperation(address(safe), 0, "", "", 0, 1000000, 0, 0, 0, address(0), "", sig);
+        UserOperation memory userOp = UserOperation(address(safe), 0, "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint.UserOpsPerAggregator[] memory opas = new IEntryPoint.UserOpsPerAggregator[](1);

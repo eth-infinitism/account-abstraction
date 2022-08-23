@@ -18,7 +18,7 @@ import "./IOracle.sol";
  * The deposit is locked for the current block: the user must issue unlockTokenDeposit() to be allowed to withdraw
  *  (but can't use the deposit for this or further operations)
  *
- * paymasterData should hold the token to use.
+ * paymasterAndData holds the paymaster address followed by the token address to use.
  * @notice This paymaster will be rejected by the standard rules of EIP4337, as it uses an external oracle.
  * (the standard rules ban accessing data of an external contract)
  * It can only be used if it is "whitelisted" by the bundler.
@@ -129,8 +129,9 @@ contract DepositPaymaster is BasePaymaster {
         // verificationGas is dual-purposed, as gas limit for postOp. make sure it is high enough
         require(userOp.verificationGas > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
-        require(userOp.paymasterData.length == 32, "DepositPaymaster: paymasterData must specify token");
-        IERC20 token = abi.decode(userOp.paymasterData, (IERC20));
+        bytes calldata paymasterAndData = userOp.paymasterAndData;
+        require(paymasterAndData.length == 20+20, "DepositPaymaster: paymasterAndData must specify token");
+        IERC20 token = IERC20(address(bytes20(paymasterAndData[20:])));
         address account = userOp.getSender();
         uint256 maxTokenCost = getTokenValueOfEth(token, maxCost);
         require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");

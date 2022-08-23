@@ -24,6 +24,7 @@ module.exports = {
   ignorePatterns: [
     '.eslintrc.js',
     '**/types/truffle-contracts',
+    'coverage',
     'dist/'
   ],
   rules: {
