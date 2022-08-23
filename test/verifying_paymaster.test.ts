@@ -1,4 +1,3 @@
-import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
@@ -15,7 +14,7 @@ import {
   deployEntryPoint
 } from './testutils'
 import { fillAndSign } from './UserOp'
-import { arrayify, parseEther } from 'ethers/lib/utils'
+import { arrayify, hexConcat, parseEther } from 'ethers/lib/utils'
 
 describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPoint: EntryPoint
@@ -43,31 +42,28 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('should reject on no signature', async () => {
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: '0x1234'
+        paymasterAndData: hexConcat([paymaster.address, '0x1234'])
       }, walletOwner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('invalid signature length in paymasterData')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
 
     it('should reject on invalid signature', async () => {
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: '0x' + '1c'.repeat(65)
+        paymasterAndData: hexConcat([paymaster.address, '0x' + '1c'.repeat(65)])
       }, walletOwner, entryPoint)
       await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('ECDSA: invalid signature')
     })
 
     it('succeed with valid signature', async () => {
       const userOp1 = await fillAndSign({
-        sender: wallet.address,
-        paymaster: paymaster.address
+        sender: wallet.address
       }, walletOwner, entryPoint)
       const hash = await paymaster.getHash(userOp1)
       const sig = await offchainSigner.signMessage(arrayify(hash))
       const userOp = await fillAndSign({
         ...userOp1,
-        paymasterData: sig
+        paymasterAndData: hexConcat([paymaster.address, sig])
       }, walletOwner, entryPoint)
       await entryPointStatic.callStatic.simulateValidation(userOp, false)
     })

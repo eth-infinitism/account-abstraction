@@ -19,7 +19,7 @@ import {
   deployEntryPoint, FIVE_ETH, ONE_ETH, userOpsWithoutAgg
 } from './testutils'
 import { fillAndSign } from './UserOp'
-import { hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 
 describe('DepositPaymaster', () => {
   let entryPoint: EntryPoint
@@ -91,16 +91,15 @@ describe('DepositPaymaster', () => {
     it('should fail if no token', async () => {
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address
+        paymasterAndData: paymaster.address
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('paymasterData must specify token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('paymasterAndData must specify token')
     })
 
     it('should fail with wrong token', async () => {
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad('0x1234', 32)
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad('0x1234', 20)])
       }, ethersSigner, entryPoint)
       await expect(entryPointStatic.callStatic.simulateValidation(userOp, false, { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
     })
@@ -108,8 +107,7 @@ describe('DepositPaymaster', () => {
     it('should reject if no deposit', async () => {
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad(token.address, 32)
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
       await expect(entryPointStatic.callStatic.simulateValidation(userOp, false, { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
     })
@@ -122,8 +120,7 @@ describe('DepositPaymaster', () => {
 
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad(token.address, 32)
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
       await expect(entryPointStatic.callStatic.simulateValidation(userOp, false, { gasPrice })).to.be.revertedWith('not locked')
     })
@@ -135,8 +132,7 @@ describe('DepositPaymaster', () => {
 
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad(token.address, 32)
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
       await entryPointStatic.callStatic.simulateValidation(userOp, false)
     })
@@ -158,8 +154,7 @@ describe('DepositPaymaster', () => {
       const beneficiary = createAddress()
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad(token.address, 32),
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)]),
         callData
       }, walletOwner, entryPoint)
 
@@ -182,16 +177,14 @@ describe('DepositPaymaster', () => {
       const execApprove = await wallet.populateTransaction.execFromEntryPoint(token.address, 0, tokenApprovePaymaster).then(tx => tx.data!)
       const userOp1 = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad(token.address, 32),
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)]),
         callData: execApprove
       }, walletOwner, entryPoint)
       await entryPoint.handleAggregatedOps(userOpsWithoutAgg([userOp1]), beneficiary1)
 
       const userOp = await fillAndSign({
         sender: wallet.address,
-        paymaster: paymaster.address,
-        paymasterData: hexZeroPad(token.address, 32),
+        paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)]),
         callData
       }, walletOwner, entryPoint)
       await entryPoint.handleAggregatedOps(userOpsWithoutAgg([userOp]), beneficiary)

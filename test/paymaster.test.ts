@@ -98,7 +98,7 @@ describe('EntryPoint with paymaster', function () {
       it('paymaster should reject if wallet doesn\'t have tokens', async () => {
         const op = await fillAndSign({
           sender: wallet.address,
-          paymaster: paymaster.address,
+          paymasterAndData: paymaster.address,
           callData: calldata
         }, walletOwner, entryPoint)
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
@@ -119,7 +119,7 @@ describe('EntryPoint with paymaster', function () {
         const op = await fillAndSign({
           initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
-          paymaster: paymaster.address
+          paymasterAndData: paymaster.address
         }, walletOwner, entryPoint)
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
@@ -130,7 +130,7 @@ describe('EntryPoint with paymaster', function () {
         createOp = await fillAndSign({
           initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
-          paymaster: paymaster.address,
+          paymasterAndData: paymaster.address,
           nonce: 0
         }, walletOwner, entryPoint)
 
@@ -186,7 +186,7 @@ describe('EntryPoint with paymaster', function () {
           const op = await fillAndSign({
             sender: aWallet.address,
             callData: execFromSingleton,
-            paymaster: paymaster.address
+            paymasterAndData: paymaster.address
           }, walletOwner, entryPoint)
 
           wallets.push(aWallet)
@@ -221,7 +221,7 @@ describe('EntryPoint with paymaster', function () {
           const approveOp = await fillAndSign({
             sender: wallet2.address,
             callData: wallet2.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, approveCallData]),
-            paymaster: paymaster.address
+            paymasterAndData: paymaster.address
           }, walletOwner, entryPoint)
           await entryPoint.handleOps([approveOp], beneficiaryAddress)
           expect(await paymaster.allowance(wallet2.address, wallet.address)).to.eq(ethers.constants.MaxUint256)
@@ -240,14 +240,14 @@ describe('EntryPoint with paymaster', function () {
           const userOp1 = await fillAndSign({
             sender: wallet.address,
             callData: execFromEntryPoint,
-            paymaster: paymaster.address
+            paymasterAndData: paymaster.address
           }, walletOwner, entryPoint)
 
           // wallet2's operation is unimportant, as it is going to be reverted - but the paymaster will have to pay for it..
           const userOp2 = await fillAndSign({
             sender: wallet2.address,
             callData: execFromEntryPoint,
-            paymaster: paymaster.address,
+            paymasterAndData: paymaster.address,
             callGas: 1e6
           }, walletOwner, entryPoint)
 

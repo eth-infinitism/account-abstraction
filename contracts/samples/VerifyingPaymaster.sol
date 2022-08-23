@@ -31,12 +31,12 @@ contract VerifyingPaymaster is BasePaymaster {
      * return the hash we're going to sign off-chain (and validate on-chain)
      * this method is called by the off-chain service, to sign the request.
      * it is called on-chain from the validatePaymasterUserOp, to validate the signature.
-     * note that this signature covers all fields of the UserOperation, except the "paymasterData",
+     * note that this signature covers all fields of the UserOperation, except the "paymasterAndData",
      * which will carry the signature itself.
      */
     function getHash(UserOperation calldata userOp)
     public pure returns (bytes32) {
-        //can't use userOp.hash(), since it contains also the paymasterData itself.
+        //can't use userOp.hash(), since it contains also the paymasterAndData itself.
         return keccak256(abi.encode(
                 userOp.getSender(),
                 userOp.nonce,
@@ -46,23 +46,25 @@ contract VerifyingPaymaster is BasePaymaster {
                 userOp.verificationGas,
                 userOp.preVerificationGas,
                 userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
-                userOp.paymaster
+                userOp.maxPriorityFeePerGas
             ));
     }
 
     /**
      * verify our external signer signed this request.
-     * the "paymasterData" is supposed to be a signature over the entire request params
+     * the "paymasterAndData" is expected to be the paymaster and a signature over the entire request params
      */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
     external view override returns (bytes memory context) {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
-        uint256 sigLength = userOp.paymasterData.length;
-        require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterData");
-        require(verifyingSigner == hash.toEthSignedMessageHash().recover(userOp.paymasterData), "VerifyingPaymaster: wrong signature");
+        bytes calldata paymasterAndData = userOp.paymasterAndData;
+        uint256 sigLength = paymasterAndData.length - 20;
+        //ECDSA library supports both 64 and 65-byte long signatures.
+        // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
+        require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");
+        require(verifyingSigner == hash.toEthSignedMessageHash().recover(paymasterAndData[20:]), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked
         // by the external service prior to signing it.
