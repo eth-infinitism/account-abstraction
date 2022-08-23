@@ -16,6 +16,8 @@ import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber } from 'ethers'
 import { BytesLike } from '@ethersproject/bytes'
+import { BLSWalletDeployer } from '../typechain/contracts/bls/BLSWallet.sol'
+import { BLSWalletDeployer__factory } from '../typechain/factories/contracts/bls/BLSWallet.sol'
 
 describe('bls wallet', function () {
   this.timeout(20000)
@@ -28,6 +30,7 @@ describe('bls wallet', function () {
   let entrypoint: EntryPoint
   let wallet1: BLSWallet
   let wallet2: BLSWallet
+  let walletDeployer: BLSWalletDeployer
   before(async () => {
     entrypoint = await deployEntryPoint(1, 1)
     const BLSOpenLib = await new BLSOpen__factory(ethers.provider.getSigner()).deploy()
@@ -38,6 +41,8 @@ describe('bls wallet', function () {
     fact = await BlsSignerFactory.new()
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
+
+    walletDeployer = await new BLSWalletDeployer__factory(etherSigner).deploy()
 
     wallet1 = await new BLSWallet__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer1.pubkey)
     wallet2 = await new BLSWallet__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer2.pubkey)
@@ -121,11 +126,14 @@ describe('bls wallet', function () {
     let signer3: any
     before(async () => {
       signer3 = fact.getSigner(arrayify(BLS_DOMAIN), '0x03')
-      initCode = new BLSWallet__factory(etherSigner).getDeployTransaction(entrypoint.address, blsAgg.address, signer3.pubkey).data!
+      initCode = hexConcat([
+        walletDeployer.address,
+        walletDeployer.interface.encodeFunctionData('deployWallet', [entrypoint.address, blsAgg.address, 0, signer3.pubkey])
+      ])
       entryPointStatic = entrypoint.connect(AddressZero)
     })
     it('with on-chain sig validation', async () => {
-      const senderAddress = await entrypoint.getSenderAddress(initCode, 1)
+      const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
       await fund(senderAddress, '0.01')
       const userOp = await fillUserOp({
         sender: senderAddress,
@@ -150,7 +158,7 @@ describe('bls wallet', function () {
 
     it('with off-chain sig check', async () => {
       const verifier = new BlsVerifier(BLS_DOMAIN)
-      const senderAddress = await entrypoint.getSenderAddress(initCode, 2)
+      const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
       await fund(senderAddress, '0.01')
       const userOp = await fillUserOp({
         sender: senderAddress,

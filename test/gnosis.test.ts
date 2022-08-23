@@ -19,11 +19,12 @@ import {
   deployEntryPoint,
   getBalance,
   HashZero,
-  isContractDeployed
+  isDeployed
 } from './testutils'
 import { fillAndSign } from './UserOp'
-import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { defaultAbiCoder, hexConcat, hexValue, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { expect } from 'chai'
+import { Create2Factory } from '../src/Create2Factory'
 
 describe('Gnosis Proxy', function () {
   this.timeout(30000)
@@ -111,22 +112,24 @@ describe('Gnosis Proxy', function () {
 
   let counterfactualAddress: string
   it('should create wallet', async function () {
-    const initCode = await new SafeProxy4337__factory(ethersSigner).getDeployTransaction(safeSingleton.address, manager.address, ownerAddress).data!
+    const ctrCode = hexValue(await new SafeProxy4337__factory(ethersSigner).getDeployTransaction(safeSingleton.address, manager.address, ownerAddress).data!)
+    const initCode = hexConcat([
+      Create2Factory.contractAddress,
+      new Create2Factory(ethers.provider).getDeployTransactionCallData(ctrCode, 0)
+    ])
 
-    const salt = Date.now()
-    counterfactualAddress = await entryPoint.getSenderAddress(initCode, salt)
-    expect(!await isContractDeployed(counterfactualAddress))
+    counterfactualAddress = await entryPoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
+    expect(!await isDeployed(counterfactualAddress))
 
     await ethersSigner.sendTransaction({ to: counterfactualAddress, value: parseEther('0.1') })
     const op = await fillAndSign({
       initCode,
-      nonce: salt,
       verificationGas: 400000
     }, owner, entryPoint)
 
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
-    expect(await isContractDeployed(counterfactualAddress))
+    expect(await isDeployed(counterfactualAddress))
 
     const newCode = await ethers.provider.getCode(counterfactualAddress)
     expect(newCode.length).eq(324)
@@ -134,7 +137,7 @@ describe('Gnosis Proxy', function () {
 
   it('another op after creation', async function () {
     if (counterfactualAddress == null) this.skip()
-    expect(await isContractDeployed(counterfactualAddress))
+    expect(await isDeployed(counterfactualAddress))
 
     const op = await fillAndSign({
       sender: counterfactualAddress,

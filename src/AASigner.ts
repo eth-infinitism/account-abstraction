@@ -8,6 +8,9 @@ import { fillAndSign, getRequestId } from '../test/UserOp'
 import { UserOperation } from '../test/UserOperation'
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
 import { clearInterval } from 'timers'
+import { Create2Factory } from './Create2Factory'
+import { getCreate2Address, hexConcat, keccak256 } from 'ethers/lib/utils'
+import { HashZero } from '../test/testutils'
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
 
@@ -35,7 +38,9 @@ export function rpcUserOpSender (provider: ethers.providers.JsonRpcProvider, ent
 
     const cleanUserOp = Object.keys(userOp).map(key => {
       let val = (userOp as any)[key]
-      if (typeof val !== 'string' || !val.startsWith('0x')) { val = hexValue(val) }
+      if (typeof val !== 'string' || !val.startsWith('0x')) {
+        val = hexValue(val)
+      }
       return [key, val]
     })
       .reduce((set, [k, v]) => ({ ...set, [k]: v }), {})
@@ -222,9 +227,13 @@ export class AASigner extends Signer {
     throw new Error('connect not implemented')
   }
 
+  async _deploymentAddress (): Promise<string> {
+    return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(await this._deploymentTransaction()))
+  }
+
   async _deploymentTransaction (): Promise<BytesLike> {
     const ownerAddress = await this.signer.getAddress()
-    return new SimpleWallet__factory()
+    return new SimpleWallet__factory(this.signer)
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
 
@@ -335,7 +344,7 @@ export class AASigner extends Signer {
 
   async syncAccount (): Promise<void> {
     if (this._wallet == null) {
-      const address = await this.entryPoint.getSenderAddress(await this._deploymentTransaction(), this.index)
+      const address = await this._deploymentAddress()
       this._wallet = SimpleWallet__factory.connect(address, this.signer)
     }
 
@@ -362,7 +371,12 @@ export class AASigner extends Signer {
 
     let initCode: BytesLike | undefined
     if (this._isPhantom) {
-      initCode = await this._deploymentTransaction()
+      const initCallData = new Create2Factory(this.provider!).getDeployTransactionCallData(hexValue(await this._deploymentTransaction()), HashZero)
+
+      initCode = hexConcat([
+        Create2Factory.contractAddress,
+        initCallData
+      ])
     }
     const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
 

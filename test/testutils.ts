@@ -1,12 +1,11 @@
 import { ethers } from 'hardhat'
-import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import { EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory } from '../typechain'
-import { BytesLike } from '@ethersproject/bytes'
+import { EntryPoint, EntryPoint__factory, IERC20, SimpleWallet__factory, TestAggregatedWallet__factory } from '../typechain'
+import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
-import { keccak256 } from 'ethereumjs-util'
 import { UserOperation } from './UserOperation'
 
 export const AddressZero = ethers.constants.AddressZero
@@ -81,9 +80,34 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
   return { actualGasCost }
 }
 
-// helper function to create a constructor call to our wallet.
-export function WalletConstructor (entryPoint: string, owner: string): BytesLike {
-  return new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+// helper function to create a deployer (initCode) call to our wallet. relies on the global "create2Deployer"
+// note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
+// with each deployment. a better deployer will only receive the constructor parameters.
+export function getWalletDeployer (entryPoint: string, owner: string): BytesLike {
+  const walletCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+  const factory = new Create2Factory(ethers.provider)
+  const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)
+  return hexConcat([
+    Create2Factory.contractAddress,
+    initCallData
+  ])
+}
+
+export async function getAggregatedWalletDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
+  const walletCtr = await new TestAggregatedWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
+
+  const factory = new Create2Factory(ethers.provider)
+  const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)
+  return hexConcat([
+    Create2Factory.contractAddress,
+    initCallData
+  ])
+}
+
+// given the parameters as WalletDeployer, return the resulting "counterfactual address" that it would create.
+export function getWalletAddress (entryPoint: string, owner: string): string {
+  const walletCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+  return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(walletCtr)))
 }
 
 const panicCodes: { [key: number]: string } = {
@@ -215,14 +239,14 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish, provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory(provider.getSigner())
-  const ctrParams = defaultAbiCoder.encode(['address', 'uint256', 'uint256'],
-    [Create2Factory.contractAddress, paymasterStake, unstakeDelaySecs])
+  const ctrParams = defaultAbiCoder.encode(['uint256', 'uint256'],
+    [paymasterStake, unstakeDelaySecs])
 
   const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 
-export async function isContractDeployed (addr: string): Promise<boolean> {
+export async function isDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
 }
