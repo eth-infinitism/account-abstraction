@@ -87,19 +87,19 @@ describe('Gnosis Proxy', function () {
     const op = await fillAndSign({
       sender: proxy.address,
       nonce: 1234,
-      callGas: 1e6,
+      callGasLimit: 1e6,
       callData: safe_execTxCallData
     }, owner, entryPoint)
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('wallet: invalid nonce')
 
-    op.callGas = 1
+    op.callGasLimit = 1
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('wallet: wrong signature')
   })
 
   it('should exec', async function () {
     const op = await fillAndSign({
       sender: proxy.address,
-      callGas: 1e6,
+      callGasLimit: 1e6,
       callData: safe_execTxCallData
     }, owner, entryPoint)
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
@@ -124,7 +124,7 @@ describe('Gnosis Proxy', function () {
     await ethersSigner.sendTransaction({ to: counterfactualAddress, value: parseEther('0.1') })
     const op = await fillAndSign({
       initCode,
-      verificationGas: 400000
+      verificationGasLimit: 400000
     }, owner, entryPoint)
 
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())

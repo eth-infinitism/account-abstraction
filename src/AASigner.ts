@@ -167,7 +167,7 @@ export function localUserOpSender (entryPointAddress: string, signer: Signer, be
         initCode: userOp.initCode.length <= 2 ? userOp.initCode : `<len=${userOp.initCode.length}>`
       })
     }
-    const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGas).add(userOp.callGas)
+    const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGasLimit).add(userOp.callGasLimit)
     console.log('calc gaslimit=', gasLimit.toString())
     const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), {
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
@@ -323,7 +323,7 @@ export class AASigner extends Signer {
       confirmations: 0,
       from: userOp.sender,
       nonce: BigNumber.from(userOp.nonce).toNumber(),
-      gasLimit: BigNumber.from(userOp.callGas), // ??
+      gasLimit: BigNumber.from(userOp.callGasLimit), // ??
       value: BigNumber.from(0),
       data: hexValue(userOp.callData), // should extract the actual called method from this "execFromSingleton()" call
       chainId: await this._chainId!,
@@ -392,7 +392,7 @@ export class AASigner extends Signer {
       initCode,
       nonce: initCode == null ? tx.nonce : this.index,
       callData: execFromEntryPoint.data!,
-      callGas: tx.gasLimit,
+      callGasLimit: tx.gasLimit,
       maxPriorityFeePerGas,
       maxFeePerGas
     }, this.signer, this.entryPoint)

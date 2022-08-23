@@ -9,7 +9,7 @@ pragma solidity ^0.8.12;
      * @param nonce unique value the sender uses to verify it is not a replay.
      * @param initCode if set, the account contract will be created by this constructor
      * @param callData the method call to execute on this account.
-     * @param verificationGas gas used for validateUserOp and validatePaymasterUserOp
+     * @param verificationGasLimit gas used for validateUserOp and validatePaymasterUserOp
      * @param preVerificationGas gas not calculated by the handleOps method, but added to the gas paid. Covers batch overhead.
      * @param maxFeePerGas same as EIP-1559 gas parameter
      * @param maxPriorityFeePerGas same as EIP-1559 gas parameter
@@ -22,8 +22,8 @@ pragma solidity ^0.8.12;
         uint256 nonce;
         bytes initCode;
         bytes callData;
-        uint256 callGas;
-        uint256 verificationGas;
+        uint256 callGasLimit;
+        uint256 verificationGasLimit;
         uint256 preVerificationGas;
         uint256 maxFeePerGas;
         uint256 maxPriorityFeePerGas;
