@@ -5,8 +5,8 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "./IWallet.sol";
-import "./EntryPoint.sol";
+import "../interfaces/IWallet.sol";
+import "../interfaces/IEntryPoint.sol";
 
 /**
  * Basic wallet implementation.
@@ -26,7 +26,7 @@ abstract contract BaseWallet is IWallet {
      * return the entryPoint used by this wallet.
      * subclass should return the current entryPoint used by this wallet.
      */
-    function entryPoint() public view virtual returns (EntryPoint);
+    function entryPoint() public view virtual returns (IEntryPoint);
 
     /**
      * Validate user's signature and nonce.

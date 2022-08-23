@@ -2,7 +2,7 @@
 pragma solidity >=0.8.4 <0.9.0;
 pragma abicoder v2;
 
-import "../IAggregator.sol";
+import "../interfaces/IAggregator.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
 import "./IBLSWallet.sol";
 import "./BLSHelper.sol";

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "../IAggregator.sol";
-import "../IAggregatedWallet.sol";
-import "../BaseWallet.sol";
+import "../interfaces/IAggregatedWallet.sol";
+import "../core/BaseWallet.sol";
 import "./SimpleWallet.sol";
-import "../UserOperation.sol";
+import "../interfaces/UserOperation.sol";
 
 /**
  * test aggregated-signature wallet.
@@ -15,7 +14,7 @@ import "../UserOperation.sol";
 contract TestAggregatedWallet is SimpleWallet, IAggregatedWallet {
     address public immutable aggregator;
 
-    constructor(EntryPoint anEntryPoint, address anAggregator)
+    constructor(IEntryPoint anEntryPoint, address anAggregator)
     SimpleWallet(anEntryPoint, address(0)) {
         aggregator = anAggregator;
     }

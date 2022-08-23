@@ -9,7 +9,7 @@ import "./SimpleWallet.sol";
  */
 contract SimpleWalletDeployer {
 
-    function deployWallet(EntryPoint entryPoint, address owner, uint salt) public returns (SimpleWallet) {
+    function deployWallet(IEntryPoint entryPoint, address owner, uint salt) public returns (SimpleWallet) {
         return new SimpleWallet{salt : bytes32(salt)}(entryPoint, owner);
     }
 }

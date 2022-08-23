@@ -5,8 +5,8 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./IPaymaster.sol";
-import "./EntryPoint.sol";
+import "../interfaces/IPaymaster.sol";
+import "../interfaces/IEntryPoint.sol";
 
 /**
  * Helper class for creating a paymaster.
@@ -15,13 +15,13 @@ import "./EntryPoint.sol";
  */
 abstract contract BasePaymaster is IPaymaster, Ownable {
 
-    EntryPoint public entryPoint;
+    IEntryPoint public entryPoint;
 
-    constructor(EntryPoint _entryPoint) {
+    constructor(IEntryPoint _entryPoint) {
         setEntryPoint(_entryPoint);
     }
 
-    function setEntryPoint(EntryPoint _entryPoint) public onlyOwner {
+    function setEntryPoint(IEntryPoint _entryPoint) public onlyOwner {
         entryPoint = _entryPoint;
     }
 

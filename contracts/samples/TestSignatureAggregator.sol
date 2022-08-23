@@ -3,7 +3,7 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable reason-string */
 
-import "../IAggregator.sol";
+import "../interfaces/IAggregator.sol";
 import "hardhat/console.sol";
 import "./SimpleWallet.sol";
 

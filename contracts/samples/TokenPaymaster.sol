@@ -5,7 +5,7 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./SimpleWallet.sol";
-import "../BasePaymaster.sol";
+import "../core/BasePaymaster.sol";
 
 /**
  * A sample paymaster that define itself as a token to pay for gas.
@@ -26,7 +26,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
     address public theDeployer;
 
-    constructor(address walletDeployer, string memory _symbol, EntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
+    constructor(address walletDeployer, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
         theDeployer = walletDeployer;
         //make it non-empty
         _mint(address(this), 1);
@@ -34,6 +34,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         //owner is allowed to withdraw tokens from the paymaster's balance
         _approve(address(this), msg.sender, type(uint).max);
     }
+
 
     //helpers for owner, to mint and withdraw tokens.
     function mintTokens(address recipient, uint256 amount) external onlyOwner {

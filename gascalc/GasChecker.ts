@@ -197,7 +197,7 @@ export class GasChecker {
           maxFeePerGas: info.gasPrice,
           callGas: walletEst,
           verificationGas: 1000000,
-          paymaster,
+          paymasterAndData: paymaster,
           preVerificationGas: 1
         }, walletOwner, GasCheckCollector.inst.entryPoint)
         // const packed = packUserOp(op, false)

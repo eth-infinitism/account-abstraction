@@ -3,8 +3,7 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable reason-string */
 
-import "../EntryPoint.sol";
-import "../BasePaymaster.sol";
+import "../core/BasePaymaster.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -23,7 +22,7 @@ contract VerifyingPaymaster is BasePaymaster {
 
     address public immutable verifyingSigner;
 
-    constructor(EntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) {
+    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) {
         verifyingSigner = _verifyingSigner;
     }
 

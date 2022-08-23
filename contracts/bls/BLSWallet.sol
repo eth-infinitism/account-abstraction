@@ -15,7 +15,7 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
     address public immutable aggregator;
     uint256[4] private publicKey;
 
-    constructor(EntryPoint anEntryPoint, address anAggregator, uint256[4] memory aPublicKey)
+    constructor(IEntryPoint anEntryPoint, address anAggregator, uint256[4] memory aPublicKey)
     SimpleWallet(anEntryPoint, address(0)) {
         publicKey = aPublicKey;
         aggregator = anAggregator;
@@ -45,7 +45,7 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
 
 contract BLSWalletDeployer {
 
-    function deployWallet(EntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSWallet) {
+    function deployWallet(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSWallet) {
         return new BLSWallet{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
     }
 }

@@ -8,7 +8,8 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "./EIP4337Fallback.sol";
-import "../EntryPoint.sol";
+import "../interfaces/IEntryPoint.sol";
+import "../interfaces/IWallet.sol";
 
     using ECDSA for bytes32;
 
@@ -125,9 +126,9 @@ contract EIP4337Manager is GnosisSafe, IWallet {
         UserOperation memory userOp = UserOperation(address(safe), 0, "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
-        EntryPoint.UserOpsPerAggregator[] memory opas = new EntryPoint.UserOpsPerAggregator[](1);
-        opas[0] = EntryPoint.UserOpsPerAggregator(userOps, IAggregator(address(0)), "");
-        EntryPoint _entryPoint = EntryPoint(payable(manager.entryPoint()));
+        IEntryPoint.UserOpsPerAggregator[] memory opas = new IEntryPoint.UserOpsPerAggregator[](1);
+        opas[0] = IEntryPoint.UserOpsPerAggregator(userOps, IAggregator(address(0)), "");
+        IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));
         try _entryPoint.handleAggregatedOps(opas, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
