@@ -126,8 +126,8 @@ contract DepositPaymaster is BasePaymaster {
     external view override returns (bytes memory context) {
 
         (requestId);
-        // verificationGas is dual-purposed, as gas limit for postOp. make sure it is high enough
-        require(userOp.verificationGas > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
+        // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
+        require(userOp.verificationGasLimit > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         require(paymasterAndData.length == 20+20, "DepositPaymaster: paymasterAndData must specify token");

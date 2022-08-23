@@ -151,8 +151,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
-        uint256 callGas;
-        uint256 verificationGas;
+        uint256 callGasLimit;
+        uint256 verificationGasLimit;
         uint256 preVerificationGas;
         address paymaster;
         uint256 maxFeePerGas;
@@ -179,7 +179,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
 
-            (bool success,bytes memory result) = address(mUserOp.sender).call{gas : mUserOp.callGas}(callData);
+            (bool success,bytes memory result) = address(mUserOp.sender).call{gas : mUserOp.callGasLimit}(callData);
             if (!success) {
                 if (result.length > 0) {
                     emit UserOperationRevertReason(opInfo.requestId, mUserOp.sender, mUserOp.nonce, result);
@@ -209,8 +209,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function _copyUserOpToMemory(UserOperation calldata userOp, MemoryUserOp memory mUserOp) internal pure {
         mUserOp.sender = userOp.sender;
         mUserOp.nonce = userOp.nonce;
-        mUserOp.callGas = userOp.callGas;
-        mUserOp.verificationGas = userOp.verificationGas;
+        mUserOp.callGasLimit = userOp.callGasLimit;
+        mUserOp.verificationGasLimit = userOp.verificationGasLimit;
         mUserOp.preVerificationGas = userOp.preVerificationGas;
         mUserOp.maxFeePerGas = userOp.maxFeePerGas;
         mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
@@ -259,10 +259,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal view returns (uint256 requiredPrefund) {
     unchecked {
-        //when using a Paymaster, the verificationGas is used also to as a limit for the postOp call.
+        //when using a Paymaster, the verificationGasLimit is used also to as a limit for the postOp call.
         // our security model might call postOp eventually twice
         uint256 mul = mUserOp.paymaster != address(0) ? 3 : 1;
-        uint256 requiredGas = mUserOp.callGas + mUserOp.verificationGas * mul + mUserOp.preVerificationGas;
+        uint256 requiredGas = mUserOp.callGasLimit + mUserOp.verificationGasLimit * mul + mUserOp.preVerificationGas;
 
         // TODO: copy logic of gasPrice?
         requiredPrefund = requiredGas * getUserOpGasPrice(mUserOp);
@@ -332,7 +332,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         // solhint-disable-next-line no-empty-blocks
-        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGas}(op, opInfo.requestId, aggregator, missingWalletFunds) {
+        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
@@ -371,7 +371,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert FailedOp(opIndex, paymaster, "paymaster deposit too low");
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
-        uint256 gas = mUserOp.verificationGas - gasUsedByValidateWalletPrepayment;
+        uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateWalletPrepayment;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context){
             context = _context;
         } catch Error(string memory revertReason) {
@@ -384,7 +384,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
      * validate wallet and paymaster (if defined).
-     * also make sure total validation doesn't exceed verificationGas
+     * also make sure total validation doesn't exceed verificationGasLimit
      * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
@@ -399,7 +399,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         // validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow
-        uint256 maxGasValues = mUserOp.preVerificationGas | mUserOp.verificationGas | mUserOp.callGas |
+        uint256 maxGasValues = mUserOp.preVerificationGas | mUserOp.verificationGasLimit | mUserOp.callGasLimit |
         userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "gas values overflow");
 
@@ -420,8 +420,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     unchecked {
         uint256 gasUsed = preGas - gasleft();
 
-        if (userOp.verificationGas < gasUsed) {
-            revert FailedOp(opIndex, mUserOp.paymaster, "Used more than verificationGas");
+        if (userOp.verificationGasLimit < gasUsed) {
+            revert FailedOp(opIndex, mUserOp.paymaster, "Used more than verificationGasLimit");
         }
         outOpInfo.prefund = requiredPreFund;
         outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
@@ -455,10 +455,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
             if (context.length > 0) {
                 actualGasCost = actualGas * gasPrice;
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                    IPaymaster(paymaster).postOp{gas : mUserOp.verificationGas}(mode, context, actualGasCost);
+                    IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost);
                 } else {
                     // solhint-disable-next-line no-empty-blocks
-                    try IPaymaster(paymaster).postOp{gas : mUserOp.verificationGas}(mode, context, actualGasCost) {}
+                    try IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
                         revert FailedOp(opIndex, paymaster, reason);
                     }

@@ -105,9 +105,9 @@ describe('Batch gas testing', function () {
           }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
           const { preOpGas } = await entryPointView.callStatic.simulateValidation(op1, false, { gasPrice: 1e9 })
-          const txgas = preOpGas.add(op1.callGas).toNumber()
+          const txgas = preOpGas.add(op1.callGasLimit).toNumber()
 
-          // console.log('colected so far', opsGasCollected, 'estim', verificationGas, 'max', maxTxGas)
+          // console.log('colected so far', opsGasCollected, 'estim', verificationGasLimit, 'max', maxTxGas)
           if (opsGasCollected + txgas > maxTxGas) {
             break
           }
@@ -132,7 +132,7 @@ describe('Batch gas testing', function () {
             sender: w,
             callData: walletExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9,
-            verificationGas: 1.3e6
+            verificationGasLimit: 1.3e6
           }, owner, entryPoint)
           ops.push(op1)
 
@@ -167,7 +167,7 @@ describe('Batch gas testing', function () {
             sender: w,
             callData: walletExecFromEntryPoint_waster.data,
             maxPriorityFeePerGas: 1e9,
-            verificationGas: 1.3e6
+            verificationGasLimit: 1.3e6
           }, owner, entryPoint)
           ops.push(op1)
         }
@@ -191,7 +191,7 @@ describe('Batch gas testing', function () {
             sender: w,
             callData: walletExecFromEntryPoint_waster.data,
             maxPriorityFeePerGas: 1e9,
-            verificationGas: 1.3e6
+            verificationGasLimit: 1.3e6
           }, owner, entryPoint)
           ops.push(op1)
         }
@@ -230,8 +230,8 @@ describe('Batch gas testing', function () {
       gasLimit: 13e6,
       maxPriorityFeePerGas
     }).catch((rethrow())).then(async r => await r!.wait())
-    // const allocatedGas = ops.map(op => parseInt(op.callGas.toString()) + parseInt(op.verificationGas.toString())).reduce((sum, x) => sum + x)
-    // console.log('total allocated gas (callGas+verificationGas):', allocatedGas)
+    // const allocatedGas = ops.map(op => parseInt(op.callGasLimit.toString()) + parseInt(op.verificationGasLimit.toString())).reduce((sum, x) => sum + x)
+    // console.log('total allocated gas (callGasLimit+verificationGasLimit):', allocatedGas)
 
     // remove "revert reason" events
     const events1 = ret.events!.filter((e: any) => e.event === 'UserOperationEvent')!

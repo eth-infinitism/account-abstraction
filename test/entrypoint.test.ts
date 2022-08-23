@@ -253,7 +253,7 @@ describe('EntryPoint', function () {
       const op1 = await fillAndSign({
         initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
         sender: '0x'.padEnd(42, '1'),
-        verificationGas: 1e6
+        verificationGasLimit: 1e6
       }, walletOwner1, entryPoint)
       await expect(entryPointView.callStatic.simulateValidation(op1, false).catch(rethrow()))
         .to.revertedWith('sender doesn\'t match initCode address')
@@ -298,8 +298,8 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           sender: wallet.address,
           callData: walletExecFromEntryPoint.data,
-          verificationGas: 1e6,
-          callGas: 1e6
+          verificationGasLimit: 1e6,
+          callGasLimit: 1e6
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
         const countBefore = await counter.counters(wallet.address)
@@ -326,8 +326,8 @@ describe('EntryPoint', function () {
           callData: walletExecFromEntryPoint.data,
           maxPriorityFeePerGas: 10e9,
           maxFeePerGas: 10e9,
-          verificationGas: 1e6,
-          callGas: 1e6
+          verificationGasLimit: 1e6,
+          callGasLimit: 1e6
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
 
@@ -347,8 +347,8 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           sender: wallet.address,
           callData: walletExecFromEntryPoint.data,
-          verificationGas: 1e6,
-          callGas: 1e6
+          verificationGasLimit: 1e6,
+          callGasLimit: 1e6
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
 
@@ -382,8 +382,8 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           sender: wallet.address,
           callData: '0xdeadface',
-          verificationGas: 1e6,
-          callGas: 1e6
+          verificationGasLimit: 1e6,
+          callGasLimit: 1e6
         }, walletOwner, entryPoint)
         const beneficiaryAddress = createAddress()
 
@@ -427,7 +427,7 @@ describe('EntryPoint', function () {
       it('should reject create if sender address is wrong', async () => {
         const op = await fillAndSign({
           initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
-          verificationGas: 2e6,
+          verificationGasLimit: 2e6,
           sender: '0x'.padEnd(42, '1')
         }, walletOwner, entryPoint)
 
@@ -439,7 +439,7 @@ describe('EntryPoint', function () {
       it('should reject create if account not funded', async () => {
         const op = await fillAndSign({
           initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
-          verificationGas: 2e6
+          verificationGasLimit: 2e6
         }, walletOwner, entryPoint)
 
         expect(await ethers.provider.getBalance(op.sender)).to.eq(0)
@@ -457,8 +457,8 @@ describe('EntryPoint', function () {
         await fund(preAddr)
         createOp = await fillAndSign({
           initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
-          callGas: 1e7,
-          verificationGas: 2e6
+          callGasLimit: 1e7,
+          verificationGasLimit: 2e6
 
         }, walletOwner, entryPoint)
 
@@ -511,15 +511,15 @@ describe('EntryPoint', function () {
         const op1 = await fillAndSign({
           initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
           callData: walletExecCounterFromEntryPoint.data,
-          callGas: 2e6,
-          verificationGas: 2e6
+          callGasLimit: 2e6,
+          verificationGasLimit: 2e6
         }, walletOwner1, entryPoint)
 
         const op2 = await fillAndSign({
           callData: walletExecCounterFromEntryPoint.data,
           sender: wallet2.address,
-          callGas: 2e6,
-          verificationGas: 76000
+          callGasLimit: 2e6,
+          verificationGasLimit: 76000
         }, walletOwner2, entryPoint)
 
         await entryPointView.callStatic.simulateValidation(op2, false, { gasPrice: 1e9 })
@@ -698,8 +698,8 @@ describe('EntryPoint', function () {
           callData: walletExecFromEntryPoint.data,
           initCode: getWalletDeployer(entryPoint.address, wallet2Owner.address),
 
-          verificationGas: 1e6,
-          callGas: 1e6
+          verificationGasLimit: 1e6,
+          callGasLimit: 1e6
         }, wallet2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
         await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')

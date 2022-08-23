@@ -59,21 +59,21 @@ describe('SimpleWallet', function () {
       const entryPoint = accounts[2]
       wallet = await new SimpleWallet__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, walletOwner.address)
       await ethersSigner.sendTransaction({ from: accounts[0], to: wallet.address, value: parseEther('0.2') })
-      const callGas = 200000
-      const verificationGas = 100000
+      const callGasLimit = 200000
+      const verificationGasLimit = 100000
       const maxFeePerGas = 3e9
       const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
       userOp = signUserOp(fillUserOpDefaults({
         sender: wallet.address,
-        callGas,
-        verificationGas,
+        callGasLimit,
+        verificationGasLimit,
         maxFeePerGas
       }), walletOwner, entryPoint, chainId)
 
       requestId = await getRequestId(userOp, entryPoint, chainId)
 
-      expectedPay = actualGasPrice * (callGas + verificationGas)
+      expectedPay = actualGasPrice * (callGasLimit + verificationGasLimit)
 
       preBalance = await getBalance(wallet.address)
       const ret = await wallet.validateUserOp(userOp, requestId, AddressZero, expectedPay, { gasPrice: actualGasPrice })

@@ -41,8 +41,8 @@ export function packUserOp (op: UserOperation, forSignature = true): string {
         { type: 'uint256', name: 'nonce' },
         { type: 'bytes', name: 'initCode' },
         { type: 'bytes', name: 'callData' },
-        { type: 'uint256', name: 'callGas' },
-        { type: 'uint256', name: 'verificationGas' },
+        { type: 'uint256', name: 'callGasLimit' },
+        { type: 'uint256', name: 'verificationGasLimit' },
         { type: 'uint256', name: 'preVerificationGas' },
         { type: 'uint256', name: 'maxFeePerGas' },
         { type: 'uint256', name: 'maxPriorityFeePerGas' },
@@ -62,8 +62,8 @@ export function packUserOp (op: UserOperation, forSignature = true): string {
     { type: 'uint256', val: op.nonce },
     { type: 'bytes', val: op.initCode },
     { type: 'bytes', val: op.callData },
-    { type: 'uint256', val: op.callGas },
-    { type: 'uint256', val: op.verificationGas },
+    { type: 'uint256', val: op.callGasLimit },
+    { type: 'uint256', val: op.verificationGasLimit },
     { type: 'uint256', val: op.preVerificationGas },
     { type: 'uint256', val: op.maxFeePerGas },
     { type: 'uint256', val: op.maxPriorityFeePerGas },
@@ -82,8 +82,8 @@ export function packUserOp1 (op: UserOperation): string {
     'uint256', // nonce
     'bytes32', // initCode
     'bytes32', // callData
-    'uint256', // callGas
-    'uint', // verificationGas
+    'uint256', // callGasLimit
+    'uint', // verificationGasLimit
     'uint', // preVerificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
@@ -93,8 +93,8 @@ export function packUserOp1 (op: UserOperation): string {
     op.nonce,
     keccak256(op.initCode),
     keccak256(op.callData),
-    op.callGas,
-    op.verificationGas,
+    op.callGasLimit,
+    op.verificationGasLimit,
     op.preVerificationGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
@@ -115,8 +115,8 @@ export const DefaultsForUserOp: UserOperation = {
   nonce: 0,
   initCode: '0x',
   callData: '0x',
-  callGas: 0,
-  verificationGas: 100000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
+  callGasLimit: 0,
+  verificationGasLimit: 100000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
   preVerificationGas: 21000, // should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
@@ -156,17 +156,17 @@ export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = Defau
 }
 
 // helper to fill structure:
-// - default callGas to estimate call from entryPoint to wallet (TODO: add overhead)
+// - default callGasLimit to estimate call from entryPoint to wallet (TODO: add overhead)
 // if there is initCode:
 //  - calculate sender by eth_call the deployment code
-//  - default verificationGas estimateGas of deployment code plus default 100000
+//  - default verificationGasLimit estimateGas of deployment code plus default 100000
 // no initCode:
 //  - update nonce from wallet.nonce()
 // entryPoint param is only required to fill in "sender address when specifying "initCode"
 // nonce: assume contract as "nonce()" function, and fill in.
 // sender - only in case of construction: fill sender from initCode.
-// callGas: VERY crude estimation (by estimating call to wallet, and add rough entryPoint overhead
-// verificationGas: hard-code default at 100k. should add "create2" cost
+// callGasLimit: VERY crude estimation (by estimating call to wallet, and add rough entryPoint overhead
+// verificationGasLimit: hard-code default at 100k. should add "create2" cost
 export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint): Promise<UserOperation> {
   const op1 = { ...op }
   const provider = entryPoint?.provider
@@ -185,7 +185,7 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
         op1.sender = await entryPoint!.connect(AddressZero).callStatic.getSenderAddress(op1.initCode!)
       }
     }
-    if (op1.verificationGas == null) {
+    if (op1.verificationGasLimit == null) {
       if (provider == null) throw new Error('no entrypoint/provider')
       const initEstimate = await provider.estimateGas({
         from: entryPoint?.address,
@@ -193,7 +193,7 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
         data: initCallData,
         gasLimit: 10e6
       })
-      op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(initEstimate)
+      op1.verificationGasLimit = BigNumber.from(DefaultsForUserOp.verificationGasLimit).add(initEstimate)
     }
   }
   if (op1.nonce == null) {
@@ -201,8 +201,8 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
     const c = new Contract(op.sender!, ['function nonce() view returns(address)'], provider)
     op1.nonce = await c.nonce().catch(rethrow())
   }
-  if (op1.callGas == null && op.callData != null) {
-    if (provider == null) throw new Error('must have entryPoint for callGas estimate')
+  if (op1.callGasLimit == null && op.callData != null) {
+    if (provider == null) throw new Error('must have entryPoint for callGasLimit estimate')
     const gasEtimated = await provider.estimateGas({
       from: entryPoint?.address,
       to: op1.sender,
@@ -211,7 +211,7 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
 
     // console.log('estim', op1.sender,'len=', op1.callData!.length, 'res=', gasEtimated)
     // estimateGas assumes direct call from entryPoint. add wrapper cost.
-    op1.callGas = gasEtimated // .add(55000)
+    op1.callGasLimit = gasEtimated // .add(55000)
   }
   if (op1.maxFeePerGas == null) {
     if (provider == null) throw new Error('must have entryPoint to autofill maxFeePerGas')
