@@ -123,7 +123,7 @@ contract SimpleWallet is BaseWallet {
         (bool success, bytes memory result) = target.call{value : value}(data);
         if (!success) {
             assembly {
-                revert(add(result,32), mload(result))
+                revert(add(result, 32), mload(result))
             }
         }
     }
@@ -153,3 +153,4 @@ contract SimpleWallet is BaseWallet {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 }
+

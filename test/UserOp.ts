@@ -1,11 +1,18 @@
-import { arrayify, defaultAbiCoder, keccak256 } from 'ethers/lib/utils'
+import {
+  arrayify,
+  defaultAbiCoder,
+  getCreate2Address,
+  hexDataSlice,
+  keccak256
+} from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
-import { AddressZero, callDataCost, rethrow } from './testutils'
+import { AddressZero, callDataCost, HashZero, rethrow } from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
   EntryPoint
 } from '../typechain'
 import { UserOperation } from './UserOperation'
+import { Create2Factory } from '../src/Create2Factory'
 
 function encode (typevalues: Array<{ type: string, val: any }>, forSignature: boolean): string {
   const types = typevalues.map(typevalue => typevalue.type === 'bytes' && forSignature ? 'bytes32' : typevalue.type)
@@ -156,9 +163,8 @@ export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = Defau
 // helper to fill structure:
 // - default callGas to estimate call from entryPoint to wallet (TODO: add overhead)
 // if there is initCode:
-//  - default nonce (used as salt) to zero
-//  - calculate sender using getSenderAddress
-//  - default verificationGas to create2 cost + 100000
+//  - calculate sender by eth_call the deployment code
+//  - default verificationGas estimateGas of deployment code plus default 100000
 // no initCode:
 //  - update nonce from wallet.nonce()
 // entryPoint param is only required to fill in "sender address when specifying "initCode"
@@ -170,14 +176,29 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   const op1 = { ...op }
   const provider = entryPoint?.provider
   if (op.initCode != null) {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!op1.nonce) op1.nonce = 0
+    const initAddr = hexDataSlice(op1.initCode!, 0, 20)
+    const initCallData = hexDataSlice(op1.initCode!, 20)
+    if (op1.nonce == null) op1.nonce = 0
     if (op1.sender == null) {
-      if (entryPoint == null) throw new Error('must have entryPoint to calc sender address from initCode')
-      op1.sender = await entryPoint.getSenderAddress(op.initCode, op1.nonce)
+      // hack: if the init contract is our deployer, then we know what the address would be, without a view call
+      if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
+        const [ctr] = defaultAbiCoder.decode(['bytes', 'bytes32'], '0x' + initCallData.slice(10))
+        op1.sender = getCreate2Address(initAddr, HashZero, keccak256(ctr))
+      } else {
+        // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
+        if (provider == null) throw new Error('no entrypoint/provider')
+        op1.sender = await entryPoint!.connect(AddressZero).callStatic.getSenderAddress(op1.initCode!)
+      }
     }
     if (op1.verificationGas == null) {
-      op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(32000 + 200 * op.initCode.length / 2)
+      if (provider == null) throw new Error('no entrypoint/provider')
+      const initEstimate = await provider.estimateGas({
+        from: entryPoint?.address,
+        to: initAddr,
+        data: initCallData,
+        gasLimit: 10e6
+      })
+      op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(initEstimate)
     }
   }
   if (op1.nonce == null) {

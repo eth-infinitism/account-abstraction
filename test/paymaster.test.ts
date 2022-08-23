@@ -7,7 +7,9 @@ import {
   EntryPoint,
   TokenPaymaster,
   TokenPaymaster__factory,
-  TestCounter__factory
+  TestCounter__factory,
+  SimpleWalletDeployer,
+  SimpleWalletDeployer__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -17,16 +19,17 @@ import {
   getTokenBalance,
   rethrow,
   checkForGeth,
-  WalletConstructor,
   calcGasUsage,
   deployEntryPoint,
   checkForBannedOps,
   createAddress,
-  ONE_ETH
+  ONE_ETH,
+  getWalletAddress
 } from './testutils'
 import { fillAndSign } from './UserOp'
-import { parseEther } from 'ethers/lib/utils'
+import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
+import { hexValue } from '@ethersproject/bytes'
 
 describe('EntryPoint with paymaster', function () {
   let entryPoint: EntryPoint
@@ -34,11 +37,20 @@ describe('EntryPoint with paymaster', function () {
   const ethersSigner = ethers.provider.getSigner()
   let wallet: SimpleWallet
   const beneficiaryAddress = '0x'.padEnd(42, '1')
+  let deployer: SimpleWalletDeployer
+
+  function getWalletDeployer (entryPoint: string, walletOwner: string): string {
+    return hexConcat([
+      deployer.address,
+      hexValue(deployer.interface.encodeFunctionData('deployWallet', [entryPoint, walletOwner, 0])!)
+    ])
+  }
 
   before(async function () {
     await checkForGeth()
 
     entryPoint = await deployEntryPoint(100, 10)
+    deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
 
     walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
@@ -52,7 +64,7 @@ describe('EntryPoint with paymaster', function () {
     let pmAddr: string
 
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy('ttt', entryPoint.address)
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(deployer.address, 'ttt', entryPoint.address)
       pmAddr = paymaster.address
       ownerAddr = await ethersSigner.getAddress()
     })
@@ -72,7 +84,7 @@ describe('EntryPoint with paymaster', function () {
   describe('using TokenPaymaster (account pays in paymaster tokens)', () => {
     let paymaster: TokenPaymaster
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy('tst', entryPoint.address)
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(deployer.address, 'tst', entryPoint.address)
       await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
       await paymaster.addStake(0, { value: parseEther('2') })
     })
@@ -105,7 +117,7 @@ describe('EntryPoint with paymaster', function () {
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: WalletConstructor(entryPoint.address, walletOwner.address),
+          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
           paymaster: paymaster.address
         }, walletOwner, entryPoint)
@@ -115,17 +127,16 @@ describe('EntryPoint with paymaster', function () {
       })
 
       it('should succeed to create account with tokens', async () => {
-        const preAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
-        await paymaster.mintTokens(preAddr, parseEther('1'))
-
-        // paymaster is the token, so no need for "approve" or any init function...
-
         createOp = await fillAndSign({
-          initCode: WalletConstructor(entryPoint.address, walletOwner.address),
+          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
           verificationGas: 1e7,
           paymaster: paymaster.address,
           nonce: 0
         }, walletOwner, entryPoint)
+
+        const preAddr = createOp.sender
+        await paymaster.mintTokens(preAddr, parseEther('1'))
+        // paymaster is the token, so no need for "approve" or any init function...
 
         await entryPoint.simulateValidation(createOp, false, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
@@ -145,7 +156,7 @@ describe('EntryPoint with paymaster', function () {
         const ethRedeemed = await getBalance(beneficiaryAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const walletAddr = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner.address), 0)
+        const walletAddr = getWalletAddress(entryPoint.address, walletOwner.address)
         const postBalance = await getTokenBalance(paymaster, walletAddr)
         expect(1e18 - postBalance).to.above(10000)
       })
@@ -154,7 +165,7 @@ describe('EntryPoint with paymaster', function () {
         if (!created) this.skip()
         await expect(entryPoint.callStatic.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
-        }).catch(rethrow())).to.revertedWith('create2 failed')
+        }).catch(rethrow())).to.revertedWith('sender already constructed')
       })
 
       it('batched request should each pay for its share', async () => {

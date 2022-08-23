@@ -41,3 +41,11 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
         return publicKey;
     }
 }
+
+
+contract BLSWalletDeployer {
+
+    function deployWallet(EntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSWallet) {
+        return new BLSWallet{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
+    }
+}

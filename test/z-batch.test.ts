@@ -16,10 +16,10 @@ import {
   fund,
   checkForGeth,
   rethrow,
-  WalletConstructor,
+  getWalletDeployer,
   tonumber,
   deployEntryPoint,
-  callDataCost, createAddress
+  callDataCost, createAddress, getWalletAddress
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -95,10 +95,10 @@ describe('Batch gas testing', function () {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         while (++count) {
           const walletOwner1 = createWalletOwner()
-          const wallet1 = await entryPoint.getSenderAddress(WalletConstructor(entryPoint.address, walletOwner1.address), 0)
+          const wallet1 = getWalletAddress(entryPoint.address, walletOwner1.address)
           await fund(wallet1, '0.5')
           const op1 = await fillAndSign({
-            initCode: WalletConstructor(entryPoint.address, walletOwner1.address),
+            initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
             nonce: 0,
             // callData: walletExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9

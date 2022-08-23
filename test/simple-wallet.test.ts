@@ -1,14 +1,14 @@
-import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleWallet,
+  SimpleWalletDeployer__factory,
   SimpleWallet__factory,
   TestUtil,
   TestUtil__factory
 } from '../typechain'
-import { AddressZero, createWalletOwner, getBalance, ONE_ETH } from './testutils'
+import { AddressZero, createAddress, createWalletOwner, getBalance, isDeployed, ONE_ETH } from './testutils'
 import { fillUserOpDefaults, getRequestId, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
@@ -96,6 +96,16 @@ describe('SimpleWallet', function () {
       // the entrypoint
       const wrongRequestId = ethers.constants.HashZero
       await expect(wallet.validateUserOp(userOp, wrongRequestId, AddressZero, 0)).to.revertedWith('wallet: wrong signature')
+    })
+  })
+  context('SimpleWalletDeployer', () => {
+    it('sanity: check deployer', async () => {
+      const ownerAddr = createAddress()
+      const deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
+      const target = await deployer.callStatic.deployWallet(entryPoint, ownerAddr, 1234)
+      expect(await isDeployed(target)).to.eq(false)
+      await deployer.deployWallet(entryPoint, ownerAddr, 1234)
+      expect(await isDeployed(target)).to.eq(true)
     })
   })
 })
