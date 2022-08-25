@@ -2,7 +2,7 @@
   "name": "@account-abstraction/contracts",
   "description": "Account Abstraction (EIP 4337) contracts",
   "version": "0.2.0",
-  "types": "./index.d.ts",
+  "main": "./dist/index.js",
   "scripts": {
     "prepack": "../scripts/prepack-contracts-package.sh",
     "postpack": "../scripts/postpack-contracts-package.sh"
