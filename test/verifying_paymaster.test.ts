@@ -44,7 +44,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: wallet.address,
         paymasterAndData: hexConcat([paymaster.address, '0x1234'])
       }, walletOwner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('invalid signature length in paymasterAndData')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
 
     it('should reject on invalid signature', async () => {
@@ -52,7 +52,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: wallet.address,
         paymasterAndData: hexConcat([paymaster.address, '0x' + '1c'.repeat(65)])
       }, walletOwner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, false)).to.be.revertedWith('ECDSA: invalid signature')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
     })
 
     it('succeed with valid signature', async () => {
@@ -65,7 +65,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         ...userOp1,
         paymasterAndData: hexConcat([paymaster.address, sig])
       }, walletOwner, entryPoint)
-      await entryPointStatic.callStatic.simulateValidation(userOp, false)
+      await entryPointStatic.callStatic.simulateValidation(userOp)
     })
   })
 })
