@@ -281,7 +281,7 @@ describe('EntryPoint', function () {
         ]),
         sender
       }, walletOwner, entryPoint)
-      const error = await entryPointView.callStatic.simulateValidation(op1, false).catch(e=>e)
+      const error = await entryPointView.callStatic.simulateValidation(op1, false).catch(e => e)
       expect(error.message).to.match(/initCode failed/)
     })
 
