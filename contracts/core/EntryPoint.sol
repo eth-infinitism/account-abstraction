@@ -272,7 +272,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(uint opIndex, MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
+    function _createSenderIfNeeded(uint256 opIndex, MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
         if (initCode.length != 0) {
             if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "sender already constructed");
             address sender1 = senderCreator.createSender(initCode);
