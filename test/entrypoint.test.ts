@@ -23,7 +23,7 @@ import {
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance, FIVE_ETH, createAddress, getWalletAddress, HashZero, getAggregatedWalletDeployer, isDeployed
+  getBalance, FIVE_ETH, createAddress, getWalletAddress, HashZero, getAggregatedWalletDeployer
 } from './testutils'
 import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'

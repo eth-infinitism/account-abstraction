@@ -16,7 +16,7 @@ contract SenderCreator {
         address initAddress = address(bytes20(initCode[0 : 20]));
         bytes memory initCallData = initCode[20 :];
         bool success;
-        // solium-disable-next-line security/no-inline-assembly
+        /* solhint-disable no-inline-assembly */
         assembly {
             success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
             sender := mload(0)
