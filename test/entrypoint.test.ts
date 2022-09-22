@@ -29,7 +29,7 @@ import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
@@ -268,6 +268,21 @@ describe('EntryPoint', function () {
       await fund(op1.sender)
 
       await entryPointView.callStatic.simulateValidation(op1, false).catch(rethrow())
+    })
+
+    it('should not call initCode from entrypoint', async () => {
+      // a possible attack: call a wallet's execFromEntryPoint through initCode. This might lead to stolen funds.
+      const wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
+      const sender = createAddress()
+      const op1 = await fillAndSign({
+        initCode: hexConcat([
+          wallet.address,
+          wallet.interface.encodeFunctionData('execFromEntryPoint', [sender, 0, '0x'])
+        ]),
+        sender
+      }, walletOwner, entryPoint)
+      const error = await entryPointView.callStatic.simulateValidation(op1, false).catch(e => e)
+      expect(error.message).to.match(/initCode failed/)
     })
 
     it('should not use banned ops during simulateValidation', async () => {

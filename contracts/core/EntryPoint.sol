@@ -17,11 +17,13 @@ import "../interfaces/IEntryPoint.sol";
 import "../interfaces/ICreate2Deployer.sol";
 import "../utils/Exec.sol";
 import "./StakeManager.sol";
+import "./SenderCreator.sol";
 
 contract EntryPoint is IEntryPoint, StakeManager {
 
     using UserOperationLib for UserOperation;
 
+    SenderCreator private immutable senderCreator = new SenderCreator();
 
     // internal value used during simulation: need to query aggregator if wallet is created
     address private constant SIMULATE_NO_AGGREGATOR = address(1);
@@ -270,31 +272,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
+    function _createSenderIfNeeded(uint256 opIndex, MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
         if (initCode.length != 0) {
-            require(mUserOp.sender.code.length == 0, "sender already constructed");
-            address sender1 = _createSender(initCode);
-            require(sender1 == mUserOp.sender, "sender doesn't match initCode address");
-            require(sender1.code.length != 0, "initCode failed to create sender");
+            if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "sender already constructed");
+            address sender1 = senderCreator.createSender(initCode);
+            if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "initCode failed");
+            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "sender doesn't match initCode address");
+            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "initCode failed to create sender");
         }
-    }
-
-    /**
-     * call the "initCode" factory to create and return the sender wallet address
-     * initCode must be unique (e.g. contains the signer address), to make sure
-     *  it can only be executed from the entryPoint, and called with its initialization code (callData)
-     * @param initCode the initCode value from a UserOp. contains 20 bytes of factory address, followed by calldata
-     * @return sender the returned address of the created wallet.
-     */
-    function _createSender(bytes calldata initCode) internal returns (address sender) {
-        address initAddress = address(bytes20(initCode[0 : 20]));
-        bytes memory initCallData = initCode[20 :];
-        bool success;
-        assembly {
-            success := call(gas(), initAddress, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
-            sender := mload(0)
-        }
-        require(success, "initCode failed");
     }
 
     /**
@@ -303,7 +288,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      */
     function getSenderAddress(bytes calldata initCode) public returns (address sender) {
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
-        return _createSender(initCode);
+        return senderCreator.createSender(initCode);
     }
 
     /**
@@ -316,7 +301,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     unchecked {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
-        _createSenderIfNeeded(mUserOp, op.initCode);
+        _createSenderIfNeeded(opIndex, mUserOp, op.initCode);
         if (aggregator == SIMULATE_NO_AGGREGATOR) {
             try IAggregatedWallet(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
