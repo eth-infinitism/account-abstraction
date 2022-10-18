@@ -1,7 +1,7 @@
 import { BigNumber, Bytes, ethers, Signer, Event } from 'ethers'
 import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/providers'
 import { Deferrable, resolveProperties } from '@ethersproject/properties'
-import { SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory } from '../typechain'
+import { SimpleAccount, SimpleAccount__factory, EntryPoint, EntryPoint__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { TransactionResponse } from '@ethersproject/abstract-provider'
 import { fillAndSign, getRequestId } from '../test/UserOp'
@@ -191,7 +191,7 @@ export class AAProvider extends BaseProvider {
  * a signer that wraps account-abstraction.
  */
 export class AASigner extends Signer {
-  _wallet?: SimpleWallet
+  _account?: SimpleAccount
 
   private _isPhantom = true
   public entryPoint: EntryPoint
@@ -212,14 +212,14 @@ export class AASigner extends Signer {
 
   // connect to a specific pre-deployed address
   // (note: in order to send transactions, the underlying signer address must be valid signer for this wallet (its owner)
-  async connectWalletAddress (address: string): Promise<void> {
-    if (this._wallet != null) {
+  async connectAccountAddress (address: string): Promise<void> {
+    if (this._account != null) {
       throw Error('already connected to wallet')
     }
     if (await this.provider!.getCode(address).then(code => code.length) <= 2) {
       throw new Error('cannot connect to non-existing contract')
     }
-    this._wallet = SimpleWallet__factory.connect(address, this.signer)
+    this._account = SimpleAccount__factory.connect(address, this.signer)
     this._isPhantom = false
   }
 
@@ -233,13 +233,13 @@ export class AASigner extends Signer {
 
   async _deploymentTransaction (): Promise<BytesLike> {
     const ownerAddress = await this.signer.getAddress()
-    return new SimpleWallet__factory(this.signer)
+    return new SimpleAccount__factory(this.signer)
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
 
   async getAddress (): Promise<string> {
     await this.syncAccount()
-    return this._wallet!.address
+    return this._account!.address
   }
 
   async signMessage (message: Bytes | string): Promise<string> {
@@ -250,9 +250,9 @@ export class AASigner extends Signer {
     throw new Error('signMessage: unsupported by AA')
   }
 
-  async getWallet (): Promise<SimpleWallet> {
+  async getWallet (): Promise<SimpleAccount> {
     await this.syncAccount()
-    return this._wallet!
+    return this._account!
   }
 
   // fabricate a response in a format usable by ethers users...
@@ -343,17 +343,17 @@ export class AASigner extends Signer {
   }
 
   async syncAccount (): Promise<void> {
-    if (this._wallet == null) {
+    if (this._account == null) {
       const address = await this._deploymentAddress()
-      this._wallet = SimpleWallet__factory.connect(address, this.signer)
+      this._account = SimpleAccount__factory.connect(address, this.signer)
     }
 
     this._chainId = this.provider?.getNetwork().then(net => net.chainId)
     // once an account is deployed, it can no longer be a phantom.
     // but until then, we need to re-check
     if (this._isPhantom) {
-      const size = await this.signer.provider?.getCode(this._wallet.address).then(x => x.length)
-      // console.log(`== __isPhantom. addr=${this._wallet.address} re-checking code size. result = `, size)
+      const size = await this.signer.provider?.getCode(this._account.address).then(x => x.length)
+      // console.log(`== __isPhantom. addr=${this._account.address} re-checking code size. result = `, size)
       this._isPhantom = size === 2
       // !await this.entryPoint.isContractDeployed(await this.getAddress());
     }
@@ -378,7 +378,7 @@ export class AASigner extends Signer {
         initCallData
       ])
     }
-    const execFromEntryPoint = await this._wallet!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
+    const execFromEntryPoint = await this._account!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
 
     let { gasPrice, maxPriorityFeePerGas, maxFeePerGas } = tx
     // gasPrice is legacy, and overrides eip1559 values:
@@ -388,7 +388,7 @@ export class AASigner extends Signer {
       maxFeePerGas = gasPrice
     }
     const userOp = await fillAndSign({
-      sender: this._wallet!.address,
+      sender: this._account!.address,
       initCode,
       nonce: initCode == null ? tx.nonce : this.index,
       callData: execFromEntryPoint.data!,

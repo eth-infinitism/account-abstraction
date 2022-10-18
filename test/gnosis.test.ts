@@ -15,7 +15,7 @@ import {
 import {
   AddressZero,
   createAddress,
-  createWalletOwner,
+  createAccountOwner,
   deployEntryPoint,
   getBalance,
   HashZero,
@@ -51,7 +51,7 @@ describe('Gnosis Proxy', function () {
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
     entryPoint = await deployEntryPoint(1, 1)
     manager = await new EIP4337Manager__factory(ethersSigner).deploy(entryPoint.address)
-    owner = createWalletOwner()
+    owner = createAccountOwner()
     ownerAddress = await owner.getAddress()
     counter = await new TestCounter__factory(ethersSigner).deploy()
 

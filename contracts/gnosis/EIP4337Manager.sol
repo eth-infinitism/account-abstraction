@@ -14,12 +14,12 @@ import "../core/EntryPoint.sol";
 
 /**
  * Main EIP4337 module.
- * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IWallet",
+ * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IAccount",
  * so must implement validateUserOp
  * holds an immutable reference to the EntryPoint
  * Inherits GnosisSafeStorage so that it can reference the memory storage
  */
-contract EIP4337Manager is GnosisSafe, IWallet {
+contract EIP4337Manager is GnosisSafe, IAccount {
 
     address public immutable eip4337Fallback;
     address public immutable entryPoint;
@@ -32,7 +32,7 @@ contract EIP4337Manager is GnosisSafe, IWallet {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address /*aggregator*/, uint256 missingWalletFunds) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address /*aggregator*/, uint256 missingAccountFunds) external override {
         address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(_msgSender == entryPoint, "wallet: not from entrypoint");
 
@@ -46,9 +46,9 @@ contract EIP4337Manager is GnosisSafe, IWallet {
             require(nonce++ == userOp.nonce, "wallet: invalid nonce");
         }
 
-        if (missingWalletFunds > 0) {
+        if (missingAccountFunds > 0) {
             //TODO: MAY pay more than the minimum, to deposit for future transactions
-            (bool success,) = payable(_msgSender).call{value : missingWalletFunds}("");
+            (bool success,) = payable(_msgSender).call{value : missingAccountFunds}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not wallet.)
         }

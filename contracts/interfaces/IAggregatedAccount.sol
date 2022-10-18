@@ -2,7 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "./UserOperation.sol";
-import "./IWallet.sol";
+import "./IAccount.sol";
 import "./IAggregator.sol";
 
 /**
@@ -10,7 +10,7 @@ import "./IAggregator.sol";
  * - the validateUserOp will be called only after the aggregator validated this wallet (with all other wallets of this aggregator).
  * - the validateUserOp MUST valiate the aggregator parameter, and MAY ignore the userOp.signature field.
  */
-interface IAggregatedWallet is IWallet {
+interface IAggregatedAccount is IAccount {
 
     /**
      * return the address of the signature aggregator the wallet supports.

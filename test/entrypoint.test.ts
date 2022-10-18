@@ -3,8 +3,8 @@ import { BigNumber, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   EntryPoint,
-  SimpleWallet,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccount__factory,
   TestCounter,
   TestCounter__factory,
   TestPaymasterAcceptAll,
@@ -12,18 +12,18 @@ import {
 } from '../typechain'
 import {
   AddressZero,
-  createWalletOwner,
+  createAccountOwner,
   fund,
   checkForGeth,
   rethrow,
   tostr,
-  getWalletDeployer,
+  getAccountOwner,
   calcGasUsage,
   checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance, FIVE_ETH, createAddress, getWalletAddress, HashZero, getAggregatedWalletDeployer
+  getBalance, FIVE_ETH, createAddress, getAccountAddress, HashZero, getAggregatedAccountDeployer
 } from './testutils'
 import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -33,9 +33,9 @@ import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
-import { TestAggregatedWallet } from '../typechain/contracts/samples/TestAggregatedWallet'
+import { TestAggregatedAccount } from '../typechain/contracts/samples/TestAggregatedAccount'
 import { TestSignatureAggregator__factory } from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
-import { TestAggregatedWallet__factory } from '../typechain/factories/contracts/samples/TestAggregatedWallet__factory'
+import { TestAggregatedAccount__factory } from '../typechain/factories/contracts/samples/TestAggregatedAccount__factory'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -44,7 +44,7 @@ describe('EntryPoint', function () {
   let walletOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let signer: string
-  let wallet: SimpleWallet
+  let wallet: SimpleAccount
 
   const globalUnstakeDelaySec = 2
   const paymasterStake = ethers.utils.parseEther('2')
@@ -59,8 +59,8 @@ describe('EntryPoint', function () {
 
     // static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
-    walletOwner = createWalletOwner()
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
+    walletOwner = createAccountOwner()
+    wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
 
     // sanity: validate helper functions
@@ -198,10 +198,10 @@ describe('EntryPoint', function () {
     })
     describe('with deposit', () => {
       let owner: string
-      let wallet: SimpleWallet
+      let wallet: SimpleAccount
       before(async () => {
         owner = await ethersSigner.getAddress()
-        wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, owner)
+        wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, owner)
         await wallet.addDeposit({ value: ONE_ETH })
         expect(await getBalance(wallet.address)).to.equal(0)
         expect(await wallet.getDeposit()).to.eql(ONE_ETH)
@@ -214,11 +214,11 @@ describe('EntryPoint', function () {
   })
 
   describe('#simulateValidation', () => {
-    const walletOwner1 = createWalletOwner()
-    let wallet1: SimpleWallet
+    const walletOwner1 = createAccountOwner()
+    let wallet1: SimpleAccount
 
     before(async () => {
-      wallet1 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner1.getAddress())
+      wallet1 = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await walletOwner1.getAddress())
     })
 
     it('should fail if validateUserOp fails', async () => {
@@ -251,7 +251,7 @@ describe('EntryPoint', function () {
 
     it('should fail creation for wrong sender', async () => {
       const op1 = await fillAndSign({
-        initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
+        initCode: getAccountOwner(entryPoint.address, walletOwner1.address),
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 1e6
       }, walletOwner1, entryPoint)
@@ -260,10 +260,10 @@ describe('EntryPoint', function () {
     })
 
     it('should succeed for creating a wallet', async () => {
-      const sender = getWalletAddress(entryPoint.address, walletOwner1.address)
+      const sender = getAccountAddress(entryPoint.address, walletOwner1.address)
       const op1 = await fillAndSign({
         sender,
-        initCode: getWalletDeployer(entryPoint.address, walletOwner1.address)
+        initCode: getAccountOwner(entryPoint.address, walletOwner1.address)
       }, walletOwner1, entryPoint)
       await fund(op1.sender)
 
@@ -272,7 +272,7 @@ describe('EntryPoint', function () {
 
     it('should not call initCode from entrypoint', async () => {
       // a possible attack: call a wallet's execFromEntryPoint through initCode. This might lead to stolen funds.
-      const wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
+      const wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
       const sender = createAddress()
       const op1 = await fillAndSign({
         initCode: hexConcat([
@@ -287,8 +287,8 @@ describe('EntryPoint', function () {
 
     it('should not use banned ops during simulateValidation', async () => {
       const op1 = await fillAndSign({
-        initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
-        sender: getWalletAddress(entryPoint.address, walletOwner1.address)
+        initCode: getAccountOwner(entryPoint.address, walletOwner1.address),
+        sender: getAccountAddress(entryPoint.address, walletOwner1.address)
       }, walletOwner1, entryPoint)
       await fund(op1.sender)
       await fund(AddressZero)
@@ -441,7 +441,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if sender address is wrong', async () => {
         const op = await fillAndSign({
-          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
+          initCode: getAccountOwner(entryPoint.address, walletOwner.address),
           verificationGasLimit: 2e6,
           sender: '0x'.padEnd(42, '1')
         }, walletOwner, entryPoint)
@@ -453,7 +453,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
+          initCode: getAccountOwner(entryPoint.address, walletOwner.address),
           verificationGasLimit: 2e6
         }, walletOwner, entryPoint)
 
@@ -468,10 +468,10 @@ describe('EntryPoint', function () {
       })
 
       it('should succeed to create account after prefund', async () => {
-        const preAddr = getWalletAddress(entryPoint.address, walletOwner.address)
+        const preAddr = getAccountAddress(entryPoint.address, walletOwner.address)
         await fund(preAddr)
         createOp = await fillAndSign({
-          initCode: getWalletDeployer(entryPoint.address, walletOwner.address),
+          initCode: getAccountOwner(entryPoint.address, walletOwner.address),
           callGasLimit: 1e7,
           verificationGasLimit: 2e6
 
@@ -485,7 +485,7 @@ describe('EntryPoint', function () {
       })
 
       it('should reject if account already created', async function () {
-        const preAddr = getWalletAddress(entryPoint.address, walletOwner.address)
+        const preAddr = getAccountAddress(entryPoint.address, walletOwner.address)
         if (await ethers.provider.getCode(preAddr).then(x => x.length) === 2) {
           this.skip()
         }
@@ -509,22 +509,22 @@ describe('EntryPoint', function () {
       let counter: TestCounter
       let walletExecCounterFromEntryPoint: PopulatedTransaction
       const beneficiaryAddress = createAddress()
-      const walletOwner1 = createWalletOwner()
+      const walletOwner1 = createAccountOwner()
       let wallet1: string
-      const walletOwner2 = createWalletOwner()
-      let wallet2: SimpleWallet
+      const walletOwner2 = createAccountOwner()
+      let wallet2: SimpleAccount
 
       before('before', async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
-        wallet1 = getWalletAddress(entryPoint.address, walletOwner1.address)
-        wallet2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner2.address)
+        wallet1 = getAccountAddress(entryPoint.address, walletOwner1.address)
+        wallet2 = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, walletOwner2.address)
         await fund(wallet1)
         await fund(wallet2.address)
         // execute and increment counter
         const op1 = await fillAndSign({
-          initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
+          initCode: getAccountOwner(entryPoint.address, walletOwner1.address),
           callData: walletExecCounterFromEntryPoint.data,
           callGasLimit: 2e6,
           verificationGasLimit: 2e6
@@ -559,13 +559,13 @@ describe('EntryPoint', function () {
     describe('aggregation tests', () => {
       const beneficiaryAddress = createAddress()
       let aggregator: TestSignatureAggregator
-      let aggWallet: TestAggregatedWallet
-      let aggWallet2: TestAggregatedWallet
+      let aggWallet: TestAggregatedAccount
+      let aggWallet2: TestAggregatedAccount
 
       before(async () => {
         aggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
-        aggWallet = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
-        aggWallet2 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+        aggWallet = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+        aggWallet2 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
         await ethersSigner.sendTransaction({ to: aggWallet.address, value: parseEther('0.1') })
         await ethersSigner.sendTransaction({ to: aggWallet2.address, value: parseEther('0.1') })
       })
@@ -609,7 +609,7 @@ describe('EntryPoint', function () {
 
       it('should run with multiple aggregators (and non-aggregated-wallets)', async () => {
         const aggregator3 = await new TestSignatureAggregator__factory(ethersSigner).deploy()
-        const aggWallet3 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
+        const aggWallet3 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
         await ethersSigner.sendTransaction({ to: aggWallet3.address, value: parseEther('0.1') })
 
         const userOp1 = await fillAndSign({
@@ -668,7 +668,7 @@ describe('EntryPoint', function () {
           let addr: string
           let userOp: UserOperation
           before(async () => {
-            initCode = await getAggregatedWalletDeployer(entryPoint.address, aggregator.address)
+            initCode = await getAggregatedAccountDeployer(entryPoint.address, aggregator.address)
             addr = await entryPointView.callStatic.getSenderAddress(initCode)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
@@ -697,7 +697,7 @@ describe('EntryPoint', function () {
       let paymaster: TestPaymasterAcceptAll
       let counter: TestCounter
       let walletExecFromEntryPoint: PopulatedTransaction
-      const wallet2Owner = createWalletOwner()
+      const wallet2Owner = createAccountOwner()
 
       before(async () => {
         paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
@@ -711,7 +711,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: walletExecFromEntryPoint.data,
-          initCode: getWalletDeployer(entryPoint.address, wallet2Owner.address),
+          initCode: getAccountOwner(entryPoint.address, wallet2Owner.address),
 
           verificationGasLimit: 1e6,
           callGasLimit: 1e6
@@ -725,7 +725,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: walletExecFromEntryPoint.data,
-          initCode: getWalletDeployer(entryPoint.address, wallet2Owner.address)
+          initCode: getAccountOwner(entryPoint.address, wallet2Owner.address)
         }, wallet2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
 

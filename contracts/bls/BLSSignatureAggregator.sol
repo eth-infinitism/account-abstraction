@@ -4,12 +4,12 @@ pragma abicoder v2;
 
 import "../interfaces/IAggregator.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
-import "./IBLSWallet.sol";
+import "./IBLSAccount.sol";
 import "./BLSHelper.sol";
 import "hardhat/console.sol";
 
 /**
- * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSWallet
+ * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSAccount
  */
 contract BLSSignatureAggregator is IAggregator {
     using UserOperationLib for UserOperation;
@@ -27,9 +27,9 @@ contract BLSSignatureAggregator is IAggregator {
         for (uint256 i = 0; i < userOpsLen; i++) {
 
             UserOperation memory userOp = userOps[i];
-            IBLSWallet blsWallet = IBLSWallet(userOp.sender);
+            IBLSAccount blsAccount = IBLSAccount(userOp.sender);
 
-            blsPublicKeys[i] = blsWallet.getBlsPublicKey{gas : 30000}();
+            blsPublicKeys[i] = blsAccount.getBlsPublicKey{gas : 30000}();
 
             messages[i] = _userOpToMessage(userOp, keccak256(abi.encode(blsPublicKeys[i])));
         }
@@ -74,7 +74,7 @@ contract BLSSignatureAggregator is IAggregator {
     // if its a constructor UserOp, then return constructor hash.
     function _getUserOpPubkeyHash(UserOperation memory userOp) internal view returns (bytes32 hashPublicKey) {
         if (userOp.initCode.length == 0) {
-            uint256[4] memory publicKey = IBLSWallet(userOp.sender).getBlsPublicKey();
+            uint256[4] memory publicKey = IBLSAccount(userOp.sender).getBlsPublicKey();
             hashPublicKey = keccak256(abi.encode(publicKey));
         } else {
             hashPublicKey = keccak256(userOp.initCode);
@@ -103,7 +103,7 @@ contract BLSSignatureAggregator is IAggregator {
     function validateUserOpSignature(UserOperation calldata userOp, bool offChainSigCheck)
     external view returns (bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
-        uint256[4] memory pubkey = IBLSWallet(userOp.getSender()).getBlsPublicKey();
+        uint256[4] memory pubkey = IBLSAccount(userOp.getSender()).getBlsPublicKey();
         uint256[2] memory message = userOpToMessage(userOp);
 
         if (offChainSigCheck) {

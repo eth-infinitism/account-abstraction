@@ -2,18 +2,18 @@ import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWalletDeployer__factory,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccountDeployer__factory,
+  SimpleAccount__factory,
   TestUtil,
   TestUtil__factory
 } from '../typechain'
-import { AddressZero, createAddress, createWalletOwner, getBalance, isDeployed, ONE_ETH } from './testutils'
+import { AddressZero, createAddress, createAccountOwner, getBalance, isDeployed, ONE_ETH } from './testutils'
 import { fillUserOpDefaults, getRequestId, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
-describe('SimpleWallet', function () {
+describe('SimpleAccount', function () {
   const entryPoint = '0x'.padEnd(42, '2')
   let accounts: string[]
   let testUtil: TestUtil
@@ -25,16 +25,16 @@ describe('SimpleWallet', function () {
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    walletOwner = createWalletOwner()
+    walletOwner = createAccountOwner()
   })
 
   it('owner should be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
+    const wallet = await new SimpleAccount__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
     await ethersSigner.sendTransaction({ from: accounts[0], to: wallet.address, value: parseEther('2') })
     await wallet.transfer(accounts[2], ONE_ETH)
   })
   it('other account should not be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
+    const wallet = await new SimpleAccount__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
     await expect(wallet.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
       .to.be.revertedWith('only owner')
   })
@@ -46,7 +46,7 @@ describe('SimpleWallet', function () {
   })
 
   describe('#validateUserOp', () => {
-    let wallet: SimpleWallet
+    let wallet: SimpleAccount
     let userOp: UserOperation
     let requestId: string
     let preBalance: number
@@ -57,7 +57,7 @@ describe('SimpleWallet', function () {
     before(async () => {
       // that's the account of ethersSigner
       const entryPoint = accounts[2]
-      wallet = await new SimpleWallet__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, walletOwner.address)
+      wallet = await new SimpleAccount__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, walletOwner.address)
       await ethersSigner.sendTransaction({ from: accounts[0], to: wallet.address, value: parseEther('0.2') })
       const callGasLimit = 200000
       const verificationGasLimit = 100000
@@ -95,16 +95,16 @@ describe('SimpleWallet', function () {
       // validateUserOp doesn't check the actual UserOp for the signature, but relies on the requestId given by
       // the entrypoint
       const wrongRequestId = ethers.constants.HashZero
-      await expect(wallet.validateUserOp(userOp, wrongRequestId, AddressZero, 0)).to.revertedWith('wallet: wrong signature')
+      await expect(wallet.validateUserOp(userOp, wrongRequestId, AddressZero, 0)).to.revertedWith('Account: wrong signature')
     })
   })
-  context('SimpleWalletDeployer', () => {
+  context('SimpleAccountDeployer', () => {
     it('sanity: check deployer', async () => {
       const ownerAddr = createAddress()
-      const deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
-      const target = await deployer.callStatic.deployWallet(entryPoint, ownerAddr, 1234)
+      const deployer = await new SimpleAccountDeployer__factory(ethersSigner).deploy()
+      const target = await deployer.callStatic.deployAccount(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(false)
-      await deployer.deployWallet(entryPoint, ownerAddr, 1234)
+      await deployer.deployAccount(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(true)
     })
   })

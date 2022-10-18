@@ -2,15 +2,15 @@ import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccount__factory,
   EntryPoint,
   VerifyingPaymaster,
   VerifyingPaymaster__factory
 } from '../typechain'
 import {
   AddressZero,
-  createWalletOwner,
+  createAccountOwner,
   deployEntryPoint
 } from './testutils'
 import { fillAndSign } from './UserOp'
@@ -21,7 +21,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPointStatic: EntryPoint
   let walletOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
-  let wallet: SimpleWallet
+  let wallet: SimpleAccount
   let offchainSigner: Wallet
 
   let paymaster: VerifyingPaymaster
@@ -29,13 +29,13 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     entryPoint = await deployEntryPoint(1, 1)
     entryPointStatic = entryPoint.connect(AddressZero)
 
-    offchainSigner = createWalletOwner()
-    walletOwner = createWalletOwner()
+    offchainSigner = createAccountOwner()
+    walletOwner = createAccountOwner()
 
     paymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(entryPoint.address, offchainSigner.address)
     await paymaster.addStake(0, { value: parseEther('2') })
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
+    wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
   })
 
   describe('#validatePaymasterUserOp', () => {

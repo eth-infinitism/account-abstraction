@@ -22,7 +22,7 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
   const entryPointAddress = ret.address
 
   const w = await hre.deployments.deploy(
-    'SimpleWallet', {
+    'SimpleAccount', {
       from,
       args: [entryPointAddress, from],
       gasLimit: 2e6,

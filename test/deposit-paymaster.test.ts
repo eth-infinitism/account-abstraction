@@ -2,8 +2,8 @@ import './aa.init'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccount__factory,
   EntryPoint,
   DepositPaymaster,
   DepositPaymaster__factory,
@@ -15,7 +15,7 @@ import {
 } from '../typechain'
 import {
   AddressZero, createAddress,
-  createWalletOwner,
+  createAccountOwner,
   deployEntryPoint, FIVE_ETH, ONE_ETH, userOpsWithoutAgg
 } from './testutils'
 import { fillAndSign } from './UserOp'
@@ -44,10 +44,10 @@ describe('DepositPaymaster', () => {
   })
 
   describe('deposit', () => {
-    let wallet: SimpleWallet
+    let wallet: SimpleAccount
 
     before(async () => {
-      wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+      wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
     })
     it('should deposit and read balance', async () => {
       await paymaster.addDepositFor(token.address, wallet.address, 100)
@@ -79,13 +79,13 @@ describe('DepositPaymaster', () => {
   })
 
   describe('#validatePaymasterUserOp', () => {
-    let wallet: SimpleWallet
+    let wallet: SimpleAccount
     const gasPrice = 1e9
     let walletOwner: string
 
     before(async () => {
       walletOwner = await ethersSigner.getAddress()
-      wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner)
+      wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, walletOwner)
     })
 
     it('should fail if no token', async () => {
@@ -138,12 +138,12 @@ describe('DepositPaymaster', () => {
     })
   })
   describe('#handleOps', () => {
-    let wallet: SimpleWallet
-    const walletOwner = createWalletOwner()
+    let wallet: SimpleAccount
+    const walletOwner = createAccountOwner()
     let counter: TestCounter
     let callData: string
     before(async () => {
-      wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
+      wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
       counter = await new TestCounter__factory(ethersSigner).deploy()
       const counterJustEmit = await counter.populateTransaction.justemit().then(tx => tx.data!)
       callData = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, counterJustEmit).then(tx => tx.data!)

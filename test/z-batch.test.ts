@@ -4,22 +4,22 @@ import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccount__factory,
   EntryPoint,
   TestCounter,
   TestCounter__factory
 } from '../typechain'
 import {
   AddressZero,
-  createWalletOwner,
+  createAccountOwner,
   fund,
   checkForGeth,
   rethrow,
-  getWalletDeployer,
+  getAccountOwner,
   tonumber,
   deployEntryPoint,
-  callDataCost, createAddress, getWalletAddress
+  callDataCost, createAddress, getAccountAddress
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -40,7 +40,7 @@ describe('Batch gas testing', function () {
   let entryPointView: EntryPoint
 
   let walletOwner: Wallet
-  let wallet: SimpleWallet
+  let wallet: SimpleAccount
 
   const results: Array<() => void> = []
   before(async function () {
@@ -50,8 +50,8 @@ describe('Batch gas testing', function () {
     entryPoint = await deployEntryPoint(1, 1)
     // static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
-    walletOwner = createWalletOwner()
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
+    walletOwner = createAccountOwner()
+    wallet = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
   })
 
@@ -94,11 +94,11 @@ describe('Batch gas testing', function () {
         let opsGasCollected = 0
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         while (++count) {
-          const walletOwner1 = createWalletOwner()
-          const wallet1 = getWalletAddress(entryPoint.address, walletOwner1.address)
+          const walletOwner1 = createAccountOwner()
+          const wallet1 = getAccountAddress(entryPoint.address, walletOwner1.address)
           await fund(wallet1, '0.5')
           const op1 = await fillAndSign({
-            initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
+            initCode: getAccountOwner(entryPoint.address, walletOwner1.address),
             nonce: 0,
             // callData: walletExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9
