@@ -265,7 +265,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
      * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
      * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
-     */    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators, bool offChainSigCheck)
+     */
+    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators, bool offChainSigCheck)
     public returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
         uint256 preGas = gasleft();
 
