@@ -18,7 +18,7 @@ contract TestExpiryWallet is SimpleWallet {
         addTemporaryOwner(anOwner, type(uint256).max);
     }
 
-    function addTemporaryOwner(address owner, uint256 deadline) onlyOwner public {
+    function addTemporaryOwner(address owner, uint256 deadline) public onlyOwner {
         ownerDeadlines[owner] = deadline;
     }
 

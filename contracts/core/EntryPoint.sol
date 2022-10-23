@@ -316,8 +316,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        // solhint-disable-next-line no-empty-blocks
         try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 deadline) {
+            // solhint-disable-next-line not-rely-on-time
             if (deadline != 0 && deadline < block.timestamp) {
                 revert FailedOp(opIndex, address(0), "expired");
             }
@@ -361,6 +361,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateWalletPrepayment;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context, uint256 deadline){
+            // solhint-disable-next-line not-rely-on-time
             if (deadline != 0 && deadline < block.timestamp) {
                 revert FailedOp(opIndex, address(0), "expired");
             }
