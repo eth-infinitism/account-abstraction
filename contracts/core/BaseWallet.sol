@@ -59,7 +59,7 @@ abstract contract BaseWallet is IWallet {
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address aggregator)
-    internal virtual view returns (uint256 deadline);
+    internal virtual returns (uint256 deadline);
 
     /**
      * validate the current nonce matches the UserOperation nonce.
