@@ -317,7 +317,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
         // solhint-disable-next-line no-empty-blocks
-        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) {
+        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 deadline) {
+            if (deadline != 0 && deadline < block.timestamp) {
+                revert FailedOp(opIndex, address(0), "expired");
+            }
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
@@ -357,7 +360,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateWalletPrepayment;
-        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context){
+        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context, uint256 deadline){
+            if (deadline != 0 && deadline < block.timestamp) {
+                revert FailedOp(opIndex, address(0), "expired");
+            }
             context = _context;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, paymaster, revertReason);

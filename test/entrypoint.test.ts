@@ -7,6 +7,10 @@ import {
   SimpleWallet__factory,
   TestCounter,
   TestCounter__factory,
+  TestExpirePaymaster,
+  TestExpirePaymaster__factory,
+  TestExpiryWallet,
+  TestExpiryWallet__factory,
   TestPaymasterAcceptAll,
   TestPaymasterAcceptAll__factory
 } from '../typechain'
@@ -29,12 +33,14 @@ import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { defaultAbiCoder, formatEther, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
 import { TestAggregatedWallet } from '../typechain/contracts/samples/TestAggregatedWallet'
-import { TestSignatureAggregator__factory } from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
+import {
+  TestSignatureAggregator__factory
+} from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
 import { TestAggregatedWallet__factory } from '../typechain/factories/contracts/samples/TestAggregatedWallet__factory'
 
 describe('EntryPoint', function () {
@@ -734,6 +740,62 @@ describe('EntryPoint', function () {
         const { actualGasCost } = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
         const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
         expect(paymasterPaid).to.eql(actualGasCost)
+      })
+    })
+
+    describe('UserOperation expiration', function () {
+      let wallet: TestExpiryWallet
+      before('init wallet with session key', async () => {
+        // create a test wallet. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
+        wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+        await ethersSigner.sendTransaction({ to: wallet.address, value: parseEther('0.1') })
+      })
+
+      it('should accept non-expired owner', async () => {
+        const sessionOwner = createWalletOwner()
+        await wallet.addTemporaryOwner(sessionOwner.address, Math.floor(Date.now() / 1000) + 60)
+        const userOp = await fillAndSign({
+          sender: wallet.address
+        }, sessionOwner, entryPoint)
+        await entryPointView.callStatic.simulateValidation(userOp, false).catch(rethrow())
+      })
+      it('should reject expired owner', async () => {
+        const sessionOwner = createWalletOwner()
+        await wallet.addTemporaryOwner(sessionOwner.address, Math.floor(Date.now() / 1000) - 60)
+        const userOp = await fillAndSign({
+          sender: wallet.address
+        }, sessionOwner, entryPoint)
+        await expect(entryPointView.callStatic.simulateValidation(userOp, false)).to.revertedWith('expired')
+      })
+    })
+
+    describe('UserOperation paymaster expiration', function () {
+      let wallet: TestExpiryWallet
+      let paymaster: TestExpirePaymaster
+      before('init wallet with session key', async () => {
+        // wallet without eth - must be paid by paymaster.
+        wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+        paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
+        await paymaster.addStake(0, { value: paymasterStake })
+        await paymaster.deposit({ value: parseEther('0.1') })
+      })
+
+      it('should accept non-expired paymaster request', async () => {
+        const expireTime = defaultAbiCoder.encode(['uint256'], ['0'])
+        const userOp = await fillAndSign({
+          sender: wallet.address,
+          paymasterAndData: hexConcat([paymaster.address, expireTime])
+        }, ethersSigner, entryPoint)
+        await entryPointView.callStatic.simulateValidation(userOp, false)
+      })
+
+      it('should reject expired paymaster request', async () => {
+        const expireTime = defaultAbiCoder.encode(['uint256'], ['1'])
+        const userOp = await fillAndSign({
+          sender: wallet.address,
+          paymasterAndData: hexConcat([paymaster.address, expireTime])
+        }, ethersSigner, entryPoint)
+        await expect(entryPointView.callStatic.simulateValidation(userOp, false)).to.revertedWith('expired')
       })
     })
   })
