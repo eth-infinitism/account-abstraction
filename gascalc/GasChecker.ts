@@ -195,8 +195,8 @@ export class GasChecker {
           callData: walletExecFromEntryPoint,
           maxPriorityFeePerGas: info.gasPrice,
           maxFeePerGas: info.gasPrice,
-          callGas: walletEst,
-          verificationGas: 1000000,
+          callGasLimit: walletEst,
+          verificationGasLimit: 1000000,
           paymasterAndData: paymaster,
           preVerificationGas: 1
         }, walletOwner, GasCheckCollector.inst.entryPoint)

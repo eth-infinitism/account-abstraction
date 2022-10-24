@@ -1,16 +1,11 @@
 {
   "name": "@account-abstraction/contracts",
   "description": "Account Abstraction (EIP 4337) contracts",
-  "version": "0.1.0",
-  "nofiles": [
-    "**/*.sol",
-    "artifacts/**.json",
-    "typechain/**",
-    "!typechain/factories/*"
-  ],
+  "version": "0.2.0",
+  "main": "./dist/index.js",
   "scripts": {
-    "prepack": "cd ..; yarn clean && yarn compile && bash ./scripts/prepare-contracts-package.sh",
-    "postpack": "rm -rf artifacts typechain"
+    "prepack": "../scripts/prepack-contracts-package.sh",
+    "postpack": "../scripts/postpack-contracts-package.sh"
   },
   "repository": {
     "type": "git",
