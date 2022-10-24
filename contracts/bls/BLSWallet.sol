@@ -22,7 +22,7 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address userOpAggregator)
-    internal override view returns (uint deadline) {
+    internal override view returns (uint256 deadline) {
 
         (userOp, requestId);
         require(userOpAggregator == aggregator, "BLSWallet: wrong aggregator");

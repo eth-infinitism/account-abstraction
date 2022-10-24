@@ -743,12 +743,12 @@ describe('EntryPoint', function () {
       })
     })
 
-    describe('Validation expiration', () => {
-      describe('validateUserOp expiration', function () {
+    describe('Validation deadline', () => {
+      describe('validateUserOp deadline', function () {
         let wallet: TestExpiryWallet
         let now: number
         before('init wallet with session key', async () => {
-        // create a test wallet. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
+          // create a test wallet. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
           wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
           await ethersSigner.sendTransaction({ to: wallet.address, value: parseEther('0.1') })
           now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
@@ -760,7 +760,8 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: wallet.address
           }, sessionOwner, entryPoint)
-          await entryPointView.callStatic.simulateValidation(userOp, false).catch(rethrow())
+          const { deadline } = await entryPointView.callStatic.simulateValidation(userOp, false).catch(rethrow())
+          expect(deadline).to.eql(now + 60)
         })
 
         it('should reject expired owner', async () => {
@@ -773,12 +774,12 @@ describe('EntryPoint', function () {
         })
       })
 
-      describe('validatePaymasterUserOp with expiration', function () {
+      describe('validatePaymasterUserOp with deadline', function () {
         let wallet: TestExpiryWallet
         let paymaster: TestExpirePaymaster
         let now: number
         before('init wallet with session key', async () => {
-        // wallet without eth - must be paid by paymaster.
+          // wallet without eth - must be paid by paymaster.
           wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
           paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
           await paymaster.addStake(0, { value: paymasterStake })
@@ -792,7 +793,8 @@ describe('EntryPoint', function () {
             sender: wallet.address,
             paymasterAndData: hexConcat([paymaster.address, expireTime])
           }, ethersSigner, entryPoint)
-          await entryPointView.callStatic.simulateValidation(userOp, false)
+          const { deadline } = await entryPointView.callStatic.simulateValidation(userOp, false)
+          expect(deadline).to.eql(now + 60)
         })
 
         it('should reject expired paymaster request', async () => {

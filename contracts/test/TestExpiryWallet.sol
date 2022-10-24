@@ -24,7 +24,7 @@ contract TestExpiryWallet is SimpleWallet {
 
     /// implement template method of BaseWallet
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address)
-    internal override view returns (uint deadline) {
+    internal override view returns (uint256 deadline) {
         bytes32 hash = requestId.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
         deadline = ownerDeadlines[signer];
