@@ -53,11 +53,6 @@ interface IEntryPoint is IStakeManager {
      */
     error SignatureValidationFailed(address aggregator);
 
-    /**
-     * during simulateValidation, the userOp uses an aggregator that doesn't appear in the list of "allowedAggregators"
-     */
-    error UnallowedAggregator(address aggregator);
-
     //UserOps handled, per aggregator
     struct UserOpsPerAggregator {
         UserOperation[] userOps;
@@ -97,7 +92,7 @@ interface IEntryPoint is IStakeManager {
 
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
-    * This method allows no use of aggregators (though for simplicity, the returned values are the same as the simulateValidationWithAggregator)
+    * This is a helper method, for bundlers that don't support signature aggregators.
     * Validation succeeds if the call doesn't revert.
     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
@@ -105,14 +100,9 @@ interface IEntryPoint is IStakeManager {
      * @param userOp the user operation to validate.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
-     *      aggregator.
-     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
-     * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
      */
     function simulateValidation(UserOperation calldata userOp)
-    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo);
+    external returns (uint256 preOpGas, uint256 prefund);
 
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
@@ -124,18 +114,15 @@ interface IEntryPoint is IStakeManager {
      * @param userOp the user operation to validate.
      * @param allowedAggregators list of aggregators we specifically allow for this userOp. An empty list means "allow any".
      *          a list of a single "address(0)" entry means "do not allow any other aggregator", effectively means blocking aggregated signatures.
-     * @param offChainSigCheck if the wallet has an aggregator, skip on-chain aggregation check. In thus case, the bundler must
-     *          perform the equivalent check using an off-chain library code
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
      * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
      * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
-     * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
      */
-    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators, bool offChainSigCheck)
-    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo);
+    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators)
+    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation);
 
     /**
      * Get counterfactual sender address.

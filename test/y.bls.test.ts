@@ -15,7 +15,7 @@ import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber } from 'ethers'
-import { BytesLike } from '@ethersproject/bytes'
+import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { BLSWalletDeployer } from '../typechain/contracts/bls/BLSWallet.sol'
 import { BLSWalletDeployer__factory } from '../typechain/factories/contracts/bls/BLSWallet.sol'
 
@@ -48,6 +48,11 @@ describe('bls wallet', function () {
     wallet2 = await new BLSWallet__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer2.pubkey)
   })
 
+  it('#getTrailingPublicKey', async () => {
+    const data = defaultAbiCoder.encode(['uint[6]'], [[1, 2, 3, 4, 5, 6]])
+    const last4 = await blsAgg.getTrailingPublicKey(data)
+    expect(last4.map(x => x.toNumber())).to.eql([3, 4, 5, 6])
+  })
   it('#aggregateSignatures', async () => {
     const sig1 = signer1.sign('0x1234')
     const sig2 = signer2.sign('0x5678')
@@ -80,7 +85,7 @@ describe('bls wallet', function () {
     const verifier = new BlsVerifier(BLS_DOMAIN)
     expect(verifier.verify(sigParts, signer1.pubkey, requestHash)).to.equal(true)
 
-    const ret = await blsAgg.validateUserOpSignature(userOp1, false)
+    const ret = await blsAgg.validateUserOpSignature(userOp1)
     expect(ret.sigForAggregation).to.equal(userOp1.signature)
     expect(ret.sigForUserOp).to.equal('0x')
   })
@@ -146,10 +151,8 @@ describe('bls wallet', function () {
       const {
         actualAggregator,
         sigForUserOp,
-        sigForAggregation,
-        offChainSigInfo
-      } = await entryPointStatic.callStatic.simulateValidationWithAggregators(userOp, [], false)
-      expect(offChainSigInfo).to.eq('0x')
+        sigForAggregation
+      } = await entryPointStatic.callStatic.simulateValidationWithAggregators(userOp, [blsAgg.address])
       expect(actualAggregator).to.eq(blsAgg.address)
 
       expect(sigForUserOp).to.eq('0x')
@@ -172,16 +175,18 @@ describe('bls wallet', function () {
       const {
         actualAggregator,
         sigForUserOp,
-        sigForAggregation,
-        offChainSigInfo
-      } = await entryPointStatic.callStatic.simulateValidationWithAggregators(userOp, [], true)
+        sigForAggregation
+      } = await entryPointStatic.callStatic.simulateValidationWithAggregators(userOp, [])
       expect(actualAggregator).to.eq(blsAgg.address)
-
-      const [signature, pubkey, requestHash1] = defaultAbiCoder.decode(['bytes32[2]', 'bytes32[4]', 'bytes32'], offChainSigInfo)
-      expect(verifier.verify(signature, pubkey, requestHash1)).to.equal(true)
-
+      expect(sigForAggregation).to.eq('0x')
       expect(sigForUserOp).to.eq('0x')
-      expect(sigForAggregation).to.eq(userOp.signature)
+
+      const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
+      const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]
+      const requestHash1 = await blsAgg.getRequestId(userOp)
+
+      // @ts-ignore
+      expect(verifier.verify(signature, pubkey, requestHash1)).to.equal(true)
     })
   })
 })

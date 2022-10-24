@@ -8,6 +8,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
+/* solhint-disable avoid-tx-origin */
 
 import "../interfaces/IWallet.sol";
 import "../interfaces/IPaymaster.sol";
@@ -225,7 +226,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
-    * This method allows no use of aggregators (though for simplicity, the returned values are the same as the simulateValidationWithAggregator)
+    * This is a helper method, for bundlers that don't support signature aggregators.
     * Validation succeeds if the call doesn't revert.
     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
@@ -233,17 +234,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param userOp the user operation to validate.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
-     *      aggregator.
-     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
-     * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
      */
     function simulateValidation(UserOperation calldata userOp)
-    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
-        address[] memory allowedAggregators = new address[](1);
-        allowedAggregators[0] = address (0);
-        return simulateValidationWithAggregators(userOp, allowedAggregators, false);
+    external returns (uint256 preOpGas, uint256 prefund) {
+        address[] memory allowedAggregators = new address[](0);
+        address actualAggregator;
+        (preOpGas, prefund,actualAggregator,,) = simulateValidationWithAggregators(userOp, allowedAggregators);
+        require(actualAggregator==address (0), "must not have aggregator");
     }
 
     /**
@@ -254,20 +251,19 @@ contract EntryPoint is IEntryPoint, StakeManager {
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
-     * @param allowedAggregators list of aggregators we specifically allow for this userOp. An empty list means "allow any".
-     *          a list of a single "address(0)" entry means "do not allow any other aggregator", effectively means blocking aggregated signatures.
-     * @param offChainSigCheck if the wallet has an aggregator, skip on-chain aggregation check. In thus case, the bundler must
-     *          perform the equivalent check using an off-chain library code
+     * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
+     *          If the a wallet's aggregator is in this list, the aggregator.validateUserOpSignature() is called.
+     *          Otherwise, the node must either reject the userOperation, or perform that validation separately.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
-     *      aggregator.
-     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
-     * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
+     * @return actualAggregator the aggregator value of this userOp (or address(0), if it doesn't have one). If that aggregator was not in the allowedAggregators list, then the node must separately call its validateUserOpSignature (or reject the userOp)
+     * @return sigForUserOp - only if aggregator.validateUserOpSignature() was called: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
      */
-    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators, bool offChainSigCheck)
-    public returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
+    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators)
+    public returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
+
+        sigForAggregation = sigForUserOp = "";
+
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
@@ -279,20 +275,15 @@ contract EntryPoint is IEntryPoint, StakeManager {
         numberMarker();
         if (actualAggregator != address(0)) {
             if (allowedAggregators.length>0) {
-                bool allowed=false;
                 for (uint i=0; i<allowedAggregators.length; i++) {
                     if (actualAggregator==allowedAggregators[i]) {
-                        allowed=true;
+                        (sigForUserOp, sigForAggregation) = IAggregator(actualAggregator).validateUserOpSignature(userOp);
                         break;
                     }
                 }
-                if (!allowed) {
-                    revert UnallowedAggregator(actualAggregator);
-                }
             }
-            (sigForUserOp, sigForAggregation, offChainSigInfo) = IAggregator(actualAggregator).validateUserOpSignature(userOp, offChainSigCheck);
         }
-        require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
+        require(tx.origin == address(0), "must be called off-chain with from=zero-addr");
     }
 
     function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal view returns (uint256 requiredPrefund) {
@@ -340,7 +331,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * must be called from zero-address.
      */
     function getSenderAddress(bytes calldata initCode) public returns (address sender) {
-        require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
+        require(tx.origin == address(0), "must be called off-chain with from=zero-addr");
         return _createSender(initCode);
     }
 

@@ -612,8 +612,8 @@ describe('EntryPoint', function () {
 
         // extract signature from userOps, and create aggregated signature
         // (not really required with the test aggregator, but should work with any aggregator
-        const { sigForAggregation: agg1, sigForUserOp: sigOp1 } = await aggregator.validateUserOpSignature(userOp1, false)
-        const { sigForAggregation: agg2, sigForUserOp: sigOp2 } = await aggregator.validateUserOpSignature(userOp1, false)
+        const { sigForAggregation: agg1, sigForUserOp: sigOp1 } = await aggregator.validateUserOpSignature(userOp1)
+        const { sigForAggregation: agg2, sigForUserOp: sigOp2 } = await aggregator.validateUserOpSignature(userOp1)
         userOp1.signature = sigOp1
         userOp2.signature = sigOp2
         const aggSig = await aggregator.aggregateSignatures([agg1, agg2])
@@ -662,19 +662,19 @@ describe('EntryPoint', function () {
             }, walletOwner, entryPoint)
           })
           it('should fail to simulate wallet a wallet with unallowed aggregator', async () => {
-            await expect(entryPointView.callStatic.simulateValidationWithAggregators(userOp, [createAddress()], false))
-              .to.be.revertedWith('UnallowedAggregator')
+            await expect(entryPointView.callStatic.simulateValidation(userOp))
+              .to.be.revertedWith('"must not have aggregator')
           })
           it('should simulate wallet creation with "any" aggregator', async () => {
-            const ret = await entryPointView.callStatic.simulateValidationWithAggregators(userOp, [], false)
+            const ret = await entryPointView.callStatic.simulateValidationWithAggregators(userOp, [])
             expect(ret.actualAggregator).to.equal(aggregator.address)
           })
           it('should simulate wallet creation with explicit aggregator', async () => {
-            const ret = await entryPointView.callStatic.simulateValidationWithAggregators(userOp, [aggregator.address], false)
+            const ret = await entryPointView.callStatic.simulateValidationWithAggregators(userOp, [aggregator.address])
             expect(ret.actualAggregator).to.equal(aggregator.address)
           })
           it('should create wallet in handleOps', async () => {
-            const { sigForAggregation } = await aggregator.validateUserOpSignature(userOp, false)
+            const { sigForAggregation } = await aggregator.validateUserOpSignature(userOp)
             const sig = await aggregator.aggregateSignatures([sigForAggregation])
             await entryPoint.handleAggregatedOps([{
               userOps: [userOp],
