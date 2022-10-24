@@ -7,6 +7,7 @@ import "../core/BasePaymaster.sol";
  * test expiry mechanism: paymasterData is encoded "deadline" timestamp
  */
 contract TestExpirePaymaster is BasePaymaster {
+    // solhint-disable no-empty-blocks
     constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
     {}
 
