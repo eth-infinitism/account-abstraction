@@ -365,7 +365,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
-                revert FailedOp(opIndex, address(0), "expired");
+                revert FailedOp(opIndex, paymaster, "expired");
             }
             context = _context;
             deadline = _deadline;
