@@ -5,7 +5,7 @@ import "../samples/SimpleWallet.sol";
 
 /**
  * A test wallet, for testing expiry.
- * add "temporary" owners, each with a deadlline time.
+ * add "temporary" owners, each with a deadline time for each.
  * NOTE: this is not a full "session key" implementation: a real session key should probably limit
  * other things, like target contracts and methods to be called.
  */
