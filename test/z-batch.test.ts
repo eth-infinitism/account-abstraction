@@ -47,7 +47,7 @@ describe('Batch gas testing', function () {
     this.skip()
 
     await checkForGeth()
-    entryPoint = await deployEntryPoint(1, 1)
+    entryPoint = await deployEntryPoint(1)
     // static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()

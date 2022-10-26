@@ -14,7 +14,7 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
   const ret = await hre.deployments.deploy(
     'EntryPoint', {
       from,
-      args: [PAYMASTER_STAKE, UNSTAKE_DELAY_SEC],
+      args: [UNSTAKE_DELAY_SEC],
       gasLimit: 4e6,
       deterministicDeployment: true
     })

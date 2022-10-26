@@ -49,7 +49,7 @@ describe('Gnosis Proxy', function () {
     const provider = ethers.provider
     ethersSigner = provider.getSigner()
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPoint(1, 1)
+    entryPoint = await deployEntryPoint(1)
     manager = await new EIP4337Manager__factory(ethersSigner).deploy(entryPoint.address)
     owner = createWalletOwner()
     ownerAddress = await owner.getAddress()
@@ -78,7 +78,7 @@ describe('Gnosis Proxy', function () {
       sender: proxy.address
     }, owner, entryPoint)
 
-    const anotherEntryPoint = await deployEntryPoint(2, 2)
+    const anotherEntryPoint = await deployEntryPoint(2)
 
     await expect(anotherEntryPoint.handleOps([op], beneficiary)).to.revertedWith('wallet: not from entrypoint')
   })
@@ -162,7 +162,7 @@ describe('Gnosis Proxy', function () {
         hexZeroPad(ownerAddress, 32),
         HashZero,
         '0x01'])
-      newEntryPoint = await deployEntryPoint(2, 2)
+      newEntryPoint = await deployEntryPoint(2)
       newManager = await new EIP4337Manager__factory(ethersSigner).deploy(newEntryPoint.address)
       newFallback = await newManager.eip4337Fallback();
       [prev, oldManager] = await manager.getCurrentEIP4337Manager(proxySafe.address)

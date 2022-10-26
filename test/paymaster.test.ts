@@ -49,7 +49,7 @@ describe('EntryPoint with paymaster', function () {
   before(async function () {
     await checkForGeth()
 
-    entryPoint = await deployEntryPoint(100, 10)
+    entryPoint = await deployEntryPoint(10)
     deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
 
     walletOwner = createWalletOwner()

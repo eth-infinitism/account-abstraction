@@ -28,13 +28,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // internal value used during simulation: need to query aggregator if wallet is created
     address private constant SIMULATE_NO_AGGREGATOR = address(1);
 
-    /**
-     * @param _paymasterStake - minimum required locked stake for a paymaster
-     * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
-     */
-    constructor(uint256 _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_paymasterStake, _unstakeDelaySec) {
+    constructor(uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
         require(_unstakeDelaySec > 0, "invalid unstakeDelay");
-        require(_paymasterStake > 0, "invalid paymasterStake");
     }
 
     /**

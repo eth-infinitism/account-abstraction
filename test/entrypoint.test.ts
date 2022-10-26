@@ -55,7 +55,7 @@ describe('EntryPoint', function () {
 
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-    entryPoint = await deployEntryPoint(paymasterStake, globalUnstakeDelaySec)
+    entryPoint = await deployEntryPoint(globalUnstakeDelaySec)
 
     // static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
@@ -96,8 +96,8 @@ describe('EntryPoint', function () {
     })
 
     describe('without stake', () => {
-      it('should fail to stake too little value', async () => {
-        await expect(entryPoint.addStake(2, { value: ONE_ETH })).to.revertedWith('stake value too low')
+      it('should fail to stake without value', async () => {
+        await expect(entryPoint.addStake(2)).to.revertedWith('no stake specified')
       })
       it('should fail to stake too little delay', async () => {
         await expect(entryPoint.addStake(1)).to.revertedWith('stake delay too low')

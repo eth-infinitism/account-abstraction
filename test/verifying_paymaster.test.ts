@@ -26,7 +26,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   let paymaster: VerifyingPaymaster
   before(async function () {
-    entryPoint = await deployEntryPoint(1, 1)
+    entryPoint = await deployEntryPoint(1)
     entryPointStatic = entryPoint.connect(AddressZero)
 
     offchainSigner = createWalletOwner()

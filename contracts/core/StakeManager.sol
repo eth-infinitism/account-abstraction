@@ -17,14 +17,8 @@ abstract contract StakeManager is IStakeManager {
      */
     uint32 immutable public unstakeDelaySec;
 
-    /**
-     * minimum value required to stake for a paymaster
-     */
-    uint256 immutable public paymasterStake;
-
-    constructor(uint256 _paymasterStake, uint32 _unstakeDelaySec) {
+    constructor(uint32 _unstakeDelaySec) {
         unstakeDelaySec = _unstakeDelaySec;
-        paymasterStake = _paymasterStake;
     }
 
     /// maps paymaster to their deposits and stakes
@@ -69,7 +63,7 @@ abstract contract StakeManager is IStakeManager {
         require(_unstakeDelaySec >= unstakeDelaySec, "unstake delay too low");
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint256 stake = info.stake + msg.value;
-        require(stake >= paymasterStake, "stake value too low");
+        require(stake > 0, "no stake specified");
         require(stake < type(uint112).max, "stake overflow");
         deposits[msg.sender] = DepositInfo(
             info.deposit,
