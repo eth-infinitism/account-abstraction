@@ -57,7 +57,7 @@ abstract contract BaseWallet is IWallet {
      *          (also hashes the entrypoint and chain-id)
      * @param aggregator the current aggregator. can be ignored by wallets that don't use aggregators
      */
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address aggregator) internal virtual view;
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address aggregator) internal virtual;
 
     /**
      * validate the current nonce matches the UserOperation nonce.
