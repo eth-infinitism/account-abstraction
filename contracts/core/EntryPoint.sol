@@ -253,15 +253,15 @@ contract EntryPoint is IEntryPoint, StakeManager {
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
-     * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
+     * @param validateAggregators list of aggregators we allow to call validateUserOpSignature()
      *          If the a wallet's aggregator is in this list, the aggregator.validateUserOpSignature() is called.
      *          Otherwise, the node must either reject the userOperation, or perform that validation separately.
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator value of this userOp (or address(0), if it doesn't have one). If that aggregator was not in the allowedAggregators list, then the node must separately call its validateUserOpSignature (or reject the userOp)
+     * @return actualAggregator the aggregator returned by this wallet (or address(0), if it doesn't have one). If that aggregator was not in the validateAggregators list, then the node must separately call its validateUserOpSignature (or reject the userOp)
      * @return sigForUserOp - only if aggregator.validateUserOpSignature() was called: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
      */
-    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory allowedAggregators)
+    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory validateAggregators)
     public returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
 
         sigForAggregation = sigForUserOp = "";
@@ -275,9 +275,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         numberMarker();
         if (actualAggregator != address(0)) {
-            if (allowedAggregators.length>0) {
-                for (uint i=0; i<allowedAggregators.length; i++) {
-                    if (actualAggregator==allowedAggregators[i]) {
+            if (validateAggregators.length>0) {
+                for (uint i=0; i< validateAggregators.length; i++) {
+                    if (actualAggregator== validateAggregators[i]) {
                         (sigForUserOp, sigForAggregation) = IAggregator(actualAggregator).validateUserOpSignature(userOp);
                         break;
                     }
