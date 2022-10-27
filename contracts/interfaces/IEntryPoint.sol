@@ -101,6 +101,7 @@ interface IEntryPoint is IStakeManager {
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return paymasterStake if current UserOperation uses a paymaster, then returns the current stake of this paymaster
+     *          (node rejects UserOperations if paymaster's stake is below minimum requirement)
      * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
      * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
