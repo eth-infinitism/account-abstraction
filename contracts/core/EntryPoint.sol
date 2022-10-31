@@ -231,14 +231,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
      *          perform the equivalent check using an off-chain library code
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
-     *      aggregator.
-     * return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
-     * return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
+     * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
+     * @return paymasterStake if current UserOperation uses a paymaster, then returns the current stake of this paymaster
+     *          (node rejects UserOperations if paymaster's stake is below minimum requirement)
+     * @return aggregationInfo return signature-aggregator information of this userOp
      */
     function simulateValidation(UserOperation calldata userOp, bool offChainSigCheck)
-    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, uint256 paymasterStake, AggregationInfo memory aggregationInfo ) {
+    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, uint256 paymasterStake, AggregationInfo memory aggregationInfo) {
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
