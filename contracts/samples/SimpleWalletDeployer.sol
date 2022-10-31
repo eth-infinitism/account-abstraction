@@ -19,9 +19,7 @@ contract SimpleWalletDeployer {
      */
     function deployWallet(IEntryPoint entryPoint, address owner, uint salt) public returns (SimpleWallet ret) {
         address addr = getAddress(entryPoint, owner, salt);
-        uint codeSize;
-        /* solhint-disable no-inline-assembly */
-        assembly {codeSize := extcodesize(addr)}
+        uint codeSize = addr.code.length;
         if (codeSize > 0) {
             return SimpleWallet(payable(addr));
         }
