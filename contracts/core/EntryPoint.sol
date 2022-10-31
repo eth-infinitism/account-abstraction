@@ -231,29 +231,33 @@ contract EntryPoint is IEntryPoint, StakeManager {
      *          perform the equivalent check using an off-chain library code
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return paymasterStake if current UserOperation uses a paymaster, then return the current stake of this paymaster
-     *          (node rejects UserOperations if paymaster's stake is below minimum requirement)
-     * @return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
+     * return actualAggregator the aggregator used by this userOp. if a non-zero aggregator is returned, the bundler must get its params using
      *      aggregator.
-     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * @return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
-     * @return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
+     * return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
+     * return sigForAggregation  - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
+     * return offChainSigInfo - if has actualAggregator, and offChainSigCheck is true, this value should be used by the off-chain signature code (e.g. it contains the sender's publickey)
      */
     function simulateValidation(UserOperation calldata userOp, bool offChainSigCheck)
-    external returns (uint256 preOpGas, uint256 prefund, uint256 paymasterStake, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
+    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, uint256 paymasterStake, AggregationInfo memory aggregationInfo ) {
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
-
-        actualAggregator = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
+        address actualAggregator;
+        (actualAggregator, deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
         prefund = outOpInfo.prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
         paymasterStake = getDepositInfo(outOpInfo.mUserOp.paymaster).stake;
 
         numberMarker();
+        bytes memory sigForUserOp;
+        bytes memory sigForAggregation;
+        bytes memory offChainSigInfo;
         if (actualAggregator != address(0)) {
             (sigForUserOp, sigForAggregation, offChainSigInfo) = IAggregator(actualAggregator).validateUserOpSignature(userOp, offChainSigCheck);
         }
+        aggregationInfo = AggregationInfo(
+            actualAggregator, sigForUserOp, sigForAggregation, offChainSigInfo
+        );
         require(msg.sender == address(0), "must be called off-chain with from=zero-addr");
     }
 
@@ -295,7 +299,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * decrement wallet's deposit if needed
      */
     function _validateWalletPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, address aggregator, uint256 requiredPrefund)
-    internal returns (uint256 gasUsedByValidateWalletPrepayment, address actualAggregator) {
+    internal returns (uint256 gasUsedByValidateWalletPrepayment, address actualAggregator, uint256 deadline) {
     unchecked {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -314,8 +318,12 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        // solhint-disable-next-line no-empty-blocks
-        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) {
+        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 _deadline) {
+            // solhint-disable-next-line not-rely-on-time
+            if (_deadline != 0 && _deadline < block.timestamp) {
+                revert FailedOp(opIndex, address(0), "expired");
+            }
+            deadline = _deadline;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
@@ -340,7 +348,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert with proper FailedOp in case paymaster reverts.
      * decrement paymaster's deposit
      */
-    function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateWalletPrepayment) internal returns (bytes memory context) {
+    function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateWalletPrepayment) internal returns (bytes memory context, uint256 deadline) {
     unchecked {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         address paymaster = mUserOp.paymaster;
@@ -355,8 +363,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateWalletPrepayment;
-        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context){
+        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
+            // solhint-disable-next-line not-rely-on-time
+            if (_deadline != 0 && _deadline < block.timestamp) {
+                revert FailedOp(opIndex, paymaster, "expired");
+            }
             context = _context;
+            deadline = _deadline;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, paymaster, revertReason);
         } catch {
@@ -373,7 +386,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param userOp the userOp to validate
      */
     function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, address aggregator)
-    private returns (address actualAggregator) {
+    private returns (address actualAggregator, uint256 deadline) {
 
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
@@ -388,7 +401,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         uint256 gasUsedByValidateWalletPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
-        (gasUsedByValidateWalletPrepayment, actualAggregator) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
+        (gasUsedByValidateWalletPrepayment, actualAggregator, deadline) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
@@ -396,7 +409,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
-            context = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            uint paymasterDeadline;
+            (context, paymasterDeadline) = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            if (paymasterDeadline != 0 && paymasterDeadline < deadline) {
+                deadline = paymasterDeadline;
+            }
         } else {
             context = "";
         }

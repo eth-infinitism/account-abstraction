@@ -148,7 +148,7 @@ describe('bls wallet', function () {
         sigForUserOp,
         sigForAggregation,
         offChainSigInfo
-      } = await entryPointStatic.callStatic.simulateValidation(userOp, false)
+      } = await entryPointStatic.callStatic.simulateValidation(userOp, false).then(ret => ret.aggregationInfo)
       expect(offChainSigInfo).to.eq('0x')
       expect(actualAggregator).to.eq(blsAgg.address)
 
@@ -174,7 +174,7 @@ describe('bls wallet', function () {
         sigForUserOp,
         sigForAggregation,
         offChainSigInfo
-      } = await entryPointStatic.callStatic.simulateValidation(userOp, true)
+      } = await entryPointStatic.callStatic.simulateValidation(userOp, true).then(ret => ret.aggregationInfo)
       expect(actualAggregator).to.eq(blsAgg.address)
 
       const [signature, pubkey, requestHash1] = defaultAbiCoder.decode(['bytes32[2]', 'bytes32[4]', 'bytes32'], offChainSigInfo)
