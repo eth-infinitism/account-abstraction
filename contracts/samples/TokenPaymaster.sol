@@ -68,7 +68,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
       * (since the paymaster is also the token, there is no notion of "approval")
       */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
-    external view override returns (bytes memory context) {
+    external view override returns (bytes memory context, uint256 deadline) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
@@ -83,7 +83,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
             require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
-        return abi.encode(userOp.sender);
+        return (abi.encode(userOp.sender), 0);
     }
 
     // when constructing a wallet, validate constructor code and parameters
@@ -91,7 +91,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     // our deployer has a method deploy(bytes,salt)
     function _validateConstructor(UserOperation calldata userOp) internal virtual view {
         //we trust a specific deployer contract
-        address deployer = address(bytes20(userOp.initCode[0:20]));
+        address deployer = address(bytes20(userOp.initCode[0 : 20]));
         require(deployer == theDeployer, "TokenPaymaster: wrong wallet deployer");
     }
 

@@ -16,8 +16,9 @@ contract TestPaymasterAcceptAll is BasePaymaster {
         }
     }
 
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external virtual override view returns (bytes memory context) {
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external virtual override view
+    returns (bytes memory context, uint256 deadline) {
         (userOp, requestId, maxCost);
-        return "";
+        return ("", 0);
     }
 }
