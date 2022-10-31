@@ -89,21 +89,6 @@ interface IEntryPoint is IStakeManager {
      */
     function getRequestId(UserOperation calldata userOp) external view returns (bytes32);
 
-
-    /**
-    * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
-    * This is a helper method, for bundlers that don't support signature aggregators.
-    * Validation succeeds if the call doesn't revert.
-    * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
-     *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
-     *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
-     * @param userOp the user operation to validate.
-     * @return preOpGas total gas used by validation (including contract creation)
-     * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     */
-    function simulateValidation(UserOperation calldata userOp)
-    external returns (uint256 preOpGas, uint256 prefund);
-
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
     * allow using a signature aggregator.
@@ -112,17 +97,24 @@ interface IEntryPoint is IStakeManager {
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
-     * @param validateAggregators list of aggregators we allow to call validateUserOpSignature()
-     *          If the a wallet's aggregator is in this list, the aggregator.validateUserOpSignature() is called.
-     *          Otherwise, the node (calling simulateValidationWithAggregators) must either reject the UserOperation, or perform that validation separately.
+     * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
+     *          if the wallet has an aggregator that does not exist in the list, then
+     *          the call reverts with UnverifiedSignature
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator returned by this wallet (or address(0), if it doesn't have one). If that aggregator was not in the validateAggregators list, then the node must separately call its validateUserOpSignature (or reject the userOp)
-     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * @return sigForAggregation - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
+     * @return aggregator the aggregator returned by this wallet (or address(0), if it doesn't have one).
+     *          and only if it appears in the allowedAggregators list.
+     * @return sigForUserOp - only if has aggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
+     * @return sigForAggregation - only if has aggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
      */
-    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory validateAggregators)
-    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation);
+    function simulateValidation(UserOperation calldata userOp, address[] memory allowedAggregators)
+    external returns (uint256 preOpGas, uint256 prefund, address aggregator, bytes memory sigForUserOp, bytes memory sigForAggregation);
+
+    /**
+     * An error raised by simulateValidation if the aggregator is not in the allowedAggregators list.
+     * the node should either drop the UserOp, or call aggregator.validateUserOpSignature
+     */
+    error UnverifiedSignature(uint256 preOpGas, uint256 prefund, address aggregator);
 
     /**
      * Get counterfactual sender address.

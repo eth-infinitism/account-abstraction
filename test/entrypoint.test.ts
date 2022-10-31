@@ -224,14 +224,14 @@ describe('EntryPoint', function () {
     it('should fail if validateUserOp fails', async () => {
       // using wrong owner for wallet1
       const op = await fillAndSign({ sender: wallet1.address }, walletOwner, entryPoint)
-      await expect(entryPointView.callStatic.simulateValidation(op).catch(rethrow())).to
+      await expect(entryPointView.callStatic.simulateValidation(op, []).catch(rethrow())).to
         .revertedWith('wrong signature')
     })
 
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({ sender: wallet1.address }, walletOwner1, entryPoint)
       await fund(wallet1)
-      await entryPointView.callStatic.simulateValidation(op).catch(rethrow())
+      await entryPointView.callStatic.simulateValidation(op, []).catch(rethrow())
     })
 
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
@@ -240,13 +240,13 @@ describe('EntryPoint', function () {
         sender: wallet1.address
       }, walletOwner1, entryPoint)
       await expect(
-        entryPointView.callStatic.simulateValidation(op)
+        entryPointView.callStatic.simulateValidation(op, [])
       ).to.revertedWith('gas values overflow')
     })
 
     it('should fail on-chain', async () => {
       const op = await fillAndSign({ sender: wallet1.address }, walletOwner1, entryPoint)
-      await expect(entryPoint.simulateValidation(op)).to.revertedWith('must be called off-chain')
+      await expect(entryPoint.simulateValidation(op, [])).to.revertedWith('must be called off-chain')
     })
 
     it('should fail creation for wrong sender', async () => {
@@ -255,7 +255,7 @@ describe('EntryPoint', function () {
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 1e6
       }, walletOwner1, entryPoint)
-      await expect(entryPointView.callStatic.simulateValidation(op1).catch(rethrow()))
+      await expect(entryPointView.callStatic.simulateValidation(op1, []).catch(rethrow()))
         .to.revertedWith('sender doesn\'t match initCode address')
     })
 
@@ -267,7 +267,7 @@ describe('EntryPoint', function () {
       }, walletOwner1, entryPoint)
       await fund(op1.sender)
 
-      await entryPointView.callStatic.simulateValidation(op1).catch(rethrow())
+      await entryPointView.callStatic.simulateValidation(op1, []).catch(rethrow())
     })
 
     it('should not call initCode from entrypoint', async () => {
@@ -281,7 +281,7 @@ describe('EntryPoint', function () {
         ]),
         sender
       }, walletOwner, entryPoint)
-      const error = await entryPointView.callStatic.simulateValidation(op1).catch(e => e)
+      const error = await entryPointView.callStatic.simulateValidation(op1, []).catch(e => e)
       expect(error.message).to.match(/initCode failed/, error)
     })
 
@@ -294,7 +294,7 @@ describe('EntryPoint', function () {
       await fund(AddressZero)
       // we must create a real transaction to debug, and it must come from address zero:
       await ethers.provider.send('hardhat_impersonateAccount', [AddressZero])
-      const ret = await entryPointView.simulateValidation(op1)
+      const ret = await entryPointView.simulateValidation(op1, [])
       await checkForBannedOps(ret.hash, false)
     })
   })
@@ -537,7 +537,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 76000
         }, walletOwner2, entryPoint)
 
-        await entryPointView.callStatic.simulateValidation(op2, { gasPrice: 1e9 })
+        await entryPointView.callStatic.simulateValidation(op2, [], { gasPrice: 1e9 })
 
         await fund(op1.sender)
         await fund(wallet2.address)
@@ -676,16 +676,21 @@ describe('EntryPoint', function () {
               nonce: 10
             }, walletOwner, entryPoint)
           })
-          it('should fail to simulate wallet a wallet with unallowed aggregator', async () => {
-            await expect(entryPointView.callStatic.simulateValidation(userOp))
-              .to.be.revertedWith('"must not have aggregator')
+          it('should revert with UnverifiedSignature to simulate wallet a wallet with unallowed aggregator', async () => {
+            await expect(entryPointView.callStatic.simulateValidation(userOp, [createAddress()]))
+              .to.be.revertedWith('UnverifiedSignature')
           })
-          it('should simulate wallet creation with "any" aggregator', async () => {
-            const ret = await entryPointView.callStatic.simulateValidationWithAggregators(userOp, [])
-            expect(ret.actualAggregator).to.equal(aggregator.address)
+          it('revert UnverifiedSignature should return aggregator', async () => {
+            try {
+              await entryPointView.callStatic.simulateValidation(userOp, [])
+              throw new Error('should revert')
+            } catch (e: any) {
+              expect(e.errorName).to.equal('UnverifiedSignature')
+              expect(e.errorArgs.aggregator).to.equal(aggregator.address)
+            }
           })
           it('should simulate wallet creation with explicit aggregator', async () => {
-            const ret = await entryPointView.callStatic.simulateValidationWithAggregators(userOp, [aggregator.address])
+            const ret = await entryPointView.callStatic.simulateValidation(userOp, [aggregator.address])
             expect(ret.actualAggregator).to.equal(aggregator.address)
           })
           it('should create wallet in handleOps', async () => {

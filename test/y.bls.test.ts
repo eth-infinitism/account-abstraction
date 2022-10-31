@@ -152,7 +152,7 @@ describe('bls wallet', function () {
         actualAggregator,
         sigForUserOp,
         sigForAggregation
-      } = await entryPointStatic.callStatic.simulateValidationWithAggregators(userOp, [blsAgg.address])
+      } = await entryPointStatic.callStatic.simulateValidation(userOp, [blsAgg.address])
       expect(actualAggregator).to.eq(blsAgg.address)
 
       expect(sigForUserOp).to.eq('0x')
@@ -172,14 +172,9 @@ describe('bls wallet', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const {
-        actualAggregator,
-        sigForUserOp,
-        sigForAggregation
-      } = await entryPointStatic.callStatic.simulateValidationWithAggregators(userOp, [])
-      expect(actualAggregator).to.eq(blsAgg.address)
-      expect(sigForAggregation).to.eq('0x')
-      expect(sigForUserOp).to.eq('0x')
+      const unverified = await entryPointStatic.callStatic.simulateValidation(userOp, []).catch(e => e)
+      expect(unverified.errorName).to.equal('UnverifiedSignature')
+      expect(unverified.errorArgs.aggregator).to.eq(blsAgg.address)
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
       const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]

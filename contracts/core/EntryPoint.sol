@@ -228,41 +228,24 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
-    * This is a helper method, for bundlers that don't support signature aggregators.
-    * Validation succeeds if the call doesn't revert.
-    * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
-     *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
-     *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
-     * @param userOp the user operation to validate.
-     * @return preOpGas total gas used by validation (including contract creation)
-     * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     */
-    function simulateValidation(UserOperation calldata userOp)
-    external returns (uint256 preOpGas, uint256 prefund) {
-        address[] memory allowedAggregators = new address[](0);
-        address actualAggregator;
-        (preOpGas, prefund,actualAggregator,,) = simulateValidationWithAggregators(userOp, allowedAggregators);
-        require(actualAggregator==address (0), "must not have aggregator");
-    }
-
-    /**
-    * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
     * allow using a signature aggregator.
     * Validation succeeds if the call doesn't revert.
     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
-     * @param validateAggregators list of aggregators we allow to call validateUserOpSignature()
-     *          If the a wallet's aggregator is in this list, the aggregator.validateUserOpSignature() is called.
-     *          Otherwise, the node must either reject the userOperation, or perform that validation separately.
+     * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
+     *          if the wallet has an aggregator that does not exist in the list, then
+     *          the call reverts with UnverifiedSignature
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator returned by this wallet (or address(0), if it doesn't have one). If that aggregator was not in the validateAggregators list, then the node must separately call its validateUserOpSignature (or reject the userOp)
-     * @return sigForUserOp - only if aggregator.validateUserOpSignature() was called: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
+     * @return actualAggregator the aggregator returned by this wallet (or address(0), if it doesn't have one).
+     *          and only if it appears in the allowedAggregators list.
+     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
+     * @return sigForAggregation - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
      */
-    function simulateValidationWithAggregators(UserOperation calldata userOp, address[] memory validateAggregators)
-    public returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
+    function simulateValidation(UserOperation calldata userOp, address[] memory allowedAggregators)
+    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
 
         sigForAggregation = sigForUserOp = "";
         uint256 preGas = gasleft();
@@ -275,13 +258,18 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         numberMarker();
         if (actualAggregator != address(0)) {
-            if (validateAggregators.length>0) {
-                for (uint i=0; i< validateAggregators.length; i++) {
-                    if (actualAggregator== validateAggregators[i]) {
+            bool found = false;
+            if (allowedAggregators.length>0) {
+                for (uint i=0; i< allowedAggregators.length; i++) {
+                    if (actualAggregator== allowedAggregators[i]) {
                         (sigForUserOp, sigForAggregation) = IAggregator(actualAggregator).validateUserOpSignature(userOp);
+                        found = true;
                         break;
                     }
                 }
+            }
+            if (!found) {
+                revert UnverifiedSignature(preOpGas, prefund, actualAggregator);
             }
         }
         require(tx.origin == address(0), "must be called off-chain with from=zero-addr");
