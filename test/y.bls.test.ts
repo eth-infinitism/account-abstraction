@@ -149,11 +149,11 @@ describe('bls wallet', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
       const {
-        actualAggregator,
+        aggregator,
         sigForUserOp,
         sigForAggregation
       } = await entryPointStatic.callStatic.simulateValidation(userOp, [blsAgg.address])
-      expect(actualAggregator).to.eq(blsAgg.address)
+      expect(aggregator).to.eq(blsAgg.address)
 
       expect(sigForUserOp).to.eq('0x')
       expect(sigForAggregation).to.eq(userOp.signature)

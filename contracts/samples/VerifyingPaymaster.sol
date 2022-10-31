@@ -54,7 +54,7 @@ contract VerifyingPaymaster is BasePaymaster {
      * the "paymasterAndData" is expected to be the paymaster and a signature over the entire request params
      */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
-    external view override returns (bytes memory context) {
+    external view override returns (bytes memory context, uint256 deadline) {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
@@ -63,11 +63,11 @@ contract VerifyingPaymaster is BasePaymaster {
         //ECDSA library supports both 64 and 65-byte long signatures.
         // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
         require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");
-        require(verifyingSigner == hash.toEthSignedMessageHash().recover(paymasterAndData[20:]), "VerifyingPaymaster: wrong signature");
+        require(verifyingSigner == hash.toEthSignedMessageHash().recover(paymasterAndData[20 :]), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked
         // by the external service prior to signing it.
-        return "";
+        return ("", 0);
     }
 
 }

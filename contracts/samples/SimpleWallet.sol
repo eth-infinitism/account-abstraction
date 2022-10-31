@@ -16,7 +16,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
   */
 contract SimpleWallet is BaseWallet {
     using ECDSA for bytes32;
-    using UserOperationLib for UserOperation;
 
     //explicit sizes of nonce, to fit a single storage cell with "owner"
     uint96 private _nonce;
@@ -114,9 +113,11 @@ contract SimpleWallet is BaseWallet {
     }
 
     /// implement template method of BaseWallet
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address) internal virtual override {
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address)
+    internal override virtual returns (uint256 deadline) {
         bytes32 hash = requestId.toEthSignedMessageHash();
         require(owner == hash.recover(userOp.signature), "wallet: wrong signature");
+        return 0;
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {

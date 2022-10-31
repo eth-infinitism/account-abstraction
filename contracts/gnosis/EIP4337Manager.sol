@@ -32,7 +32,8 @@ contract EIP4337Manager is GnosisSafe, IWallet {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address /*aggregator*/, uint256 missingWalletFunds) external override {
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address /*aggregator*/, uint256 missingWalletFunds)
+    external override returns (uint256 deadline) {
         address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(_msgSender == entryPoint, "wallet: not from entrypoint");
 
@@ -52,6 +53,7 @@ contract EIP4337Manager is GnosisSafe, IWallet {
             (success);
             //ignore failure (its EntryPoint's job to verify, not wallet.)
         }
+        return 0;
     }
 
     /**

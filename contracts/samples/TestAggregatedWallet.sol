@@ -19,9 +19,11 @@ contract TestAggregatedWallet is SimpleWallet, IAggregatedWallet {
         aggregator = anAggregator;
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address userOpAggregator) internal override view {
+    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address userOpAggregator)
+    internal override view returns (uint256 deadline) {
         (userOp, requestId);
         require(userOpAggregator == aggregator, "wrong aggregator");
+        return 0;
     }
 
     function getAggregator() external override view returns (address) {

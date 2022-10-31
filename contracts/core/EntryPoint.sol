@@ -239,37 +239,36 @@ contract EntryPoint is IEntryPoint, StakeManager {
      *          the call reverts with UnverifiedSignature
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
-     * @return actualAggregator the aggregator returned by this wallet (or address(0), if it doesn't have one).
+     * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
+     * @return aggregator the aggregator returned by this wallet (or address(0), if it doesn't have one).
      *          and only if it appears in the allowedAggregators list.
      * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
      * @return sigForAggregation - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
      */
     function simulateValidation(UserOperation calldata userOp, address[] memory allowedAggregators)
-    external returns (uint256 preOpGas, uint256 prefund, address actualAggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
-
-        sigForAggregation = sigForUserOp = "";
+    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, address aggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
 
-        actualAggregator = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
+        (aggregator, deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
         prefund = outOpInfo.prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
 
         numberMarker();
-        if (actualAggregator != address(0)) {
+        if (aggregator != address(0)) {
             bool found = false;
             if (allowedAggregators.length>0) {
                 for (uint i=0; i< allowedAggregators.length; i++) {
-                    if (actualAggregator== allowedAggregators[i]) {
-                        (sigForUserOp, sigForAggregation) = IAggregator(actualAggregator).validateUserOpSignature(userOp);
+                    if (aggregator == allowedAggregators[i]) {
+                        (sigForUserOp, sigForAggregation) = IAggregator(aggregator).validateUserOpSignature(userOp);
                         found = true;
                         break;
                     }
                 }
             }
             if (!found) {
-                revert UnverifiedSignature(preOpGas, prefund, actualAggregator);
+                revert UnverifiedSignature(preOpGas, prefund, aggregator);
             }
         }
         require(tx.origin == address(0), "must be called off-chain with from=zero-addr");
@@ -313,7 +312,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * decrement wallet's deposit if needed
      */
     function _validateWalletPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, address aggregator, uint256 requiredPrefund)
-    internal returns (uint256 gasUsedByValidateWalletPrepayment, address actualAggregator) {
+    internal returns (uint256 gasUsedByValidateWalletPrepayment, address actualAggregator, uint256 deadline) {
     unchecked {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -332,8 +331,12 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        // solhint-disable-next-line no-empty-blocks
-        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) {
+        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 _deadline) {
+            // solhint-disable-next-line not-rely-on-time
+            if (_deadline != 0 && _deadline < block.timestamp) {
+                revert FailedOp(opIndex, address(0), "expired");
+            }
+            deadline = _deadline;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
@@ -358,7 +361,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert with proper FailedOp in case paymaster reverts.
      * decrement paymaster's deposit
      */
-    function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateWalletPrepayment) internal returns (bytes memory context) {
+    function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateWalletPrepayment) internal returns (bytes memory context, uint256 deadline) {
     unchecked {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         address paymaster = mUserOp.paymaster;
@@ -373,8 +376,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateWalletPrepayment;
-        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context){
+        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
+            // solhint-disable-next-line not-rely-on-time
+            if (_deadline != 0 && _deadline < block.timestamp) {
+                revert FailedOp(opIndex, paymaster, "expired");
+            }
             context = _context;
+            deadline = _deadline;
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, paymaster, revertReason);
         } catch {
@@ -391,7 +399,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param userOp the userOp to validate
      */
     function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, address aggregator)
-    private returns (address actualAggregator) {
+    private returns (address actualAggregator, uint256 deadline) {
 
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
@@ -406,7 +414,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         uint256 gasUsedByValidateWalletPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
-        (gasUsedByValidateWalletPrepayment, actualAggregator) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
+        (gasUsedByValidateWalletPrepayment, actualAggregator, deadline) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
 
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
@@ -414,7 +422,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
-            context = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            uint paymasterDeadline;
+            (context, paymasterDeadline) = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateWalletPrepayment);
+            if (paymasterDeadline != 0 && paymasterDeadline < deadline) {
+                deadline = paymasterDeadline;
+            }
         } else {
             context = "";
         }

@@ -20,8 +20,11 @@ interface IPaymaster {
      * @param maxCost the maximum cost of this transaction (based on maximum gas and gas price from userOp)
      * @return context value to send to a postOp
      *  zero length to signify postOp is not required.
+     * @return deadline the last block timestamp this operation is valid, or zero if it is valid indefinitely.
+     *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost) external returns (bytes memory context);
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost)
+    external returns (bytes memory context, uint256 deadline);
 
     /**
      * post-operation handler.

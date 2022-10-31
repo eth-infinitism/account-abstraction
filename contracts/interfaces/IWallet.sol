@@ -19,6 +19,9 @@ interface IWallet {
      *      The excess is left as a deposit in the entrypoint, for future calls.
      *      can be withdrawn anytime using "entryPoint.withdrawTo()"
      *      In case there is a paymaster in the request (or the current deposit is high enough), this value will be zero.
+     * @return deadline the last block timestamp this operation is valid, or zero if it is valid indefinitely.
+     *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address aggregator, uint256 missingWalletFunds) external;
+    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address aggregator, uint256 missingWalletFunds)
+    external returns (uint256 deadline);
 }
