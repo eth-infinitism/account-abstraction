@@ -14,7 +14,6 @@ import "../interfaces/IPaymaster.sol";
 
 import "../interfaces/IAggregatedWallet.sol";
 import "../interfaces/IEntryPoint.sol";
-import "../interfaces/ICreate2Deployer.sol";
 import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
