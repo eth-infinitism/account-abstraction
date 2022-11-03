@@ -44,7 +44,8 @@ const config: HardhatUserConfig = {
       }
     }],
     overrides: {
-      'contracts/core/EntryPoint.sol': optimizedComilerSettings
+      'contracts/core/EntryPoint.sol': optimizedComilerSettings,
+      'contracts/samples/SimpleWallet.sol': optimizedComilerSettings
     }
   },
   networks: {
