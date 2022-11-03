@@ -81,14 +81,16 @@ contract EntryPoint is IEntryPoint, StakeManager {
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
     unchecked {
-        for (uint256 i = 0; i < opslen; i++) {
+        for (uint256 i; i < opslen; ) {
             _validatePrepayment(i, ops[i], opInfos[i], address(0));
+            ++i;
         }
 
         uint256 collected = 0;
 
-        for (uint256 i = 0; i < opslen; i++) {
+        for (uint256 i; i < opslen; ) {
             collected += _executeUserOp(i, ops[i], opInfos[i]);
+            ++i;
         }
 
         _compensate(beneficiary, collected);
@@ -107,21 +109,27 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
-        for (uint256 i = 0; i < opasLen; i++) {
+        for (uint256 i; i < opasLen; ) {
             totalOps += opsPerAggregator[i].userOps.length;
+            unchecked {
+                ++i;
+            }
         }
 
         UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
 
         uint256 opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
+        for (uint256 a; a < opasLen; ) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
             UserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
             uint256 opslen = ops.length;
-            for (uint256 i = 0; i < opslen; i++) {
+            for (uint256 i; i < opslen; ) {
                 _validatePrepayment(opIndex, ops[i], opInfos[opIndex], address(aggregator));
                 opIndex++;
+                unchecked {
+                    ++i;
+                }
             }
 
             if (address(aggregator) != address(0)) {
@@ -131,18 +139,27 @@ contract EntryPoint is IEntryPoint, StakeManager {
                     revert SignatureValidationFailed(address(aggregator));
                 }
             }
+            unchecked {
+                ++a;
+            }
         }
 
         uint256 collected = 0;
         opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
+        for (uint256 a; a < opasLen; ) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
             UserOperation[] calldata ops = opa.userOps;
             uint256 opslen = ops.length;
 
-            for (uint256 i = 0; i < opslen; i++) {
+            for (uint256 i; i < opslen; ) {
                 collected += _executeUserOp(opIndex, ops[i], opInfos[opIndex]);
                 opIndex++;
+                unchecked {
+                    ++i;
+                }
+            }
+            unchecked {
+                ++a;
             }
         }
 
