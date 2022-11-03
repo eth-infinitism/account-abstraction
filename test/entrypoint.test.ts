@@ -760,7 +760,7 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: wallet.address
           }, sessionOwner, entryPoint)
-          const { deadline } = await entryPointView.callStatic.simulateValidation(userOp, false).catch(rethrow())
+          const { deadline } = await entryPointView.callStatic.simulateValidation(userOp, false)
           expect(deadline).to.eql(now + 60)
         })
 
