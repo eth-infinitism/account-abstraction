@@ -65,4 +65,10 @@ const config: HardhatUserConfig = {
 
 }
 
+// coverage chokes on the "compilers" settings
+if (process.env.COVERAGE != null) {
+  // @ts-ignore
+  config.solidity = config.solidity.compilers[0]
+}
+
 export default config
