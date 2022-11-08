@@ -24,14 +24,28 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
   // return getNetwork1(`wss://${name}.infura.io/ws/v3/${process.env.INFURA_ID}`)
 }
 
+const optimizedComilerSettings = {
+  version: '0.8.17',
+  settings: {
+    optimizer: { enabled: true, runs: 1000000 },
+    viaIR: true
+  }
+}
+
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: '0.8.15',
-    settings: {
-      optimizer: { enabled: true, runs: 1000000 }
+    compilers: [{
+      version: '0.8.15',
+      settings: {
+        optimizer: { enabled: true, runs: 1000000 }
+      }
+    }],
+    overrides: {
+      'contracts/core/EntryPoint.sol': optimizedComilerSettings,
+      'contracts/samples/SimpleWallet.sol': optimizedComilerSettings
     }
   },
   networks: {
@@ -50,6 +64,12 @@ const config: HardhatUserConfig = {
     apiKey: process.env.ETHERSCAN_API_KEY
   }
 
+}
+
+// coverage chokes on the "compilers" settings
+if (process.env.COVERAGE != null) {
+  // @ts-ignore
+  config.solidity = config.solidity.compilers[0]
 }
 
 export default config
