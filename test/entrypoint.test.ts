@@ -61,7 +61,7 @@ describe('EntryPoint', function () {
 
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-    entryPoint = await deployEntryPoint(globalUnstakeDelaySec)
+    entryPoint = await deployEntryPoint()
 
     // static call must come from address zero, to validate it can only be called off-chain.
     entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
@@ -105,8 +105,8 @@ describe('EntryPoint', function () {
       it('should fail to stake without value', async () => {
         await expect(entryPoint.addStake(2)).to.revertedWith('no stake specified')
       })
-      it('should fail to stake too little delay', async () => {
-        await expect(entryPoint.addStake(1)).to.revertedWith('stake delay too low')
+      it('should fail to stake with delay', async () => {
+        await expect(entryPoint.addStake(0, { value: ONE_ETH })).to.revertedWith('must specify unstake delay')
       })
       it('should fail to unlock', async () => {
         await expect(entryPoint.unlockStake()).to.revertedWith('not staked')
@@ -707,7 +707,7 @@ describe('EntryPoint', function () {
 
       before(async () => {
         paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
-        await paymaster.addStake(0, { value: paymasterStake })
+        await paymaster.addStake(globalUnstakeDelaySec, { value: paymasterStake })
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         walletExecFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
@@ -740,6 +740,26 @@ describe('EntryPoint', function () {
         const { actualGasCost } = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
         const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
         expect(paymasterPaid).to.eql(actualGasCost)
+      })
+
+      it('simulate should return paymaster stake and delay', async () => {
+        await paymaster.deposit({ value: ONE_ETH })
+        const anOwner = createWalletOwner()
+
+        const op = await fillAndSign({
+          paymasterAndData: paymaster.address,
+          callData: walletExecFromEntryPoint.data,
+          initCode: getWalletDeployer(entryPoint.address, anOwner.address)
+        }, anOwner, entryPoint)
+
+        const { paymasterInfo } = await entryPointView.callStatic.simulateValidation(op, false)
+        const {
+          paymasterStake: simRetStake,
+          paymasterUnstakeDelay: simRetDelay
+        } = paymasterInfo
+
+        expect(simRetStake).to.eql(paymasterStake)
+        expect(simRetDelay).to.eql(globalUnstakeDelaySec)
       })
     })
 
@@ -782,7 +802,7 @@ describe('EntryPoint', function () {
           // wallet without eth - must be paid by paymaster.
           wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
           paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
-          await paymaster.addStake(0, { value: paymasterStake })
+          await paymaster.addStake(1, { value: paymasterStake })
           await paymaster.deposit({ value: parseEther('0.1') })
           now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
         })

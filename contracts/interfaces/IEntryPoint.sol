@@ -101,12 +101,11 @@ interface IEntryPoint is IStakeManager {
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
-     * @return paymasterStake if current UserOperation uses a paymaster, then returns the current stake of this paymaster
-     *          (node rejects UserOperations if paymaster's stake is below minimum requirement)
+     * @return paymasterInfo stake information for the paymaster (only if current UserOperation uses a paymaster)
      * @return aggregationInfo return signature-aggregator information of this userOp
      */
     function simulateValidation(UserOperation calldata userOp, bool offChainSigCheck)
-    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, uint256 paymasterStake, AggregationInfo memory aggregationInfo);
+    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo memory paymasterInfo, AggregationInfo memory aggregationInfo);
 
     /**
      * returned aggregated signature info.
@@ -122,6 +121,16 @@ interface IEntryPoint is IStakeManager {
         bytes sigForUserOp;
         bytes sigForAggregation;
         bytes offChainSigInfo;
+    }
+
+    /**
+     * returned paymaster info.
+     * If the UserOperation contains a paymaster, these fields are filled with the paymaster's stake value and delay.
+     * A bundler must verify these values are above the minimal required values, or else reject the UserOperation.
+     */
+    struct PaymasterInfo {
+        uint256 paymasterStake;
+        uint256 paymasterUnstakeDelay;
     }
 
     /**

@@ -54,7 +54,7 @@ export class Create2Factory {
         21000
 
       // deployer requires some extra gas
-      gasLimit = Math.floor(gasLimit * 64 / 63)
+      gasLimit = Math.floor(gasLimit * 65 / 63)
     }
 
     const ret = await factory.deploy(initCode, saltBytes32, { gasLimit })

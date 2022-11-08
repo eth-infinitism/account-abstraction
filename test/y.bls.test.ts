@@ -32,7 +32,7 @@ describe('bls wallet', function () {
   let wallet2: BLSWallet
   let walletDeployer: BLSWalletDeployer
   before(async () => {
-    entrypoint = await deployEntryPoint(1)
+    entrypoint = await deployEntryPoint()
     const BLSOpenLib = await new BLSOpen__factory(ethers.provider.getSigner()).deploy()
     blsAgg = await new BLSSignatureAggregator__factory({
       'contracts/bls/lib/BLSOpen.sol:BLSOpen': BLSOpenLib.address

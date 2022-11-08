@@ -28,10 +28,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // internal value used during simulation: need to query aggregator if wallet is created
     address private constant SIMULATE_NO_AGGREGATOR = address(1);
 
-    constructor(uint32 _unstakeDelaySec) StakeManager(_unstakeDelaySec) {
-        require(_unstakeDelaySec > 0, "invalid unstakeDelay");
-    }
-
     /**
      * compensate the caller's beneficiary address with the collected fees of all UserOperations.
      * @param beneficiary the address to receive the fees
@@ -232,12 +228,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
-     * @return paymasterStake if current UserOperation uses a paymaster, then returns the current stake of this paymaster
-     *          (node rejects UserOperations if paymaster's stake is below minimum requirement)
+     * @return paymasterInfo stake information for the paymaster (only if current UserOperation uses a paymaster)
      * @return aggregationInfo return signature-aggregator information of this userOp
      */
     function simulateValidation(UserOperation calldata userOp, bool offChainSigCheck)
-    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, uint256 paymasterStake, AggregationInfo memory aggregationInfo) {
+    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo memory paymasterInfo, AggregationInfo memory aggregationInfo) {
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
@@ -245,7 +240,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (actualAggregator, deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
         prefund = outOpInfo.prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
-        paymasterStake = getDepositInfo(outOpInfo.mUserOp.paymaster).stake;
+        DepositInfo memory depositInfo = getDepositInfo(outOpInfo.mUserOp.paymaster);
+        paymasterInfo = PaymasterInfo(depositInfo.stake, depositInfo.unstakeDelaySec);
 
         numberMarker();
         bytes memory sigForUserOp;

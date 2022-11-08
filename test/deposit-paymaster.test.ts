@@ -28,11 +28,11 @@ describe('DepositPaymaster', () => {
   let token: TestToken
   let paymaster: DepositPaymaster
   before(async function () {
-    entryPoint = await deployEntryPoint(1)
+    entryPoint = await deployEntryPoint()
     entryPointStatic = entryPoint.connect(AddressZero)
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
-    await paymaster.addStake(0, { value: parseEther('2') })
+    await paymaster.addStake(1, { value: parseEther('2') })
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
 
     token = await new TestToken__factory(ethersSigner).deploy()

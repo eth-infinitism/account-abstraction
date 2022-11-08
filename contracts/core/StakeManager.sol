@@ -12,15 +12,6 @@ import "../interfaces/IStakeManager.sol";
  */
 abstract contract StakeManager is IStakeManager {
 
-    /**
-     * minimum time (in seconds) required to lock a paymaster stake before it can be withdraw.
-     */
-    uint32 immutable public unstakeDelaySec;
-
-    constructor(uint32 _unstakeDelaySec) {
-        unstakeDelaySec = _unstakeDelaySec;
-    }
-
     /// maps paymaster to their deposits and stakes
     mapping(address => DepositInfo) public deposits;
 
@@ -60,7 +51,7 @@ abstract contract StakeManager is IStakeManager {
      */
     function addStake(uint32 _unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[msg.sender];
-        require(_unstakeDelaySec >= unstakeDelaySec, "unstake delay too low");
+        require(_unstakeDelaySec > 0, "must specify unstake delay");
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint256 stake = info.stake + msg.value;
         require(stake > 0, "no stake specified");

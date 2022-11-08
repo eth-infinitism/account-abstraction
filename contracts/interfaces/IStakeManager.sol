@@ -39,11 +39,6 @@ interface IStakeManager {
     );
 
     /**
-     * minimum time (in seconds) required to lock a paymaster stake before it can be withdraw.
-     */
-    function unstakeDelaySec() external returns (uint32);
-
-    /**
      * @param deposit the account's deposit
      * @param staked true if this account is staked as a paymaster
      * @param stake actual amount of ether staked for this paymaster.
