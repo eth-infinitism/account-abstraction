@@ -3,8 +3,6 @@ import { DeployFunction } from 'hardhat-deploy/types'
 import { Create2Factory } from '../src/Create2Factory'
 import { ethers } from 'hardhat'
 
-const UNSTAKE_DELAY_SEC = 86400
-
 const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const provider = ethers.provider
   const from = await provider.getSigner().getAddress()
@@ -13,8 +11,8 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
   const ret = await hre.deployments.deploy(
     'EntryPoint', {
       from,
-      args: [UNSTAKE_DELAY_SEC],
-      gasLimit: 4e6,
+      args: [],
+      gasLimit: 6e6,
       deterministicDeployment: true
     })
   console.log('==entrypoint addr=', ret.address)
