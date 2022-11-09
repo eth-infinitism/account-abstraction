@@ -682,16 +682,16 @@ describe('EntryPoint', function () {
               nonce: 10
             }, walletOwner, entryPoint)
           })
-          it('should revert with UnverifiedSignature to simulate wallet a wallet with unallowed aggregator', async () => {
+          it('should revert with UnverifiedSignatureAggregator to simulate wallet a wallet with unallowed aggregator', async () => {
             await expect(entryPointView.callStatic.simulateValidation(userOp, [createAddress()]))
-              .to.be.revertedWith('UnverifiedSignature')
+              .to.be.revertedWith('UnverifiedSignatureAggregator')
           })
-          it('revert UnverifiedSignature should return aggregator', async () => {
+          it('revert UnverifiedSignatureAggregator should return aggregator', async () => {
             try {
               await entryPointView.callStatic.simulateValidation(userOp, [])
               throw new Error('should revert')
             } catch (e: any) {
-              expect(e.errorName).to.equal('UnverifiedSignature')
+              expect(e.errorName).to.equal('UnverifiedSignatureAggregator')
               expect(e.errorArgs.aggregator).to.equal(aggregator.address)
             }
           })

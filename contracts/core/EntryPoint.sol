@@ -236,7 +236,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param userOp the user operation to validate.
      * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
      *          if the wallet has an aggregator that does not exist in the list, then
-     *          the call reverts with UnverifiedSignature
+     *          the call reverts with UnverifiedSignatureAggregator
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
@@ -268,7 +268,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 }
             }
             if (!found) {
-                revert UnverifiedSignature(preOpGas, prefund, aggregator);
+                revert UnverifiedSignatureAggregator(preOpGas, prefund, aggregator);
             }
         }
         require(tx.origin == address(0), "must be called off-chain with from=zero-addr");

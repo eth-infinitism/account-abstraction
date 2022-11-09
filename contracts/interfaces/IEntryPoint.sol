@@ -99,7 +99,7 @@ interface IEntryPoint is IStakeManager {
      * @param userOp the user operation to validate.
      * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
      *          if the wallet has an aggregator that does not exist in the list, then
-     *          the call reverts with UnverifiedSignature
+     *          the call reverts with UnverifiedSignatureAggregator
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
@@ -112,10 +112,10 @@ interface IEntryPoint is IStakeManager {
     external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, address aggregator, bytes memory sigForUserOp, bytes memory sigForAggregation);
 
     /**
-     * An error raised by simulateValidation if the aggregator is not in the allowedAggregators list.
+     * An error raised by simulateValidation if the signature aggregator is not in the allowedAggregators list.
      * the node should either drop the UserOp, or call aggregator.validateUserOpSignature
      */
-    error UnverifiedSignature(uint256 preOpGas, uint256 prefund, address aggregator);
+    error UnverifiedSignatureAggregator(uint256 preOpGas, uint256 prefund, address aggregator);
 
     /**
      * Get counterfactual sender address.

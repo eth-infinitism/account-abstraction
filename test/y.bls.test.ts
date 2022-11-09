@@ -173,7 +173,7 @@ describe('bls wallet', function () {
       userOp.signature = hexConcat(sigParts)
 
       const unverified = await entryPointStatic.callStatic.simulateValidation(userOp, []).catch(e => e)
-      expect(unverified.errorName).to.equal('UnverifiedSignature')
+      expect(unverified.errorName).to.equal('UnverifiedSignatureAggregator')
       expect(unverified.errorArgs.aggregator).to.eq(blsAgg.address)
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
