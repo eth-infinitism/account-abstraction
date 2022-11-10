@@ -105,7 +105,7 @@ describe('EntryPoint', function () {
       it('should fail to stake without value', async () => {
         await expect(entryPoint.addStake(2)).to.revertedWith('no stake specified')
       })
-      it('should fail to stake with delay', async () => {
+      it('should fail to stake without delay', async () => {
         await expect(entryPoint.addStake(0, { value: ONE_ETH })).to.revertedWith('must specify unstake delay')
       })
       it('should fail to unlock', async () => {
