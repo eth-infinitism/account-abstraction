@@ -93,7 +93,7 @@ describe('DepositPaymaster', () => {
         sender: wallet.address,
         paymasterAndData: paymaster.address
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, [])).to.be.revertedWith('paymasterAndData must specify token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp)).to.be.revertedWith('paymasterAndData must specify token')
     })
 
     it('should fail with wrong token', async () => {
@@ -101,7 +101,7 @@ describe('DepositPaymaster', () => {
         sender: wallet.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad('0x1234', 20)])
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, [], { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
     })
 
     it('should reject if no deposit', async () => {
@@ -109,7 +109,7 @@ describe('DepositPaymaster', () => {
         sender: wallet.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, [], { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
     })
 
     it('should reject if deposit is not locked', async () => {
@@ -122,7 +122,7 @@ describe('DepositPaymaster', () => {
         sender: wallet.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await expect(entryPointStatic.callStatic.simulateValidation(userOp, [], { gasPrice })).to.be.revertedWith('not locked')
+      await expect(entryPointStatic.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('not locked')
     })
 
     it('succeed with valid deposit', async () => {
@@ -134,7 +134,7 @@ describe('DepositPaymaster', () => {
         sender: wallet.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await entryPointStatic.callStatic.simulateValidation(userOp, [])
+      await entryPointStatic.callStatic.simulateValidation(userOp)
     })
   })
   describe('#handleOps', () => {

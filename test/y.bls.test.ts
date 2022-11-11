@@ -137,29 +137,8 @@ describe('bls wallet', function () {
       ])
       entryPointStatic = entrypoint.connect(AddressZero)
     })
-    it('with on-chain sig validation', async () => {
-      const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
-      await fund(senderAddress, '0.01')
-      const userOp = await fillUserOp({
-        sender: senderAddress,
-        initCode,
-        nonce: 1
-      }, entrypoint)
-      const requestHash = await blsAgg.getRequestId(userOp)
-      const sigParts = signer3.sign(requestHash)
-      userOp.signature = hexConcat(sigParts)
-      const {
-        aggregator,
-        sigForUserOp,
-        sigForAggregation
-      } = await entryPointStatic.callStatic.simulateValidation(userOp, [blsAgg.address])
-      expect(aggregator).to.eq(blsAgg.address)
 
-      expect(sigForUserOp).to.eq('0x')
-      expect(sigForAggregation).to.eq(userOp.signature)
-    })
-
-    it('with off-chain sig check', async () => {
+    it('validate after simulation returns UnverifiedSignatureAggregator', async () => {
       const verifier = new BlsVerifier(BLS_DOMAIN)
       const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
       await fund(senderAddress, '0.01')
@@ -172,7 +151,7 @@ describe('bls wallet', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const unverified = await entryPointStatic.callStatic.simulateValidation(userOp, []).catch(e => e)
+      const unverified = await entryPointStatic.callStatic.simulateValidation(userOp).catch(e => e)
       expect(unverified.errorName).to.equal('UnverifiedSignatureAggregator')
       expect(unverified.errorArgs.aggregator).to.eq(blsAgg.address)
 

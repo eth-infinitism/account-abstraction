@@ -26,8 +26,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     SenderCreator private immutable senderCreator = new SenderCreator();
 
-    // internal value used during simulation: need to query aggregator if wallet is created
-    address private constant SIMULATE_NO_AGGREGATOR = address(1);
+    // internal value used during simulation: need to query aggregator.
+    address private constant SIMULATE_FIND_AGGREGATOR = address(1);
 
     /**
      * @param _paymasterStake - minimum required locked stake for a paymaster
@@ -228,48 +228,28 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
-    * allow using a signature aggregator.
     * Validation succeeds if the call doesn't revert.
     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
      *      In order to split the running opcodes of the wallet (validateUserOp) from the paymaster's validatePaymasterUserOp,
      *      it should look for the NUMBER opcode at depth=1 (which itself is a banned opcode)
      * @param userOp the user operation to validate.
-     * @param allowedAggregators list of aggregators we allow to call validateUserOpSignature()
-     *          if the wallet has an aggregator that does not exist in the list, then
-     *          the call reverts with UnverifiedSignatureAggregator
      * @return preOpGas total gas used by validation (including contract creation)
      * @return prefund the amount the wallet had to prefund (zero in case a paymaster pays)
      * @return deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
-     * @return aggregator the aggregator returned by this wallet (or address(0), if it doesn't have one).
-     *          and only if it appears in the allowedAggregators list.
-     * @return sigForUserOp - only if has actualAggregator: this value is returned from IAggregator.validateUserOpSignature, and should be placed in the userOp.signature when creating a bundle.
-     * @return sigForAggregation - only if has actualAggregator:  this value is returned from IAggregator.validateUserOpSignature, and should be passed to aggregator.aggregateSignatures
      */
-    function simulateValidation(UserOperation calldata userOp, address[] memory allowedAggregators)
-    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline, address aggregator, bytes memory sigForUserOp, bytes memory sigForAggregation) {
+    function simulateValidation(UserOperation calldata userOp)
+    external returns (uint256 preOpGas, uint256 prefund, uint256 deadline) {
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
 
-        (aggregator, deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_NO_AGGREGATOR);
+        address aggregator;
+        (aggregator, deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
         prefund = outOpInfo.prefund;
         preOpGas = preGas - gasleft() + userOp.preVerificationGas;
 
-        numberMarker();
         if (aggregator != address(0)) {
-            bool found = false;
-            if (allowedAggregators.length>0) {
-                for (uint i=0; i< allowedAggregators.length; i++) {
-                    if (aggregator == allowedAggregators[i]) {
-                        (sigForUserOp, sigForAggregation) = IAggregator(aggregator).validateUserOpSignature(userOp);
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if (!found) {
-                revert UnverifiedSignatureAggregator(preOpGas, prefund, aggregator);
-            }
+            revert UnverifiedSignatureAggregator(preOpGas, prefund, deadline, aggregator);
         }
         require(tx.origin == address(0), "must be called off-chain with from=zero-addr");
     }
@@ -317,7 +297,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         _createSenderIfNeeded(opIndex, mUserOp, op.initCode);
-        if (aggregator == SIMULATE_NO_AGGREGATOR) {
+        if (aggregator == SIMULATE_FIND_AGGREGATOR) {
             try IAggregatedWallet(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
