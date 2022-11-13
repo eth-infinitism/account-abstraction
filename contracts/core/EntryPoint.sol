@@ -465,7 +465,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
      * the gas price this UserOp agrees to pay.
-     * relayer/miner might submit the TX with higher priorityFee, but the user should not
+     * relayer/block builder might submit the TX with higher priorityFee, but the user should not
      */
     function getUserOpGasPrice(MemoryUserOp memory mUserOp) internal view returns (uint256) {
     unchecked {
