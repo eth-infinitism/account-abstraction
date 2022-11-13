@@ -121,7 +121,7 @@ abstract contract StakeManager is IStakeManager {
      * @param withdrawAmount the amount to withdraw.
      */
     function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external {
-        DepositInfo memory info = deposits[msg.sender];
+        DepositInfo storage info = deposits[msg.sender];
         require(withdrawAmount <= info.deposit, "Withdraw amount too large");
         info.deposit = uint112(info.deposit - withdrawAmount);
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);

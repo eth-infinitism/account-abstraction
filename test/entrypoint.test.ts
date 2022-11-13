@@ -213,8 +213,10 @@ describe('EntryPoint', function () {
         expect(await wallet.getDeposit()).to.eql(ONE_ETH)
       })
       it('should be able to withdraw', async () => {
+        const depositBefore = await wallet.getDeposit()
         await wallet.withdrawDepositTo(wallet.address, ONE_ETH)
         expect(await getBalance(wallet.address)).to.equal(1e18)
+        expect(await wallet.getDeposit()).to.equal(depositBefore.sub(ONE_ETH))
       })
     })
   })
