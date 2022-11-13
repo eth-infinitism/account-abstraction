@@ -9,7 +9,7 @@ import {
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { AddressZero, deployEntryPoint, fund } from './testutils'
+import { deployEntryPoint, fund, simulationResultCatch } from './testutils'
 import { fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
@@ -127,7 +127,6 @@ describe('bls wallet', function () {
 
   describe('#EntryPoint.simulateValidation with aggregator', () => {
     let initCode: BytesLike
-    let entryPointStatic: EntryPoint
     let signer3: any
     before(async () => {
       signer3 = fact.getSigner(arrayify(BLS_DOMAIN), '0x03')
@@ -135,12 +134,11 @@ describe('bls wallet', function () {
         walletDeployer.address,
         walletDeployer.interface.encodeFunctionData('deployWallet', [entrypoint.address, blsAgg.address, 0, signer3.pubkey])
       ])
-      entryPointStatic = entrypoint.connect(AddressZero)
     })
 
     it('validate after simulation returns UnverifiedSignatureAggregator', async () => {
       const verifier = new BlsVerifier(BLS_DOMAIN)
-      const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
+      const senderAddress = await entrypoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
       await fund(senderAddress, '0.01')
       const userOp = await fillUserOp({
         sender: senderAddress,
@@ -151,9 +149,8 @@ describe('bls wallet', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const unverified = await entryPointStatic.callStatic.simulateValidation(userOp).catch(e => e)
-      expect(unverified.errorName).to.equal('UnverifiedSignatureAggregator')
-      expect(unverified.errorArgs.aggregator).to.eq(blsAgg.address)
+      const { signatureAggregator } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      expect(signatureAggregator).to.eq(blsAgg.address)
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
       const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]

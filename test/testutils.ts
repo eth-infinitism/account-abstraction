@@ -236,6 +236,17 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   }
 }
 
+/**
+ * process exception of simulationResult
+ * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
+ */
+export function simulationResultCatch (e: any): any {
+  if (e.errorName !== 'SimulationResult') {
+    throw e
+  }
+  return e.errorArgs
+}
+
 export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish, provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory(provider.getSigner())
