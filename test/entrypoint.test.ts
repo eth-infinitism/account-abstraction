@@ -624,11 +624,11 @@ describe('EntryPoint', function () {
 
         // extract signature from userOps, and create aggregated signature
         // (not really required with the test aggregator, but should work with any aggregator
-        const { sigForAggregation: agg1, sigForUserOp: sigOp1 } = await aggregator.validateUserOpSignature(userOp1)
-        const { sigForAggregation: agg2, sigForUserOp: sigOp2 } = await aggregator.validateUserOpSignature(userOp1)
+        const sigOp1 = await aggregator.validateUserOpSignature(userOp1)
+        const sigOp2 = await aggregator.validateUserOpSignature(userOp2)
         userOp1.signature = sigOp1
         userOp2.signature = sigOp2
-        const aggSig = await aggregator.aggregateSignatures([agg1, agg2])
+        const aggSig = await aggregator.aggregateSignatures([userOp1, userOp2])
 
         const aggInfos = [{
           userOps: [userOp1, userOp2],
@@ -678,8 +678,8 @@ describe('EntryPoint', function () {
             expect(signatureAggregator).to.equal(aggregator.address)
           })
           it('should create wallet in handleOps', async () => {
-            const { sigForAggregation } = await aggregator.validateUserOpSignature(userOp)
-            const sig = await aggregator.aggregateSignatures([sigForAggregation])
+            await aggregator.validateUserOpSignature(userOp)
+            const sig = await aggregator.aggregateSignatures([userOp])
             await entryPoint.handleAggregatedOps([{
               userOps: [{ ...userOp, signature: '0x' }],
               aggregator: aggregator.address,

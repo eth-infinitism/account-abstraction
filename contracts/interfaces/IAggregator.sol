@@ -21,17 +21,16 @@ interface IAggregator {
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
      *    (usually empty, unless wallet and aggregator support some kind of "multisig"
-     * @return sigForAggregation the value to pass (for all wallets) to aggregateSignatures()
      */
     function validateUserOpSignature(UserOperation calldata userOp)
-    external view returns (bytes memory sigForUserOp, bytes memory sigForAggregation);
+    external view returns (bytes memory sigForUserOp);
 
     /**
      * aggregate multiple signatures into a single value.
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
-     * @param sigsForAggregation array of values returned by validateUserOpSignature() for each op
+     * @param userOps array of UserOperations to collect the signatures from.
      * @return aggregatesSignature the aggregated signature
      */
-    function aggregateSignatures(bytes[] calldata sigsForAggregation) external view returns (bytes memory aggregatesSignature);
+    function aggregateSignatures(UserOperation[] calldata userOps) external view returns (bytes memory aggregatesSignature);
 }

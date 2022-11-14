@@ -118,17 +118,15 @@ contract BLSSignatureAggregator is IAggregator {
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
      *    (usually empty, unless wallet and aggregator support some kind of "multisig"
-     * @return sigForAggregation the value to pass (for all wallets) to aggregateSignatures()
      */
     function validateUserOpSignature(UserOperation calldata userOp)
-    external view returns (bytes memory sigForUserOp, bytes memory sigForAggregation) {
+    external view returns (bytes memory sigForUserOp) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
         uint256[4] memory pubkey = getUserOpPublicKey(userOp);
         uint256[2] memory message = userOpToMessage(userOp);
 
         require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
-        sigForUserOp = "";
-        sigForAggregation = userOp.signature;
+        return "";
     }
 
     //copied from BLS.sol
@@ -138,13 +136,13 @@ contract BLSSignatureAggregator is IAggregator {
      * aggregate multiple signatures into a single value.
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
-     * @param sigsForAggregation array of values returned by validateUserOpSignature() for each op
+     * @param userOps array of UserOperations to collect the signatures from.
      * @return aggregatesSignature the aggregated signature
      */
-    function aggregateSignatures(bytes[] memory sigsForAggregation) external pure returns (bytes memory aggregatesSignature) {
-        BLSHelper.XY[] memory points = new BLSHelper.XY[](sigsForAggregation.length);
+    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
+        BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
         for (uint i = 0; i < points.length; i++) {
-            (uint x, uint y) = abi.decode(sigsForAggregation[i], (uint, uint));
+            (uint x, uint y) = abi.decode(userOps[i].signature, (uint, uint));
             points[i] = BLSHelper.XY(x, y);
         }
         BLSHelper.XY memory sum = BLSHelper.sum(points, N);

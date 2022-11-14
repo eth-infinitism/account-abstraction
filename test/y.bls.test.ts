@@ -10,7 +10,7 @@ import {
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { deployEntryPoint, fund, simulationResultCatch } from './testutils'
-import { fillUserOp } from './UserOp'
+import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
@@ -57,8 +57,9 @@ describe('bls wallet', function () {
     const sig1 = signer1.sign('0x1234')
     const sig2 = signer2.sign('0x5678')
     const offChainSigResult = hexConcat(aggregate([sig1, sig2]))
-    const sigs = [sig1, sig2].map(h => hexConcat(h))
-    const solidityAggResult = await blsAgg.aggregateSignatures(sigs)
+    const userOp1 = { ...DefaultsForUserOp, signature: hexConcat(sig1) }
+    const userOp2 = { ...DefaultsForUserOp, signature: hexConcat(sig2) }
+    const solidityAggResult = await blsAgg.aggregateSignatures([userOp1, userOp2])
     expect(solidityAggResult).to.equal(offChainSigResult)
   })
 
@@ -86,8 +87,7 @@ describe('bls wallet', function () {
     expect(verifier.verify(sigParts, signer1.pubkey, requestHash)).to.equal(true)
 
     const ret = await blsAgg.validateUserOpSignature(userOp1)
-    expect(ret.sigForAggregation).to.equal(userOp1.signature)
-    expect(ret.sigForUserOp).to.equal('0x')
+    expect(ret).to.equal('0x')
   })
 
   it('validateSignatures', async function () {
@@ -108,7 +108,7 @@ describe('bls wallet', function () {
     userOp2.signature = hexConcat(sig2)
 
     const aggSig = aggregate([sig1, sig2])
-    const aggregatedSig = await blsAgg.aggregateSignatures([hexConcat(sig1), hexConcat(sig2)])
+    const aggregatedSig = await blsAgg.aggregateSignatures([userOp1, userOp2])
     expect(hexConcat(aggSig)).to.equal(aggregatedSig)
 
     const pubkeys = [
