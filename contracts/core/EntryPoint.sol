@@ -30,15 +30,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
     address private constant SIMULATE_FIND_AGGREGATOR = address(1);
 
     /**
-     * @param _paymasterStake - minimum required locked stake for a paymaster
-     * @param _unstakeDelaySec - minimum time (in seconds) a paymaster stake must be locked
-     */
-    constructor(uint256 _paymasterStake, uint32 _unstakeDelaySec) StakeManager(_paymasterStake, _unstakeDelaySec) {
-        require(_unstakeDelaySec > 0, "invalid unstakeDelay");
-        require(_paymasterStake > 0, "invalid paymasterStake");
-    }
-
-    /**
      * compensate the caller's beneficiary address with the collected fees of all UserOperations.
      * @param beneficiary the address to receive the fees
      * @param amount amount to transfer.
@@ -240,8 +231,16 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (address aggregator, uint256 deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
         uint256 prefund = outOpInfo.prefund;
         uint256 preOpGas = preGas - gasleft() + userOp.preVerificationGas;
+        DepositInfo memory depositInfo = getDepositInfo(outOpInfo.mUserOp.paymaster);
+        PaymasterInfo memory paymasterInfo = PaymasterInfo(depositInfo.stake, depositInfo.unstakeDelaySec);
 
-        revert SimulationResult( preOpGas,  prefund,  deadline,  aggregator);
+        if (aggregator != address(0)) {
+            depositInfo = getDepositInfo(aggregator);
+            AggregationInfo memory aggregationInfo = AggregationInfo(aggregator, depositInfo.stake, depositInfo.unstakeDelaySec);
+            revert SimulationResultWithAggregation(preOpGas, prefund, deadline, paymasterInfo, aggregationInfo);
+
+        }
+        revert SimulationResult(preOpGas, prefund, deadline, paymasterInfo);
     }
 
     function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal view returns (uint256 requiredPrefund) {
@@ -386,7 +385,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 gasUsedByValidateWalletPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
         (gasUsedByValidateWalletPrepayment, actualAggregator, deadline) = _validateWalletPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
-
         //a "marker" where wallet opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
         numberMarker();
@@ -400,6 +398,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             }
         } else {
             context = "";
+
         }
     unchecked {
         uint256 gasUsed = preGas - gasleft();

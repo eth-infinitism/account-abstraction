@@ -6,6 +6,7 @@ pragma solidity ^0.8.12;
 import "../interfaces/IAggregator.sol";
 import "hardhat/console.sol";
 import "./SimpleWallet.sol";
+import "../core/EntryPoint.sol";
 
 /**
  * test signature aggregator.
@@ -39,5 +40,9 @@ contract TestSignatureAggregator is IAggregator {
             sum += userOps[i].nonce;
         }
         return abi.encode(sum);
+    }
+
+    function addStake(IEntryPoint entryPoint, uint32 delay) external payable {
+        entryPoint.addStake{value: msg.value}(delay);
     }
 }

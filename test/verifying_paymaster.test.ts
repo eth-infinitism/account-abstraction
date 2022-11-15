@@ -24,13 +24,13 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   let paymaster: VerifyingPaymaster
   before(async function () {
-    entryPoint = await deployEntryPoint(1, 1)
+    entryPoint = await deployEntryPoint()
 
     offchainSigner = createWalletOwner()
     walletOwner = createWalletOwner()
 
     paymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(entryPoint.address, offchainSigner.address)
-    await paymaster.addStake(0, { value: parseEther('2') })
+    await paymaster.addStake(1, { value: parseEther('2') })
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, walletOwner.address)
   })

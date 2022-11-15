@@ -1,5 +1,5 @@
 import { ethers } from 'hardhat'
-import { arrayify, defaultAbiCoder, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
+import { arrayify, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
 import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleWallet__factory, TestAggregatedWallet__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
@@ -237,7 +237,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 }
 
 /**
- * process exception of simulationResult
+ * process exception of SimulationResult
  * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
  */
 export function simulationResultCatch (e: any): any {
@@ -247,13 +247,21 @@ export function simulationResultCatch (e: any): any {
   return e.errorArgs
 }
 
-export async function deployEntryPoint (paymasterStake: BigNumberish, unstakeDelaySecs: BigNumberish, provider = ethers.provider): Promise<EntryPoint> {
+/**
+ * process exception of SimulationResultWithAggregation
+ * usage: entryPoint.simulationResult(..).catch(simulationResultWithAggregation)
+ */
+export function simulationResultWithAggregationCatch (e: any): any {
+  if (e.errorName !== 'SimulationResultWithAggregation') {
+    throw e
+  }
+  return e.errorArgs
+}
+
+export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory(provider.getSigner())
-  const ctrParams = defaultAbiCoder.encode(['uint256', 'uint256'],
-    [paymasterStake, unstakeDelaySecs])
-
-  const addr = await create2factory.deploy(hexConcat([epf.bytecode, ctrParams]), 0)
+  const addr = await create2factory.deploy(epf.bytecode, 0, 20e6)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 

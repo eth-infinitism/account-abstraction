@@ -102,10 +102,41 @@ interface IEntryPoint is IStakeManager {
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
      * @param deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
-     * @param signatureAggregator the signature aggregator used by this wallet.
+     * @param paymasterInfo stake information about the paymaster (if any)
+     */
+    error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo);
+
+    /**
+     * returned paymaster info.
+     * If the UserOperation contains a paymaster, these fields are filled with the paymaster's stake value and delay.
+     * A bundler must verify these values are above the minimal required values, or else reject the UserOperation.
+     */
+    struct PaymasterInfo {
+        uint256 paymasterStake;
+        uint256 paymasterUnstakeDelay;
+    }
+
+
+    /**
+     * Successful result from simulateValidation, if the wallet returns a signature aggregator
+     * @param preOpGas the gas used for validation (including preValidationGas)
+     * @param prefund the required prefund for this operation
+     * @param deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
+     * @param paymasterInfo stake information about the paymaster (if any)
+     * @param aggregationInfo signature aggregation info (if the wallet requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
      */
-    error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline, address signatureAggregator);
+    error SimulationResultWithAggregation(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo, AggregationInfo aggregationInfo);
+
+    /**
+     * returned aggregated signature info.
+     * the aggregator returned by the wallet, and its current stake.
+     */
+    struct AggregationInfo {
+        address actualAggregator;
+        uint256 aggregatorStake;
+        uint256 aggregatorUnstakeDelay;
+    }
 
     /**
      * Get counterfactual sender address.
