@@ -27,7 +27,14 @@ import {
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
-  getBalance, FIVE_ETH, createAddress, getWalletAddress, HashZero, getAggregatedWalletDeployer, simulationResultCatch
+  getBalance,
+  FIVE_ETH,
+  createAddress,
+  getWalletAddress,
+  HashZero,
+  getAggregatedWalletDeployer,
+  simulationResultCatch,
+  simulationResultWithAggregationCatch
 } from './testutils'
 import { fillAndSign, getRequestId } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -675,9 +682,14 @@ describe('EntryPoint', function () {
               nonce: 10
             }, walletOwner, entryPoint)
           })
-          it('simulateValidation should return aggregator', async () => {
-            const { signatureAggregator } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-            expect(signatureAggregator).to.equal(aggregator.address)
+          it('simulateValidation should return aggregator and its stake', async () => {
+            await aggregator.addStake(entryPoint.address, 3, { value: TWO_ETH })
+            console.log('deposit info=', await entryPoint.getDepositInfo(aggregator.address))
+            const { aggregationInfo } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
+            console.log('info=', aggregationInfo)
+            expect(aggregationInfo.actualAggregator).to.equal(aggregator.address)
+            expect(aggregationInfo.aggregatorStake).to.equal(TWO_ETH)
+            expect(aggregationInfo.aggregatorUnstakeDelay).to.equal(3)
           })
           it('should create wallet in handleOps', async () => {
             await aggregator.validateUserOpSignature(userOp)

@@ -9,7 +9,7 @@ import {
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { deployEntryPoint, fund, simulationResultCatch } from './testutils'
+import { deployEntryPoint, fund, simulationResultCatch, simulationResultWithAggregationCatch } from './testutils'
 import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
@@ -136,7 +136,7 @@ describe('bls wallet', function () {
       ])
     })
 
-    it('validate after simulation returns UnverifiedSignatureAggregator', async () => {
+    it('validate after simulation returns SimulationResultWithAggregation', async () => {
       const verifier = new BlsVerifier(BLS_DOMAIN)
       const senderAddress = await entrypoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
       await fund(senderAddress, '0.01')
@@ -149,8 +149,8 @@ describe('bls wallet', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const { signatureAggregator } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-      expect(signatureAggregator).to.eq(blsAgg.address)
+      const { aggregationInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
+      expect(aggregationInfo.actualAggregator).to.eq(blsAgg.address)
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
       const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]
@@ -158,7 +158,6 @@ describe('bls wallet', function () {
 
       // @ts-ignore
       expect(verifier.verify(signature, pubkey, requestHash1)).to.equal(true)
-
     })
   })
 })
