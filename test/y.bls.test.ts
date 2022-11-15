@@ -9,7 +9,7 @@ import {
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { deployEntryPoint, fund, simulationResultCatch, simulationResultWithAggregationCatch } from './testutils'
+import { deployEntryPoint, fund, ONE_ETH, simulationResultWithAggregationCatch } from './testutils'
 import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
@@ -38,6 +38,7 @@ describe('bls wallet', function () {
       'contracts/bls/lib/BLSOpen.sol:BLSOpen': BLSOpenLib.address
     }, ethers.provider.getSigner()).deploy()
 
+    await blsAgg.addStake(entrypoint.address, 2, { value: ONE_ETH })
     fact = await BlsSignerFactory.new()
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
@@ -151,6 +152,8 @@ describe('bls wallet', function () {
 
       const { aggregationInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
       expect(aggregationInfo.actualAggregator).to.eq(blsAgg.address)
+      expect(aggregationInfo.aggregatorStake).to.eq(ONE_ETH)
+      expect(aggregationInfo.aggregatorUnstakeDelay).to.eq(2)
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
       const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]

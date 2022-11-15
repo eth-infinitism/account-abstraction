@@ -3,6 +3,7 @@ pragma solidity >=0.8.4 <0.9.0;
 pragma abicoder v2;
 
 import "../interfaces/IAggregator.sol";
+import "../interfaces/IEntryPoint.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
 import "./IBLSWallet.sol";
 import "./BLSHelper.sol";
@@ -18,7 +19,7 @@ contract BLSSignatureAggregator is IAggregator {
 
     function getUserOpPublicKey(UserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
         bytes memory initCode = userOp.initCode;
-        if ( initCode.length>0 ) {
+        if (initCode.length > 0) {
             publicKey = getTrailingPublicKey(initCode);
         } else {
             return IBLSWallet(userOp.sender).getBlsPublicKey();
@@ -30,16 +31,16 @@ contract BLSSignatureAggregator is IAggregator {
      */
     function getTrailingPublicKey(bytes memory data) public pure returns (uint256[4] memory publicKey) {
         uint len = data.length;
-        require(len > 32*4, "data to short for sig");
+        require(len > 32 * 4, "data to short for sig");
 
         /* solhint-disable-next-line no-inline-assembly */
         assembly {
-            // actual buffer starts at data+32, so last 128 bytes start at data+32+len-128 = data+len-96
+        // actual buffer starts at data+32, so last 128 bytes start at data+32+len-128 = data+len-96
             let ofs := sub(add(data, len), 96)
             mstore(publicKey, mload(ofs))
-            mstore(add(publicKey,32), mload(add(ofs,32)))
-            mstore(add(publicKey,64), mload(add(ofs,64)))
-            mstore(add(publicKey,96), mload(add(ofs,96)))
+            mstore(add(publicKey, 32), mload(add(ofs, 32)))
+            mstore(add(publicKey, 64), mload(add(ofs, 64)))
+            mstore(add(publicKey, 96), mload(add(ofs, 96)))
         }
     }
 
@@ -149,4 +150,12 @@ contract BLSSignatureAggregator is IAggregator {
         return abi.encode(sum.x, sum.y);
     }
 
+    /**
+     * allow staking for this aggregator
+     * there is no limit on stake  or delay, but it is not a problem, since it is a permissionless
+     * signature aggregator, which doesn't support unstaking.
+     */
+    function addStake(IEntryPoint entryPoint, uint32 delay) external payable {
+        entryPoint.addStake{value : msg.value}(delay);
+    }
 }
