@@ -684,9 +684,7 @@ describe('EntryPoint', function () {
           })
           it('simulateValidation should return aggregator and its stake', async () => {
             await aggregator.addStake(entryPoint.address, 3, { value: TWO_ETH })
-            console.log('deposit info=', await entryPoint.getDepositInfo(aggregator.address))
             const { aggregationInfo } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
-            console.log('info=', aggregationInfo)
             expect(aggregationInfo.actualAggregator).to.equal(aggregator.address)
             expect(aggregationInfo.aggregatorStake).to.equal(TWO_ETH)
             expect(aggregationInfo.aggregatorUnstakeDelay).to.equal(3)
