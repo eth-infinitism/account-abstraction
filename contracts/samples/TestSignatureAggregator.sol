@@ -25,23 +25,18 @@ contract TestSignatureAggregator is IAggregator {
         require(sig == sum, "TestSignatureValidator: aggregated signature mismatch (nonce sum)");
     }
 
-    function validateUserOpSignature(UserOperation calldata userOp, bool)
-    external pure returns (bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
-        return ("", abi.encode(userOp.nonce), abi.encodePacked(userOp.nonce));
+    function validateUserOpSignature(UserOperation calldata)
+    external pure returns (bytes memory) {
+        return "";
     }
 
     /**
-     * aggregate multiple signatures into a single value.
-     * This method is called off-chain to calculate the signature to pass with handleOps()
-     * bundler MAY use optimized custom code perform this aggregation
-     * @param sigsForAggregation array of values returned by validateUserOpSignature() for each op
-   * @return aggregatesSignature the aggregated signature
-   */
-    function aggregateSignatures(bytes[] calldata sigsForAggregation) external pure returns (bytes memory aggregatesSignature) {
+     * dummy test aggregator: sum all nonce values of UserOps.
+     */
+    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
         uint sum = 0;
-        for (uint i = 0; i < sigsForAggregation.length; i++) {
-            (uint nonce) = abi.decode(sigsForAggregation[i], (uint));
-            sum += nonce;
+        for (uint i = 0; i < userOps.length; i++) {
+            sum += userOps[i].nonce;
         }
         return abi.encode(sum);
     }

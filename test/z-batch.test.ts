@@ -1,7 +1,7 @@
 /* eslint-disable no-unreachable */
 import './aa.init'
 import { describe } from 'mocha'
-import { Wallet } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   SimpleWallet,
@@ -11,7 +11,6 @@ import {
   TestCounter__factory
 } from '../typechain'
 import {
-  AddressZero,
   createWalletOwner,
   fund,
   checkForGeth,
@@ -19,7 +18,7 @@ import {
   getWalletDeployer,
   tonumber,
   deployEntryPoint,
-  callDataCost, createAddress, getWalletAddress
+  callDataCost, createAddress, getWalletAddress, simulationResultCatch
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -37,7 +36,6 @@ describe('Batch gas testing', function () {
 
   const ethersSigner = ethers.provider.getSigner()
   let entryPoint: EntryPoint
-  let entryPointView: EntryPoint
 
   let walletOwner: Wallet
   let wallet: SimpleWallet
@@ -49,7 +47,6 @@ describe('Batch gas testing', function () {
     await checkForGeth()
     entryPoint = await deployEntryPoint(1, 1)
     // static call must come from address zero, to validate it can only be called off-chain.
-    entryPointView = entryPoint.connect(ethers.provider.getSigner(AddressZero))
     walletOwner = createWalletOwner()
     wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
     await fund(wallet)
@@ -104,8 +101,8 @@ describe('Batch gas testing', function () {
             maxPriorityFeePerGas: 1e9
           }, walletOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
-          const { preOpGas } = await entryPointView.callStatic.simulateValidation(op1, false, { gasPrice: 1e9 })
-          const txgas = preOpGas.add(op1.callGasLimit).toNumber()
+          const { preOpGas } = await entryPoint.callStatic.simulateValidation(op1, { gasPrice: 1e9 }).catch(simulationResultCatch)
+          const txgas = BigNumber.from(preOpGas).add(op1.callGasLimit).toNumber()
 
           // console.log('colected so far', opsGasCollected, 'estim', verificationGasLimit, 'max', maxTxGas)
           if (opsGasCollected + txgas > maxTxGas) {

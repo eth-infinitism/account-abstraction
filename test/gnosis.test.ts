@@ -118,7 +118,7 @@ describe('Gnosis Proxy', function () {
       new Create2Factory(ethers.provider).getDeployTransactionCallData(ctrCode, 0)
     ])
 
-    counterfactualAddress = await entryPoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
+    counterfactualAddress = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
     expect(!await isDeployed(counterfactualAddress))
 
     await ethersSigner.sendTransaction({ to: counterfactualAddress, value: parseEther('0.1') })

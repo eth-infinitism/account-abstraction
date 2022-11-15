@@ -16,6 +16,33 @@ contract BLSSignatureAggregator is IAggregator {
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
+    function getUserOpPublicKey(UserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
+        bytes memory initCode = userOp.initCode;
+        if ( initCode.length>0 ) {
+            publicKey = getTrailingPublicKey(initCode);
+        } else {
+            return IBLSWallet(userOp.sender).getBlsPublicKey();
+        }
+    }
+
+    /**
+     * return the trailing 4 words of input data
+     */
+    function getTrailingPublicKey(bytes memory data) public pure returns (uint256[4] memory publicKey) {
+        uint len = data.length;
+        require(len > 32*4, "data to short for sig");
+
+        /* solhint-disable-next-line no-inline-assembly */
+        assembly {
+            // actual buffer starts at data+32, so last 128 bytes start at data+32+len-128 = data+len-96
+            let ofs := sub(add(data, len), 96)
+            mstore(publicKey, mload(ofs))
+            mstore(add(publicKey,32), mload(add(ofs,32)))
+            mstore(add(publicKey,64), mload(add(ofs,64)))
+            mstore(add(publicKey,96), mload(add(ofs,96)))
+        }
+    }
+
     function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature)
     external view override {
         require(signature.length == 64, "BLS: invalid signature");
@@ -71,14 +98,8 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     //return the public-key hash of a userOp.
-    // if its a constructor UserOp, then return constructor hash.
     function _getUserOpPubkeyHash(UserOperation memory userOp) internal view returns (bytes32 hashPublicKey) {
-        if (userOp.initCode.length == 0) {
-            uint256[4] memory publicKey = IBLSWallet(userOp.sender).getBlsPublicKey();
-            hashPublicKey = keccak256(abi.encode(publicKey));
-        } else {
-            hashPublicKey = keccak256(userOp.initCode);
-        }
+        return keccak256(abi.encode(getUserOpPublicKey(userOp)));
     }
 
     function getRequestId(UserOperation memory userOp) public view returns (bytes32) {
@@ -97,22 +118,15 @@ contract BLSSignatureAggregator is IAggregator {
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
      *    (usually empty, unless wallet and aggregator support some kind of "multisig"
-     * @return sigForAggregation the value to pass (for all wallets) to aggregateSignatures()
-     * @return offChainSigInfo in case offChainSigCheck is true, return raw data to be validated off-chain.
      */
-    function validateUserOpSignature(UserOperation calldata userOp, bool offChainSigCheck)
-    external view returns (bytes memory sigForUserOp, bytes memory sigForAggregation, bytes memory offChainSigInfo) {
+    function validateUserOpSignature(UserOperation calldata userOp)
+    external view returns (bytes memory sigForUserOp) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
-        uint256[4] memory pubkey = IBLSWallet(userOp.getSender()).getBlsPublicKey();
+        uint256[4] memory pubkey = getUserOpPublicKey(userOp);
         uint256[2] memory message = userOpToMessage(userOp);
 
-        if (offChainSigCheck) {
-            offChainSigInfo = abi.encode(signature, pubkey, getRequestId(userOp));
-        } else {
-            require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
-        }
-        sigForUserOp = "";
-        sigForAggregation = userOp.signature;
+        require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
+        return "";
     }
 
     //copied from BLS.sol
@@ -122,13 +136,13 @@ contract BLSSignatureAggregator is IAggregator {
      * aggregate multiple signatures into a single value.
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
-     * @param sigsForAggregation array of values returned by validateUserOpSignature() for each op
+     * @param userOps array of UserOperations to collect the signatures from.
      * @return aggregatesSignature the aggregated signature
      */
-    function aggregateSignatures(bytes[] memory sigsForAggregation) external pure returns (bytes memory aggregatesSignature) {
-        BLSHelper.XY[] memory points = new BLSHelper.XY[](sigsForAggregation.length);
+    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
+        BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
         for (uint i = 0; i < points.length; i++) {
-            (uint x, uint y) = abi.decode(sigsForAggregation[i], (uint, uint));
+            (uint x, uint y) = abi.decode(userOps[i].signature, (uint, uint));
             points[i] = BLSHelper.XY(x, y);
         }
         BLSHelper.XY memory sum = BLSHelper.sum(points, N);

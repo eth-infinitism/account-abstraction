@@ -9,13 +9,13 @@ import {
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { AddressZero, deployEntryPoint, fund } from './testutils'
-import { fillUserOp } from './UserOp'
+import { deployEntryPoint, fund, simulationResultCatch } from './testutils'
+import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber } from 'ethers'
-import { BytesLike } from '@ethersproject/bytes'
+import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { BLSWalletDeployer } from '../typechain/contracts/bls/BLSWallet.sol'
 import { BLSWalletDeployer__factory } from '../typechain/factories/contracts/bls/BLSWallet.sol'
 
@@ -48,12 +48,18 @@ describe('bls wallet', function () {
     wallet2 = await new BLSWallet__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer2.pubkey)
   })
 
+  it('#getTrailingPublicKey', async () => {
+    const data = defaultAbiCoder.encode(['uint[6]'], [[1, 2, 3, 4, 5, 6]])
+    const last4 = await blsAgg.getTrailingPublicKey(data)
+    expect(last4.map(x => x.toNumber())).to.eql([3, 4, 5, 6])
+  })
   it('#aggregateSignatures', async () => {
     const sig1 = signer1.sign('0x1234')
     const sig2 = signer2.sign('0x5678')
     const offChainSigResult = hexConcat(aggregate([sig1, sig2]))
-    const sigs = [sig1, sig2].map(h => hexConcat(h))
-    const solidityAggResult = await blsAgg.aggregateSignatures(sigs)
+    const userOp1 = { ...DefaultsForUserOp, signature: hexConcat(sig1) }
+    const userOp2 = { ...DefaultsForUserOp, signature: hexConcat(sig2) }
+    const solidityAggResult = await blsAgg.aggregateSignatures([userOp1, userOp2])
     expect(solidityAggResult).to.equal(offChainSigResult)
   })
 
@@ -80,9 +86,8 @@ describe('bls wallet', function () {
     const verifier = new BlsVerifier(BLS_DOMAIN)
     expect(verifier.verify(sigParts, signer1.pubkey, requestHash)).to.equal(true)
 
-    const ret = await blsAgg.validateUserOpSignature(userOp1, false)
-    expect(ret.sigForAggregation).to.equal(userOp1.signature)
-    expect(ret.sigForUserOp).to.equal('0x')
+    const ret = await blsAgg.validateUserOpSignature(userOp1)
+    expect(ret).to.equal('0x')
   })
 
   it('validateSignatures', async function () {
@@ -103,7 +108,7 @@ describe('bls wallet', function () {
     userOp2.signature = hexConcat(sig2)
 
     const aggSig = aggregate([sig1, sig2])
-    const aggregatedSig = await blsAgg.aggregateSignatures([hexConcat(sig1), hexConcat(sig2)])
+    const aggregatedSig = await blsAgg.aggregateSignatures([userOp1, userOp2])
     expect(hexConcat(aggSig)).to.equal(aggregatedSig)
 
     const pubkeys = [
@@ -122,7 +127,6 @@ describe('bls wallet', function () {
 
   describe('#EntryPoint.simulateValidation with aggregator', () => {
     let initCode: BytesLike
-    let entryPointStatic: EntryPoint
     let signer3: any
     before(async () => {
       signer3 = fact.getSigner(arrayify(BLS_DOMAIN), '0x03')
@@ -130,35 +134,11 @@ describe('bls wallet', function () {
         walletDeployer.address,
         walletDeployer.interface.encodeFunctionData('deployWallet', [entrypoint.address, blsAgg.address, 0, signer3.pubkey])
       ])
-      entryPointStatic = entrypoint.connect(AddressZero)
-    })
-    it('with on-chain sig validation', async () => {
-      const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
-      await fund(senderAddress, '0.01')
-      const userOp = await fillUserOp({
-        sender: senderAddress,
-        initCode,
-        nonce: 1
-      }, entrypoint)
-      const requestHash = await blsAgg.getRequestId(userOp)
-      const sigParts = signer3.sign(requestHash)
-      userOp.signature = hexConcat(sigParts)
-      const {
-        actualAggregator,
-        sigForUserOp,
-        sigForAggregation,
-        offChainSigInfo
-      } = await entryPointStatic.callStatic.simulateValidation(userOp, false)
-      expect(offChainSigInfo).to.eq('0x')
-      expect(actualAggregator).to.eq(blsAgg.address)
-
-      expect(sigForUserOp).to.eq('0x')
-      expect(sigForAggregation).to.eq(userOp.signature)
     })
 
-    it('with off-chain sig check', async () => {
+    it('validate after simulation returns UnverifiedSignatureAggregator', async () => {
       const verifier = new BlsVerifier(BLS_DOMAIN)
-      const senderAddress = await entrypoint.connect(AddressZero).callStatic.getSenderAddress(initCode)
+      const senderAddress = await entrypoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
       await fund(senderAddress, '0.01')
       const userOp = await fillUserOp({
         sender: senderAddress,
@@ -169,19 +149,15 @@ describe('bls wallet', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const {
-        actualAggregator,
-        sigForUserOp,
-        sigForAggregation,
-        offChainSigInfo
-      } = await entryPointStatic.callStatic.simulateValidation(userOp, true)
-      expect(actualAggregator).to.eq(blsAgg.address)
+      const { signatureAggregator } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      expect(signatureAggregator).to.eq(blsAgg.address)
 
-      const [signature, pubkey, requestHash1] = defaultAbiCoder.decode(['bytes32[2]', 'bytes32[4]', 'bytes32'], offChainSigInfo)
+      const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
+      const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]
+      const requestHash1 = await blsAgg.getRequestId(userOp)
+
+      // @ts-ignore
       expect(verifier.verify(signature, pubkey, requestHash1)).to.equal(true)
-
-      expect(sigForUserOp).to.eq('0x')
-      expect(sigForAggregation).to.eq(userOp.signature)
     })
   })
 })
