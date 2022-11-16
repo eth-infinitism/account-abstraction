@@ -258,6 +258,18 @@ export function simulationResultWithAggregationCatch (e: any): any {
   return e.errorArgs
 }
 
+/**
+ * process revert result of simulateExecution
+ * note that it must be executed from address zero
+ * usage: entryPoint.connect(AddressZero).simulateExecution(..).catch(executionResultCatch)
+ */
+export function executionResultCatch (e: any): any {
+  if (e.errorName !== 'ExecuteResult') {
+    throw e
+  }
+  return e.errorArgs
+}
+
 export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory(provider.getSigner())
