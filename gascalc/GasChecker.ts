@@ -274,7 +274,7 @@ export class GasCheckCollector {
     }
 
     if (entryPointAddressOrTest === 'test') {
-      this.entryPoint = await deployEntryPoint(1, 1, provider)
+      this.entryPoint = await deployEntryPoint(provider)
     } else {
       this.entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
     }

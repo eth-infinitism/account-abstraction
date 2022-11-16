@@ -49,7 +49,7 @@ describe('EntryPoint with paymaster', function () {
   before(async function () {
     await checkForGeth()
 
-    entryPoint = await deployEntryPoint(100, 10)
+    entryPoint = await deployEntryPoint()
     deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
 
     walletOwner = createWalletOwner()
@@ -86,7 +86,7 @@ describe('EntryPoint with paymaster', function () {
     before(async () => {
       paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(deployer.address, 'tst', entryPoint.address)
       await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
-      await paymaster.addStake(0, { value: parseEther('2') })
+      await paymaster.addStake(1, { value: parseEther('2') })
     })
 
     describe('#handleOps', () => {
@@ -138,7 +138,7 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.mintTokens(preAddr, parseEther('1'))
         // paymaster is the token, so no need for "approve" or any init function...
 
-        await entryPoint.simulateValidation(createOp, false, { gasLimit: 5e6 }).catch(e => e.message)
+        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
 

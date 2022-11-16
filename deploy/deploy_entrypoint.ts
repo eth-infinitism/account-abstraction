@@ -3,9 +3,6 @@ import { DeployFunction } from 'hardhat-deploy/types'
 import { Create2Factory } from '../src/Create2Factory'
 import { ethers } from 'hardhat'
 
-const UNSTAKE_DELAY_SEC = 86400
-const PAYMASTER_STAKE = ethers.utils.parseEther('1')
-
 const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const provider = ethers.provider
   const from = await provider.getSigner().getAddress()
@@ -14,7 +11,7 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
   const ret = await hre.deployments.deploy(
     'EntryPoint', {
       from,
-      args: [PAYMASTER_STAKE, UNSTAKE_DELAY_SEC],
+      args: [],
       gasLimit: 6e6,
       deterministicDeployment: true
     })
