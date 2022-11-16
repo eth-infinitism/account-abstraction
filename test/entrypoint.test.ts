@@ -28,7 +28,6 @@ import {
   TWO_ETH,
   deployEntryPoint,
   getBalance,
-  FIVE_ETH,
   createAddress,
   getWalletAddress,
   HashZero,
@@ -55,14 +54,12 @@ describe('EntryPoint', function () {
 
   let walletOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
-  let signer: string
   let wallet: SimpleWallet
 
   const globalUnstakeDelaySec = 2
   const paymasterStake = ethers.utils.parseEther('2')
 
   before(async function () {
-    signer = await ethersSigner.getAddress()
     await checkForGeth()
 
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
@@ -82,14 +79,6 @@ describe('EntryPoint', function () {
     let addr: string
     before(async () => {
       addr = await ethersSigner.getAddress()
-    })
-
-    it('#getSenderStorage() should get storage cell', async () => {
-      await entryPoint.depositTo(signer, { value: FIVE_ETH })
-      const cells = await entryPoint.getSenderStorage(signer)
-      const val = await ethers.provider.getStorageAt(entryPoint.address, cells[0])
-      const mask = BigNumber.from(2).pow(112).sub(1)
-      expect(BigNumber.from(val).and(mask)).to.eq(FIVE_ETH)
     })
 
     it('should deposit for transfer into EntryPoint', async () => {

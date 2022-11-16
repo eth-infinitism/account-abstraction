@@ -464,23 +464,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * return the storage cells used internally by the EntryPoint for this sender address.
-     * During `simulateValidation`, allow these storage cells to be accessed
-     *  (that is, a wallet/paymaster are allowed to access their own deposit balance on the
-     *  EntryPoint's storage, but no other account)
-     */
-    function getSenderStorage(address sender) external view returns (uint256[] memory senderStorageCells) {
-        uint256 cell;
-        DepositInfo storage info = deposits[sender];
-
-        assembly {
-            cell := info.slot
-        }
-        senderStorageCells = new uint256[](1);
-        senderStorageCells[0] = cell;
-    }
-
-    /**
      * the gas price this UserOp agrees to pay.
      * relayer/miner might submit the TX with higher priorityFee, but the user should not
      */
