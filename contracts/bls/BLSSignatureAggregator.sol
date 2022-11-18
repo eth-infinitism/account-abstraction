@@ -55,9 +55,9 @@ contract BLSSignatureAggregator is IAggregator {
         for (uint256 i = 0; i < userOpsLen; i++) {
 
             UserOperation memory userOp = userOps[i];
-            IBLSAccount blsWallet = IBLSAccount(userOp.sender);
+            IBLSAccount blsAccount = IBLSAccount(userOp.sender);
 
-            blsPublicKeys[i] = blsWallet.getBlsPublicKey{gas : 30000}();
+            blsPublicKeys[i] = blsAccount.getBlsPublicKey{gas : 30000}();
 
             messages[i] = _userOpToMessage(userOp, keccak256(abi.encode(blsPublicKeys[i])));
         }
@@ -86,7 +86,7 @@ contract BLSSignatureAggregator is IAggregator {
 
     /**
      * return the BLS "message" for the given UserOp.
-     * the wallet should sign this value using its public-key
+     * the account should sign this value using its public-key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
         bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
@@ -118,7 +118,7 @@ contract BLSSignatureAggregator is IAggregator {
      * First it validates the signature over the userOp. then it return data to be used when creating the handleOps:
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
-     *    (usually empty, unless wallet and aggregator support some kind of "multisig"
+     *    (usually empty, unless account and aggregator support some kind of "multisig"
      */
     function validateUserOpSignature(UserOperation calldata userOp)
     external view returns (bytes memory sigForUserOp) {
