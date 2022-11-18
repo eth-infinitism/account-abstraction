@@ -13,7 +13,7 @@ pragma solidity ^0.8.12;
 import "../interfaces/IAccount.sol";
 import "../interfaces/IPaymaster.sol";
 
-import "../interfaces/IAggregatedWallet.sol";
+import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
 import "../interfaces/ICreate2Deployer.sol";
 import "../utils/Exec.sol";
@@ -288,7 +288,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         _createSenderIfNeeded(opIndex, mUserOp, op.initCode);
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
-            try IAggregatedWallet(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
+            try IAggregatedAccount(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
                 aggregator = actualAggregator = address(0);

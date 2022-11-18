@@ -9,7 +9,7 @@ import "../samples/SimpleWallet.sol";
  * NOTE: this is not a full "session key" implementation: a real session key should probably limit
  * other things, like target contracts and methods to be called.
  */
-contract TestExpiryWallet is SimpleWallet {
+contract TestExpiryAccount is SimpleWallet {
     using ECDSA for bytes32;
 
     mapping(address => uint256) public ownerDeadlines;

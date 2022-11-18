@@ -9,8 +9,8 @@ import {
   TestCounter__factory,
   TestExpirePaymaster,
   TestExpirePaymaster__factory,
-  TestExpiryWallet,
-  TestExpiryWallet__factory,
+  TestExpiryAccount,
+  TestExpiryAccount__factory,
   TestPaymasterAcceptAll,
   TestPaymasterAcceptAll__factory
 } from '../typechain'
@@ -31,7 +31,7 @@ import {
   createAddress,
   getWalletAddress,
   HashZero,
-  getAggregatedWalletDeployer,
+  getAggregatedAccountDeployer,
   simulationResultCatch,
   simulationResultWithAggregationCatch
 } from './testutils'
@@ -43,11 +43,11 @@ import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/u
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
-import { TestAggregatedWallet } from '../typechain/contracts/samples/TestAggregatedWallet'
+import { TestAggregatedAccount } from '../typechain/contracts/samples/TestAggregatedAccount'
 import {
   TestSignatureAggregator__factory
 } from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
-import { TestAggregatedWallet__factory } from '../typechain/factories/contracts/samples/TestAggregatedWallet__factory'
+import { TestAggregatedAccount__factory } from '../typechain/factories/contracts/samples/TestAggregatedAccount__factory'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -554,13 +554,13 @@ describe('EntryPoint', function () {
     describe('aggregation tests', () => {
       const beneficiaryAddress = createAddress()
       let aggregator: TestSignatureAggregator
-      let aggWallet: TestAggregatedWallet
-      let aggWallet2: TestAggregatedWallet
+      let aggWallet: TestAggregatedAccount
+      let aggWallet2: TestAggregatedAccount
 
       before(async () => {
         aggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
-        aggWallet = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
-        aggWallet2 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+        aggWallet = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+        aggWallet2 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
         await ethersSigner.sendTransaction({ to: aggWallet.address, value: parseEther('0.1') })
         await ethersSigner.sendTransaction({ to: aggWallet2.address, value: parseEther('0.1') })
       })
@@ -604,7 +604,7 @@ describe('EntryPoint', function () {
 
       it('should run with multiple aggregators (and non-aggregated-wallets)', async () => {
         const aggregator3 = await new TestSignatureAggregator__factory(ethersSigner).deploy()
-        const aggWallet3 = await new TestAggregatedWallet__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
+        const aggWallet3 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
         await ethersSigner.sendTransaction({ to: aggWallet3.address, value: parseEther('0.1') })
 
         const userOp1 = await fillAndSign({
@@ -663,7 +663,7 @@ describe('EntryPoint', function () {
           let addr: string
           let userOp: UserOperation
           before(async () => {
-            initCode = await getAggregatedWalletDeployer(entryPoint.address, aggregator.address)
+            initCode = await getAggregatedAccountDeployer(entryPoint.address, aggregator.address)
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
@@ -756,11 +756,11 @@ describe('EntryPoint', function () {
 
     describe('Validation deadline', () => {
       describe('validateUserOp deadline', function () {
-        let wallet: TestExpiryWallet
+        let wallet: TestExpiryAccount
         let now: number
         before('init wallet with session key', async () => {
           // create a test wallet. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
-          wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+          wallet = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
           await ethersSigner.sendTransaction({ to: wallet.address, value: parseEther('0.1') })
           now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
         })
@@ -786,12 +786,12 @@ describe('EntryPoint', function () {
       })
 
       describe('validatePaymasterUserOp with deadline', function () {
-        let wallet: TestExpiryWallet
+        let wallet: TestExpiryAccount
         let paymaster: TestExpirePaymaster
         let now: number
         before('init wallet with session key', async () => {
           // wallet without eth - must be paid by paymaster.
-          wallet = await new TestExpiryWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+          wallet = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
           paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
           await paymaster.addStake(1, { value: paymasterStake })
           await paymaster.deposit({ value: parseEther('0.1') })
