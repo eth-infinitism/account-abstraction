@@ -22,7 +22,7 @@ contract TestExpiryAccount is SimpleWallet {
         ownerDeadlines[owner] = deadline;
     }
 
-    /// implement template method of BaseWallet
+    /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address)
     internal override view returns (uint256 deadline) {
         bytes32 hash = requestId.toEthSignedMessageHash();

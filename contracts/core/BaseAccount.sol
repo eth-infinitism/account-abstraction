@@ -13,7 +13,7 @@ import "../interfaces/IEntryPoint.sol";
  * this contract provides the basic logic for implementing the IAccount interface  - validateUserOp
  * specific wallet implementation should inherit it and provide the wallet-specific logic
  */
-abstract contract BaseWallet is IAccount {
+abstract contract BaseAccount is IAccount {
     using UserOperationLib for UserOperation;
 
     /**

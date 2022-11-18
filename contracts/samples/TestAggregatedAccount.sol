@@ -2,7 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "../interfaces/IAggregatedAccount.sol";
-import "../core/BaseWallet.sol";
+import "../core/BaseAccount.sol";
 import "./SimpleWallet.sol";
 import "../interfaces/UserOperation.sol";
 
