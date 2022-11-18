@@ -10,7 +10,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 /* solhint-disable avoid-tx-origin */
 
-import "../interfaces/IWallet.sol";
+import "../interfaces/IAccount.sol";
 import "../interfaces/IPaymaster.sol";
 
 import "../interfaces/IAggregatedWallet.sol";
@@ -301,7 +301,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 _deadline) {
+        try IAccount(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 _deadline) {
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
                 revert FailedOp(opIndex, address(0), "expired");

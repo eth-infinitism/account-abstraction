@@ -3,7 +3,7 @@ pragma solidity ^0.8.12;
 
 import "./UserOperation.sol";
 
-interface IWallet {
+interface IAccount {
 
     /**
      * Validate user's signature and nonce
