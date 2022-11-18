@@ -5,7 +5,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "../core/BaseWallet.sol";
+import "../core/BaseAccount.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
   *  has execute, eth handling methods
   *  has a single signer that can send requests through the entryPoint.
   */
-contract SimpleWallet is BaseWallet {
+contract SimpleWallet is BaseAccount {
     using ECDSA for bytes32;
 
     //explicit sizes of nonce, to fit a single storage cell with "owner"
@@ -107,12 +107,12 @@ contract SimpleWallet is BaseWallet {
         _call(dest, value, func);
     }
 
-    /// implement template method of BaseWallet
+    /// implement template method of BaseAccount
     function _validateAndUpdateNonce(UserOperation calldata userOp) internal override {
         require(_nonce++ == userOp.nonce, "wallet: invalid nonce");
     }
 
-    /// implement template method of BaseWallet
+    /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address)
     internal override virtual returns (uint256 deadline) {
         bytes32 hash = requestId.toEthSignedMessageHash();
