@@ -2,8 +2,8 @@ import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SampleAcct,
+  SampleAcct__factory,
   EntryPoint,
   VerifyingPaymaster,
   VerifyingPaymaster__factory
@@ -19,7 +19,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPoint: EntryPoint
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
-  let account: SimpleWallet
+  let account: SampleAcct
   let offchainSigner: Wallet
 
   let paymaster: VerifyingPaymaster
@@ -32,7 +32,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     paymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(entryPoint.address, offchainSigner.address)
     await paymaster.addStake(1, { value: parseEther('2') })
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
-    account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
+    account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
   })
 
   describe('#validatePaymasterUserOp', () => {

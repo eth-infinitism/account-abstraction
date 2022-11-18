@@ -3,8 +3,8 @@ import { BigNumber, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   EntryPoint,
-  SimpleWallet,
-  SimpleWallet__factory,
+  SampleAcct,
+  SampleAcct__factory,
   TestCounter,
   TestCounter__factory,
   TestExpirePaymaster,
@@ -54,7 +54,7 @@ describe('EntryPoint', function () {
 
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
-  let account: SimpleWallet
+  let account: SampleAcct
 
   const globalUnstakeDelaySec = 2
   const paymasterStake = ethers.utils.parseEther('2')
@@ -67,7 +67,7 @@ describe('EntryPoint', function () {
     entryPoint = await deployEntryPoint()
 
     accountOwner = createAccountOwner()
-    account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+    account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
     await fund(account)
 
     // sanity: validate helper functions
@@ -197,10 +197,10 @@ describe('EntryPoint', function () {
     })
     describe('with deposit', () => {
       let owner: string
-      let account: SimpleWallet
+      let account: SampleAcct
       before(async () => {
         owner = await ethersSigner.getAddress()
-        account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, owner)
+        account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, owner)
         await account.addDeposit({ value: ONE_ETH })
         expect(await getBalance(account.address)).to.equal(0)
         expect(await account.getDeposit()).to.eql(ONE_ETH)
@@ -216,10 +216,10 @@ describe('EntryPoint', function () {
 
   describe('#simulateValidation', () => {
     const accountOwner1 = createAccountOwner()
-    let account1: SimpleWallet
+    let account1: SampleAcct
 
     before(async () => {
-      account1 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await accountOwner1.getAddress())
+      account1 = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await accountOwner1.getAddress())
     })
 
     it('should fail if validateUserOp fails', async () => {
@@ -268,7 +268,7 @@ describe('EntryPoint', function () {
 
     it('should not call initCode from entrypoint', async () => {
       // a possible attack: call an account's execFromEntryPoint through initCode. This might lead to stolen funds.
-      const account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
+      const account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
       const sender = createAddress()
       const op1 = await fillAndSign({
         initCode: hexConcat([
@@ -507,14 +507,14 @@ describe('EntryPoint', function () {
       const accountOwner1 = createAccountOwner()
       let account1: string
       const accountOwner2 = createAccountOwner()
-      let account2: SimpleWallet
+      let account2: SampleAcct
 
       before('before', async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         accountExecCounterFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
         account1 = getAccountAddress(entryPoint.address, accountOwner1.address)
-        account2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, accountOwner2.address)
+        account2 = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, accountOwner2.address)
         await fund(account1)
         await fund(account2.address)
         // execute and increment counter

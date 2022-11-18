@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./SimpleWallet.sol";
+import "./SampleAcct.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 /**
- * A sampler deployer contract for SimpleWallet
+ * A sampler deployer contract for SampleAcct
  * A UserOperations "initCode" holds the address of the deployer, and a method call (to deployAccount, in this sample deployer).
  * The deployer's deployAccount returns the target account address even if it is already installed.
  * This way, the entryPoint.getSenderAddress() can be called either before or after the account is created.
  */
-contract SimpleWalletDeployer {
+contract SampleAcctDeployer {
 
     /**
      * create an account, and return its address.
@@ -17,13 +17,13 @@ contract SimpleWalletDeployer {
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      */
-    function deployAccount(IEntryPoint entryPoint, address owner, uint salt) public returns (SimpleWallet ret) {
+    function deployAccount(IEntryPoint entryPoint, address owner, uint salt) public returns (SampleAcct ret) {
         address addr = getAddress(entryPoint, owner, salt);
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
-            return SimpleWallet(payable(addr));
+            return SampleAcct(payable(addr));
         }
-        ret = new SimpleWallet{salt : bytes32(salt)}(entryPoint, owner);
+        ret = new SampleAcct{salt : bytes32(salt)}(entryPoint, owner);
     }
 
     /**
@@ -31,7 +31,7 @@ contract SimpleWalletDeployer {
      */
     function getAddress(IEntryPoint entryPoint, address owner, uint salt) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
-                type(SimpleWallet).creationCode,
+                type(SampleAcct).creationCode,
                 abi.encode(entryPoint, owner))
             ));
     }

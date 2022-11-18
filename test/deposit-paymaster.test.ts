@@ -2,8 +2,8 @@ import './aa.init'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SampleAcct,
+  SampleAcct__factory,
   EntryPoint,
   DepositPaymaster,
   DepositPaymaster__factory,
@@ -42,10 +42,10 @@ describe('DepositPaymaster', () => {
   })
 
   describe('deposit', () => {
-    let account: SimpleWallet
+    let account: SampleAcct
 
     before(async () => {
-      account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+      account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
     })
     it('should deposit and read balance', async () => {
       await paymaster.addDepositFor(token.address, account.address, 100)
@@ -77,13 +77,13 @@ describe('DepositPaymaster', () => {
   })
 
   describe('#validatePaymasterUserOp', () => {
-    let account: SimpleWallet
+    let account: SampleAcct
     const gasPrice = 1e9
     let accountOwner: string
 
     before(async () => {
       accountOwner = await ethersSigner.getAddress()
-      account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, accountOwner)
+      account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, accountOwner)
     })
 
     it('should fail if no token', async () => {
@@ -136,12 +136,12 @@ describe('DepositPaymaster', () => {
     })
   })
   describe('#handleOps', () => {
-    let account: SimpleWallet
+    let account: SampleAcct
     const accountOwner = createAccountOwner()
     let counter: TestCounter
     let callData: string
     before(async () => {
-      account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
+      account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
       counter = await new TestCounter__factory(ethersSigner).deploy()
       const counterJustEmit = await counter.populateTransaction.justemit().then(tx => tx.data!)
       callData = await account.populateTransaction.execFromEntryPoint(counter.address, 0, counterJustEmit).then(tx => tx.data!)

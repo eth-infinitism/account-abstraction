@@ -2,14 +2,14 @@ import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SampleAcct,
+  SampleAcct__factory,
   EntryPoint,
   TokenPaymaster,
   TokenPaymaster__factory,
   TestCounter__factory,
-  SimpleWalletDeployer,
-  SimpleWalletDeployer__factory
+  SampleAcctDeployer,
+  SampleAcctDeployer__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -35,9 +35,9 @@ describe('EntryPoint with paymaster', function () {
   let entryPoint: EntryPoint
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
-  let account: SimpleWallet
+  let account: SampleAcct
   const beneficiaryAddress = '0x'.padEnd(42, '1')
-  let deployer: SimpleWalletDeployer
+  let deployer: SampleAcctDeployer
 
   function getAccountDeployer (entryPoint: string, accountOwner: string): string {
     return hexConcat([
@@ -50,10 +50,10 @@ describe('EntryPoint with paymaster', function () {
     await checkForGeth()
 
     entryPoint = await deployEntryPoint()
-    deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
+    deployer = await new SampleAcctDeployer__factory(ethersSigner).deploy()
 
     accountOwner = createAccountOwner()
-    account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+    account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
     await fund(account)
   })
 
@@ -178,10 +178,10 @@ describe('EntryPoint with paymaster', function () {
         const execFromSingleton = account.interface.encodeFunctionData('execFromEntryPoint', [testCounter.address, 0, justEmit])
 
         const ops: UserOperation[] = []
-        const accounts: SimpleWallet[] = []
+        const accounts: SampleAcct[] = []
 
         for (let i = 0; i < 4; i++) {
-          const aAccount = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+          const aAccount = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
           await paymaster.mintTokens(aAccount.address, parseEther('1'))
           const op = await fillAndSign({
             sender: aAccount.address,
@@ -210,10 +210,10 @@ describe('EntryPoint with paymaster', function () {
       // but the execution of account1 drains account2.
       // as a result, the postOp of the paymaster reverts, and cause entire handleOp to revert.
       describe('grief attempt', () => {
-        let account2: SimpleWallet
+        let account2: SampleAcct
         let approveCallData: string
         before(async () => {
-          account2 = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+          account2 = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
           await paymaster.mintTokens(account2.address, parseEther('1'))
           await paymaster.mintTokens(account.address, parseEther('1'))
           approveCallData = paymaster.interface.encodeFunctionData('approve', [account.address, ethers.constants.MaxUint256])

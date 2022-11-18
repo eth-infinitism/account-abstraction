@@ -4,8 +4,6 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "../interfaces/IAggregator.sol";
-import "hardhat/console.sol";
-import "./SimpleWallet.sol";
 import "../core/EntryPoint.sol";
 
 /**

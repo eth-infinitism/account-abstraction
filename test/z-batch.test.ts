@@ -4,8 +4,8 @@ import { describe } from 'mocha'
 import { BigNumber, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SampleAcct,
+  SampleAcct__factory,
   EntryPoint,
   TestCounter,
   TestCounter__factory
@@ -38,7 +38,7 @@ describe('Batch gas testing', function () {
   let entryPoint: EntryPoint
 
   let accountOwner: Wallet
-  let account: SimpleWallet
+  let account: SampleAcct
 
   const results: Array<() => void> = []
   before(async function () {
@@ -48,7 +48,7 @@ describe('Batch gas testing', function () {
     entryPoint = await deployEntryPoint()
     // static call must come from address zero, to validate it can only be called off-chain.
     accountOwner = createAccountOwner()
-    account = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+    account = await new SampleAcct__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
     await fund(account)
   })
 

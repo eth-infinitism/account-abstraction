@@ -1,7 +1,7 @@
 import { BigNumber, Bytes, ethers, Signer, Event } from 'ethers'
 import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/providers'
 import { Deferrable, resolveProperties } from '@ethersproject/properties'
-import { SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory } from '../typechain'
+import { SampleAcct, SampleAcct__factory, EntryPoint, EntryPoint__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { TransactionResponse } from '@ethersproject/abstract-provider'
 import { fillAndSign, getRequestId } from '../test/UserOp'
@@ -191,7 +191,7 @@ export class AAProvider extends BaseProvider {
  * a signer that wraps account-abstraction.
  */
 export class AASigner extends Signer {
-  _account?: SimpleWallet
+  _account?: SampleAcct
 
   private _isPhantom = true
   public entryPoint: EntryPoint
@@ -219,7 +219,7 @@ export class AASigner extends Signer {
     if (await this.provider!.getCode(address).then(code => code.length) <= 2) {
       throw new Error('cannot connect to non-existing contract')
     }
-    this._account = SimpleWallet__factory.connect(address, this.signer)
+    this._account = SampleAcct__factory.connect(address, this.signer)
     this._isPhantom = false
   }
 
@@ -233,7 +233,7 @@ export class AASigner extends Signer {
 
   async _deploymentTransaction (): Promise<BytesLike> {
     const ownerAddress = await this.signer.getAddress()
-    return new SimpleWallet__factory(this.signer)
+    return new SampleAcct__factory(this.signer)
       .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
   }
 
@@ -250,7 +250,7 @@ export class AASigner extends Signer {
     throw new Error('signMessage: unsupported by AA')
   }
 
-  async getAccount (): Promise<SimpleWallet> {
+  async getAccount (): Promise<SampleAcct> {
     await this.syncAccount()
     return this._account!
   }
@@ -345,7 +345,7 @@ export class AASigner extends Signer {
   async syncAccount (): Promise<void> {
     if (this._account == null) {
       const address = await this._deploymentAddress()
-      this._account = SimpleWallet__factory.connect(address, this.signer)
+      this._account = SampleAcct__factory.connect(address, this.signer)
     }
 
     this._chainId = this.provider?.getNetwork().then(net => net.chainId)

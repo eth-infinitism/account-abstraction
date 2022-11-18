@@ -3,7 +3,7 @@ pragma solidity ^0.8.12;
 
 import "../interfaces/IAggregatedAccount.sol";
 import "../core/BaseAccount.sol";
-import "./SimpleWallet.sol";
+import "./SampleAcct.sol";
 import "../interfaces/UserOperation.sol";
 
 /**
@@ -11,11 +11,11 @@ import "../interfaces/UserOperation.sol";
  * works only with TestAggregatedSignature, which doesn't really check signature, but nonce sum
  * a true aggregated account should expose data (e.g. its public key) to the aggregator.
  */
-contract TestAggregatedAccount is SimpleWallet, IAggregatedAccount {
+contract TestAggregatedAccount is SampleAcct, IAggregatedAccount {
     address public immutable aggregator;
 
     constructor(IEntryPoint anEntryPoint, address anAggregator)
-    SimpleWallet(anEntryPoint, address(0)) {
+    SampleAcct(anEntryPoint, address(0)) {
         aggregator = anAggregator;
     }
 
