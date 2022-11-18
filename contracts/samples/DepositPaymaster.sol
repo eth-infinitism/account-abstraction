@@ -134,9 +134,10 @@ contract DepositPaymaster is BasePaymaster {
         IERC20 token = IERC20(address(bytes20(paymasterAndData[20:])));
         address account = userOp.getSender();
         uint256 maxTokenCost = getTokenValueOfEth(token, maxCost);
+        uint256 gasPriceUserOp = userOp.gasPrice();
         require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");
         require(balances[token][account] >= maxTokenCost, "DepositPaymaster: deposit too low");
-        return (abi.encode(account, token, maxTokenCost, maxCost),0);
+        return (abi.encode(account, token, gasPriceUserOp, maxTokenCost, maxCost),0);
     }
 
     /**
@@ -148,9 +149,9 @@ contract DepositPaymaster is BasePaymaster {
      */
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
 
-        (address account, IERC20 token, uint256 maxTokenCost, uint256 maxCost) = abi.decode(context, (address, IERC20, uint256, uint256));
+        (address account, IERC20 token, uint256 gasPricePostOp, uint256 maxTokenCost, uint256 maxCost) = abi.decode(context, (address, IERC20, uint256, uint256, uint256));
         //use same conversion rate as used for validation.
-        uint256 actualTokenCost = (actualGasCost + COST_OF_POST) * maxTokenCost / maxCost;
+        uint256 actualTokenCost = (actualGasCost + COST_OF_POST * gasPricePostOp) * maxTokenCost / maxCost;
         if (mode != PostOpMode.postOpReverted) {
             // attempt to pay with tokens:
             token.safeTransferFrom(account, address(this), actualTokenCost);
