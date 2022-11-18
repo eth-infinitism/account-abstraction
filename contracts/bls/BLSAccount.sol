@@ -2,7 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "../samples/SimpleWallet.sol";
-import "./IBLSWallet.sol";
+import "./IBLSAccount.sol";
 
 /**
  * Minimal BLS-based wallet that uses an aggregated signature.
@@ -11,7 +11,7 @@ import "./IBLSWallet.sol";
  * (normal SimpleWallet uses its "signer" address as both the ecrecover signer, and as a legitimate
  * Ethereum sender address. Obviously, a BLS public is not a valid Ethereum sender address.)
  */
-contract BLSWallet is SimpleWallet, IBLSWallet {
+contract BLSAccount is SimpleWallet, IBLSAccount {
     address public immutable aggregator;
     uint256[4] private publicKey;
 
@@ -25,7 +25,7 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
     internal override view returns (uint256 deadline) {
 
         (userOp, requestId);
-        require(userOpAggregator == aggregator, "BLSWallet: wrong aggregator");
+        require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
         return 0;
     }
 
@@ -46,9 +46,9 @@ contract BLSWallet is SimpleWallet, IBLSWallet {
 }
 
 
-contract BLSWalletDeployer {
+contract BLSAccountDeployer {
 
-    function deployWallet(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSWallet) {
-        return new BLSWallet{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
+    function deployWallet(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
+        return new BLSAccount{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
     }
 }

@@ -4,8 +4,8 @@ import {
   BLSOpen__factory,
   BLSSignatureAggregator,
   BLSSignatureAggregator__factory,
-  BLSWallet,
-  BLSWallet__factory,
+  BLSAccount,
+  BLSAccount__factory,
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
@@ -16,8 +16,8 @@ import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber } from 'ethers'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
-import { BLSWalletDeployer } from '../typechain/contracts/bls/BLSWallet.sol'
-import { BLSWalletDeployer__factory } from '../typechain/factories/contracts/bls/BLSWallet.sol'
+import { BLSAccountDeployer } from '../typechain/contracts/bls/BLSAccount.sol'
+import { BLSAccountDeployer__factory } from '../typechain/factories/contracts/bls/BLSAccount.sol'
 
 describe('bls wallet', function () {
   this.timeout(20000)
@@ -28,9 +28,9 @@ describe('bls wallet', function () {
   let signer2: any
   let blsAgg: BLSSignatureAggregator
   let entrypoint: EntryPoint
-  let wallet1: BLSWallet
-  let wallet2: BLSWallet
-  let walletDeployer: BLSWalletDeployer
+  let wallet1: BLSAccount
+  let wallet2: BLSAccount
+  let walletDeployer: BLSAccountDeployer
   before(async () => {
     entrypoint = await deployEntryPoint()
     const BLSOpenLib = await new BLSOpen__factory(ethers.provider.getSigner()).deploy()
@@ -43,10 +43,10 @@ describe('bls wallet', function () {
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
 
-    walletDeployer = await new BLSWalletDeployer__factory(etherSigner).deploy()
+    walletDeployer = await new BLSAccountDeployer__factory(etherSigner).deploy()
 
-    wallet1 = await new BLSWallet__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer1.pubkey)
-    wallet2 = await new BLSWallet__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer2.pubkey)
+    wallet1 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer1.pubkey)
+    wallet2 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer2.pubkey)
   })
 
   it('#getTrailingPublicKey', async () => {
