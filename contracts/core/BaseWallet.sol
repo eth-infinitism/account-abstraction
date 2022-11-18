@@ -5,15 +5,15 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "../interfaces/IWallet.sol";
+import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
 
 /**
  * Basic wallet implementation.
- * this contract provides the basic logic for implementing the IWallet interface  - validateUserOp
+ * this contract provides the basic logic for implementing the IAccount interface  - validateUserOp
  * specific wallet implementation should inherit it and provide the wallet-specific logic
  */
-abstract contract BaseWallet is IWallet {
+abstract contract BaseWallet is IAccount {
     using UserOperationLib for UserOperation;
 
     /**

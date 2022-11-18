@@ -14,12 +14,12 @@ import "../core/EntryPoint.sol";
 
 /**
  * Main EIP4337 module.
- * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IWallet",
+ * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IAccount",
  * so must implement validateUserOp
  * holds an immutable reference to the EntryPoint
  * Inherits GnosisSafeStorage so that it can reference the memory storage
  */
-contract EIP4337Manager is GnosisSafe, IWallet {
+contract EIP4337Manager is GnosisSafe, IAccount {
 
     address public immutable eip4337Fallback;
     address public immutable entryPoint;
