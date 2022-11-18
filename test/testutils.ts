@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { arrayify, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleWallet__factory, TestAggregatedWallet__factory } from '../typechain'
+import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleWallet__factory, TestAggregatedAccount__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
@@ -93,8 +93,8 @@ export function getWalletDeployer (entryPoint: string, owner: string): BytesLike
   ])
 }
 
-export async function getAggregatedWalletDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
-  const walletCtr = await new TestAggregatedWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
+export async function getAggregatedAccountDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
+  const walletCtr = await new TestAggregatedAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
 
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)

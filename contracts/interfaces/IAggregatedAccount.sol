@@ -10,7 +10,7 @@ import "./IAggregator.sol";
  * - the validateUserOp will be called only after the aggregator validated this wallet (with all other wallets of this aggregator).
  * - the validateUserOp MUST valiate the aggregator parameter, and MAY ignore the userOp.signature field.
  */
-interface IAggregatedWallet is IAccount {
+interface IAggregatedAccount is IAccount {
 
     /**
      * return the address of the signature aggregator the wallet supports.
