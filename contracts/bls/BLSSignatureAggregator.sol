@@ -5,12 +5,12 @@ pragma abicoder v2;
 import "../interfaces/IAggregator.sol";
 import "../interfaces/IEntryPoint.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
-import "./IBLSWallet.sol";
+import "./IBLSAccount.sol";
 import "./BLSHelper.sol";
 import "hardhat/console.sol";
 
 /**
- * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSWallet
+ * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSAccount
  */
 contract BLSSignatureAggregator is IAggregator {
     using UserOperationLib for UserOperation;
@@ -22,7 +22,7 @@ contract BLSSignatureAggregator is IAggregator {
         if (initCode.length > 0) {
             publicKey = getTrailingPublicKey(initCode);
         } else {
-            return IBLSWallet(userOp.sender).getBlsPublicKey();
+            return IBLSAccount(userOp.sender).getBlsPublicKey();
         }
     }
 
@@ -55,7 +55,7 @@ contract BLSSignatureAggregator is IAggregator {
         for (uint256 i = 0; i < userOpsLen; i++) {
 
             UserOperation memory userOp = userOps[i];
-            IBLSWallet blsWallet = IBLSWallet(userOp.sender);
+            IBLSAccount blsWallet = IBLSAccount(userOp.sender);
 
             blsPublicKeys[i] = blsWallet.getBlsPublicKey{gas : 30000}();
 
