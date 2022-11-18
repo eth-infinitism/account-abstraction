@@ -7,9 +7,9 @@ import "./SimpleWallet.sol";
 import "../interfaces/UserOperation.sol";
 
 /**
- * test aggregated-signature wallet.
+ * test aggregated-signature account.
  * works only with TestAggregatedSignature, which doesn't really check signature, but nonce sum
- * a true aggregated wallet should expose data (e.g. its public key) to the aggregator.
+ * a true aggregated account should expose data (e.g. its public key) to the aggregator.
  */
 contract TestAggregatedAccount is SimpleWallet, IAggregatedAccount {
     address public immutable aggregator;

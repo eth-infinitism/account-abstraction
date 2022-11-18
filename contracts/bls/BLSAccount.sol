@@ -5,9 +5,9 @@ import "../samples/SimpleWallet.sol";
 import "./IBLSAccount.sol";
 
 /**
- * Minimal BLS-based wallet that uses an aggregated signature.
- * The wallet must maintain its own BLS public-key, and expose its trusted signature aggregator.
- * Note that unlike the "standard" SimpleWallet, this wallet can't be called directly
+ * Minimal BLS-based account that uses an aggregated signature.
+ * The account must maintain its own BLS public-key, and expose its trusted signature aggregator.
+ * Note that unlike the "standard" SimpleWallet, this account can't be called directly
  * (normal SimpleWallet uses its "signer" address as both the ecrecover signer, and as a legitimate
  * Ethereum sender address. Obviously, a BLS public is not a valid Ethereum sender address.)
  */
@@ -48,7 +48,7 @@ contract BLSAccount is SimpleWallet, IBLSAccount {
 
 contract BLSAccountDeployer {
 
-    function deployWallet(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
+    function deployAccount(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
         return new BLSAccount{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
     }
 }
