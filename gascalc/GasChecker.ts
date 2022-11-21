@@ -8,7 +8,7 @@ import {
   createAccountOwner,
   deployEntryPoint
 } from '../test/testutils'
-import { EntryPoint, EntryPoint__factory, SimpleWallet__factory } from '../typechain'
+import { EntryPoint, EntryPoint__factory, SimpleAccount__factory } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
 import { fillAndSign } from '../test/UserOp'
@@ -17,7 +17,7 @@ import { table, TableUserConfig } from 'table'
 import { Create2Factory } from '../src/Create2Factory'
 import { hexValue } from '@ethersproject/bytes'
 import * as fs from 'fs'
-import { SimpleWalletInterface } from '../typechain/contracts/samples/SimpleWallet'
+import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
 
@@ -88,11 +88,11 @@ export class GasChecker {
 
   accountOwner: Wallet
 
-  accountInterface: SimpleWalletInterface
+  accountInterface: SimpleAccountInterface
 
   constructor () {
     this.accountOwner = createAccountOwner()
-    this.accountInterface = SimpleWallet__factory.createInterface()
+    this.accountInterface = SimpleAccount__factory.createInterface()
     void GasCheckCollector.init()
   }
 
@@ -103,7 +103,7 @@ export class GasChecker {
 
   // generate the account "creation code"
   accountInitCode (): string {
-    return hexValue(new SimpleWallet__factory(ethersSigner).getDeployTransaction(GasCheckCollector.inst.entryPoint.address, this.accountOwner.address).data!)
+    return hexValue(new SimpleAccount__factory(ethersSigner).getDeployTransaction(GasCheckCollector.inst.entryPoint.address, this.accountOwner.address).data!)
   }
 
   /**

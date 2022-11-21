@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { arrayify, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleWallet__factory, TestAggregatedAccount__factory } from '../typechain'
+import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleAccount__factory, TestAggregatedAccount__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
@@ -84,7 +84,7 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 // note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
 // with each deployment. a better deployer will only receive the constructor parameters.
 export function getAccountDeployer (entryPoint: string, owner: string): BytesLike {
-  const accountCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+  const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
   return hexConcat([
@@ -106,7 +106,7 @@ export async function getAggregatedAccountDeployer (entryPoint: string, aggregat
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
 export function getAccountAddress (entryPoint: string, owner: string): string {
-  const accountCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+  const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
   return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(accountCtr)))
 }
 

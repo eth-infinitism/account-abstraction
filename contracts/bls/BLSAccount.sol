@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "../samples/SimpleWallet.sol";
+import "../samples/SimpleAccount.sol";
 import "./IBLSAccount.sol";
 
 /**
  * Minimal BLS-based account that uses an aggregated signature.
  * The account must maintain its own BLS public-key, and expose its trusted signature aggregator.
- * Note that unlike the "standard" SimpleWallet, this account can't be called directly
- * (normal SimpleWallet uses its "signer" address as both the ecrecover signer, and as a legitimate
+ * Note that unlike the "standard" SimpleAccount, this account can't be called directly
+ * (normal SimpleAccount uses its "signer" address as both the ecrecover signer, and as a legitimate
  * Ethereum sender address. Obviously, a BLS public is not a valid Ethereum sender address.)
  */
-contract BLSAccount is SimpleWallet, IBLSAccount {
+contract BLSAccount is SimpleAccount, IBLSAccount {
     address public immutable aggregator;
     uint256[4] private publicKey;
 
     constructor(IEntryPoint anEntryPoint, address anAggregator, uint256[4] memory aPublicKey)
-    SimpleWallet(anEntryPoint, address(0)) {
+    SimpleAccount(anEntryPoint, address(0)) {
         publicKey = aPublicKey;
         aggregator = anAggregator;
     }

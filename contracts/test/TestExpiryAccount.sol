@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.12;
 
-import "../samples/SimpleWallet.sol";
+import "../samples/SimpleAccount.sol";
 
 /**
  * A test account, for testing expiry.
@@ -9,12 +9,12 @@ import "../samples/SimpleWallet.sol";
  * NOTE: this is not a full "session key" implementation: a real session key should probably limit
  * other things, like target contracts and methods to be called.
  */
-contract TestExpiryAccount is SimpleWallet {
+contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
     mapping(address => uint256) public ownerDeadlines;
 
-    constructor(IEntryPoint anEntryPoint, address anOwner) SimpleWallet(anEntryPoint, anOwner) {
+    constructor(IEntryPoint anEntryPoint, address anOwner) SimpleAccount(anEntryPoint, anOwner) {
         addTemporaryOwner(anOwner, type(uint256).max);
     }
 

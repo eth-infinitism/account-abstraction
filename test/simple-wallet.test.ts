@@ -2,9 +2,9 @@ import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWalletDeployer__factory,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccountDeployer__factory,
+  SimpleAccount__factory,
   TestUtil,
   TestUtil__factory
 } from '../typechain'
@@ -13,7 +13,7 @@ import { fillUserOpDefaults, getRequestId, packUserOp, signUserOp } from './User
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
-describe('SimpleWallet', function () {
+describe('SimpleAccount', function () {
   const entryPoint = '0x'.padEnd(42, '2')
   let accounts: string[]
   let testUtil: TestUtil
@@ -29,12 +29,12 @@ describe('SimpleWallet', function () {
   })
 
   it('owner should be able to call transfer', async () => {
-    const account = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
+    const account = await new SimpleAccount__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
     await account.transfer(accounts[2], ONE_ETH)
   })
   it('other account should not be able to call transfer', async () => {
-    const account = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
+    const account = await new SimpleAccount__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
     await expect(account.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
       .to.be.revertedWith('only owner')
   })
@@ -46,7 +46,7 @@ describe('SimpleWallet', function () {
   })
 
   describe('#validateUserOp', () => {
-    let account: SimpleWallet
+    let account: SimpleAccount
     let userOp: UserOperation
     let requestId: string
     let preBalance: number
@@ -57,7 +57,7 @@ describe('SimpleWallet', function () {
     before(async () => {
       // that's the account of ethersSigner
       const entryPoint = accounts[2]
-      account = await new SimpleWallet__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, accountOwner.address)
+      account = await new SimpleAccount__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, accountOwner.address)
       await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('0.2') })
       const callGasLimit = 200000
       const verificationGasLimit = 100000
@@ -98,10 +98,10 @@ describe('SimpleWallet', function () {
       await expect(account.validateUserOp(userOp, wrongRequestId, AddressZero, 0)).to.revertedWith('account: wrong signature')
     })
   })
-  context('SimpleWalletDeployer', () => {
+  context('SimpleAccountDeployer', () => {
     it('sanity: check deployer', async () => {
       const ownerAddr = createAddress()
-      const deployer = await new SimpleWalletDeployer__factory(ethersSigner).deploy()
+      const deployer = await new SimpleAccountDeployer__factory(ethersSigner).deploy()
       const target = await deployer.callStatic.deployAccount(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(false)
       await deployer.deployAccount(entryPoint, ownerAddr, 1234)
