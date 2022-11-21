@@ -68,7 +68,7 @@ describe('bls wallet', function () {
     const userOp1 = await fillUserOp({
       sender: wallet1.address
     }, entrypoint)
-    const requestHash = await blsAgg.getRequestId(userOp1)
+    const requestHash = await blsAgg.getUserOpHash(userOp1)
     const solPoint: BigNumber[] = await blsAgg.userOpToMessage(userOp1)
     const messagePoint = hashToPoint(requestHash, BLS_DOMAIN)
     expect(`1 ${solPoint[0].toString()} ${solPoint[1].toString()}`).to.equal(messagePoint.getStr())
@@ -78,7 +78,7 @@ describe('bls wallet', function () {
     const userOp1 = await fillUserOp({
       sender: wallet1.address
     }, entrypoint)
-    const requestHash = await blsAgg.getRequestId(userOp1)
+    const requestHash = await blsAgg.getUserOpHash(userOp1)
 
     const sigParts = signer1.sign(requestHash)
     userOp1.signature = hexConcat(sigParts)
@@ -97,14 +97,14 @@ describe('bls wallet', function () {
     const userOp1 = await fillUserOp({
       sender: wallet1.address
     }, entrypoint)
-    const requestHash = await blsAgg.getRequestId(userOp1)
+    const requestHash = await blsAgg.getUserOpHash(userOp1)
     const sig1 = signer1.sign(requestHash)
     userOp1.signature = hexConcat(sig1)
 
     const userOp2 = await fillUserOp({
       sender: wallet2.address
     }, entrypoint)
-    const requestHash2 = await blsAgg.getRequestId(userOp2)
+    const requestHash2 = await blsAgg.getUserOpHash(userOp2)
     const sig2 = signer2.sign(requestHash2)
     userOp2.signature = hexConcat(sig2)
 
@@ -146,7 +146,7 @@ describe('bls wallet', function () {
         initCode,
         nonce: 2
       }, entrypoint)
-      const requestHash = await blsAgg.getRequestId(userOp)
+      const requestHash = await blsAgg.getUserOpHash(userOp)
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
@@ -157,7 +157,7 @@ describe('bls wallet', function () {
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
       const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]
-      const requestHash1 = await blsAgg.getRequestId(userOp)
+      const requestHash1 = await blsAgg.getUserOpHash(userOp)
 
       // @ts-ignore
       expect(verifier.verify(signature, pubkey, requestHash1)).to.equal(true)

@@ -122,10 +122,10 @@ contract DepositPaymaster is BasePaymaster {
      * Note that the sender's balance is not checked. If it fails to pay from its balance,
      * this deposit will be used to compensate the paymaster for the transaction.
      */
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint256 maxCost)
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
     external view override returns (bytes memory context, uint256 deadline) {
 
-        (requestId);
+        (userOpHash);
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
         require(userOp.verificationGasLimit > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 

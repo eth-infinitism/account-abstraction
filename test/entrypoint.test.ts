@@ -35,7 +35,7 @@ import {
   simulationResultCatch,
   simulationResultWithAggregationCatch
 } from './testutils'
-import { fillAndSign, getRequestId } from './UserOp'
+import { fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
@@ -72,7 +72,7 @@ describe('EntryPoint', function () {
 
     // sanity: validate helper functions
     const sampleOp = await fillAndSign({ sender: wallet.address }, walletOwner, entryPoint)
-    expect(getRequestId(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getRequestId(sampleOp))
+    expect(getUserOpHash(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(sampleOp))
   })
 
   describe('Stake Management', () => {

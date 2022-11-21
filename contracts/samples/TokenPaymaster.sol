@@ -67,7 +67,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
       * verify the sender has enough tokens.
       * (since the paymaster is also the token, there is no notion of "approval")
       */
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*requestId*/, uint256 requiredPreFund)
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     external view override returns (bytes memory context, uint256 deadline) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
