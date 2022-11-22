@@ -69,7 +69,7 @@ contract BLSSignatureAggregator is IAggregator {
      * NOTE: this hash is not the same as UserOperation.hash()
      *  (slightly less efficient, since it uses memory userOp)
      */
-    function getUserOpHash(UserOperation memory userOp) internal pure returns (bytes32) {
+    function internalUserOpHash(UserOperation memory userOp) internal pure returns (bytes32) {
         return keccak256(abi.encode(
                 userOp.sender,
                 userOp.nonce,
@@ -94,7 +94,7 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     function _userOpToMessage(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (uint256[2] memory) {
-        bytes32 requestId = _getRequestId(userOp, publicKeyHash);
+        bytes32 requestId = _getUserOpHash(userOp, publicKeyHash);
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(requestId));
     }
 
@@ -103,13 +103,13 @@ contract BLSSignatureAggregator is IAggregator {
         return keccak256(abi.encode(getUserOpPublicKey(userOp)));
     }
 
-    function getRequestId(UserOperation memory userOp) public view returns (bytes32) {
+    function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
         bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
-        return _getRequestId(userOp, hashPublicKey);
+        return _getUserOpHash(userOp, hashPublicKey);
     }
 
-    function _getRequestId(UserOperation memory userOp, bytes32 hashPublicKey) internal view returns (bytes32) {
-        return keccak256(abi.encode(getUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
+    function _getUserOpHash(UserOperation memory userOp, bytes32 hashPublicKey) internal view returns (bytes32) {
+        return keccak256(abi.encode(internalUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
     }
 
     /**

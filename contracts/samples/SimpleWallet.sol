@@ -113,9 +113,9 @@ contract SimpleWallet is BaseWallet {
     }
 
     /// implement template method of BaseWallet
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address)
     internal override virtual returns (uint256 deadline) {
-        bytes32 hash = requestId.toEthSignedMessageHash();
+        bytes32 hash = userOpHash.toEthSignedMessageHash();
         //ignore signature mismatch of from==ZERO_ADDRESS (for eth_callUserOp validation purposes)
         // solhint-disable-next-line avoid-tx-origin
         require(owner == hash.recover(userOp.signature) || tx.origin == address(0), "wallet: wrong signature");

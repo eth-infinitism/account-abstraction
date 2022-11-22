@@ -32,10 +32,10 @@ abstract contract BaseWallet is IWallet {
      * Validate user's signature and nonce.
      * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address aggregator, uint256 missingWalletFunds)
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address aggregator, uint256 missingWalletFunds)
     external override virtual returns (uint256 deadline) {
         _requireFromEntryPoint();
-        deadline = _validateSignature(userOp, requestId, aggregator);
+        deadline = _validateSignature(userOp, userOpHash, aggregator);
         if (userOp.initCode.length == 0) {
             _validateAndUpdateNonce(userOp);
         }
@@ -52,13 +52,13 @@ abstract contract BaseWallet is IWallet {
     /**
      * validate the signature is valid for this message.
      * @param userOp validate the userOp.signature field
-     * @param requestId convenient field: the hash of the request, to check the signature against
+     * @param userOpHash convenient field: the hash of the request, to check the signature against
      *          (also hashes the entrypoint and chain-id)
      * @param aggregator the current aggregator. can be ignored by wallets that don't use aggregators
      * @return deadline the last block timestamp this operation is valid, or zero if it is valid indefinitely.
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address aggregator)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address aggregator)
     internal virtual returns (uint256 deadline);
 
     /**
