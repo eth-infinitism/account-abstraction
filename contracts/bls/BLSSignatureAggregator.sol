@@ -86,7 +86,7 @@ contract BLSSignatureAggregator is IAggregator {
 
     /**
      * return the BLS "message" for the given UserOp.
-     * the account should sign this value using its public-key
+     * the account checks the signature over this value  using its public-key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
         bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
