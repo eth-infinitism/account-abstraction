@@ -17,7 +17,7 @@ interface IEntryPoint is IStakeManager {
 
     /***
      * An event emitted after each successful request
-     * @param requestId - unique identifier for the request (hash its entire content, except signature).
+     * @param userOpHash - unique identifier for the request (hash its entire content, except signature).
      * @param sender - the account that generates this request.
      * @param paymaster - if non-null, the paymaster that pays for this request.
      * @param nonce - the nonce value from the request
@@ -25,16 +25,16 @@ interface IEntryPoint is IStakeManager {
      * @param actualGasPrice - the actual gas price the sender agreed to pay.
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
-    event UserOperationEvent(bytes32 indexed requestId, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
+    event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
 
     /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length
-     * @param requestId the request unique identifier.
+     * @param userOpHash the request unique identifier.
      * @param sender the sender of this request
      * @param nonce the nonce used in the request
      * @param revertReason - the return bytes from the (reverted) call to "callData".
      */
-    event UserOperationRevertReason(bytes32 indexed requestId, address indexed sender, uint256 nonce, bytes revertReason);
+    event UserOperationRevertReason(bytes32 indexed userOpHash, address indexed sender, uint256 nonce, bytes revertReason);
 
     /**
      * a custom revert error of handleOps, to identify the offending op.
@@ -87,7 +87,7 @@ interface IEntryPoint is IStakeManager {
      * generate a request Id - unique identifier for this request.
      * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      */
-    function getRequestId(UserOperation calldata userOp) external view returns (bytes32);
+    function getUserOpHash(UserOperation calldata userOp) external view returns (bytes32);
 
     /**
      * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.

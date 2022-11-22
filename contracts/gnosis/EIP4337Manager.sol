@@ -32,13 +32,13 @@ contract EIP4337Manager is GnosisSafe, IWallet {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 requestId, address /*aggregator*/, uint256 missingWalletFunds)
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address /*aggregator*/, uint256 missingWalletFunds)
     external override returns (uint256 deadline) {
         address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(_msgSender == entryPoint, "wallet: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
-        bytes32 hash = requestId.toEthSignedMessageHash();
+        bytes32 hash = userOpHash.toEthSignedMessageHash();
         address recovered = hash.recover(userOp.signature);
         require(threshold == 1, "wallet: only threshold 1");
         require(pThis.isOwner(recovered), "wallet: wrong signature");

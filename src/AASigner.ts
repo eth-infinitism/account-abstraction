@@ -4,7 +4,7 @@ import { Deferrable, resolveProperties } from '@ethersproject/properties'
 import { SimpleWallet, SimpleWallet__factory, EntryPoint, EntryPoint__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { TransactionResponse } from '@ethersproject/abstract-provider'
-import { fillAndSign, getRequestId } from '../test/UserOp'
+import { fillAndSign, getUserOpHash } from '../test/UserOp'
 import { UserOperation } from '../test/UserOperation'
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
 import { clearInterval } from 'timers'
@@ -258,7 +258,7 @@ export class AASigner extends Signer {
   // fabricate a response in a format usable by ethers users...
   async userEventResponse (userOp: UserOperation): Promise<TransactionResponse> {
     const entryPoint = this.entryPoint
-    const requestId = getRequestId(userOp, entryPoint.address, await this._chainId!)
+    const userOpHash = getUserOpHash(userOp, entryPoint.address, await this._chainId!)
     const provider = entryPoint.provider
     const currentBLock = provider.getBlockNumber()
 
@@ -276,16 +276,16 @@ export class AASigner extends Signer {
           console.error('got event without args', event)
           return
         }
-        if (event.args.requestId !== requestId) {
+        if (event.args.userOpHash !== userOpHash) {
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions,@typescript-eslint/no-base-to-string
-          console.log(`== event with wrong requestId: sender/nonce: event.${event.args.sender}@${event.args.nonce.toString()}!= userOp.${userOp.sender}@${parseInt(userOp.nonce.toString())}`)
+          console.log(`== event with wrong userOpHash: sender/nonce: event.${event.args.sender}@${event.args.nonce.toString()}!= userOp.${userOp.sender}@${parseInt(userOp.nonce.toString())}`)
           return
         }
 
         const rcpt = await event.getTransactionReceipt()
         console.log('got event with status=', event.args.success, 'gasUsed=', rcpt.gasUsed)
 
-        // TODO: should use "requestId" as "transactionId" (but this has to be done in a provider, not a signer)
+        // TODO: should use "userOpHash" as "transactionId" (but this has to be done in a provider, not a signer)
 
         // before returning the receipt, update the status from the event.
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -311,7 +311,7 @@ export class AASigner extends Signer {
       entryPoint.on('UserOperationEvent', listener)
       // for some reason, 'on' takes at least 2 seconds to be triggered on local network. so add a one-shot timer:
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
-      setTimeout(async () => await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(requestId)).then(query => {
+      setTimeout(async () => await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(userOpHash)).then(query => {
         if (query.length > 0) {
           // eslint-disable-next-line @typescript-eslint/no-floating-promises
           listener(query[0])
@@ -319,7 +319,7 @@ export class AASigner extends Signer {
       }), 500)
     })
     const resp: TransactionResponse = {
-      hash: requestId,
+      hash: userOpHash,
       confirmations: 0,
       from: userOp.sender,
       nonce: BigNumber.from(userOp.nonce).toNumber(),
