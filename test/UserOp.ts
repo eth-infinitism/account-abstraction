@@ -102,7 +102,7 @@ export function packUserOp1 (op: UserOperation): string {
   ])
 }
 
-export function getRequestId (op: UserOperation, entryPoint: string, chainId: number): string {
+export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number): string {
   const userOpHash = keccak256(packUserOp(op, true))
   const enc = defaultAbiCoder.encode(
     ['bytes32', 'address', 'uint256'],
@@ -125,7 +125,7 @@ export const DefaultsForUserOp: UserOperation = {
 }
 
 export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
-  const message = getRequestId(op, entryPoint, chainId)
+  const message = getUserOpHash(op, entryPoint, chainId)
   const msg1 = Buffer.concat([
     Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
     Buffer.from(arrayify(message))
@@ -237,7 +237,7 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
   const op2 = await fillUserOp(op, entryPoint)
 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
-  const message = arrayify(getRequestId(op2, entryPoint!.address, chainId))
+  const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId))
 
   return {
     ...op2,

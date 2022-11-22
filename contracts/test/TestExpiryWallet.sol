@@ -23,9 +23,9 @@ contract TestExpiryWallet is SimpleWallet {
     }
 
     /// implement template method of BaseWallet
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address)
     internal override view returns (uint256 deadline) {
-        bytes32 hash = requestId.toEthSignedMessageHash();
+        bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
         deadline = ownerDeadlines[signer];
         require(deadline != 0, "wallet: wrong signature");

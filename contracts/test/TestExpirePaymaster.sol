@@ -11,9 +11,9 @@ contract TestExpirePaymaster is BasePaymaster {
     constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
     {}
 
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 requestId, uint maxCost) external virtual override view
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint maxCost) external virtual override view
     returns (bytes memory context, uint256 deadline) {
-        (userOp, requestId, maxCost);
+        (userOp, userOpHash, maxCost);
         deadline = uint256(bytes32(userOp.paymasterAndData[20:]));
         context = "";
     }

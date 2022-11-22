@@ -155,7 +155,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     struct UserOpInfo {
         MemoryUserOp mUserOp;
-        bytes32 requestId;
+        bytes32 userOpHash;
         uint256 prefund;
         uint256 contextOffset;
         uint256 preOpGas;
@@ -176,7 +176,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             (bool success,bytes memory result) = address(mUserOp.sender).call{gas : mUserOp.callGasLimit}(callData);
             if (!success) {
                 if (result.length > 0) {
-                    emit UserOperationRevertReason(opInfo.requestId, mUserOp.sender, mUserOp.nonce, result);
+                    emit UserOperationRevertReason(opInfo.userOpHash, mUserOp.sender, mUserOp.nonce, result);
                 }
                 mode = IPaymaster.PostOpMode.opReverted;
             }
@@ -193,7 +193,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * generate a request Id - unique identifier for this request.
      * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      */
-    function getRequestId(UserOperation calldata userOp) public view returns (bytes32) {
+    function getUserOpHash(UserOperation calldata userOp) public view returns (bytes32) {
         return keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
     }
 
@@ -301,7 +301,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 bal = balanceOf(sender);
             missingWalletFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
         }
-        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.requestId, aggregator, missingWalletFunds) returns (uint256 _deadline) {
+        try IWallet(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.userOpHash, aggregator, missingWalletFunds) returns (uint256 _deadline) {
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
                 revert FailedOp(opIndex, address(0), "expired");
@@ -346,7 +346,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateWalletPrepayment;
-        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.requestId, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
+        try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.userOpHash, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
                 revert FailedOp(opIndex, paymaster, "expired");
@@ -374,7 +374,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
         _copyUserOpToMemory(userOp, mUserOp);
-        outOpInfo.requestId = getRequestId(userOp);
+        outOpInfo.userOpHash = getUserOpHash(userOp);
 
         // validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow
@@ -459,7 +459,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 refund = opInfo.prefund - actualGasCost;
         internalIncrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-        emit UserOperationEvent(opInfo.requestId, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, actualGasCost, gasPrice, success);
+        emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, actualGasCost, gasPrice, success);
     } // unchecked
     }
 
