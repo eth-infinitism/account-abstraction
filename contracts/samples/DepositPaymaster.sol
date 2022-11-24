@@ -132,7 +132,7 @@ contract DepositPaymaster is BasePaymaster {
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         require(paymasterAndData.length == 20+20, "DepositPaymaster: paymasterAndData must specify token");
         IERC20 token = IERC20(address(bytes20(paymasterAndData[20:])));
-        address account = userOp.getSender();
+        address account = userOp.sender;
         uint256 maxTokenCost = getTokenValueOfEth(token, maxCost);
         uint256 gasPriceUserOp = userOp.gasPrice();
         require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");

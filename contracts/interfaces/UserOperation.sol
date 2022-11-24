@@ -33,13 +33,6 @@ pragma solidity ^0.8.12;
 
 library UserOperationLib {
 
-    function getSender(UserOperation calldata userOp) internal pure returns (address) {
-        address data;
-        //read sender from userOp, which is first userOp member (saves 800 gas...)
-        assembly {data := calldataload(userOp)}
-        return address(uint160(data));
-    }
-
     //relayer/miner might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
     function gasPrice(UserOperation calldata userOp) internal view returns (uint256) {

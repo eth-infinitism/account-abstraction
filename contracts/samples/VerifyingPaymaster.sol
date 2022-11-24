@@ -18,7 +18,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract VerifyingPaymaster is BasePaymaster {
 
     using ECDSA for bytes32;
-    using UserOperationLib for UserOperation;
 
     address public immutable verifyingSigner;
 
@@ -37,7 +36,7 @@ contract VerifyingPaymaster is BasePaymaster {
     public pure returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
         return keccak256(abi.encode(
-                userOp.getSender(),
+                userOp.sender,
                 userOp.nonce,
                 keccak256(userOp.initCode),
                 keccak256(userOp.callData),

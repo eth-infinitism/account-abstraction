@@ -14,7 +14,6 @@ import "../interfaces/IEntryPoint.sol";
  * specific wallet implementation should inherit it and provide the wallet-specific logic
  */
 abstract contract BaseWallet is IWallet {
-    using UserOperationLib for UserOperation;
 
     /**
      * return the wallet nonce.

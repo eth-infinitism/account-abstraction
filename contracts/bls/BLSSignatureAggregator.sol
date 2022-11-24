@@ -13,7 +13,6 @@ import "hardhat/console.sol";
  * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSWallet
  */
 contract BLSSignatureAggregator is IAggregator {
-    using UserOperationLib for UserOperation;
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
