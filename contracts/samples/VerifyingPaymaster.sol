@@ -63,7 +63,10 @@ contract VerifyingPaymaster is BasePaymaster {
         //ECDSA library supports both 64 and 65-byte long signatures.
         // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
         require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");
-        require(verifyingSigner == hash.toEthSignedMessageHash().recover(paymasterAndData[20 :]), "VerifyingPaymaster: wrong signature");
+
+        //ignore signature mismatch of from==ZERO_ADDRESS (for eth_callUserOp validation purposes)
+        // solhint-disable-next-line avoid-tx-origin
+        require(verifyingSigner == hash.toEthSignedMessageHash().recover(paymasterAndData[20 :]) || tx.origin == address(0), "VerifyingPaymaster: wrong signature");
 
         //no need for other on-chain validation: entire UserOp should have been checked
         // by the external service prior to signing it.
