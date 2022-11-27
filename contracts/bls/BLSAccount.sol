@@ -21,10 +21,10 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         aggregator = anAggregator;
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 requestId, address userOpAggregator)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
     internal override view returns (uint256 deadline) {
 
-        (userOp, requestId);
+        (userOp, userOpHash);
         require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
         return 0;
     }

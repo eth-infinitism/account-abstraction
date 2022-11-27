@@ -9,7 +9,7 @@ import {
   TestUtil__factory
 } from '../typechain'
 import { AddressZero, createAddress, createAccountOwner, getBalance, isDeployed, ONE_ETH } from './testutils'
-import { fillUserOpDefaults, getRequestId, packUserOp, signUserOp } from './UserOp'
+import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
@@ -48,7 +48,7 @@ describe('SimpleAccount', function () {
   describe('#validateUserOp', () => {
     let account: SimpleAccount
     let userOp: UserOperation
-    let requestId: string
+    let userOpHash: string
     let preBalance: number
     let expectedPay: number
 
@@ -71,12 +71,12 @@ describe('SimpleAccount', function () {
         maxFeePerGas
       }), accountOwner, entryPoint, chainId)
 
-      requestId = await getRequestId(userOp, entryPoint, chainId)
+      userOpHash = await getUserOpHash(userOp, entryPoint, chainId)
 
       expectedPay = actualGasPrice * (callGasLimit + verificationGasLimit)
 
       preBalance = await getBalance(account.address)
-      const ret = await account.validateUserOp(userOp, requestId, AddressZero, expectedPay, { gasPrice: actualGasPrice })
+      const ret = await account.validateUserOp(userOp, userOpHash, AddressZero, expectedPay, { gasPrice: actualGasPrice })
       await ret.wait()
     })
 
@@ -89,13 +89,13 @@ describe('SimpleAccount', function () {
       expect(await account.nonce()).to.equal(1)
     })
     it('should reject same TX on nonce error', async () => {
-      await expect(account.validateUserOp(userOp, requestId, AddressZero, 0)).to.revertedWith('invalid nonce')
+      await expect(account.validateUserOp(userOp, userOpHash, AddressZero, 0)).to.revertedWith('invalid nonce')
     })
     it('should reject tx with wrong signature', async () => {
-      // validateUserOp doesn't check the actual UserOp for the signature, but relies on the requestId given by
+      // validateUserOp doesn't check the actual UserOp for the signature, but relies on the userOpHash given by
       // the entrypoint
-      const wrongRequestId = ethers.constants.HashZero
-      await expect(account.validateUserOp(userOp, wrongRequestId, AddressZero, 0)).to.revertedWith('account: wrong signature')
+      const wrongUserOpHash = ethers.constants.HashZero
+      await expect(account.validateUserOp(userOp, wrongUserOpHash, AddressZero, 0)).to.revertedWith('account: wrong signature')
     })
   })
   context('SimpleAccountDeployer', () => {
