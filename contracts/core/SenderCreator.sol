@@ -8,9 +8,9 @@ pragma solidity ^0.8.12;
 contract SenderCreator {
 
     /**
-     * call the "initCode" factory to create and return the sender wallet address
+     * call the "initCode" factory to create and return the sender account address
      * @param initCode the initCode value from a UserOp. contains 20 bytes of factory address, followed by calldata
-     * @return sender the returned address of the created wallet, or zero address on failure.
+     * @return sender the returned address of the created account, or zero address on failure.
      */
     function createSender(bytes calldata initCode) external returns (address sender) {
         address initAddress = address(bytes20(initCode[0 : 20]));

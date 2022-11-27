@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * whatever off-chain verification before signing the UserOp.
  * Note that this signature is NOT a replacement for wallet signature:
  * - the paymaster signs to agree to PAY for GAS.
- * - the wallet signs to prove identity and wallet ownership.
+ * - the wallet signs to prove identity and account ownership.
  */
 contract VerifyingPaymaster is BasePaymaster {
 

@@ -5,7 +5,7 @@ pragma solidity ^0.8.12;
 
 import "../interfaces/IAggregator.sol";
 import "hardhat/console.sol";
-import "./SimpleWallet.sol";
+import "./SimpleAccount.sol";
 import "../core/EntryPoint.sol";
 
 /**
@@ -19,7 +19,7 @@ contract TestSignatureAggregator is IAggregator {
         for (uint i = 0; i < userOps.length; i++) {
             uint nonce = userOps[i].nonce;
             sum += nonce;
-            // console.log('%s validate sender=%s nonce %s', i, address(senderWallet), nonce);
+            // console.log('%s validate sender=%s nonce %s', i, address(senderAccount), nonce);
         }
         require(signature.length == 32, "TestSignatureValidator: sig must be uint");
         (uint sig) = abi.decode(signature, (uint));

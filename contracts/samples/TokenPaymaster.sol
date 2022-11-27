@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./SimpleWallet.sol";
+import "./SimpleAccount.sol";
 import "../core/BasePaymaster.sol";
 
 /**
@@ -12,12 +12,12 @@ import "../core/BasePaymaster.sol";
  * The paymaster IS the token to use, since a paymaster cannot use an external contract.
  * Also, the exchange rate has to be fixed, since it can't reference an external Uniswap or other exchange contract.
  * subclass should override "getTokenValueOfEth to provide actual token exchange rate, settable by the owner.
- * Known Limitation: this paymaster is exploitable when put into a batch with multiple ops (of different wallets):
+ * Known Limitation: this paymaster is exploitable when put into a batch with multiple ops (of different accounts):
  * - while a single op can't exploit the paymaster (if postOp fails to withdraw the tokens, the user's op is reverted,
  *   and then we know we can withdraw the tokens), multiple ops with different senders (all using this paymaster)
  *   in a batch can withdraw funds from 2nd and further ops, forcing the paymaster itself to pay (from its deposit)
  * - Possible workarounds are either use a more complex paymaster scheme (e.g. the DepositPaymaster) or
- *   to whitelist the wallet and the called method ids.
+ *   to whitelist the account and the called method ids.
  */
 contract TokenPaymaster is BasePaymaster, ERC20 {
 
@@ -26,8 +26,8 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
     address public theDeployer;
 
-    constructor(address walletDeployer, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
-        theDeployer = walletDeployer;
+    constructor(address accountDeployer, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
+        theDeployer = accountDeployer;
         //make it non-empty
         _mint(address(this), 1);
 
@@ -62,7 +62,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
     /**
       * validate the request:
-      * if this is a constructor call, make sure it is a known wallet (that is, a contract that
+      * if this is a constructor call, make sure it is a known account (that is, a contract that
       * we trust that in its constructor will set
       * verify the sender has enough tokens.
       * (since the paymaster is also the token, there is no notion of "approval")
@@ -86,18 +86,18 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         return (abi.encode(userOp.sender), 0);
     }
 
-    // when constructing a wallet, validate constructor code and parameters
+    // when constructing an account, validate constructor code and parameters
     // this code highly dependent on the deployer we use.
     // our deployer has a method deploy(bytes,salt)
     function _validateConstructor(UserOperation calldata userOp) internal virtual view {
         //we trust a specific deployer contract
         address deployer = address(bytes20(userOp.initCode[0 : 20]));
-        require(deployer == theDeployer, "TokenPaymaster: wrong wallet deployer");
+        require(deployer == theDeployer, "TokenPaymaster: wrong account deployer");
     }
 
     /**
      * actual charge of user.
-     * this method will be called just after the user's TX with mode==OpSucceeded|OpReverted (wallet pays in both cases)
+     * this method will be called just after the user's TX with mode==OpSucceeded|OpReverted (account pays in both cases)
      * BUT: if the user changed its balance in a way that will cause  postOp to revert, then it gets called again, after reverting
      * the user's TX , back to the state it was before the transaction started (before the validatePaymasterUserOp),
      * and the transaction should succeed there.

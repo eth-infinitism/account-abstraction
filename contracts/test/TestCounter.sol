@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-//sample "receiver" contract, for testing "exec" from wallet.
+//sample "receiver" contract, for testing "exec" from account.
 contract TestCounter {
     mapping(address => uint256) public counters;
 

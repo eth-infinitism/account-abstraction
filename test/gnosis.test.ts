@@ -16,7 +16,7 @@ import {
 import {
   AddressZero,
   createAddress,
-  createWalletOwner,
+  createAccountOwner,
   deployEntryPoint,
   getBalance,
   HashZero,
@@ -52,7 +52,7 @@ describe('Gnosis Proxy', function () {
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
     entryPoint = await deployEntryPoint()
     manager = await new EIP4337Manager__factory(ethersSigner).deploy(entryPoint.address)
-    owner = createWalletOwner()
+    owner = createAccountOwner()
     ownerAddress = await owner.getAddress()
     counter = await new TestCounter__factory(ethersSigner).deploy()
 
@@ -81,7 +81,7 @@ describe('Gnosis Proxy', function () {
 
     const anotherEntryPoint = await new EntryPoint__factory(ethersSigner).deploy()
 
-    await expect(anotherEntryPoint.handleOps([op], beneficiary)).to.revertedWith('wallet: not from entrypoint')
+    await expect(anotherEntryPoint.handleOps([op], beneficiary)).to.revertedWith('account: not from entrypoint')
   })
 
   it('should fail on invalid userop', async function () {
@@ -91,10 +91,10 @@ describe('Gnosis Proxy', function () {
       callGasLimit: 1e6,
       callData: safe_execTxCallData
     }, owner, entryPoint)
-    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('wallet: invalid nonce')
+    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('account: invalid nonce')
 
     op.callGasLimit = 1
-    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('wallet: wrong signature')
+    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('account: wrong signature')
   })
 
   it('should exec', async function () {
@@ -112,7 +112,7 @@ describe('Gnosis Proxy', function () {
   })
 
   let counterfactualAddress: string
-  it('should create wallet', async function () {
+  it('should create account', async function () {
     const ctrCode = hexValue(await new SafeProxy4337__factory(ethersSigner).getDeployTransaction(safeSingleton.address, manager.address, ownerAddress).data!)
     const initCode = hexConcat([
       Create2Factory.contractAddress,

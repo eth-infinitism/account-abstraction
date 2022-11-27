@@ -14,12 +14,12 @@ import "../core/EntryPoint.sol";
 
 /**
  * Main EIP4337 module.
- * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IWallet",
+ * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IAccount",
  * so must implement validateUserOp
  * holds an immutable reference to the EntryPoint
  * Inherits GnosisSafeStorage so that it can reference the memory storage
  */
-contract EIP4337Manager is GnosisSafe, IWallet {
+contract EIP4337Manager is GnosisSafe, IAccount {
 
     address public immutable eip4337Fallback;
     address public immutable entryPoint;
@@ -32,26 +32,26 @@ contract EIP4337Manager is GnosisSafe, IWallet {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address /*aggregator*/, uint256 missingWalletFunds)
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address /*aggregator*/, uint256 missingAccountFunds)
     external override returns (uint256 deadline) {
         address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == entryPoint, "wallet: not from entrypoint");
+        require(_msgSender == entryPoint, "account: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address recovered = hash.recover(userOp.signature);
-        require(threshold == 1, "wallet: only threshold 1");
-        require(pThis.isOwner(recovered), "wallet: wrong signature");
+        require(threshold == 1, "account: only threshold 1");
+        require(pThis.isOwner(recovered), "account: wrong signature");
 
         if (userOp.initCode.length == 0) {
-            require(nonce++ == userOp.nonce, "wallet: invalid nonce");
+            require(nonce++ == userOp.nonce, "account: invalid nonce");
         }
 
-        if (missingWalletFunds > 0) {
+        if (missingAccountFunds > 0) {
             //TODO: MAY pay more than the minimum, to deposit for future transactions
-            (bool success,) = payable(_msgSender).call{value : missingWalletFunds}("");
+            (bool success,) = payable(_msgSender).call{value : missingAccountFunds}("");
             (success);
-            //ignore failure (its EntryPoint's job to verify, not wallet.)
+            //ignore failure (its EntryPoint's job to verify, not account.)
         }
         return 0;
     }
@@ -131,7 +131,7 @@ contract EIP4337Manager is GnosisSafe, IWallet {
         try _entryPoint.handleOps(userOps, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
-            if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "wallet: wrong signature"))) {
+            if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "account: wrong signature"))) {
                 revert(string(error));
             }
         }
