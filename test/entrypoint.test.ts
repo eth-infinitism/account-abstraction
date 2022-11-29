@@ -251,8 +251,8 @@ describe('EntryPoint', function () {
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 1e6
       }, walletOwner1, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op1).catch(rethrow()))
-        .to.revertedWith('sender doesn\'t match initCode address')
+      await expect(entryPoint.callStatic.simulateValidation(op1))
+        .to.revertedWith('AA12 initCode: wrong return value')
     })
 
     it('should succeed for creating a wallet', async () => {
@@ -484,7 +484,7 @@ describe('EntryPoint', function () {
 
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        })).to.revertedWith('sender doesn\'t match initCode address')
+        })).to.revertedWith('AA12 initCode: wrong return value')
       })
 
       it('should reject create if account not funded', async () => {
@@ -756,7 +756,7 @@ describe('EntryPoint', function () {
           callGasLimit: 1e6
         }, wallet2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
-        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"paymaster deposit too low"')
+        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"AA31 paymaster deposit too low"')
       })
 
       it('paymaster should pay for tx', async function () {
