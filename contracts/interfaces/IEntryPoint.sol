@@ -98,16 +98,6 @@ interface IEntryPoint is IStakeManager {
     function simulateValidation(UserOperation calldata userOp) external;
 
     /**
-     * Simulate validation and execution of a UserOperation.
-     * call validateUserOp and then paymaster.validatePaymasterUserOp.
-     * after successful call, call the wallet with "callData"
-     * @dev this method always revert. Successful result is ExecuteResult error. other errors are failures.
-     *  the method has to be called from ZERO_ADDRESS.
-     * @param userOp the user operation to validate.
-     */
-    function simulateExecution(UserOperation calldata userOp) external;
-
-    /**
      * Successful result from simulateValidation.
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
@@ -115,16 +105,6 @@ interface IEntryPoint is IStakeManager {
      * @param paymasterInfo stake information about the paymaster (if any)
      */
     error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo);
-
-    /**
-     * simulateValidation error after UserOp execution
-     * @param preOpGas the gas used for validation (including preValidationGas)
-     * @param prefund the required prefund for this operation
-     * @param actualGasCost - the total cost (in gas) of this request.
-     * @param actualGasPrice - the actual gas price the sender agreed to pay.
-     * @param success - true if the sender transaction succeeded, false if reverted.
-     */
-    error ExecuteResult(uint256 preOpGas, uint256 prefund, uint256 actualGasCost, uint256 actualGasPrice, bool success);
 
     /**
      * returned paymaster info.

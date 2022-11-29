@@ -54,18 +54,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         try this.innerHandleOp(userOp.callData, opInfo, context) returns (uint256 _actualGasCost) {
             collected = _actualGasCost;
         } catch {
-            bytes4 methodSig;
-            assembly {
-                returndatacopy(0, 0, 32)
-                methodSig := mload(0)
-            }
-            if (methodSig == ExecuteResult.selector) {
-                //propagate out "revert ExecuteResult" from innerHandleOp
-                assembly {
-                    returndatacopy(0, 0, returndatasize())
-                    revert(0, returndatasize())
-                }
-            }
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             collected = _handlePostOp(opIndex, IPaymaster.PostOpMode.postOpReverted, opInfo, context, actualGas);
         }
@@ -236,22 +224,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param userOp the user operation to validate.
      */
     function simulateValidation(UserOperation calldata userOp) external {
-        _simulateValidation(userOp, false);
-    }
-
-    /**
-     * Simulate validation and execution of a UserOperation.
-     * call validateUserOp and then paymaster.validatePaymasterUserOp.
-     * after successful call, call the wallet with "callData"
-     * @dev this method always revert. Successful result is ExecuteResult error. other errors are failures.
-     *  the method has to be called from ZERO_ADDRESS.
-     * @param userOp the user operation to validate.
-     */
-    function simulateExecution(UserOperation calldata userOp) external {
-        _simulateValidation(userOp, true);
-    }
-
-    function _simulateValidation(UserOperation calldata userOp, bool execute) internal {
         uint256 preGas = gasleft();
 
         UserOpInfo memory outOpInfo;
@@ -262,10 +234,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         DepositInfo memory depositInfo = getDepositInfo(outOpInfo.mUserOp.paymaster);
         PaymasterInfo memory paymasterInfo = PaymasterInfo(depositInfo.stake, depositInfo.unstakeDelaySec);
 
-        if (execute) {
-            require(tx.origin == address(0), "AA93 execute from:address(0)");
-            _executeUserOp(0, userOp, outOpInfo);
-        }
+
         if (aggregator != address(0)) {
             depositInfo = getDepositInfo(aggregator);
             AggregationInfo memory aggregationInfo = AggregationInfo(aggregator, depositInfo.stake, depositInfo.unstakeDelaySec);
@@ -487,10 +456,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 refund = opInfo.prefund - actualGasCost;
         internalIncrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-        //called in simulation mode. instead of event, do a revert to return values
-        if (tx.origin == address(0)) {
-            revert ExecuteResult(opInfo.preOpGas, opInfo.prefund, actualGasCost, gasPrice, success);
-        }
         emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, actualGasCost, gasPrice, success);
     } // unchecked
     }

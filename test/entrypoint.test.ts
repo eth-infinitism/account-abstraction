@@ -33,7 +33,7 @@ import {
   HashZero,
   getAggregatedWalletDeployer,
   simulationResultCatch,
-  simulationResultWithAggregationCatch, executionResultCatch
+  simulationResultWithAggregationCatch
 } from './testutils'
 import { fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -264,47 +264,6 @@ describe('EntryPoint', function () {
       await fund(op1.sender)
 
       await entryPoint.callStatic.simulateValidation(op1).catch(simulationResultCatch)
-    })
-
-    describe('#simulateExecution', () => {
-      it('should propagate validation failures', async () => {
-        // using wrong owner for wallet1
-        const op = await fillAndSign({ sender: wallet1.address }, walletOwner, entryPoint)
-        await expect(entryPoint.callStatic.simulateExecution(op)).to.revertedWith('wrong signature')
-      })
-      it('should require from:AddressZero', async () => {
-        const sender = getWalletAddress(entryPoint.address, walletOwner1.address)
-        const op1 = await fillAndSign({
-          sender,
-          initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
-          callData: '0xdeadface'
-        }, walletOwner1, entryPoint)
-        await fund(op1.sender)
-        await expect(entryPoint.callStatic.simulateExecution(op1)).to.revertedWith('execute requires from:ADDRESS_ZERO')
-      })
-      it('should handle reverted contract call', async () => {
-        const op1 = await fillAndSign({
-          sender: wallet1.address,
-          callData: '0xdeadface',
-          callGasLimit: 1e6
-        }, walletOwner1, entryPoint)
-        await fund(op1.sender)
-        const execResult = await entryPoint.connect(AddressZero).callStatic.simulateExecution(op1).catch(executionResultCatch)
-        expect(execResult.success).to.equal(false)
-      })
-      it('should handle success contract call', async () => {
-        const target = createAddress()
-        const nonceCalldata = wallet1.interface.encodeFunctionData('nonce')
-        const callData = wallet1.interface.encodeFunctionData('execFromEntryPoint', [target, 0, nonceCalldata])
-        const op1 = await fillAndSign({
-          sender: wallet1.address,
-          callData
-        }, walletOwner1, entryPoint)
-        await fund(op1.sender)
-
-        const execResult = await entryPoint.connect(AddressZero).callStatic.simulateExecution(op1).catch(executionResultCatch)
-        expect(execResult.success).to.equal(true)
-      })
     })
 
     it('should not call initCode from entrypoint', async () => {
