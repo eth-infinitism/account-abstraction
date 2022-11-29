@@ -4,21 +4,21 @@ import { describe } from 'mocha'
 import { BigNumber, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccount__factory,
   EntryPoint,
   TestCounter,
   TestCounter__factory
 } from '../typechain'
 import {
-  createWalletOwner,
+  createAccountOwner,
   fund,
   checkForGeth,
   rethrow,
-  getWalletDeployer,
+  getAccountDeployer,
   tonumber,
   deployEntryPoint,
-  callDataCost, createAddress, getWalletAddress, simulationResultCatch
+  callDataCost, createAddress, getAccountAddress, simulationResultCatch
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -37,8 +37,8 @@ describe('Batch gas testing', function () {
   const ethersSigner = ethers.provider.getSigner()
   let entryPoint: EntryPoint
 
-  let walletOwner: Wallet
-  let wallet: SimpleWallet
+  let accountOwner: Wallet
+  let account: SimpleAccount
 
   const results: Array<() => void> = []
   before(async function () {
@@ -47,9 +47,9 @@ describe('Batch gas testing', function () {
     await checkForGeth()
     entryPoint = await deployEntryPoint()
     // static call must come from address zero, to validate it can only be called off-chain.
-    walletOwner = createWalletOwner()
-    wallet = await new SimpleWallet__factory(ethersSigner).deploy(entryPoint.address, await walletOwner.getAddress())
-    await fund(wallet)
+    accountOwner = createAccountOwner()
+    account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+    await fund(account)
   })
 
   after(async () => {
@@ -71,18 +71,18 @@ describe('Batch gas testing', function () {
        * attempt big batch.
        */
       let counter: TestCounter
-      let walletExecCounterFromEntryPoint: PopulatedTransaction
+      let accountExecCounterFromEntryPoint: PopulatedTransaction
       let execCounterCount: PopulatedTransaction
       const beneficiaryAddress = createAddress()
 
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        execCounterCount = await wallet.populateTransaction.exec(counter.address, 0, count.data!)
-        walletExecCounterFromEntryPoint = await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+        execCounterCount = await account.populateTransaction.exec(counter.address, 0, count.data!)
+        accountExecCounterFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
       })
 
-      const wallets: Array<{ w: string, owner: Wallet }> = []
+      const accounts: Array<{ w: string, owner: Wallet }> = []
 
       it('batch of create', async () => {
         const ops: UserOperation[] = []
@@ -91,15 +91,15 @@ describe('Batch gas testing', function () {
         let opsGasCollected = 0
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         while (++count) {
-          const walletOwner1 = createWalletOwner()
-          const wallet1 = getWalletAddress(entryPoint.address, walletOwner1.address)
-          await fund(wallet1, '0.5')
+          const accountOwner1 = createAccountOwner()
+          const account1 = getAccountAddress(entryPoint.address, accountOwner1.address)
+          await fund(account1, '0.5')
           const op1 = await fillAndSign({
-            initCode: getWalletDeployer(entryPoint.address, walletOwner1.address),
+            initCode: getAccountDeployer(entryPoint.address, accountOwner1.address),
             nonce: 0,
-            // callData: walletExecCounterFromEntryPoint.data,
+            // callData: accountExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9
-          }, walletOwner1, entryPoint)
+          }, accountOwner1, entryPoint)
           // requests are the same, so estimate is the same too.
           const { preOpGas } = await entryPoint.callStatic.simulateValidation(op1, { gasPrice: 1e9 }).catch(simulationResultCatch)
           const txgas = BigNumber.from(preOpGas).add(op1.callGasLimit).toNumber()
@@ -110,8 +110,8 @@ describe('Batch gas testing', function () {
           }
           opsGasCollected += txgas
           ops.push(op1)
-          wallets.push({ owner: walletOwner1, w: wallet1 })
-          if (wallets.length >= maxCount) break
+          accounts.push({ owner: accountOwner1, w: account1 })
+          if (accounts.length >= maxCount) break
         }
 
         await call_handleOps_and_stats('Create', ops, count)
@@ -119,15 +119,15 @@ describe('Batch gas testing', function () {
 
       it('batch of tx', async function () {
         this.timeout(30000)
-        if (wallets.length === 0) {
+        if (accounts.length === 0) {
           this.skip()
         }
 
         const ops: UserOperation[] = []
-        for (const { w, owner } of wallets) {
+        for (const { w, owner } of accounts) {
           const op1 = await fillAndSign({
             sender: w,
-            callData: walletExecCounterFromEntryPoint.data,
+            callData: accountExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9,
             verificationGasLimit: 1.3e6
           }, owner, entryPoint)
@@ -136,9 +136,9 @@ describe('Batch gas testing', function () {
           if (once) {
             once = false
             console.log('direct call:', await counter.estimateGas.count())
-            console.log('through wallet:', await ethers.provider.estimateGas({
-              from: walletOwner.address,
-              to: wallet.address,
+            console.log('through account:', await ethers.provider.estimateGas({
+              from: accountOwner.address,
+              to: account.address,
               data: execCounterCount.data!
             }), 'datacost=', callDataCost(execCounterCount.data!))
             console.log('through handleOps:', await entryPoint.estimateGas.handleOps([op1], beneficiaryAddress))
@@ -150,19 +150,19 @@ describe('Batch gas testing', function () {
 
       it('batch of expensive ops', async function () {
         this.timeout(30000)
-        if (wallets.length === 0) {
+        if (accounts.length === 0) {
           this.skip()
         }
 
         const waster = await counter.populateTransaction.gasWaster(40, '')
-        const walletExecFromEntryPoint_waster: PopulatedTransaction =
-          await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
+        const accountExecFromEntryPoint_waster: PopulatedTransaction =
+          await account.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
 
         const ops: UserOperation[] = []
-        for (const { w, owner } of wallets) {
+        for (const { w, owner } of accounts) {
           const op1 = await fillAndSign({
             sender: w,
-            callData: walletExecFromEntryPoint_waster.data,
+            callData: accountExecFromEntryPoint_waster.data,
             maxPriorityFeePerGas: 1e9,
             verificationGasLimit: 1.3e6
           }, owner, entryPoint)
@@ -174,19 +174,19 @@ describe('Batch gas testing', function () {
 
       it('batch of large ops', async function () {
         this.timeout(30000)
-        if (wallets.length === 0) {
+        if (accounts.length === 0) {
           this.skip()
         }
 
         const waster = await counter.populateTransaction.gasWaster(0, '1'.repeat(16384))
-        const walletExecFromEntryPoint_waster: PopulatedTransaction =
-          await wallet.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
+        const accountExecFromEntryPoint_waster: PopulatedTransaction =
+          await account.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
 
         const ops: UserOperation[] = []
-        for (const { w, owner } of wallets) {
+        for (const { w, owner } of accounts) {
           const op1 = await fillAndSign({
             sender: w,
-            callData: walletExecFromEntryPoint_waster.data,
+            callData: accountExecFromEntryPoint_waster.data,
             maxPriorityFeePerGas: 1e9,
             verificationGasLimit: 1.3e6
           }, owner, entryPoint)

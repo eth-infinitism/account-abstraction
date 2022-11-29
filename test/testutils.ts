@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { arrayify, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleWallet__factory, TestAggregatedWallet__factory } from '../typechain'
+import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleAccount__factory, TestAggregatedAccount__factory } from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
@@ -49,14 +49,14 @@ export async function getTokenBalance (token: IERC20, address: string): Promise<
 let counter = 0
 
 // create non-random account, so gas calculations are deterministic
-export function createWalletOwner (): Wallet {
+export function createAccountOwner (): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
   return new ethers.Wallet(privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
 export function createAddress (): string {
-  return createWalletOwner().address
+  return createAccountOwner().address
 }
 
 export function callDataCost (data: string): number {
@@ -80,34 +80,34 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
   return { actualGasCost }
 }
 
-// helper function to create a deployer (initCode) call to our wallet. relies on the global "create2Deployer"
+// helper function to create a deployer (initCode) call to our account. relies on the global "create2Deployer"
 // note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
 // with each deployment. a better deployer will only receive the constructor parameters.
-export function getWalletDeployer (entryPoint: string, owner: string): BytesLike {
-  const walletCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+export function getAccountDeployer (entryPoint: string, owner: string): BytesLike {
+  const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
   const factory = new Create2Factory(ethers.provider)
-  const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)
+  const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
   return hexConcat([
     Create2Factory.contractAddress,
     initCallData
   ])
 }
 
-export async function getAggregatedWalletDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
-  const walletCtr = await new TestAggregatedWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
+export async function getAggregatedAccountDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
+  const accountCtr = await new TestAggregatedAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
 
   const factory = new Create2Factory(ethers.provider)
-  const initCallData = factory.getDeployTransactionCallData(hexValue(walletCtr), 0)
+  const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
   return hexConcat([
     Create2Factory.contractAddress,
     initCallData
   ])
 }
 
-// given the parameters as WalletDeployer, return the resulting "counterfactual address" that it would create.
-export function getWalletAddress (entryPoint: string, owner: string): string {
-  const walletCtr = new SimpleWallet__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
-  return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(walletCtr)))
+// given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
+export function getAccountAddress (entryPoint: string, owner: string): string {
+  const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
+  return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(accountCtr)))
 }
 
 const panicCodes: { [key: number]: string } = {
@@ -214,9 +214,9 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
   expect(blockHash.length).to.equal(1, 'expected exactly 1 call to NUMBER (Just before validatePaymasterUserOp)')
-  const validateWalletOps = logs.slice(0, blockHash[0].index - 1)
+  const validateAccountOps = logs.slice(0, blockHash[0].index - 1)
   const validatePaymasterOps = logs.slice(blockHash[0].index + 1)
-  const ops = validateWalletOps.filter(log => log.depth > 1).map(log => log.op)
+  const ops = validateAccountOps.filter(log => log.depth > 1).map(log => log.op)
   const paymasterOps = validatePaymasterOps.filter(log => log.depth > 1).map(log => log.op)
 
   expect(ops).to.include('POP', 'not a valid ops list: ' + JSON.stringify(ops)) // sanity

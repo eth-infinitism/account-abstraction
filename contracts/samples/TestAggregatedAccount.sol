@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "../interfaces/IAggregatedWallet.sol";
-import "../core/BaseWallet.sol";
-import "./SimpleWallet.sol";
+import "../interfaces/IAggregatedAccount.sol";
+import "../core/BaseAccount.sol";
+import "./SimpleAccount.sol";
 import "../interfaces/UserOperation.sol";
 
 /**
- * test aggregated-signature wallet.
+ * test aggregated-signature account.
  * works only with TestAggregatedSignature, which doesn't really check signature, but nonce sum
- * a true aggregated wallet should expose data (e.g. its public key) to the aggregator.
+ * a true aggregated account should expose data (e.g. its public key) to the aggregator.
  */
-contract TestAggregatedWallet is SimpleWallet, IAggregatedWallet {
+contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
     address public immutable aggregator;
 
     constructor(IEntryPoint anEntryPoint, address anAggregator)
-    SimpleWallet(anEntryPoint, address(0)) {
+    SimpleAccount(anEntryPoint, address(0)) {
         aggregator = anAggregator;
     }
 

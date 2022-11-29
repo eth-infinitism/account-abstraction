@@ -1,35 +1,35 @@
-== gas estimate of direct calling the wallet's "execFromEntryPoint" method
-   the destination is "wallet.nonce()", which is known to be "hot" address used by this wallet
-   it little higher than EOA call: its an exec from entrypoint (or wallet owner) into wallet contract, verifying msg.sender and exec to target)
+== gas estimate of direct calling the account's "execFromEntryPoint" method
+   the destination is "account.nonce()", which is known to be "hot" address used by this account
+   it little higher than EOA call: its an exec from entrypoint (or account owner) into account contract, verifying msg.sender and exec to target)
 - gas estimate "simple" - 27860
 - gas estimate "big tx 5k" - 110612
 ╔════════════════════════════════╤═══════╤═══════════════╤════════════════╤═════════════════════╗
 ║ handleOps description          │ count │ total gasUsed │ per UserOp gas │ per UserOp overhead ║
 ║                                │       │               │     (delta for │        (compared to ║
-║                                │       │               │    one UserOp) │      wallet.exec()) ║
+║                                │       │               │    one UserOp) │     account.exec()) ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple                         │     1 │         71715 │                │                     ║
+║ simple                         │     1 │         71740 │                │                     ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple - diff from previous    │     2 │               │          39681 │               11821 ║
+║ simple - diff from previous    │     2 │               │          39704 │               11844 ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple                         │    10 │        429295 │                │                     ║
+║ simple                         │    10 │        429369 │                │                     ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple - diff from previous    │    11 │               │          39739 │               11879 ║
+║ simple - diff from previous    │    11 │               │          39968 │               12108 ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple paymaster               │     1 │         71703 │                │                     ║
+║ simple paymaster               │     1 │         71726 │                │                     ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple paymaster with diff     │     2 │               │          39705 │               11845 ║
+║ simple paymaster with diff     │     2 │               │          39742 │               11882 ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple paymaster               │    10 │        429303 │                │                     ║
+║ simple paymaster               │    10 │        429417 │                │                     ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ simple paymaster with diff     │    11 │               │          39779 │               11919 ║
+║ simple paymaster with diff     │    11 │               │          39956 │               12096 ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ big tx 5k                      │     1 │        159162 │                │                     ║
+║ big tx 5k                      │     1 │        159185 │                │                     ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ big tx - diff from previous    │     2 │               │         126718 │               16106 ║
+║ big tx - diff from previous    │     2 │               │         126729 │               16117 ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ big tx 5k                      │    10 │       1305303 │                │                     ║
+║ big tx 5k                      │    10 │       1305579 │                │                     ║
 ╟────────────────────────────────┼───────┼───────────────┼────────────────┼─────────────────────╢
-║ big tx - diff from previous    │    11 │               │         128159 │               17547 ║
+║ big tx - diff from previous    │    11 │               │         128236 │               17624 ║
 ╚════════════════════════════════╧═══════╧═══════════════╧════════════════╧═════════════════════╝
 

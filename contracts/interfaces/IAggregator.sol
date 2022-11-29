@@ -16,11 +16,11 @@ interface IAggregator {
 
     /**
      * validate signature of a single userOp
-     * This method is called by EntryPoint.simulateUserOperation() if the wallet has an aggregator.
+     * This method is called by EntryPoint.simulateUserOperation() if the account has an aggregator.
      * First it validates the signature over the userOp. then it return data to be used when creating the handleOps:
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
-     *    (usually empty, unless wallet and aggregator support some kind of "multisig"
+     *    (usually empty, unless account and aggregator support some kind of "multisig"
      */
     function validateUserOpSignature(UserOperation calldata userOp)
     external view returns (bytes memory sigForUserOp);

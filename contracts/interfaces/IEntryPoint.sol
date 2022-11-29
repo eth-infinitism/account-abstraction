@@ -44,7 +44,7 @@ interface IEntryPoint is IStakeManager {
      *       this value will be zero (since it failed before accessing the paymaster)
      *  @param reason - revert reason
      *   Should be caught in off-chain handleOps simulation and not happen on-chain.
-     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of wallet/paymaster reverts.
+     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of account/paymaster reverts.
      */
     error FailedOp(uint256 opIndex, address paymaster, string reason);
 
@@ -66,7 +66,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * Execute a batch of UserOperation.
      * no signature aggregator is used.
-     * if any wallet requires an aggregator (that is, it returned an "actualAggregator" when
+     * if any account requires an aggregator (that is, it returned an "actualAggregator" when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
@@ -75,7 +75,7 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Execute a batch of UserOperation with Aggregators
-     * @param opsPerAggregator the operations to execute, grouped by aggregator (or address(0) for no-aggregator wallets)
+     * @param opsPerAggregator the operations to execute, grouped by aggregator (or address(0) for no-aggregator accounts)
      * @param beneficiary the address to receive the fees
      */
     function handleAggregatedOps(
@@ -90,9 +90,9 @@ interface IEntryPoint is IStakeManager {
     function getUserOpHash(UserOperation calldata userOp) external view returns (bytes32);
 
     /**
-     * Simulate a call to wallet.validateUserOp and paymaster.validatePaymasterUserOp.
+     * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
      * @dev this method always revert. Successful result is SimulationResult error. other errors are failures.
-     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the wallet's data.
+     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.
      * @param userOp the user operation to validate.
      */
     function simulateValidation(UserOperation calldata userOp) external;
@@ -101,7 +101,7 @@ interface IEntryPoint is IStakeManager {
      * Successful result from simulateValidation.
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
-     * @param deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
+     * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
      * @param paymasterInfo stake information about the paymaster (if any)
      */
     error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo);
@@ -118,19 +118,19 @@ interface IEntryPoint is IStakeManager {
 
 
     /**
-     * Successful result from simulateValidation, if the wallet returns a signature aggregator
+     * Successful result from simulateValidation, if the account returns a signature aggregator
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
-     * @param deadline until what time this userOp is valid (the minimum value of wallet and paymaster's deadline)
+     * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
      * @param paymasterInfo stake information about the paymaster (if any)
-     * @param aggregationInfo signature aggregation info (if the wallet requires signature aggregator)
+     * @param aggregationInfo signature aggregation info (if the account requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
      */
     error SimulationResultWithAggregation(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo, AggregationInfo aggregationInfo);
 
     /**
      * returned aggregated signature info.
-     * the aggregator returned by the wallet, and its current stake.
+     * the aggregator returned by the account, and its current stake.
      */
     struct AggregationInfo {
         address actualAggregator;

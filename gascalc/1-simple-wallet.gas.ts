@@ -1,6 +1,6 @@
 import { GasChecker } from './GasChecker'
 
-context('simple wallet', function () {
+context('simple account', function () {
   this.timeout(60000)
   const g = new GasChecker()
 
