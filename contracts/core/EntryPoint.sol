@@ -7,7 +7,6 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
-/* solhint-disable reason-string */
 /* solhint-disable avoid-tx-origin */
 
 import "../interfaces/IAccount.sol";
@@ -167,7 +166,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      */
     function innerHandleOp(bytes calldata callData, UserOpInfo memory opInfo, bytes calldata context) external returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
-        require(msg.sender == address(this));
+        require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
@@ -210,7 +209,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         if (paymasterAndData.length > 0) {
-            require(paymasterAndData.length >= 20, "AA92 invalid paymasterAndData");
+            require(paymasterAndData.length >= 20, "AA93 invalid paymasterAndData");
             mUserOp.paymaster = address(bytes20(paymasterAndData[: 20]));
         } else {
             mUserOp.paymaster = address(0);
@@ -261,8 +260,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
             if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
             address sender1 = senderCreator.createSender(initCode);
             if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA11 initCode failed");
-            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "AA12 initCode: wrong return value");
-            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode not creating sender");
+            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
+            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode must create sender");
         }
     }
 
