@@ -252,7 +252,7 @@ describe('EntryPoint', function () {
         verificationGasLimit: 1e6
       }, accountOwner1, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op1))
-        .to.revertedWith('AA12 initCode: wrong return value')
+        .to.revertedWith('AA12 initCode wrong return value')
     })
 
     it('should succeed for creating an account', async () => {
@@ -443,7 +443,7 @@ describe('EntryPoint', function () {
 
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        })).to.revertedWith('AA12 initCode: wrong return value')
+        })).to.revertedWith('AA12 initCode wrong return value')
       })
 
       it('should reject create if account not funded', async () => {
