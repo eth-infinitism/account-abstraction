@@ -292,6 +292,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address sender = mUserOp.sender;
         _createSenderIfNeeded(opIndex, opInfo, op.initCode);
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
+            numberMarker();
+
             try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
