@@ -128,6 +128,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+            emit SignatureAggregatorForUserOperations(address(opa.aggregator));
             UserOperation[] calldata ops = opa.userOps;
             uint256 opslen = ops.length;
 
@@ -255,13 +256,16 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(uint256 opIndex, MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
+    function _createSenderIfNeeded(uint256 opIndex, UserOpInfo memory opInfo, bytes calldata initCode) internal {
         if (initCode.length != 0) {
-            if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
+            address sender = opInfo.mUserOp.sender;
+            if (sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
             address sender1 = senderCreator.createSender(initCode);
             if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA11 initCode failed");
-            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
+            if (sender1 != sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
             if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode must create sender");
+            address deployer = address(bytes20(initCode[0 : 20]));
+            emit AccountDeployed(opInfo.userOpHash, sender, deployer, opInfo.mUserOp.paymaster);
         }
     }
 
@@ -285,16 +289,16 @@ contract EntryPoint is IEntryPoint, StakeManager {
     unchecked {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
-        _createSenderIfNeeded(opIndex, mUserOp, op.initCode);
+        address sender = mUserOp.sender;
+        _createSenderIfNeeded(opIndex, opInfo, op.initCode);
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
-            try IAggregatedAccount(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
+            try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
                 aggregator = actualAggregator = address(0);
             }
         }
         uint256 missingAccountFunds = 0;
-        address sender = mUserOp.sender;
         address paymaster = mUserOp.paymaster;
         if (paymaster == address(0)) {
             uint256 bal = balanceOf(sender);

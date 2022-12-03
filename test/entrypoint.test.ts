@@ -1,5 +1,5 @@
 import './aa.init'
-import { BigNumber, Wallet } from 'ethers'
+import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   EntryPoint,
@@ -48,6 +48,7 @@ import {
   TestSignatureAggregator__factory
 } from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
 import { TestAggregatedAccount__factory } from '../typechain/factories/contracts/samples/TestAggregatedAccount__factory'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -473,9 +474,15 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
 
         await expect(await ethers.provider.getCode(preAddr).then(x => x.length)).to.equal(2, 'account exists before creation')
-        const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
+        const ret = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
-        }).then(async tx => await tx.wait()).catch(rethrow())
+        })
+        const rcpt = await ret.wait()
+        const hash = await entryPoint.getUserOpHash(createOp)
+        await expect(ret).to.emit(entryPoint, 'AccountDeployed')
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string
+          .withArgs(hash, createOp.sender, toChecksumAddress(createOp.initCode.toString().slice(0, 42)), AddressZero)
+
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
       })
 
@@ -641,7 +648,23 @@ describe('EntryPoint', function () {
           aggregator: AddressZero,
           signature: '0x'
         }]
-        await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 })
+        const rcpt = await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 }).then(async ret => ret.wait())
+        const events = rcpt.events?.map((ev: Event) => {
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          if (ev.event === 'UserOperationEvent') { return `userOp(${ev.args?.sender})` }
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          if (ev.event === 'SignatureAggregatorForUserOperations') { return `agg(${ev.args?.aggregator})` } else return null
+        }).filter(ev => ev != null)
+        // expected "SignatureAggregatorForUserOperations" before every switch of aggregator
+        expect(events).to.eql([
+          `agg(${aggregator.address})`,
+          `userOp(${userOp1.sender})`,
+          `userOp(${userOp2.sender})`,
+          `agg(${aggregator3.address})`,
+          `userOp(${userOp_agg3.sender})`,
+          `agg(${AddressZero})`,
+          `userOp(${userOp_noAgg.sender})`
+        ])
       })
 
       describe('execution ordering', () => {

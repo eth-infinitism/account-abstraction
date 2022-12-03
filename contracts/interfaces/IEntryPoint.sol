@@ -28,6 +28,15 @@ interface IEntryPoint is IStakeManager {
     event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasUsed, bool success);
 
     /**
+     * account "sender" was deployed.
+     * @param userOpHash the userOp that deployed this account. UserOperationEvent will follow.
+     * @param sender the account that is deployed
+     * @param deployer the deployer used to deploy this account (in the initCode)
+     * @param paymaster the paymaster used by this UserOp
+     */
+    event AccountDeployed(bytes32 indexed userOpHash, address indexed sender, address deployer, address paymaster);
+
+    /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length
      * @param userOpHash the request unique identifier.
      * @param sender the sender of this request
@@ -35,6 +44,11 @@ interface IEntryPoint is IStakeManager {
      * @param revertReason - the return bytes from the (reverted) call to "callData".
      */
     event UserOperationRevertReason(bytes32 indexed userOpHash, address indexed sender, uint256 nonce, bytes revertReason);
+
+    /**
+     * signature aggregator used by the following UserOperationEvents within this bundle.
+     */
+    event SignatureAggregatorForUserOperations(address aggregator);
 
     /**
      * a custom revert error of handleOps, to identify the offending op.
