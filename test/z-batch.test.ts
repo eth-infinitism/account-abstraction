@@ -15,7 +15,7 @@ import {
   fund,
   checkForGeth,
   rethrow,
-  getAccountDeployer,
+  getAccountInitCode,
   tonumber,
   deployEntryPoint,
   callDataCost, createAddress, getAccountAddress, simulationResultCatch
@@ -95,7 +95,7 @@ describe('Batch gas testing', function () {
           const account1 = getAccountAddress(entryPoint.address, accountOwner1.address)
           await fund(account1, '0.5')
           const op1 = await fillAndSign({
-            initCode: getAccountDeployer(entryPoint.address, accountOwner1.address),
+            initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
             nonce: 0,
             // callData: accountExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9

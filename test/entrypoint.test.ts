@@ -21,7 +21,7 @@ import {
   checkForGeth,
   rethrow,
   tostr,
-  getAccountDeployer,
+  getAccountInitCode,
   calcGasUsage,
   checkForBannedOps,
   ONE_ETH,
@@ -31,9 +31,9 @@ import {
   createAddress,
   getAccountAddress,
   HashZero,
-  getAggregatedAccountDeployer,
+  getAggregatedAccountFactory,
   simulationResultCatch,
-  simulationResultWithAggregationCatch
+  simulationResultWithAggregationCatch, getAggregatedAccountInitCode
 } from './testutils'
 import { fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -259,7 +259,7 @@ describe('EntryPoint', function () {
 
     it('should fail creation for wrong sender', async () => {
       const op1 = await fillAndSign({
-        initCode: getAccountDeployer(entryPoint.address, accountOwner1.address),
+        initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 1e6
       }, accountOwner1, entryPoint)
@@ -271,7 +271,7 @@ describe('EntryPoint', function () {
       const sender = getAccountAddress(entryPoint.address, accountOwner1.address)
       const op1 = await fillAndSign({
         sender,
-        initCode: getAccountDeployer(entryPoint.address, accountOwner1.address)
+        initCode: getAccountInitCode(entryPoint.address, accountOwner1.address)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
 
@@ -295,7 +295,7 @@ describe('EntryPoint', function () {
 
     it('should not use banned ops during simulateValidation', async () => {
       const op1 = await fillAndSign({
-        initCode: getAccountDeployer(entryPoint.address, accountOwner1.address),
+        initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
         sender: getAccountAddress(entryPoint.address, accountOwner1.address)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
@@ -448,7 +448,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if sender address is wrong', async () => {
         const op = await fillAndSign({
-          initCode: getAccountDeployer(entryPoint.address, accountOwner.address),
+          initCode: getAccountInitCode(entryPoint.address, accountOwner.address),
           verificationGasLimit: 2e6,
           sender: '0x'.padEnd(42, '1')
         }, accountOwner, entryPoint)
@@ -460,7 +460,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: getAccountDeployer(entryPoint.address, accountOwner.address),
+          initCode: getAccountInitCode(entryPoint.address, accountOwner.address),
           verificationGasLimit: 2e6
         }, accountOwner, entryPoint)
 
@@ -478,7 +478,7 @@ describe('EntryPoint', function () {
         const preAddr = getAccountAddress(entryPoint.address, accountOwner.address)
         await fund(preAddr)
         createOp = await fillAndSign({
-          initCode: getAccountDeployer(entryPoint.address, accountOwner.address),
+          initCode: getAccountInitCode(entryPoint.address, accountOwner.address),
           callGasLimit: 1e7,
           verificationGasLimit: 2e6
 
@@ -537,7 +537,7 @@ describe('EntryPoint', function () {
         await fund(account2.address)
         // execute and increment counter
         const op1 = await fillAndSign({
-          initCode: getAccountDeployer(entryPoint.address, accountOwner1.address),
+          initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
           callData: accountExecCounterFromEntryPoint.data,
           callGasLimit: 2e6,
           verificationGasLimit: 2e6
@@ -697,7 +697,7 @@ describe('EntryPoint', function () {
           let addr: string
           let userOp: UserOperation
           before(async () => {
-            initCode = await getAggregatedAccountDeployer(entryPoint.address, aggregator.address)
+            initCode = await getAggregatedAccountInitCode(entryPoint.address, aggregator.address)
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
@@ -743,7 +743,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountDeployer(entryPoint.address, account2Owner.address),
+          initCode: getAccountInitCode(entryPoint.address, account2Owner.address),
 
           verificationGasLimit: 1e6,
           callGasLimit: 1e6
@@ -757,7 +757,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountDeployer(entryPoint.address, account2Owner.address)
+          initCode: getAccountInitCode(entryPoint.address, account2Owner.address)
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
 
@@ -774,7 +774,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountDeployer(entryPoint.address, anOwner.address)
+          initCode: getAccountInitCode(entryPoint.address, anOwner.address)
         }, anOwner, entryPoint)
 
         const { paymasterInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)

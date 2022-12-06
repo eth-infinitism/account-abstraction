@@ -24,10 +24,10 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     //calculated cost of the postOp
     uint256 constant public COST_OF_POST = 15000;
 
-    address public theDeployer;
+    address public immutable theFactory;
 
-    constructor(address accountDeployer, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
-        theDeployer = accountDeployer;
+    constructor(address accountFactory, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
+        theFactory = accountFactory;
         //make it non-empty
         _mint(address(this), 1);
 
@@ -87,12 +87,10 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     }
 
     // when constructing an account, validate constructor code and parameters
-    // this code highly dependent on the deployer we use.
-    // our deployer has a method deploy(bytes,salt)
+    // we trust our factory (and that it doesn't have any other public methods)
     function _validateConstructor(UserOperation calldata userOp) internal virtual view {
-        //we trust a specific deployer contract
-        address deployer = address(bytes20(userOp.initCode[0 : 20]));
-        require(deployer == theDeployer, "TokenPaymaster: wrong account deployer");
+        address factory = address(bytes20(userOp.initCode[0 : 20]));
+        require(factory == theFactory, "TokenPaymaster: wrong account factory");
     }
 
     /**

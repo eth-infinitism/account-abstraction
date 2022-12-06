@@ -14,7 +14,6 @@ import "../interfaces/IPaymaster.sol";
 
 import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
-import "../interfaces/ICreate2Deployer.sol";
 import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
@@ -266,8 +265,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
             if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA11 initCode failed");
             if (sender1 != sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
             if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode must create sender");
-            address deployer = address(bytes20(initCode[0 : 20]));
-            emit AccountDeployed(opInfo.userOpHash, sender, deployer, opInfo.mUserOp.paymaster);
+            address factory = address(bytes20(initCode[0 : 20]));
+            emit AccountDeployed(opInfo.userOpHash, sender, factory, opInfo.mUserOp.paymaster);
         }
     }
 

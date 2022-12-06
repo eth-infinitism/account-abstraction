@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  SimpleAccountDeployer__factory,
+  SimpleAccountFactory__factory,
   SimpleAccount__factory,
   TestUtil,
   TestUtil__factory
@@ -98,13 +98,13 @@ describe('SimpleAccount', function () {
       await expect(account.validateUserOp(userOp, wrongUserOpHash, AddressZero, 0)).to.revertedWith('account: wrong signature')
     })
   })
-  context('SimpleAccountDeployer', () => {
+  context('SimpleAccountFactory', () => {
     it('sanity: check deployer', async () => {
       const ownerAddr = createAddress()
-      const deployer = await new SimpleAccountDeployer__factory(ethersSigner).deploy()
-      const target = await deployer.callStatic.deployAccount(entryPoint, ownerAddr, 1234)
+      const deployer = await new SimpleAccountFactory__factory(ethersSigner).deploy()
+      const target = await deployer.callStatic.createAccount(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(false)
-      await deployer.deployAccount(entryPoint, ownerAddr, 1234)
+      await deployer.createAccount(entryPoint, ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(true)
     })
   })
