@@ -231,16 +231,18 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (address aggregator, uint256 deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
         uint256 prefund = outOpInfo.prefund;
         uint256 preOpGas = preGas - gasleft() + userOp.preVerificationGas;
-        DepositInfo memory depositInfo = getDepositInfo(outOpInfo.mUserOp.paymaster);
-        PaymasterInfo memory paymasterInfo = PaymasterInfo(depositInfo.stake, depositInfo.unstakeDelaySec);
+        StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
+        StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
+        bytes calldata initCode = userOp.initCode;
+        address factory = initCode.length>=20 ? address(bytes20(initCode[0 : 20])) : address(0);
+        StakeInfo memory factoryInfo = getStakeInfo(factory);
 
         if (aggregator != address(0)) {
-            depositInfo = getDepositInfo(aggregator);
-            AggregationInfo memory aggregationInfo = AggregationInfo(aggregator, depositInfo.stake, depositInfo.unstakeDelaySec);
-            revert SimulationResultWithAggregation(preOpGas, prefund, deadline, paymasterInfo, aggregationInfo);
-
+            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
+            revert SimulationResultWithAggregation(preOpGas, prefund, deadline, senderInfo, factoryInfo, paymasterInfo, aggregatorInfo);
         }
-        revert SimulationResult(preOpGas, prefund, deadline, paymasterInfo);
+        revert SimulationResult(preOpGas, prefund, deadline, senderInfo, factoryInfo, paymasterInfo);
+
     }
 
     function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal view returns (uint256 requiredPrefund) {
@@ -294,6 +296,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
             numberMarker();
 
+            if (sender.code.length==0) {
+                // it would revert anyway. but give a meaningful message
+                revert FailedOp(0,address(0), "AA20 account not deployed");
+            }
             try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {

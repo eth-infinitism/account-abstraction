@@ -19,6 +19,13 @@ abstract contract StakeManager is IStakeManager {
         return deposits[account];
     }
 
+    // internal method to return just the stake info
+    function getStakeInfo(address addr) internal view returns (StakeInfo memory info) {
+        DepositInfo storage depositInfo = deposits[addr];
+        info.stake = depositInfo.stake;
+        info.unstakeDelaySec = depositInfo.unstakeDelaySec;
+    }
+
     /// return the deposit (for gas payment) of the account
     function balanceOf(address account) public view returns (uint256) {
         return deposits[account].deposit;

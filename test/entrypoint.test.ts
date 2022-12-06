@@ -236,6 +236,17 @@ describe('EntryPoint', function () {
       await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
     })
 
+    it('should return stake of sender', async () => {
+      const stakeValue = BigNumber.from(123)
+      const unstakeDelay = 3
+      const account2 = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, ethersSigner.getAddress())
+      await fund(account2)
+      await account2.exec(entryPoint.address, stakeValue, entryPoint.interface.encodeFunctionData('addStake', [unstakeDelay]))
+      const op = await fillAndSign({ sender: account2.address }, ethersSigner, entryPoint)
+      const result = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+      expect(result.senderInfo).to.eql({ stake: stakeValue, unstakeDelaySec: unstakeDelay })
+    })
+
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
       const op = await fillAndSign({
         preVerificationGas: BigNumber.from(2).pow(130),
@@ -696,10 +707,10 @@ describe('EntryPoint', function () {
           })
           it('simulateValidation should return aggregator and its stake', async () => {
             await aggregator.addStake(entryPoint.address, 3, { value: TWO_ETH })
-            const { aggregationInfo } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
-            expect(aggregationInfo.actualAggregator).to.equal(aggregator.address)
-            expect(aggregationInfo.aggregatorStake).to.equal(TWO_ETH)
-            expect(aggregationInfo.aggregatorUnstakeDelay).to.equal(3)
+            const { aggregatorInfo } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
+            expect(aggregatorInfo.actualAggregator).to.equal(aggregator.address)
+            expect(aggregatorInfo.stakeInfo.stake).to.equal(TWO_ETH)
+            expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.equal(3)
           })
           it('should create account in handleOps', async () => {
             await aggregator.validateUserOpSignature(userOp)
@@ -768,8 +779,8 @@ describe('EntryPoint', function () {
 
         const { paymasterInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
         const {
-          paymasterStake: simRetStake,
-          paymasterUnstakeDelay: simRetDelay
+          stake: simRetStake,
+          unstakeDelaySec: simRetDelay
         } = paymasterInfo
 
         expect(simRetStake).to.eql(paymasterStake)
