@@ -31,7 +31,6 @@ import {
   createAddress,
   getAccountAddress,
   HashZero,
-  getAggregatedAccountFactory,
   simulationResultCatch,
   simulationResultWithAggregationCatch, getAggregatedAccountInitCode
 } from './testutils'

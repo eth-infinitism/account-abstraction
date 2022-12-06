@@ -150,10 +150,10 @@ describe('bls account', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const { aggregationInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
-      expect(aggregationInfo.actualAggregator).to.eq(blsAgg.address)
-      expect(aggregationInfo.aggregatorStake).to.eq(ONE_ETH)
-      expect(aggregationInfo.aggregatorUnstakeDelay).to.eq(2)
+      const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
+      expect(aggregatorInfo.actualAggregator).to.eq(blsAgg.address)
+      expect(aggregatorInfo.stakeInfo.stake).to.eq(ONE_ETH)
+      expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.eq(2)
 
       const [signature] = defaultAbiCoder.decode(['bytes32[2]'], userOp.signature)
       const pubkey = (await blsAgg.getUserOpPublicKey(userOp)).map(n => hexValue(n)) // TODO: returns uint256[4], verify needs bytes32[4]
