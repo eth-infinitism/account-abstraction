@@ -229,6 +229,12 @@ describe('EntryPoint', function () {
         .revertedWith('wrong signature')
     })
 
+    it('should revert on oog if not enough verificationGas', async () => {
+      const op = await fillAndSign({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
+      await expect(entryPoint.callStatic.simulateValidation(op)).to
+        .revertedWith('AA23 reverted (or OOG)')
+    })
+
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({ sender: account1.address }, accountOwner1, entryPoint)
       await fund(account1)
@@ -260,12 +266,21 @@ describe('EntryPoint', function () {
       const op1 = await fillAndSign({
         initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
         sender: '0x'.padEnd(42, '1'),
-        verificationGasLimit: 1e6
+        verificationGasLimit: 2e6
       }, accountOwner1, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op1))
         .to.revertedWith('AA12 initCode must return sender')
     })
 
+    it('should report failure on insufficient verificationGas (OOG) for creation', async () => {
+      const op1 = await fillAndSign({
+        initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
+        sender: '0x'.padEnd(42, '1'),
+        verificationGasLimit: 1e5
+      }, accountOwner1, entryPoint)
+      await expect(entryPoint.callStatic.simulateValidation(op1, { gasLimit: 1e6 }))
+        .to.revertedWith('AA11 initCode failed')
+    })
     it('should succeed for creating an account', async () => {
       const sender = getAccountAddress(entryPoint.address, accountOwner1.address)
       const op1 = await fillAndSign({
@@ -435,6 +450,15 @@ describe('EntryPoint', function () {
 
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+      })
+
+      it('should report failure on insufficient verificationGas after creation', async () => {
+        const op1 = await fillAndSign({
+          sender: account.address,
+          verificationGasLimit: 100
+        }, accountOwner, entryPoint)
+        await expect(entryPoint.callStatic.simulateValidation(op1))
+          .to.revertedWith('AA23 reverted (or OOG)')
       })
     })
 
@@ -745,7 +769,7 @@ describe('EntryPoint', function () {
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(entryPoint.address, account2Owner.address),
 
-          verificationGasLimit: 1e6,
+          verificationGasLimit: 2e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
