@@ -136,6 +136,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 opIndex++;
             }
         }
+        emit SignatureAggregatorChanged(address(0));
 
         _compensate(beneficiary, collected);
     }
