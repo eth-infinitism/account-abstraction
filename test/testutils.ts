@@ -68,12 +68,11 @@ export function callDataCost (data: string): number {
 export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
-  const { actualGasCost, actualGasPrice } = logs[0].args
+  const { actualGasCost, actualGasUsed } = logs[0].args
   console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
-  const calculatedGasUsed = actualGasCost.toNumber() / actualGasPrice.toNumber()
-  console.log('\t== calculated gasUsed (paid to beneficiary)=', calculatedGasUsed)
+  console.log('\t== calculated gasUsed (paid to beneficiary)=', actualGasUsed)
   const tx = await ethers.provider.getTransaction(rcpt.transactionHash)
-  console.log('\t== gasDiff', actualGas.toNumber() - calculatedGasUsed - callDataCost(tx.data))
+  console.log('\t== gasDiff', actualGas.toNumber() - actualGasUsed.toNumber() - callDataCost(tx.data))
   if (beneficiaryAddress != null) {
     expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost.toNumber())
   }

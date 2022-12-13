@@ -7,7 +7,6 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
-/* solhint-disable reason-string */
 /* solhint-disable avoid-tx-origin */
 
 import "../interfaces/IAccount.sol";
@@ -35,9 +34,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param amount amount to transfer.
      */
     function _compensate(address payable beneficiary, uint256 amount) internal {
-        require(beneficiary != address(0), "invalid beneficiary");
+        require(beneficiary != address(0), "AA90 invalid beneficiary");
         (bool success,) = beneficiary.call{value : amount}("");
-        require(success);
+        require(success, "AA91 failed send to beneficiary");
     }
 
     /**
@@ -167,7 +166,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      */
     function innerHandleOp(bytes calldata callData, UserOpInfo memory opInfo, bytes calldata context) external returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
-        require(msg.sender == address(this));
+        require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
@@ -210,7 +209,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         if (paymasterAndData.length > 0) {
-            require(paymasterAndData.length >= 20, "invalid paymasterAndData");
+            require(paymasterAndData.length >= 20, "AA93 invalid paymasterAndData");
             mUserOp.paymaster = address(bytes20(paymasterAndData[: 20]));
         } else {
             mUserOp.paymaster = address(0);
@@ -258,11 +257,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // create the sender's contract if needed.
     function _createSenderIfNeeded(uint256 opIndex, MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
         if (initCode.length != 0) {
-            if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "sender already constructed");
+            if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
             address sender1 = senderCreator.createSender(initCode);
-            if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "initCode failed");
-            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "sender doesn't match initCode address");
-            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "initCode failed to create sender");
+            if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA11 initCode failed");
+            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
+            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode must create sender");
         }
     }
 
@@ -304,7 +303,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         try IAccount(sender).validateUserOp{gas : mUserOp.verificationGasLimit}(op, opInfo.userOpHash, aggregator, missingAccountFunds) returns (uint256 _deadline) {
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
-                revert FailedOp(opIndex, address(0), "expired");
+                revert FailedOp(opIndex, address(0), "AA22 expired");
             }
             deadline = _deadline;
         } catch Error(string memory revertReason) {
@@ -316,7 +315,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             DepositInfo storage senderInfo = deposits[sender];
             uint256 deposit = senderInfo.deposit;
             if (requiredPrefund > deposit) {
-                revert FailedOp(opIndex, address(0), "account didn't pay prefund");
+                revert FailedOp(opIndex, address(0), "AA21 didn't pay prefund");
             }
             senderInfo.deposit = uint112(deposit - requiredPrefund);
         }
@@ -337,19 +336,15 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address paymaster = mUserOp.paymaster;
         DepositInfo storage paymasterInfo = deposits[paymaster];
         uint256 deposit = paymasterInfo.deposit;
-        bool staked = paymasterInfo.staked;
-        if (!staked) {
-            revert FailedOp(opIndex, paymaster, "not staked");
-        }
         if (deposit < requiredPreFund) {
-            revert FailedOp(opIndex, paymaster, "paymaster deposit too low");
+            revert FailedOp(opIndex, paymaster, "AA31 paymaster deposit too low");
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
         uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateAccountPrepayment;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.userOpHash, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
-                revert FailedOp(opIndex, paymaster, "expired");
+                revert FailedOp(opIndex, paymaster, "AA32 paymaster expired");
             }
             context = _context;
             deadline = _deadline;
@@ -380,7 +375,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         // and multiplied without causing overflow
         uint256 maxGasValues = mUserOp.preVerificationGas | mUserOp.verificationGasLimit | mUserOp.callGasLimit |
         userOp.maxFeePerGas | userOp.maxPriorityFeePerGas;
-        require(maxGasValues <= type(uint120).max, "gas values overflow");
+        require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
 
         uint256 gasUsedByValidateAccountPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
@@ -404,7 +399,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 gasUsed = preGas - gasleft();
 
         if (userOp.verificationGasLimit < gasUsed) {
-            revert FailedOp(opIndex, mUserOp.paymaster, "Used more than verificationGasLimit");
+            revert FailedOp(opIndex, mUserOp.paymaster, "A40 over verificationGasLimit");
         }
         outOpInfo.prefund = requiredPreFund;
         outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
@@ -446,7 +441,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                         revert FailedOp(opIndex, paymaster, reason);
                     }
                     catch {
-                        revert FailedOp(opIndex, paymaster, "postOp revert");
+                        revert FailedOp(opIndex, paymaster, "A50 postOp revert");
                     }
                 }
             }
@@ -454,18 +449,18 @@ contract EntryPoint is IEntryPoint, StakeManager {
         actualGas += preGas - gasleft();
         actualGasCost = actualGas * gasPrice;
         if (opInfo.prefund < actualGasCost) {
-            revert FailedOp(opIndex, paymaster, "prefund below actualGasCost");
+            revert FailedOp(opIndex, paymaster, "A51 prefund below actualGasCost");
         }
         uint256 refund = opInfo.prefund - actualGasCost;
         internalIncrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-        emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, actualGasCost, gasPrice, success);
+        emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, actualGasCost, actualGas, success);
     } // unchecked
     }
 
     /**
      * the gas price this UserOp agrees to pay.
-     * relayer/miner might submit the TX with higher priorityFee, but the user should not
+     * relayer/block builder might submit the TX with higher priorityFee, but the user should not
      */
     function getUserOpGasPrice(MemoryUserOp memory mUserOp) internal view returns (uint256) {
     unchecked {

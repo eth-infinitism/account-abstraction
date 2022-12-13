@@ -21,11 +21,11 @@ interface IEntryPoint is IStakeManager {
      * @param sender - the account that generates this request.
      * @param paymaster - if non-null, the paymaster that pays for this request.
      * @param nonce - the nonce value from the request
-     * @param actualGasCost - the total cost (in gas) of this request.
-     * @param actualGasPrice - the actual gas price the sender agreed to pay.
+     * @param actualGasCost - actual amount paid (by account or paymaster) for this UserOperation
+     * @param actualGasUsed - total gas used by this UserOperation (including preVerification, creation, validation and execution)
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
-    event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasPrice, bool success);
+    event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasUsed, bool success);
 
     /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length
