@@ -127,7 +127,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
-            emit SignatureAggregatorForUserOperations(address(opa.aggregator));
+            emit SignatureAggregatorChanged(address(opa.aggregator));
             UserOperation[] calldata ops = opa.userOps;
             uint256 opslen = ops.length;
 

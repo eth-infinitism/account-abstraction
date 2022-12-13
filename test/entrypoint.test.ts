@@ -663,9 +663,9 @@ describe('EntryPoint', function () {
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
           if (ev.event === 'UserOperationEvent') { return `userOp(${ev.args?.sender})` }
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          if (ev.event === 'SignatureAggregatorForUserOperations') { return `agg(${ev.args?.aggregator})` } else return null
+          if (ev.event === 'SignatureAggregatorChanged') { return `agg(${ev.args?.aggregator})` } else return null
         }).filter(ev => ev != null)
-        // expected "SignatureAggregatorForUserOperations" before every switch of aggregator
+        // expected "SignatureAggregatorChanged" before every switch of aggregator
         expect(events).to.eql([
           `agg(${aggregator.address})`,
           `userOp(${userOp1.sender})`,
