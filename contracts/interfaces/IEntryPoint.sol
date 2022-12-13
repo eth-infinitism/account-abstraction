@@ -21,7 +21,7 @@ interface IEntryPoint is IStakeManager {
      * @param sender - the account that generates this request.
      * @param paymaster - if non-null, the paymaster that pays for this request.
      * @param nonce - the nonce value from the request
-     * @param actualGasCost - the total cost (in gas) of this request the sender (or paymaster) paid
+     * @param actualGasCost - actual amount paid (by account or paymaster) for this UserOperation
      * @param actualGasUsed - total gas used by this UserOperation (including preVerification, creation, validation and execution)
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
@@ -122,6 +122,7 @@ interface IEntryPoint is IStakeManager {
      */
     error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline,
         StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
+
 
     /**
      * Successful result from simulateValidation, if the account returns a signature aggregator
