@@ -3,12 +3,12 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  SimpleAccount__factory,
   EntryPoint,
   VerifyingPaymaster,
   VerifyingPaymaster__factory
 } from '../typechain'
 import {
+  createAccount,
   createAccountOwner,
   deployEntryPoint, simulationResultCatch
 } from './testutils'
@@ -24,6 +24,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   let paymaster: VerifyingPaymaster
   before(async function () {
+    this.timeout(20000)
     entryPoint = await deployEntryPoint()
 
     offchainSigner = createAccountOwner()
@@ -31,8 +32,8 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
     paymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(entryPoint.address, offchainSigner.address)
     await paymaster.addStake(1, { value: parseEther('2') })
-    await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
-    account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
+    await entryPoint.depositTo(paymaster.address, { value: parseEther('1') });
+    ({ proxy: account } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address))
   })
 
   describe('#validatePaymasterUserOp', () => {

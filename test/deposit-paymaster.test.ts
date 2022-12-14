@@ -3,7 +3,6 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  SimpleAccount__factory,
   EntryPoint,
   DepositPaymaster,
   DepositPaymaster__factory,
@@ -16,7 +15,7 @@ import {
 import {
   AddressZero, createAddress,
   createAccountOwner,
-  deployEntryPoint, FIVE_ETH, ONE_ETH, simulationResultCatch, userOpsWithoutAgg
+  deployEntryPoint, FIVE_ETH, ONE_ETH, simulationResultCatch, userOpsWithoutAgg, createAccount
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
@@ -45,7 +44,7 @@ describe('DepositPaymaster', () => {
     let account: SimpleAccount
 
     before(async () => {
-      account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await ethersSigner.getAddress())
+      ({ proxy: account } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address))
     })
     it('should deposit and read balance', async () => {
       await paymaster.addDepositFor(token.address, account.address, 100)
@@ -79,11 +78,9 @@ describe('DepositPaymaster', () => {
   describe('#validatePaymasterUserOp', () => {
     let account: SimpleAccount
     const gasPrice = 1e9
-    let accountOwner: string
 
     before(async () => {
-      accountOwner = await ethersSigner.getAddress()
-      account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, accountOwner)
+      ({ proxy: account } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address))
     })
 
     it('should fail if no token', async () => {
@@ -141,7 +138,7 @@ describe('DepositPaymaster', () => {
     let counter: TestCounter
     let callData: string
     before(async () => {
-      account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, accountOwner.address)
+      ({ proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
       counter = await new TestCounter__factory(ethersSigner).deploy()
       const counterJustEmit = await counter.populateTransaction.justemit().then(tx => tx.data!)
       callData = await account.populateTransaction.execFromEntryPoint(counter.address, 0, counterJustEmit).then(tx => tx.data!)

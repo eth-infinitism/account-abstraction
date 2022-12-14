@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./SimpleAccount.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+
+import "hardhat/console.sol";
+
+import "./SimpleAccount.sol";
+
 /**
  * A sample factory contract for SimpleAccount
  * A UserOperations "initCode" holds the address of the factory, and a method call (to createAccount, in this sample factory).
@@ -10,6 +15,11 @@ import "@openzeppelin/contracts/utils/Create2.sol";
  * This way, the entryPoint.getSenderAddress() can be called either before or after the account is created.
  */
 contract SimpleAccountFactory {
+    address private immutable accountImplementation;
+
+    constructor(address _accountImplementation){
+        accountImplementation = _accountImplementation;
+    }
 
     /**
      * create an account, and return its address.
@@ -23,7 +33,10 @@ contract SimpleAccountFactory {
         if (codeSize > 0) {
             return SimpleAccount(payable(addr));
         }
-        ret = new SimpleAccount{salt : bytes32(salt)}(entryPoint, owner);
+        ret = SimpleAccount(payable(new ERC1967Proxy{salt : bytes32(salt)}(
+                accountImplementation,
+                abi.encodeWithSelector(SimpleAccount.initialize.selector, entryPoint, owner)
+            )));
     }
 
     /**
@@ -31,8 +44,11 @@ contract SimpleAccountFactory {
      */
     function getAddress(IEntryPoint entryPoint, address owner, uint salt) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
-                type(SimpleAccount).creationCode,
-                abi.encode(entryPoint, owner))
-            ));
+                type(ERC1967Proxy).creationCode,
+                abi.encode(
+                    accountImplementation,
+                    abi.encodeWithSelector(SimpleAccount.initialize.selector, entryPoint, owner)
+                )
+            )));
     }
 }

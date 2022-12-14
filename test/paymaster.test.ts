@@ -24,6 +24,7 @@ import {
   checkForBannedOps,
   createAddress,
   ONE_ETH,
+  createAccount,
   getAccountAddress
 } from './testutils'
 import { fillAndSign } from './UserOp'
@@ -36,24 +37,27 @@ describe('EntryPoint with paymaster', function () {
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount
+  let simpleAccountImplementation: SimpleAccount
   const beneficiaryAddress = '0x'.padEnd(42, '1')
   let factory: SimpleAccountFactory
 
-  function getAccountDeployer (entryPoint: string, accountOwner: string): string {
+  function getAccountDeployer (entryPoint: string, accountOwner: string, _salt: number = 0): string {
     return hexConcat([
       factory.address,
-      hexValue(factory.interface.encodeFunctionData('createAccount', [entryPoint, accountOwner, 0])!)
+      hexValue(factory.interface.encodeFunctionData('createAccount', [entryPoint, accountOwner, _salt])!)
     ])
   }
 
   before(async function () {
+    this.timeout(20000)
     await checkForGeth()
 
     entryPoint = await deployEntryPoint()
-    factory = await new SimpleAccountFactory__factory(ethersSigner).deploy()
+    simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy()
+    factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(simpleAccountImplementation.address)
 
-    accountOwner = createAccountOwner()
-    account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+    accountOwner = createAccountOwner();
+    ({ proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address, factory, simpleAccountImplementation))
     await fund(account)
   })
 
@@ -92,7 +96,7 @@ describe('EntryPoint with paymaster', function () {
     describe('#handleOps', () => {
       let calldata: string
       before(async () => {
-        const updateEntryPoint = await account.populateTransaction.updateEntryPoint(AddressZero).then(tx => tx.data!)
+        const updateEntryPoint = await account.populateTransaction.withdrawDepositTo(AddressZero, 0).then(tx => tx.data!)
         calldata = await account.populateTransaction.execFromEntryPoint(account.address, 0, updateEntryPoint).then(tx => tx.data!)
       })
       it('paymaster should reject if account doesn\'t have tokens', async () => {
@@ -114,10 +118,11 @@ describe('EntryPoint with paymaster', function () {
       let createOp: UserOperation
       let created = false
       const beneficiaryAddress = createAddress()
+      // const accountOwner = createAccountOwner() // TODO: not clear how it worked earlier - the account is already deployed by global 'before'
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: getAccountDeployer(entryPoint.address, accountOwner.address),
+          initCode: getAccountDeployer(entryPoint.address, accountOwner.address, 1),
           verificationGasLimit: 1e7,
           paymasterAndData: paymaster.address
         }, accountOwner, entryPoint)
@@ -128,7 +133,7 @@ describe('EntryPoint with paymaster', function () {
 
       it('should succeed to create account with tokens', async () => {
         createOp = await fillAndSign({
-          initCode: getAccountDeployer(entryPoint.address, accountOwner.address),
+          initCode: getAccountDeployer(entryPoint.address, accountOwner.address, 3),
           verificationGasLimit: 1e7,
           paymasterAndData: paymaster.address,
           nonce: 0
@@ -156,7 +161,7 @@ describe('EntryPoint with paymaster', function () {
         const ethRedeemed = await getBalance(beneficiaryAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const accountAddr = getAccountAddress(entryPoint.address, accountOwner.address)
+        const accountAddr = getAccountAddress(entryPoint.address, accountOwner.address, simpleAccountImplementation.address)
         const postBalance = await getTokenBalance(paymaster, accountAddr)
         expect(1e18 - postBalance).to.above(10000)
       })
@@ -168,7 +173,8 @@ describe('EntryPoint with paymaster', function () {
         }).catch(rethrow())).to.revertedWith('sender already constructed')
       })
 
-      it('batched request should each pay for its share', async () => {
+      it('batched request should each pay for its share', async function () {
+        this.timeout(20000)
         // validate context is passed correctly to postOp
         // (context is the account to pay with)
 
@@ -181,7 +187,7 @@ describe('EntryPoint with paymaster', function () {
         const accounts: SimpleAccount[] = []
 
         for (let i = 0; i < 4; i++) {
-          const aAccount = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+          const { proxy: aAccount } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
           await paymaster.mintTokens(aAccount.address, parseEther('1'))
           const op = await fillAndSign({
             sender: aAccount.address,
@@ -212,8 +218,9 @@ describe('EntryPoint with paymaster', function () {
       describe('grief attempt', () => {
         let account2: SimpleAccount
         let approveCallData: string
-        before(async () => {
-          account2 = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+        before(async function () {
+          this.timeout(20000);
+          ({ proxy: account2 } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
           await paymaster.mintTokens(account2.address, parseEther('1'))
           await paymaster.mintTokens(account.address, parseEther('1'))
           approveCallData = paymaster.interface.encodeFunctionData('approve', [account.address, ethers.constants.MaxUint256])
@@ -262,7 +269,8 @@ describe('EntryPoint with paymaster', function () {
     })
     describe('withdraw', () => {
       const withdrawAddress = createAddress()
-      it('should fail to withdraw before unstake', async () => {
+      it('should fail to withdraw before unstake', async function () {
+        this.timeout(20000)
         await expect(
           paymaster.withdrawStake(withdrawAddress)
         ).to.revertedWith('must call unlockStake')

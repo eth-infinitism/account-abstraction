@@ -1,6 +1,7 @@
 // calculate gas usage of different bundle sizes
+import { zeroAddress } from 'ethereumjs-util'
 import '../test/aa.init'
-import { formatEther, parseEther } from 'ethers/lib/utils'
+import { defaultAbiCoder, formatEther, Interface, parseEther } from 'ethers/lib/utils'
 import {
   AddressZero,
   checkForGeth,
@@ -8,7 +9,7 @@ import {
   createAccountOwner,
   deployEntryPoint
 } from '../test/testutils'
-import { EntryPoint, EntryPoint__factory, SimpleAccount__factory } from '../typechain'
+import { EntryPoint, EntryPoint__factory, ERC1967Proxy__factory, SimpleAccount__factory } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
 import { fillAndSign } from '../test/UserOp'
@@ -103,7 +104,11 @@ export class GasChecker {
 
   // generate the account "creation code"
   accountInitCode (): string {
-    return hexValue(new SimpleAccount__factory(ethersSigner).getDeployTransaction(GasCheckCollector.inst.entryPoint.address, this.accountOwner.address).data!)
+    const implementationAddress = zeroAddress() // TODO: pass implementation in here
+    const initializerSelector = new Interface(SimpleAccount__factory.abi).getSighash('initialize')
+    const initializeCall = initializerSelector + defaultAbiCoder.encode(['address', 'address'], [GasCheckCollector.inst.entryPoint.address, this.accountOwner.address]).replace('0x', '')
+    const deployTransaction = new ERC1967Proxy__factory(ethersSigner).getDeployTransaction(implementationAddress, initializeCall).data!
+    return hexValue(deployTransaction)
   }
 
   /**

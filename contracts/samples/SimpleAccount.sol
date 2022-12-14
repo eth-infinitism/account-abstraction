@@ -5,8 +5,12 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "../core/BaseAccount.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+
+import "../core/BaseAccount.sol";
+import "../core/EntryPoint.sol";
 
 /**
   * minimal account.
@@ -14,7 +18,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
   *  has execute, eth handling methods
   *  has a single signer that can send requests through the entryPoint.
   */
-contract SimpleAccount is BaseAccount {
+contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     using ECDSA for bytes32;
 
     //explicit sizes of nonce, to fit a single storage cell with "owner"
@@ -31,15 +35,10 @@ contract SimpleAccount is BaseAccount {
 
     IEntryPoint private _entryPoint;
 
-    event EntryPointChanged(address indexed oldEntryPoint, address indexed newEntryPoint);
+    event Initialized(IEntryPoint indexed entryPoint, address indexed owner);
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
-
-    constructor(IEntryPoint anEntryPoint, address anOwner) {
-        _entryPoint = anEntryPoint;
-        owner = anOwner;
-    }
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -80,9 +79,14 @@ contract SimpleAccount is BaseAccount {
      * an account must have a method for replacing the entryPoint, in case the the entryPoint is
      * upgraded to a newer version.
      */
-    function _updateEntryPoint(address newEntryPoint) internal override {
-        emit EntryPointChanged(address(_entryPoint), newEntryPoint);
-        _entryPoint = IEntryPoint(payable(newEntryPoint));
+    function initialize(IEntryPoint anEntryPoint, address anOwner) public virtual initializer {
+        _initialize(anEntryPoint, anOwner);
+    }
+
+    function _initialize(IEntryPoint anEntryPoint, address anOwner) internal virtual {
+        _entryPoint = anEntryPoint;
+        owner = anOwner;
+        emit Initialized(_entryPoint, owner);
     }
 
     function _requireFromAdmin() internal view override {
@@ -154,6 +158,11 @@ contract SimpleAccount is BaseAccount {
      */
     function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
         entryPoint().withdrawTo(withdrawAddress, amount);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override {
+        (newImplementation);
+        _requireFromAdmin();
     }
 }
 

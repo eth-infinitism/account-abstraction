@@ -14,7 +14,8 @@ contract TestExpiryAccount is SimpleAccount {
 
     mapping(address => uint256) public ownerDeadlines;
 
-    constructor(IEntryPoint anEntryPoint, address anOwner) SimpleAccount(anEntryPoint, anOwner) {
+    function initialize(IEntryPoint anEntryPoint, address anOwner) public virtual override initializer {
+        super._initialize(anEntryPoint, anOwner);
         addTemporaryOwner(anOwner, type(uint256).max);
     }
 
