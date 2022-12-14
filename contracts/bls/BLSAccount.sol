@@ -49,4 +49,3 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         return publicKey;
     }
 }
-

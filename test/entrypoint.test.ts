@@ -709,7 +709,6 @@ describe('EntryPoint', function () {
           let userOp: UserOperation
           before(async () => {
             const aggregatedAccountImplementation = await new TestAggregatedAccount__factory(ethersSigner).deploy(aggregator.address)
-            initCode = await getAggregatedAccountInitCode(entryPoint.address, aggregatedAccountImplementation.address)
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
