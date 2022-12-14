@@ -1,5 +1,4 @@
 // calculate gas usage of different bundle sizes
-import { zeroAddress } from 'ethereumjs-util'
 import '../test/aa.init'
 import { formatEther, Interface, parseEther } from 'ethers/lib/utils'
 import {
