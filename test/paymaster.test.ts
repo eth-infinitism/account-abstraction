@@ -8,8 +8,8 @@ import {
   TokenPaymaster,
   TokenPaymaster__factory,
   TestCounter__factory,
-  SimpleAccountDeployer,
-  SimpleAccountDeployer__factory
+  SimpleAccountFactory,
+  SimpleAccountFactory__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -37,12 +37,12 @@ describe('EntryPoint with paymaster', function () {
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount
   const beneficiaryAddress = '0x'.padEnd(42, '1')
-  let deployer: SimpleAccountDeployer
+  let factory: SimpleAccountFactory
 
   function getAccountDeployer (entryPoint: string, accountOwner: string): string {
     return hexConcat([
-      deployer.address,
-      hexValue(deployer.interface.encodeFunctionData('deployAccount', [entryPoint, accountOwner, 0])!)
+      factory.address,
+      hexValue(factory.interface.encodeFunctionData('createAccount', [entryPoint, accountOwner, 0])!)
     ])
   }
 
@@ -50,7 +50,7 @@ describe('EntryPoint with paymaster', function () {
     await checkForGeth()
 
     entryPoint = await deployEntryPoint()
-    deployer = await new SimpleAccountDeployer__factory(ethersSigner).deploy()
+    factory = await new SimpleAccountFactory__factory(ethersSigner).deploy()
 
     accountOwner = createAccountOwner()
     account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
@@ -64,7 +64,7 @@ describe('EntryPoint with paymaster', function () {
     let pmAddr: string
 
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(deployer.address, 'ttt', entryPoint.address)
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(factory.address, 'ttt', entryPoint.address)
       pmAddr = paymaster.address
       ownerAddr = await ethersSigner.getAddress()
     })
@@ -84,7 +84,7 @@ describe('EntryPoint with paymaster', function () {
   describe('using TokenPaymaster (account pays in paymaster tokens)', () => {
     let paymaster: TokenPaymaster
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(deployer.address, 'tst', entryPoint.address)
+      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(factory.address, 'tst', entryPoint.address)
       await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
       await paymaster.addStake(1, { value: parseEther('2') })
     })

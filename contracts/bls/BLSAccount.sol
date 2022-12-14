@@ -46,9 +46,9 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
 }
 
 
-contract BLSAccountDeployer {
+contract BLSAccountFactory {
 
-    function deployAccount(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
+    function createAccount(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
         return new BLSAccount{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
     }
 }

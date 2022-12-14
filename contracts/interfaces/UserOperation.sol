@@ -40,7 +40,7 @@ library UserOperationLib {
         return address(uint160(data));
     }
 
-    //relayer/miner might submit the TX with higher priorityFee, but the user should not
+    //relayer/block builder might submit the TX with higher priorityFee, but the user should not
     // pay above what he signed for.
     function gasPrice(UserOperation calldata userOp) internal view returns (uint256) {
     unchecked {
