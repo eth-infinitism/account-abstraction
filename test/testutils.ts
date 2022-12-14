@@ -1,7 +1,6 @@
 import { ethers } from 'hardhat'
 import {
   arrayify,
-  defaultAbiCoder,
   getCreate2Address,
   hexConcat,
   Interface,

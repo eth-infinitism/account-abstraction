@@ -16,7 +16,7 @@ import { UserOperation } from '../test/UserOperation'
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
 import { clearInterval } from 'timers'
 import { Create2Factory } from './Create2Factory'
-import { defaultAbiCoder, getCreate2Address, hexConcat, Interface, keccak256 } from 'ethers/lib/utils'
+import { getCreate2Address, hexConcat, Interface, keccak256 } from 'ethers/lib/utils'
 import { HashZero } from '../test/testutils'
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
