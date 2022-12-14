@@ -103,8 +103,7 @@ export class GasChecker {
   }
 
   // generate the account "creation code"
-  accountInitCode (): string {
-    const implementationAddress = zeroAddress() // TODO: pass implementation in here
+  accountInitCode (implementationAddress: string): string {
     const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [GasCheckCollector.inst.entryPoint.address, this.accountOwner.address])
     const deployTransaction = new ERC1967Proxy__factory(ethersSigner).getDeployTransaction(implementationAddress, initializeCall).data!
     return hexValue(deployTransaction)
@@ -116,12 +115,12 @@ export class GasChecker {
    * do nothing for account already created
    * @param count
    */
-  async createAccounts1 (count: number): Promise<void> {
+  async createAccounts1 (count: number, implementation: string): Promise<void> {
     const fact = new Create2Factory(provider)
     // create accounts
     for (const n of range(count)) {
       const salt = n
-      const initCode = this.accountInitCode()
+      const initCode = this.accountInitCode(implementation)
 
       const addr = fact.getDeployedAddress(initCode, salt)
       this.accounts[addr] = this.accountOwner
@@ -156,8 +155,9 @@ export class GasChecker {
 
     console.debug('== running test count=', info.count)
 
+    const simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy()
     // fill accounts up to this code.
-    await this.createAccounts1(info.count)
+    await this.createAccounts1(info.count, simpleAccountImplementation.address)
 
     let accountEst: number = 0
     const userOps = await Promise.all(range(info.count)
