@@ -709,6 +709,7 @@ describe('EntryPoint', function () {
           let userOp: UserOperation
           before(async () => {
             const aggregatedAccountImplementation = await new TestAggregatedAccount__factory(ethersSigner).deploy(aggregator.address)
+            initCode = await getAggregatedAccountInitCode(entryPoint.address, aggregatedAccountImplementation.address)
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
@@ -835,7 +836,8 @@ describe('EntryPoint', function () {
         let account: TestExpiryAccount
         let paymaster: TestExpirePaymaster
         let now: number
-        before('init account with session key', async () => {
+        before('init account with session key', async function () {
+          this.timeout(20000)
           // account without eth - must be paid by paymaster.
           account = await new TestExpiryAccount__factory(ethersSigner).deploy()
           await account.initialize(entryPoint.address, await ethersSigner.getAddress())
