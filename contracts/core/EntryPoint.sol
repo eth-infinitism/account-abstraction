@@ -300,6 +300,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 // it would revert anyway. but give a meaningful message
                 revert FailedOp(0, address(0), "AA20 account not deployed");
             }
+            if (mUserOp.paymaster != address(0) && mUserOp.paymaster.code.length == 0) {
+                // it would revert anyway. but give a meaningful message
+                revert FailedOp(0, address(0), "AA30 paymaster not deployed");
+            }
             try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {

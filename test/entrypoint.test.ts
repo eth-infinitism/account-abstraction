@@ -229,6 +229,12 @@ describe('EntryPoint', function () {
         .revertedWith('wrong signature')
     })
 
+    it('should revert if wallet not deployed (and no initcode)', async () => {
+      const op = await fillAndSign({ sender: createAddress(), nonce: 0, verificationGasLimit: 1000 }, accountOwner, entryPoint)
+      await expect(entryPoint.callStatic.simulateValidation(op)).to
+        .revertedWith('AA20 account not deployed')
+    })
+
     it('should revert on oog if not enough verificationGas', async () => {
       const op = await fillAndSign({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op)).to
@@ -761,6 +767,18 @@ describe('EntryPoint', function () {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         accountExecFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+      })
+
+      it('should fail with nonexistent paymaster', async () => {
+        const pm = createAddress()
+        const op = await fillAndSign({
+          paymasterAndData: pm,
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(entryPoint.address, account2Owner.address),
+          verificationGasLimit: 2e6,
+          callGasLimit: 1e6
+        }, account2Owner, entryPoint)
+        await expect(entryPoint.simulateValidation(op)).to.revertedWith('"AA30 paymaster not deployed"')
       })
 
       it('should fail if paymaster has no deposit', async function () {
