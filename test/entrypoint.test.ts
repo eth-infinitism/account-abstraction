@@ -272,7 +272,7 @@ describe('EntryPoint', function () {
       const op1 = await fillAndSign({
         initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
         sender: '0x'.padEnd(42, '1'),
-        verificationGasLimit: 2e6
+        verificationGasLimit: 3e6
       }, accountOwner1, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op1))
         .to.revertedWith('AA12 initCode must return sender')
@@ -775,7 +775,7 @@ describe('EntryPoint', function () {
           paymasterAndData: pm,
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(entryPoint.address, account2Owner.address),
-          verificationGasLimit: 2e6,
+          verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
         await expect(entryPoint.simulateValidation(op)).to.revertedWith('"AA30 paymaster not deployed"')
@@ -787,7 +787,7 @@ describe('EntryPoint', function () {
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(entryPoint.address, account2Owner.address),
 
-          verificationGasLimit: 2e6,
+          verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
