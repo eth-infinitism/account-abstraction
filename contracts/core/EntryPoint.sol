@@ -14,7 +14,6 @@ import "../interfaces/IPaymaster.sol";
 
 import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
-import "../interfaces/ICreate2Deployer.sol";
 import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
@@ -128,6 +127,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+            emit SignatureAggregatorChanged(address(opa.aggregator));
             UserOperation[] calldata ops = opa.userOps;
             uint256 opslen = ops.length;
 
@@ -136,6 +136,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 opIndex++;
             }
         }
+        emit SignatureAggregatorChanged(address(0));
 
         _compensate(beneficiary, collected);
     }
@@ -230,16 +231,18 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (address aggregator, uint256 deadline) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
         uint256 prefund = outOpInfo.prefund;
         uint256 preOpGas = preGas - gasleft() + userOp.preVerificationGas;
-        DepositInfo memory depositInfo = getDepositInfo(outOpInfo.mUserOp.paymaster);
-        PaymasterInfo memory paymasterInfo = PaymasterInfo(depositInfo.stake, depositInfo.unstakeDelaySec);
+        StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
+        StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
+        bytes calldata initCode = userOp.initCode;
+        address factory = initCode.length>=20 ? address(bytes20(initCode[0 : 20])) : address(0);
+        StakeInfo memory factoryInfo = getStakeInfo(factory);
 
         if (aggregator != address(0)) {
-            depositInfo = getDepositInfo(aggregator);
-            AggregationInfo memory aggregationInfo = AggregationInfo(aggregator, depositInfo.stake, depositInfo.unstakeDelaySec);
-            revert SimulationResultWithAggregation(preOpGas, prefund, deadline, paymasterInfo, aggregationInfo);
-
+            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
+            revert SimulationResultWithAggregation(preOpGas, prefund, deadline, senderInfo, factoryInfo, paymasterInfo, aggregatorInfo);
         }
-        revert SimulationResult(preOpGas, prefund, deadline, paymasterInfo);
+        revert SimulationResult(preOpGas, prefund, deadline, senderInfo, factoryInfo, paymasterInfo);
+
     }
 
     function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal view returns (uint256 requiredPrefund) {
@@ -255,13 +258,16 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(uint256 opIndex, MemoryUserOp memory mUserOp, bytes calldata initCode) internal {
+    function _createSenderIfNeeded(uint256 opIndex, UserOpInfo memory opInfo, bytes calldata initCode) internal {
         if (initCode.length != 0) {
-            if (mUserOp.sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
+            address sender = opInfo.mUserOp.sender;
+            if (sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
             address sender1 = senderCreator.createSender(initCode);
             if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA11 initCode failed");
-            if (sender1 != mUserOp.sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
+            if (sender1 != sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
             if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode must create sender");
+            address factory = address(bytes20(initCode[0 : 20]));
+            emit AccountDeployed(opInfo.userOpHash, sender, factory, opInfo.mUserOp.paymaster);
         }
     }
 
@@ -285,16 +291,22 @@ contract EntryPoint is IEntryPoint, StakeManager {
     unchecked {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
-        _createSenderIfNeeded(opIndex, mUserOp, op.initCode);
+        address sender = mUserOp.sender;
+        _createSenderIfNeeded(opIndex, opInfo, op.initCode);
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
-            try IAggregatedAccount(mUserOp.sender).getAggregator() returns (address userOpAggregator) {
+            numberMarker();
+
+            if (sender.code.length==0) {
+                // it would revert anyway. but give a meaningful message
+                revert FailedOp(0,address(0), "AA20 account not deployed");
+            }
+            try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
             } catch {
                 aggregator = actualAggregator = address(0);
             }
         }
         uint256 missingAccountFunds = 0;
-        address sender = mUserOp.sender;
         address paymaster = mUserOp.paymaster;
         if (paymaster == address(0)) {
             uint256 bal = balanceOf(sender);
@@ -454,7 +466,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 refund = opInfo.prefund - actualGasCost;
         internalIncrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-        emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, actualGasCost, actualGas, success);
+        emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, success, actualGasCost, actualGas);
     } // unchecked
     }
 

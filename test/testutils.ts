@@ -82,7 +82,7 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 // helper function to create a deployer (initCode) call to our account. relies on the global "create2Deployer"
 // note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
 // with each deployment. a better deployer will only receive the constructor parameters.
-export function getAccountDeployer (entryPoint: string, owner: string): BytesLike {
+export function getAccountInitCode (entryPoint: string, owner: string): BytesLike {
   const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
@@ -92,7 +92,7 @@ export function getAccountDeployer (entryPoint: string, owner: string): BytesLik
   ])
 }
 
-export async function getAggregatedAccountDeployer (entryPoint: string, aggregator: string): Promise<BytesLike> {
+export async function getAggregatedAccountInitCode (entryPoint: string, aggregator: string): Promise<BytesLike> {
   const accountCtr = await new TestAggregatedAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
 
   const factory = new Create2Factory(ethers.provider)
@@ -212,7 +212,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
-  expect(blockHash.length).to.equal(1, 'expected exactly 1 call to NUMBER (Just before validatePaymasterUserOp)')
+  expect(blockHash.length).to.equal(2, 'expected exactly 2 call to NUMBER (Just before and after validateUserOperation)')
   const validateAccountOps = logs.slice(0, blockHash[0].index - 1)
   const validatePaymasterOps = logs.slice(blockHash[0].index + 1)
   const ops = validateAccountOps.filter(log => log.depth > 1).map(log => log.op)

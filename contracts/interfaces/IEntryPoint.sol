@@ -25,7 +25,16 @@ interface IEntryPoint is IStakeManager {
      * @param actualGasUsed - total gas used by this UserOperation (including preVerification, creation, validation and execution)
      * @param success - true if the sender transaction succeeded, false if reverted.
      */
-    event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, uint256 actualGasCost, uint256 actualGasUsed, bool success);
+    event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed);
+
+    /**
+     * account "sender" was deployed.
+     * @param userOpHash the userOp that deployed this account. UserOperationEvent will follow.
+     * @param sender the account that is deployed
+     * @param factory the factory used to deploy this account (in the initCode)
+     * @param paymaster the paymaster used by this UserOp
+     */
+    event AccountDeployed(bytes32 indexed userOpHash, address indexed sender, address factory, address paymaster);
 
     /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length
@@ -35,6 +44,11 @@ interface IEntryPoint is IStakeManager {
      * @param revertReason - the return bytes from the (reverted) call to "callData".
      */
     event UserOperationRevertReason(bytes32 indexed userOpHash, address indexed sender, uint256 nonce, bytes revertReason);
+
+    /**
+     * signature aggregator used by the following UserOperationEvents within this bundle.
+     */
+    event SignatureAggregatorChanged(address aggregator);
 
     /**
      * a custom revert error of handleOps, to identify the offending op.
@@ -102,19 +116,12 @@ interface IEntryPoint is IStakeManager {
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
      * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
+     * @param senderInfo stake information about the sender
+     * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      */
-    error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo);
-
-    /**
-     * returned paymaster info.
-     * If the UserOperation contains a paymaster, these fields are filled with the paymaster's stake value and delay.
-     * A bundler must verify these values are above the minimal required values, or else reject the UserOperation.
-     */
-    struct PaymasterInfo {
-        uint256 paymasterStake;
-        uint256 paymasterUnstakeDelay;
-    }
+    error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline,
+        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
 
 
     /**
@@ -122,20 +129,22 @@ interface IEntryPoint is IStakeManager {
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
      * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
+     * @param senderInfo stake information about the sender
+     * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
-     * @param aggregationInfo signature aggregation info (if the account requires signature aggregator)
+     * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
      */
-    error SimulationResultWithAggregation(uint256 preOpGas, uint256 prefund, uint256 deadline, PaymasterInfo paymasterInfo, AggregationInfo aggregationInfo);
+    error SimulationResultWithAggregation(uint256 preOpGas, uint256 prefund, uint256 deadline,
+        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo, AggregatorStakeInfo aggregatorInfo);
 
     /**
      * returned aggregated signature info.
      * the aggregator returned by the account, and its current stake.
      */
-    struct AggregationInfo {
+    struct AggregatorStakeInfo {
         address actualAggregator;
-        uint256 aggregatorStake;
-        uint256 aggregatorUnstakeDelay;
+        StakeInfo stakeInfo;
     }
 
     /**
