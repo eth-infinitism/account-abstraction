@@ -160,7 +160,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override {
+    function _authorizeUpgrade(address newImplementation) internal view override {
         (newImplementation);
         _requireFromAdmin();
     }

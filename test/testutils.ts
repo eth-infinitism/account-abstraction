@@ -209,7 +209,7 @@ export async function checkForGeth (): Promise<void> {
     for (let i = 0; i < 2; i++) {
       const acc = await provider.request({ method: 'personal_newAccount', params: ['pass'] }).catch(rethrow)
       await provider.request({ method: 'personal_unlockAccount', params: [acc, 'pass'] }).catch(rethrow)
-      await fund(acc)
+      await fund(acc, '10')
     }
   }
 }
