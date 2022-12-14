@@ -105,8 +105,7 @@ export class GasChecker {
   // generate the account "creation code"
   accountInitCode (): string {
     const implementationAddress = zeroAddress() // TODO: pass implementation in here
-    const initializerSelector = new Interface(SimpleAccount__factory.abi).getSighash('initialize')
-    const initializeCall = initializerSelector + defaultAbiCoder.encode(['address', 'address'], [GasCheckCollector.inst.entryPoint.address, this.accountOwner.address]).replace('0x', '')
+    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [GasCheckCollector.inst.entryPoint.address, this.accountOwner.address])
     const deployTransaction = new ERC1967Proxy__factory(ethersSigner).getDeployTransaction(implementationAddress, initializeCall).data!
     return hexValue(deployTransaction)
   }

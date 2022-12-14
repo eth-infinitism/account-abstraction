@@ -101,8 +101,7 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 // note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
 // with each deployment. a better deployer will only receive the constructor parameters.
 export function getAccountInitCode (entryPoint: string, owner: string, implementationAddress: string): BytesLike {
-  const initializerSelector = new Interface(SimpleAccount__factory.abi).getSighash('initialize')
-  const initializeCall = initializerSelector + defaultAbiCoder.encode(['address', 'address'], [entryPoint, owner]).replace('0x', '')
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [entryPoint, owner])
   const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
@@ -113,8 +112,7 @@ export function getAccountInitCode (entryPoint: string, owner: string, implement
 }
 
 export async function getAggregatedAccountInitCode (entryPoint: string, implementationAddress: string): Promise<BytesLike> {
-  const initializerSelector = new Interface(SimpleAccount__factory.abi).getSighash('initialize')
-  const initializeCall = initializerSelector + defaultAbiCoder.encode(['address', 'address'], [entryPoint, zeroAddress()]).replace('0x', '')
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [entryPoint, zeroAddress()])
   const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
 
   const factory = new Create2Factory(ethers.provider)
@@ -127,8 +125,7 @@ export async function getAggregatedAccountInitCode (entryPoint: string, implemen
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
 export function getAccountAddress (entryPoint: string, owner: string, implementationAddress: string): string {
-  const initializerSelector = new Interface(SimpleAccount__factory.abi).getSighash('initialize')
-  const initializeCall = initializerSelector + defaultAbiCoder.encode(['address', 'address'], [entryPoint, owner]).replace('0x', '')
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [entryPoint, owner])
   const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
   return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(accountCtr)))
 }
