@@ -36,7 +36,6 @@ describe('EntryPoint with paymaster', function () {
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount
-  let simpleAccountImplementation: string
   const beneficiaryAddress = '0x'.padEnd(42, '1')
   let factory: SimpleAccountFactory
 
@@ -53,7 +52,6 @@ describe('EntryPoint with paymaster', function () {
 
     entryPoint = await deployEntryPoint()
     factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
-    simpleAccountImplementation = await factory.accountImplementation()
 
     accountOwner = createAccountOwner();
     ({ proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address, factory))
@@ -160,7 +158,7 @@ describe('EntryPoint with paymaster', function () {
         const ethRedeemed = await getBalance(beneficiaryAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const accountAddr = getAccountAddress(accountOwner.address, simpleAccountImplementation)
+        const accountAddr = await getAccountAddress(accountOwner.address, factory)
         const postBalance = await getTokenBalance(paymaster, accountAddr)
         expect(1e18 - postBalance).to.above(10000)
       })

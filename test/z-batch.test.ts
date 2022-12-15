@@ -8,7 +8,8 @@ import {
   SimpleAccount__factory,
   EntryPoint,
   TestCounter,
-  TestCounter__factory
+  TestCounter__factory,
+  SimpleAccountFactory
 } from '../typechain'
 import {
   createAccountOwner,
@@ -36,6 +37,7 @@ describe('Batch gas testing', function () {
 
   const ethersSigner = ethers.provider.getSigner()
   let entryPoint: EntryPoint
+  let simpleAccountFactory: SimpleAccountFactory
 
   let accountOwner: Wallet
   let account: SimpleAccount
@@ -93,10 +95,10 @@ describe('Batch gas testing', function () {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         while (++count) {
           const accountOwner1 = createAccountOwner()
-          const account1 = getAccountAddress(accountOwner1.address, account.address)
+          const account1 = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
           await fund(account1, '0.5')
           const op1 = await fillAndSign({
-            initCode: getAccountInitCode(accountOwner1.address, account.address),
+            initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
             nonce: 0,
             // callData: accountExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9

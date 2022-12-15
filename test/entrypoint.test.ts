@@ -53,7 +53,6 @@ import { toChecksumAddress, zeroAddress } from 'ethereumjs-util'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
-  let simpleAccountImplementation: string
   let simpleAccountFactory: SimpleAccountFactory
 
   let accountOwner: Wallet
@@ -74,8 +73,7 @@ describe('EntryPoint', function () {
     accountOwner = createAccountOwner();
     ({
       proxy: account,
-      accountFactory: simpleAccountFactory,
-      implementation: simpleAccountImplementation
+      accountFactory: simpleAccountFactory
     } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
     await fund(account)
 
@@ -226,7 +224,7 @@ describe('EntryPoint', function () {
     let account1: SimpleAccount
 
     before(async () => {
-      ({ proxy: account1 } = await createAccount(ethersSigner, await accountOwner1.getAddress(), entryPoint.address, simpleAccountFactory))
+      ({ proxy: account1 } = await createAccount(ethersSigner, await accountOwner1.getAddress(), entryPoint.address))
     })
 
     it('should fail if validateUserOp fails', async () => {
@@ -245,7 +243,7 @@ describe('EntryPoint', function () {
     it('should return stake of sender', async () => {
       const stakeValue = BigNumber.from(123)
       const unstakeDelay = 3
-      const { proxy: account2 } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address, simpleAccountFactory)
+      const { proxy: account2 } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address)
       await fund(account2)
       await account2.execute(entryPoint.address, stakeValue, entryPoint.interface.encodeFunctionData('addStake', [unstakeDelay]))
       const op = await fillAndSign({ sender: account2.address }, ethersSigner, entryPoint)
@@ -265,7 +263,7 @@ describe('EntryPoint', function () {
 
     it('should fail creation for wrong sender', async () => {
       const op1 = await fillAndSign({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountImplementation),
+        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 1e6
       }, accountOwner1, entryPoint)
@@ -274,10 +272,10 @@ describe('EntryPoint', function () {
     })
 
     it('should succeed for creating an account', async () => {
-      const sender = getAccountAddress(accountOwner1.address, simpleAccountImplementation)
+      const sender = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       const op1 = await fillAndSign({
         sender,
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountImplementation)
+        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
 
@@ -286,7 +284,7 @@ describe('EntryPoint', function () {
 
     it('should not call initCode from entrypoint', async () => {
       // a possible attack: call an account's execFromEntryPoint through initCode. This might lead to stolen funds.
-      const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address, simpleAccountFactory)
+      const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
       const sender = createAddress()
       const op1 = await fillAndSign({
         initCode: hexConcat([
@@ -301,8 +299,8 @@ describe('EntryPoint', function () {
 
     it('should not use banned ops during simulateValidation', async () => {
       const op1 = await fillAndSign({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountImplementation),
-        sender: getAccountAddress(accountOwner1.address, simpleAccountImplementation)
+        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
+        sender: await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
       await entryPoint.simulateValidation(op1, { gasLimit: 10e6 }).catch(e => e)
@@ -454,7 +452,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if sender address is wrong', async () => {
         const op = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner.address, simpleAccountImplementation),
+          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory),
           verificationGasLimit: 2e6,
           sender: '0x'.padEnd(42, '1')
         }, accountOwner, entryPoint)
@@ -466,7 +464,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner.address, simpleAccountImplementation),
+          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory, 100),
           verificationGasLimit: 2e6
         }, accountOwner, entryPoint)
 
@@ -481,10 +479,11 @@ describe('EntryPoint', function () {
       })
 
       it('should succeed to create account after prefund', async () => {
-        const preAddr = getAccountAddress(accountOwner.address, simpleAccountImplementation)
+        const salt = 20
+        const preAddr = await getAccountAddress(accountOwner.address, simpleAccountFactory, salt)
         await fund(preAddr)
         createOp = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner.address, simpleAccountImplementation),
+          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory, salt),
           callGasLimit: 1e7,
           verificationGasLimit: 2e6
 
@@ -504,7 +503,7 @@ describe('EntryPoint', function () {
       })
 
       it('should reject if account already created', async function () {
-        const preAddr = getAccountAddress(accountOwner.address, simpleAccountImplementation)
+        const preAddr = await getAccountAddress(accountOwner.address, simpleAccountFactory)
         if (await ethers.provider.getCode(preAddr).then(x => x.length) === 2) {
           this.skip()
         }
@@ -538,13 +537,13 @@ describe('EntryPoint', function () {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         accountExecCounterFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
-        account1 = getAccountAddress(accountOwner1.address, simpleAccountImplementation);
-        ({ proxy: account2 } = await createAccount(ethersSigner, await accountOwner2.getAddress(), entryPoint.address, simpleAccountFactory))
+        account1 = await getAccountAddress(accountOwner1.address, simpleAccountFactory);
+        ({ proxy: account2 } = await createAccount(ethersSigner, await accountOwner2.getAddress(), entryPoint.address))
         await fund(account1)
         await fund(account2.address)
         // execute and increment counter
         const op1 = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner1.address, simpleAccountImplementation),
+          initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
           callData: accountExecCounterFromEntryPoint.data,
           callGasLimit: 2e6,
           verificationGasLimit: 2e6
@@ -755,7 +754,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(account2Owner.address, simpleAccountImplementation),
+          initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
 
           verificationGasLimit: 1e6,
           callGasLimit: 1e6
@@ -769,7 +768,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(account2Owner.address, simpleAccountImplementation)
+          initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory)
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
 
@@ -786,7 +785,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(anOwner.address, simpleAccountImplementation)
+          initCode: getAccountInitCode(anOwner.address, simpleAccountFactory)
         }, anOwner, entryPoint)
 
         const { paymasterInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
