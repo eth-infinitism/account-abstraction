@@ -4,7 +4,6 @@ import { expect } from 'chai'
 import {
   SimpleAccount,
   SimpleAccountFactory__factory,
-  SimpleAccount__factory,
   TestUtil,
   TestUtil__factory
 } from '../typechain'
@@ -109,11 +108,10 @@ describe('SimpleAccount', function () {
   context('SimpleAccountFactory', () => {
     it('sanity: check deployer', async () => {
       const ownerAddr = createAddress()
-      const simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy()
-      const deployer = await new SimpleAccountFactory__factory(ethersSigner).deploy(simpleAccountImplementation.address)
-      const target = await deployer.callStatic.createAccount(entryPoint, ownerAddr, 1234)
+      const deployer = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint)
+      const target = await deployer.callStatic.createAccount(ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(false)
-      await deployer.createAccount(entryPoint, ownerAddr, 1234)
+      await deployer.createAccount(ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(true)
     })
   })

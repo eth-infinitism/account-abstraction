@@ -242,7 +242,7 @@ export class AASigner extends Signer {
   async _deploymentTransaction (): Promise<BytesLike> {
     const implementationAddress = zeroAddress() // TODO: pass implementation in here
     const ownerAddress = await this.signer.getAddress()
-    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [this.entryPoint.address, ownerAddress])
+    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [ownerAddress])
     return new ERC1967Proxy__factory(this.signer).getDeployTransaction(implementationAddress, initializeCall).data!
   }
 

@@ -99,8 +99,8 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 // helper function to create a deployer (initCode) call to our account. relies on the global "create2Deployer"
 // note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
 // with each deployment. a better deployer will only receive the constructor parameters.
-export function getAccountInitCode (entryPoint: string, owner: string, implementationAddress: string): BytesLike {
-  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [entryPoint, owner])
+export function getAccountInitCode (owner: string, implementationAddress: string): BytesLike {
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [owner])
   const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
@@ -111,7 +111,7 @@ export function getAccountInitCode (entryPoint: string, owner: string, implement
 }
 
 export async function getAggregatedAccountInitCode (entryPoint: string, implementationAddress: string): Promise<BytesLike> {
-  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [entryPoint, zeroAddress()])
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [zeroAddress()])
   const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
 
   const factory = new Create2Factory(ethers.provider)
@@ -123,8 +123,8 @@ export async function getAggregatedAccountInitCode (entryPoint: string, implemen
 }
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
-export function getAccountAddress (entryPoint: string, owner: string, implementationAddress: string): string {
-  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [entryPoint, owner])
+export function getAccountAddress (owner: string, implementationAddress: string): string {
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [owner])
   const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
   return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(accountCtr)))
 }
@@ -303,17 +303,17 @@ export async function createAccount (
   ethersSigner: Signer,
   accountOwner: string,
   entryPoint: string,
-  _factory?: SimpleAccountFactory,
-  _implementation?: SimpleAccount):
+  _factory?: SimpleAccountFactory
+):
   Promise<{
     proxy: SimpleAccount
     accountFactory: SimpleAccountFactory
-    implementation: SimpleAccount
+    implementation: string
   }> {
-  const implementation = _implementation ?? await new SimpleAccount__factory(ethersSigner).deploy()
-  const accountFactory = _factory ?? await new SimpleAccountFactory__factory(ethersSigner).deploy(implementation.address)
-  await accountFactory.createAccount(entryPoint, accountOwner, 0)
-  const accountAddress = await accountFactory.getAddress(entryPoint, accountOwner, 0)
+  const accountFactory = _factory ?? await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint)
+  const implementation = await accountFactory.accountImplementation()
+  await accountFactory.createAccount(accountOwner, 0)
+  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
   const proxy = SimpleAccount__factory.connect(accountAddress, ethersSigner)
   return {
     implementation,

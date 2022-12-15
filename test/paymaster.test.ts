@@ -3,7 +3,6 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  SimpleAccount__factory,
   EntryPoint,
   TokenPaymaster,
   TokenPaymaster__factory,
@@ -37,14 +36,14 @@ describe('EntryPoint with paymaster', function () {
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount
-  let simpleAccountImplementation: SimpleAccount
+  let simpleAccountImplementation: string
   const beneficiaryAddress = '0x'.padEnd(42, '1')
   let factory: SimpleAccountFactory
 
   function getAccountDeployer (entryPoint: string, accountOwner: string, _salt: number = 0): string {
     return hexConcat([
       factory.address,
-      hexValue(factory.interface.encodeFunctionData('createAccount', [entryPoint, accountOwner, _salt])!)
+      hexValue(factory.interface.encodeFunctionData('createAccount', [accountOwner, _salt])!)
     ])
   }
 
@@ -53,11 +52,11 @@ describe('EntryPoint with paymaster', function () {
     await checkForGeth()
 
     entryPoint = await deployEntryPoint()
-    simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy()
-    factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(simpleAccountImplementation.address)
+    factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
+    simpleAccountImplementation = await factory.accountImplementation()
 
     accountOwner = createAccountOwner();
-    ({ proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address, factory, simpleAccountImplementation))
+    ({ proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address, factory))
     await fund(account)
   })
 
@@ -161,7 +160,7 @@ describe('EntryPoint with paymaster', function () {
         const ethRedeemed = await getBalance(beneficiaryAddress)
         expect(ethRedeemed).to.above(100000)
 
-        const accountAddr = getAccountAddress(entryPoint.address, accountOwner.address, simpleAccountImplementation.address)
+        const accountAddr = getAccountAddress(accountOwner.address, simpleAccountImplementation)
         const postBalance = await getTokenBalance(paymaster, accountAddr)
         expect(1e18 - postBalance).to.above(10000)
       })

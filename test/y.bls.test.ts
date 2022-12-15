@@ -43,14 +43,14 @@ describe('bls account', function () {
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
 
-    const blsAccountImplementation = await new BLSAccount__factory(etherSigner).deploy(blsAgg.address)
+    const blsAccountImplementation = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
     accountDeployer = await new BLSAccountFactory__factory(etherSigner).deploy(blsAccountImplementation.address)
 
     // TODO: these two are not created via the 'accountDeployer' for some reason - I am not touching it for now
-    account1 = await new BLSAccount__factory(etherSigner).deploy(blsAgg.address)
-    await account1['initialize(address,uint256[4])'](entrypoint.address, signer1.pubkey)
-    account2 = await new BLSAccount__factory(etherSigner).deploy(blsAgg.address)
-    await account2['initialize(address,uint256[4])'](entrypoint.address, signer2.pubkey)
+    account1 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
+    await account1['initialize(uint256[4])'](signer1.pubkey)
+    account2 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
+    await account2['initialize(uint256[4])'](signer2.pubkey)
   })
 
   it('#getTrailingPublicKey', async () => {

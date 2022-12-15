@@ -103,7 +103,7 @@ export class GasChecker {
 
   // generate the account "creation code"
   accountInitCode (implementationAddress: string): string {
-    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [GasCheckCollector.inst.entryPoint.address, this.accountOwner.address])
+    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [this.accountOwner.address])
     const deployTransaction = new ERC1967Proxy__factory(ethersSigner).getDeployTransaction(implementationAddress, initializeCall).data!
     return hexValue(deployTransaction)
   }
@@ -154,7 +154,7 @@ export class GasChecker {
 
     console.debug('== running test count=', info.count)
 
-    const simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy()
+    const simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy(GasCheckCollector.inst.entryPoint.address)
     // fill accounts up to this code.
     await this.createAccounts1(info.count, simpleAccountImplementation.address)
 

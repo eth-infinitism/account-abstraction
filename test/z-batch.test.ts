@@ -48,8 +48,8 @@ describe('Batch gas testing', function () {
     entryPoint = await deployEntryPoint()
     // static call must come from address zero, to validate it can only be called off-chain.
     accountOwner = createAccountOwner()
-    account = await new SimpleAccount__factory(ethersSigner).deploy()
-    await account.initialize(entryPoint.address, await accountOwner.getAddress())
+    account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address)
+    await account.initialize(await accountOwner.getAddress())
     await fund(account)
   })
 
@@ -93,10 +93,10 @@ describe('Batch gas testing', function () {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         while (++count) {
           const accountOwner1 = createAccountOwner()
-          const account1 = getAccountAddress(entryPoint.address, accountOwner1.address, account.address)
+          const account1 = getAccountAddress(accountOwner1.address, account.address)
           await fund(account1, '0.5')
           const op1 = await fillAndSign({
-            initCode: getAccountInitCode(entryPoint.address, accountOwner1.address, account.address),
+            initCode: getAccountInitCode(accountOwner1.address, account.address),
             nonce: 0,
             // callData: accountExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9

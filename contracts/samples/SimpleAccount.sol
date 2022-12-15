@@ -33,12 +33,16 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
         return _entryPoint;
     }
 
-    IEntryPoint private _entryPoint;
+    IEntryPoint private immutable _entryPoint;
 
-    event Initialized(IEntryPoint indexed entryPoint, address indexed owner);
+    event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
+
+    constructor(IEntryPoint anEntryPoint) {
+        _entryPoint = anEntryPoint;
+    }
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -79,14 +83,13 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
      * an account must have a method for replacing the entryPoint, in case the the entryPoint is
      * upgraded to a newer version.
      */
-    function initialize(IEntryPoint anEntryPoint, address anOwner) public virtual initializer {
-        _initialize(anEntryPoint, anOwner);
+    function initialize(address anOwner) public virtual initializer {
+        _initialize(anOwner);
     }
 
-    function _initialize(IEntryPoint anEntryPoint, address anOwner) internal virtual {
-        _entryPoint = anEntryPoint;
+    function _initialize(address anOwner) internal virtual {
         owner = anOwner;
-        emit Initialized(_entryPoint, owner);
+        emit SimpleAccountInitialized(_entryPoint, owner);
     }
 
     function _requireFromAdmin() internal view override {

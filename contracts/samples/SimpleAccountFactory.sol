@@ -13,10 +13,12 @@ import "./SimpleAccount.sol";
  * This way, the entryPoint.getSenderAddress() can be called either before or after the account is created.
  */
 contract SimpleAccountFactory {
-    address private immutable accountImplementation;
+    SimpleAccount public immutable accountImplementation;
+    IEntryPoint private immutable entryPoint;
 
-    constructor(address _accountImplementation){
-        accountImplementation = _accountImplementation;
+    constructor(IEntryPoint _entryPoint){
+        accountImplementation = new SimpleAccount(_entryPoint);
+        entryPoint = _entryPoint;
     }
 
     /**
@@ -25,27 +27,27 @@ contract SimpleAccountFactory {
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      */
-    function createAccount(IEntryPoint entryPoint, address owner, uint salt) public returns (SimpleAccount ret) {
-        address addr = getAddress(entryPoint, owner, salt);
+    function createAccount(address owner, uint salt) public returns (SimpleAccount ret) {
+        address addr = getAddress(owner, salt);
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
             return SimpleAccount(payable(addr));
         }
         ret = SimpleAccount(payable(new ERC1967Proxy{salt : bytes32(salt)}(
-                accountImplementation,
-                abi.encodeWithSelector(SimpleAccount.initialize.selector, entryPoint, owner)
+                address(accountImplementation),
+                abi.encodeCall(SimpleAccount.initialize, (owner))
             )));
     }
 
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(IEntryPoint entryPoint, address owner, uint salt) public view returns (address) {
+    function getAddress(address owner, uint salt) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
                 type(ERC1967Proxy).creationCode,
                 abi.encode(
-                    accountImplementation,
-                    abi.encodeWithSelector(SimpleAccount.initialize.selector, entryPoint, owner)
+                    address(accountImplementation),
+                    abi.encodeCall(SimpleAccount.initialize, (owner))
                 )
             )));
     }

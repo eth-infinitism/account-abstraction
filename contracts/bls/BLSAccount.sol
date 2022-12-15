@@ -17,12 +17,12 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
 
     // The constructor is used only for the "implementation" and only sets immutable values.
     // Mutable values slots for proxy accounts are set by the 'initialize' function.
-    constructor(address anAggregator) {
+    constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint)  {
         aggregator = anAggregator;
     }
 
-    function initialize(IEntryPoint anEntryPoint, uint256[4] memory aPublicKey) public virtual initializer {
-        super._initialize(anEntryPoint, address(0));
+    function initialize(uint256[4] memory aPublicKey) public virtual initializer {
+        super._initialize(address(0));
         publicKey = aPublicKey;
     }
 

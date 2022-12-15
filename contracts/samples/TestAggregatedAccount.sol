@@ -16,12 +16,12 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
 
     // The constructor is used only for the "implementation" and only sets immutable values.
     // Mutable values slots for proxy accounts are set by the 'initialize' function.
-    constructor(address anAggregator) {
+    constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint) {
         aggregator = anAggregator;
     }
 
-    function initialize(IEntryPoint anEntryPoint, address) public virtual override initializer {
-        super._initialize(anEntryPoint, address(0));
+    function initialize(address) public virtual override initializer {
+        super._initialize(address(0));
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)

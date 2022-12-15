@@ -9,8 +9,11 @@ import "./SimpleAccount.sol";
 // the simplest strategy is assign the allowance in the constructor or init function
 contract SimpleAccountForTokens is SimpleAccount {
 
-    function initialize(IEntryPoint _entryPoint, address _owner, IERC20 token, address paymaster) public virtual initializer {
-        super.initialize(_entryPoint, _owner);
+    // solhint-disable-next-line no-empty-blocks
+    constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
+
+    function initialize(address _owner, IERC20 token, address paymaster) public virtual initializer {
+        super.initialize(_owner);
         token.approve(paymaster, type(uint256).max);
     }
 }
