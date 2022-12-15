@@ -38,11 +38,11 @@ describe('SimpleAccount', function () {
   it('owner should be able to call transfer', async () => {
     const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
-    await account.transfer(accounts[2], ONE_ETH)
+    await account.execute(accounts[2], ONE_ETH, '0x')
   })
   it('other account should not be able to call transfer', async () => {
     const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
-    await expect(account.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
+    await expect(account.connect(ethers.provider.getSigner(1)).execute(accounts[2], ONE_ETH, '0x'))
       .to.be.revertedWith('only owner')
   })
 

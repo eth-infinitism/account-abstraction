@@ -55,13 +55,6 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     }
 
     /**
-     * transfer eth value to a destination address
-     */
-    function transfer(address payable dest, uint256 amount) external onlyOwner {
-        dest.transfer(amount);
-    }
-
-    /**
      * execute a transaction (called directly from owner, not by entryPoint)
      */
     function execute(address dest, uint256 value, bytes calldata func) external {
@@ -72,7 +65,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     /**
      * execute a sequence of transaction
      */
-    function execBatch(address[] calldata dest, bytes[] calldata func) external {
+    function executeBatch(address[] calldata dest, bytes[] calldata func) external {
         _requireFromEntryPointOrOwner();
         require(dest.length == func.length, "wrong array lengths");
         for (uint256 i = 0; i < dest.length; i++) {
@@ -92,10 +85,6 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     function _initialize(address anOwner) internal virtual {
         owner = anOwner;
         emit SimpleAccountInitialized(_entryPoint, owner);
-    }
-
-    function _requireFromAdmin() internal view override {
-        _onlyOwner();
     }
 
     /**
@@ -161,7 +150,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
 
     function _authorizeUpgrade(address newImplementation) internal view override {
         (newImplementation);
-        _requireFromAdmin();
+        _onlyOwner();
     }
 }
 
