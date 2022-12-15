@@ -202,6 +202,7 @@ export async function checkForGeth (): Promise<void> {
 
   currentNode = await provider.request({ method: 'web3_clientVersion' })
 
+  console.log('node version:', currentNode)
   // NOTE: must run geth with params:
   // --http.api personal,eth,net,web3
   // --allow-insecure-unlock
