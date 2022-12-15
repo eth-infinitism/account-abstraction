@@ -43,7 +43,7 @@ describe('SimpleAccount', function () {
   it('other account should not be able to call transfer', async () => {
     const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
     await expect(account.connect(ethers.provider.getSigner(1)).execute(accounts[2], ONE_ETH, '0x'))
-      .to.be.revertedWith('only owner')
+      .to.be.revertedWith('account: not Owner or EntryPoint')
   })
 
   it('should pack in js the same as solidity', async () => {
