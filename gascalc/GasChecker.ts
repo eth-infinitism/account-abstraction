@@ -1,6 +1,6 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
-import { formatEther, Interface, parseEther } from 'ethers/lib/utils'
+import { defaultAbiCoder, formatEther, hexConcat, parseEther } from 'ethers/lib/utils'
 import {
   AddressZero,
   checkForGeth,
@@ -8,14 +8,16 @@ import {
   createAccountOwner,
   deployEntryPoint
 } from '../test/testutils'
-import { EntryPoint, EntryPoint__factory, ERC1967Proxy__factory, SimpleAccount__factory } from '../typechain'
+import {
+  EntryPoint, EntryPoint__factory, SimpleAccountFactory,
+  SimpleAccountFactory__factory, SimpleAccount__factory
+} from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
 import { fillAndSign } from '../test/UserOp'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import { table, TableUserConfig } from 'table'
 import { Create2Factory } from '../src/Create2Factory'
-import { hexValue } from '@ethersproject/bytes'
 import * as fs from 'fs'
 import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
 
@@ -102,10 +104,11 @@ export class GasChecker {
   }
 
   // generate the account "creation code"
-  accountInitCode (implementationAddress: string): string {
-    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [this.accountOwner.address])
-    const deployTransaction = new ERC1967Proxy__factory(ethersSigner).getDeployTransaction(implementationAddress, initializeCall).data!
-    return hexValue(deployTransaction)
+  accountInitCode (factory: SimpleAccountFactory, salt: BigNumberish): string {
+    return hexConcat([
+      factory.address,
+      factory.interface.encodeFunctionData('createAccount', [this.accountOwner.address, salt])
+    ])
   }
 
   /**
@@ -114,18 +117,24 @@ export class GasChecker {
    * do nothing for account already created
    * @param count
    */
-  async createAccounts1 (count: number, implementation: string): Promise<void> {
-    const fact = new Create2Factory(provider)
+  async createAccounts1 (count: number): Promise<void> {
+    const create2Factory = new Create2Factory(this.entryPoint().provider)
+    const factoryAddress = await create2Factory.deploy(
+      hexConcat([
+        SimpleAccountFactory__factory.bytecode,
+        defaultAbiCoder.encode(['address'], [this.entryPoint().address])
+      ]), 0, 2708636)
+    console.log('factaddr', factoryAddress)
+    const fact = SimpleAccountFactory__factory.connect(factoryAddress, ethersSigner)
     // create accounts
     for (const n of range(count)) {
       const salt = n
-      const initCode = this.accountInitCode(implementation)
+      // const initCode = this.accountInitCode(fact, salt)
 
-      const addr = fact.getDeployedAddress(initCode, salt)
+      const addr = await fact.getAddress(this.accountOwner.address, salt)
       this.accounts[addr] = this.accountOwner
-
       // deploy if not already deployed.
-      await fact.deploy(initCode, salt, 2e6)
+      await fact.createAccount(this.accountOwner.address, salt)
       const accountBalance = await GasCheckCollector.inst.entryPoint.balanceOf(addr)
       if (accountBalance.lte(minDepositOrBalance)) {
         await GasCheckCollector.inst.entryPoint.depositTo(addr, { value: minDepositOrBalance.mul(5) })
@@ -154,9 +163,8 @@ export class GasChecker {
 
     console.debug('== running test count=', info.count)
 
-    const simpleAccountImplementation = await new SimpleAccount__factory(ethersSigner).deploy(GasCheckCollector.inst.entryPoint.address)
     // fill accounts up to this code.
-    await this.createAccounts1(info.count, simpleAccountImplementation.address)
+    await this.createAccounts1(info.count)
 
     let accountEst: number = 0
     const userOps = await Promise.all(range(info.count)
