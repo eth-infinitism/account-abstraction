@@ -247,7 +247,7 @@ describe('EntryPoint', function () {
       const unstakeDelay = 3
       const { proxy: account2 } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address, simpleAccountFactory)
       await fund(account2)
-      await account2.exec(entryPoint.address, stakeValue, entryPoint.interface.encodeFunctionData('addStake', [unstakeDelay]))
+      await account2.execute(entryPoint.address, stakeValue, entryPoint.interface.encodeFunctionData('addStake', [unstakeDelay]))
       const op = await fillAndSign({ sender: account2.address }, ethersSigner, entryPoint)
       const result = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
       expect(result.senderInfo).to.eql({ stake: stakeValue, unstakeDelaySec: unstakeDelay })
@@ -291,7 +291,7 @@ describe('EntryPoint', function () {
       const op1 = await fillAndSign({
         initCode: hexConcat([
           account.address,
-          account.interface.encodeFunctionData('execFromEntryPoint', [sender, 0, '0x'])
+          account.interface.encodeFunctionData('execute', [sender, 0, '0x'])
         ]),
         sender
       }, accountOwner, entryPoint)
@@ -319,7 +319,7 @@ describe('EntryPoint', function () {
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        accountExecFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+        accountExecFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
       })
 
       it('account should pay for tx', async function () {
@@ -537,7 +537,7 @@ describe('EntryPoint', function () {
       before('before', async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        accountExecCounterFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+        accountExecCounterFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
         account1 = getAccountAddress(accountOwner1.address, simpleAccountImplementation);
         ({ proxy: account2 } = await createAccount(ethersSigner, await accountOwner2.getAddress(), entryPoint.address, simpleAccountFactory))
         await fund(account1)
@@ -748,7 +748,7 @@ describe('EntryPoint', function () {
         await paymaster.addStake(globalUnstakeDelaySec, { value: paymasterStake })
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        accountExecFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+        accountExecFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
       })
 
       it('should fail if paymaster has no deposit', async function () {

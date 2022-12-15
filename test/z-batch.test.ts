@@ -79,8 +79,8 @@ describe('Batch gas testing', function () {
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        execCounterCount = await account.populateTransaction.exec(counter.address, 0, count.data!)
-        accountExecCounterFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+        execCounterCount = await account.populateTransaction.execute(counter.address, 0, count.data!)
+        accountExecCounterFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
       })
 
       const accounts: Array<{ w: string, owner: Wallet }> = []
@@ -157,7 +157,7 @@ describe('Batch gas testing', function () {
 
         const waster = await counter.populateTransaction.gasWaster(40, '')
         const accountExecFromEntryPoint_waster: PopulatedTransaction =
-          await account.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
+          await account.populateTransaction.execute(counter.address, 0, waster.data!)
 
         const ops: UserOperation[] = []
         for (const { w, owner } of accounts) {
@@ -181,7 +181,7 @@ describe('Batch gas testing', function () {
 
         const waster = await counter.populateTransaction.gasWaster(0, '1'.repeat(16384))
         const accountExecFromEntryPoint_waster: PopulatedTransaction =
-          await account.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
+          await account.populateTransaction.execute(counter.address, 0, waster.data!)
 
         const ops: UserOperation[] = []
         for (const { w, owner } of accounts) {

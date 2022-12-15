@@ -96,7 +96,7 @@ describe('EntryPoint with paymaster', function () {
       let calldata: string
       before(async () => {
         const updateEntryPoint = await account.populateTransaction.withdrawDepositTo(AddressZero, 0).then(tx => tx.data!)
-        calldata = await account.populateTransaction.execFromEntryPoint(account.address, 0, updateEntryPoint).then(tx => tx.data!)
+        calldata = await account.populateTransaction.execute(account.address, 0, updateEntryPoint).then(tx => tx.data!)
       })
       it('paymaster should reject if account doesn\'t have tokens', async () => {
         const op = await fillAndSign({
@@ -180,7 +180,7 @@ describe('EntryPoint with paymaster', function () {
         const beneficiaryAddress = createAddress()
         const testCounter = await new TestCounter__factory(ethersSigner).deploy()
         const justEmit = testCounter.interface.encodeFunctionData('justemit')
-        const execFromSingleton = account.interface.encodeFunctionData('execFromEntryPoint', [testCounter.address, 0, justEmit])
+        const execFromSingleton = account.interface.encodeFunctionData('execute', [testCounter.address, 0, justEmit])
 
         const ops: UserOperation[] = []
         const accounts: SimpleAccount[] = []
@@ -226,7 +226,7 @@ describe('EntryPoint with paymaster', function () {
           // need to call approve from account2. use paymaster for that
           const approveOp = await fillAndSign({
             sender: account2.address,
-            callData: account2.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, approveCallData]),
+            callData: account2.interface.encodeFunctionData('execute', [paymaster.address, 0, approveCallData]),
             paymasterAndData: paymaster.address
           }, accountOwner, entryPoint)
           await entryPoint.handleOps([approveOp], beneficiaryAddress)
@@ -241,7 +241,7 @@ describe('EntryPoint with paymaster', function () {
           const withdrawAmount = account2Balance.sub(transferCost.mul(0))
           const withdrawTokens = paymaster.interface.encodeFunctionData('transferFrom', [account2.address, account.address, withdrawAmount])
           // const withdrawTokens = paymaster.interface.encodeFunctionData('transfer', [account.address, parseEther('0.1')])
-          const execFromEntryPoint = account.interface.encodeFunctionData('execFromEntryPoint', [paymaster.address, 0, withdrawTokens])
+          const execFromEntryPoint = account.interface.encodeFunctionData('execute', [paymaster.address, 0, withdrawTokens])
 
           const userOp1 = await fillAndSign({
             sender: account.address,

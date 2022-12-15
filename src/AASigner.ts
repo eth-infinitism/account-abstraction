@@ -387,7 +387,7 @@ export class AASigner extends Signer {
         initCallData
       ])
     }
-    const execFromEntryPoint = await this._account!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
+    const execFromEntryPoint = await this._account!.populateTransaction.execute(tx.to!, tx.value ?? 0, tx.data!)
 
     let { gasPrice, maxPriorityFeePerGas, maxFeePerGas } = tx
     // gasPrice is legacy, and overrides eip1559 values:

@@ -54,7 +54,7 @@ describe('DepositPaymaster', () => {
       const paymasterWithdraw = await paymaster.populateTransaction.withdrawTokensTo(token.address, AddressZero, 1).then(tx => tx.data!)
 
       await expect(
-        account.exec(paymaster.address, 0, paymasterWithdraw)
+        account.execute(paymaster.address, 0, paymasterWithdraw)
       ).to.revertedWith('DepositPaymaster: must unlockTokenDeposit')
     })
     it('should fail to withdraw within the same block ', async () => {
@@ -69,8 +69,8 @@ describe('DepositPaymaster', () => {
       const paymasterUnlock = await paymaster.populateTransaction.unlockTokenDeposit().then(tx => tx.data!)
       const target = createAddress()
       const paymasterWithdraw = await paymaster.populateTransaction.withdrawTokensTo(token.address, target, 1).then(tx => tx.data!)
-      await account.exec(paymaster.address, 0, paymasterUnlock)
-      await account.exec(paymaster.address, 0, paymasterWithdraw)
+      await account.execute(paymaster.address, 0, paymasterUnlock)
+      await account.execute(paymaster.address, 0, paymasterWithdraw)
       expect(await token.balanceOf(target)).to.eq(1)
     })
   })
@@ -111,7 +111,7 @@ describe('DepositPaymaster', () => {
       await paymaster.addDepositFor(token.address, account.address, ONE_ETH)
 
       const paymasterUnlock = await paymaster.populateTransaction.unlockTokenDeposit().then(tx => tx.data!)
-      await account.exec(paymaster.address, 0, paymasterUnlock)
+      await account.execute(paymaster.address, 0, paymasterUnlock)
 
       const userOp = await fillAndSign({
         sender: account.address,
@@ -123,7 +123,7 @@ describe('DepositPaymaster', () => {
     it('succeed with valid deposit', async () => {
       // needed only if previous test did unlock.
       const paymasterLockTokenDeposit = await paymaster.populateTransaction.lockTokenDeposit().then(tx => tx.data!)
-      await account.exec(paymaster.address, 0, paymasterLockTokenDeposit)
+      await account.execute(paymaster.address, 0, paymasterLockTokenDeposit)
 
       const userOp = await fillAndSign({
         sender: account.address,
@@ -141,7 +141,7 @@ describe('DepositPaymaster', () => {
       ({ proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
       counter = await new TestCounter__factory(ethersSigner).deploy()
       const counterJustEmit = await counter.populateTransaction.justemit().then(tx => tx.data!)
-      callData = await account.populateTransaction.execFromEntryPoint(counter.address, 0, counterJustEmit).then(tx => tx.data!)
+      callData = await account.populateTransaction.execute(counter.address, 0, counterJustEmit).then(tx => tx.data!)
 
       await paymaster.addDepositFor(token.address, account.address, ONE_ETH)
     })
@@ -169,7 +169,7 @@ describe('DepositPaymaster', () => {
 
       // need to "approve" the paymaster to use the tokens. we issue a UserOp for that (which uses the deposit to execute)
       const tokenApprovePaymaster = await token.populateTransaction.approve(paymaster.address, ethers.constants.MaxUint256).then(tx => tx.data!)
-      const execApprove = await account.populateTransaction.execFromEntryPoint(token.address, 0, tokenApprovePaymaster).then(tx => tx.data!)
+      const execApprove = await account.populateTransaction.execute(token.address, 0, tokenApprovePaymaster).then(tx => tx.data!)
       const userOp1 = await fillAndSign({
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)]),

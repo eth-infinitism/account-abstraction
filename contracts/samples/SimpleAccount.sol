@@ -64,14 +64,16 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     /**
      * execute a transaction (called directly from owner, not by entryPoint)
      */
-    function exec(address dest, uint256 value, bytes calldata func) external onlyOwner {
+    function execute(address dest, uint256 value, bytes calldata func) external {
+        _requireFromEntryPointOrOwner();
         _call(dest, value, func);
     }
 
     /**
      * execute a sequence of transaction
      */
-    function execBatch(address[] calldata dest, bytes[] calldata func) external onlyOwner {
+    function execBatch(address[] calldata dest, bytes[] calldata func) external {
+        _requireFromEntryPointOrOwner();
         require(dest.length == func.length, "wrong array lengths");
         for (uint256 i = 0; i < dest.length; i++) {
             _call(dest[i], 0, func[i]);
@@ -104,14 +106,8 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
      * - validate current nonce matches request nonce, and increment it.
      * - pay prefund, in case current deposit is not enough
      */
-    function _requireFromEntryPoint() internal override view {
-        require(msg.sender == address(entryPoint()), "account: not from EntryPoint");
-    }
-
-    // called by entryPoint, only after validateUserOp succeeded.
-    function execFromEntryPoint(address dest, uint256 value, bytes calldata func) external {
-        _requireFromEntryPoint();
-        _call(dest, value, func);
+    function _requireFromEntryPointOrOwner() internal view {
+        require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
     }
 
     /// implement template method of BaseAccount
