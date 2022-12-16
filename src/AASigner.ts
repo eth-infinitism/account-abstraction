@@ -1,7 +1,14 @@
-import { BigNumber, Bytes, ethers, Signer, Event } from 'ethers'
+import { BigNumber, Bytes, ethers, Event, Signer } from 'ethers'
+import { zeroAddress } from 'ethereumjs-util'
 import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/providers'
 import { Deferrable, resolveProperties } from '@ethersproject/properties'
-import { SimpleAccount, SimpleAccount__factory, EntryPoint, EntryPoint__factory } from '../typechain'
+import {
+  EntryPoint,
+  EntryPoint__factory,
+  ERC1967Proxy__factory,
+  SimpleAccount,
+  SimpleAccount__factory
+} from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { TransactionResponse } from '@ethersproject/abstract-provider'
 import { fillAndSign, getUserOpHash } from '../test/UserOp'
@@ -9,7 +16,7 @@ import { UserOperation } from '../test/UserOperation'
 import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index'
 import { clearInterval } from 'timers'
 import { Create2Factory } from './Create2Factory'
-import { getCreate2Address, hexConcat, keccak256 } from 'ethers/lib/utils'
+import { getCreate2Address, hexConcat, Interface, keccak256 } from 'ethers/lib/utils'
 import { HashZero } from '../test/testutils'
 
 export type SendUserOp = (userOp: UserOperation) => Promise<TransactionResponse | undefined>
@@ -231,10 +238,12 @@ export class AASigner extends Signer {
     return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(await this._deploymentTransaction()))
   }
 
+  // TODO TODO: THERE IS UTILS.getAccountInitCode - why not use that?
   async _deploymentTransaction (): Promise<BytesLike> {
+    const implementationAddress = zeroAddress() // TODO: pass implementation in here
     const ownerAddress = await this.signer.getAddress()
-    return new SimpleAccount__factory(this.signer)
-      .getDeployTransaction(this.entryPoint.address, ownerAddress).data!
+    const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [ownerAddress])
+    return new ERC1967Proxy__factory(this.signer).getDeployTransaction(implementationAddress, initializeCall).data!
   }
 
   async getAddress (): Promise<string> {
@@ -378,7 +387,7 @@ export class AASigner extends Signer {
         initCallData
       ])
     }
-    const execFromEntryPoint = await this._account!.populateTransaction.execFromEntryPoint(tx.to!, tx.value ?? 0, tx.data!)
+    const execFromEntryPoint = await this._account!.populateTransaction.execute(tx.to!, tx.value ?? 0, tx.data!)
 
     let { gasPrice, maxPriorityFeePerGas, maxFeePerGas } = tx
     // gasPrice is legacy, and overrides eip1559 values:

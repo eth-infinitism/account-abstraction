@@ -14,7 +14,11 @@ contract TestExpiryAccount is SimpleAccount {
 
     mapping(address => uint256) public ownerDeadlines;
 
-    constructor(IEntryPoint anEntryPoint, address anOwner) SimpleAccount(anEntryPoint, anOwner) {
+    // solhint-disable-next-line no-empty-blocks
+    constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
+
+    function initialize(address anOwner) public virtual override initializer {
+        super._initialize(anOwner);
         addTemporaryOwner(anOwner, type(uint256).max);
     }
 

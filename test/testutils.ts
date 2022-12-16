@@ -1,12 +1,28 @@
 import { ethers } from 'hardhat'
-import { arrayify, getCreate2Address, hexConcat, keccak256, parseEther } from 'ethers/lib/utils'
-import { BigNumber, BigNumberish, Contract, ContractReceipt, Wallet } from 'ethers'
-import { EntryPoint, EntryPoint__factory, IEntryPoint, IERC20, SimpleAccount__factory, TestAggregatedAccount__factory } from '../typechain'
+import {
+  arrayify,
+  hexConcat,
+  Interface,
+  keccak256,
+  parseEther
+} from 'ethers/lib/utils'
+import { BigNumber, BigNumberish, Contract, ContractReceipt, Signer, Wallet } from 'ethers'
+import {
+  ERC1967Proxy__factory,
+  EntryPoint,
+  EntryPoint__factory,
+  IERC20,
+  IEntryPoint,
+  SimpleAccount,
+  SimpleAccountFactory__factory,
+  SimpleAccount__factory, SimpleAccountFactory
+} from '../typechain'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
+import { zeroAddress } from 'ethereumjs-util'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -82,18 +98,16 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 // helper function to create a deployer (initCode) call to our account. relies on the global "create2Deployer"
 // note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
 // with each deployment. a better deployer will only receive the constructor parameters.
-export function getAccountInitCode (entryPoint: string, owner: string): BytesLike {
-  const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
-  const factory = new Create2Factory(ethers.provider)
-  const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
+export function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): BytesLike {
   return hexConcat([
-    Create2Factory.contractAddress,
-    initCallData
+    factory.address,
+    factory.interface.encodeFunctionData('createAccount', [owner, salt])
   ])
 }
 
-export async function getAggregatedAccountInitCode (entryPoint: string, aggregator: string): Promise<BytesLike> {
-  const accountCtr = await new TestAggregatedAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, aggregator).data!
+export async function getAggregatedAccountInitCode (entryPoint: string, implementationAddress: string): Promise<BytesLike> {
+  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [zeroAddress()])
+  const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
 
   const factory = new Create2Factory(ethers.provider)
   const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
@@ -104,9 +118,8 @@ export async function getAggregatedAccountInitCode (entryPoint: string, aggregat
 }
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
-export function getAccountAddress (entryPoint: string, owner: string): string {
-  const accountCtr = new SimpleAccount__factory(ethers.provider.getSigner()).getDeployTransaction(entryPoint, owner).data!
-  return getCreate2Address(Create2Factory.contractAddress, HashZero, keccak256(hexValue(accountCtr)))
+export async function getAccountAddress (owner: string, factory: SimpleAccountFactory, salt = 0): Promise<string> {
+  return await factory.getAddress(owner, salt)
 }
 
 const panicCodes: { [key: number]: string } = {
@@ -182,6 +195,7 @@ export async function checkForGeth (): Promise<void> {
 
   currentNode = await provider.request({ method: 'web3_clientVersion' })
 
+  console.log('node version:', currentNode)
   // NOTE: must run geth with params:
   // --http.api personal,eth,net,web3
   // --allow-insecure-unlock
@@ -189,7 +203,7 @@ export async function checkForGeth (): Promise<void> {
     for (let i = 0; i < 2; i++) {
       const acc = await provider.request({ method: 'personal_newAccount', params: ['pass'] }).catch(rethrow)
       await provider.request({ method: 'personal_unlockAccount', params: [acc, 'pass'] }).catch(rethrow)
-      await fund(acc)
+      await fund(acc, '10')
     }
   }
 }
@@ -276,4 +290,28 @@ export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOp
     aggregator: AddressZero,
     signature: '0x'
   }]
+}
+
+// Deploys an implementation and a proxy pointing to this implementation
+export async function createAccount (
+  ethersSigner: Signer,
+  accountOwner: string,
+  entryPoint: string,
+  _factory?: SimpleAccountFactory
+):
+  Promise<{
+    proxy: SimpleAccount
+    accountFactory: SimpleAccountFactory
+    implementation: string
+  }> {
+  const accountFactory = _factory ?? await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint)
+  const implementation = await accountFactory.accountImplementation()
+  await accountFactory.createAccount(accountOwner, 0)
+  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
+  const proxy = SimpleAccount__factory.connect(accountAddress, ethersSigner)
+  return {
+    implementation,
+    accountFactory,
+    proxy
+  }
 }

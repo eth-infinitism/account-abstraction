@@ -15,10 +15,15 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     address public immutable aggregator;
     uint256[4] private publicKey;
 
-    constructor(IEntryPoint anEntryPoint, address anAggregator, uint256[4] memory aPublicKey)
-    SimpleAccount(anEntryPoint, address(0)) {
-        publicKey = aPublicKey;
+    // The constructor is used only for the "implementation" and only sets immutable values.
+    // Mutable values slots for proxy accounts are set by the 'initialize' function.
+    constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint)  {
         aggregator = anAggregator;
+    }
+
+    function initialize(uint256[4] memory aPublicKey) public virtual initializer {
+        super._initialize(address(0));
+        publicKey = aPublicKey;
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
@@ -42,13 +47,5 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
 
     function getBlsPublicKey() external override view returns (uint256[4] memory) {
         return publicKey;
-    }
-}
-
-
-contract BLSAccountFactory {
-
-    function createAccount(IEntryPoint anEntryPoint, address anAggregator, uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
-        return new BLSAccount{salt : bytes32(salt)}(anEntryPoint, anAggregator, aPublicKey);
     }
 }

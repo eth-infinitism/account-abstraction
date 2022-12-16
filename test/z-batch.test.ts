@@ -8,7 +8,8 @@ import {
   SimpleAccount__factory,
   EntryPoint,
   TestCounter,
-  TestCounter__factory
+  TestCounter__factory,
+  SimpleAccountFactory
 } from '../typechain'
 import {
   createAccountOwner,
@@ -36,6 +37,7 @@ describe('Batch gas testing', function () {
 
   const ethersSigner = ethers.provider.getSigner()
   let entryPoint: EntryPoint
+  let simpleAccountFactory: SimpleAccountFactory
 
   let accountOwner: Wallet
   let account: SimpleAccount
@@ -48,7 +50,8 @@ describe('Batch gas testing', function () {
     entryPoint = await deployEntryPoint()
     // static call must come from address zero, to validate it can only be called off-chain.
     accountOwner = createAccountOwner()
-    account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address, await accountOwner.getAddress())
+    account = await new SimpleAccount__factory(ethersSigner).deploy(entryPoint.address)
+    await account.initialize(await accountOwner.getAddress())
     await fund(account)
   })
 
@@ -78,8 +81,8 @@ describe('Batch gas testing', function () {
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
-        execCounterCount = await account.populateTransaction.exec(counter.address, 0, count.data!)
-        accountExecCounterFromEntryPoint = await account.populateTransaction.execFromEntryPoint(counter.address, 0, count.data!)
+        execCounterCount = await account.populateTransaction.execute(counter.address, 0, count.data!)
+        accountExecCounterFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
       })
 
       const accounts: Array<{ w: string, owner: Wallet }> = []
@@ -92,10 +95,10 @@ describe('Batch gas testing', function () {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         while (++count) {
           const accountOwner1 = createAccountOwner()
-          const account1 = getAccountAddress(entryPoint.address, accountOwner1.address)
+          const account1 = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
           await fund(account1, '0.5')
           const op1 = await fillAndSign({
-            initCode: getAccountInitCode(entryPoint.address, accountOwner1.address),
+            initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
             nonce: 0,
             // callData: accountExecCounterFromEntryPoint.data,
             maxPriorityFeePerGas: 1e9
@@ -156,7 +159,7 @@ describe('Batch gas testing', function () {
 
         const waster = await counter.populateTransaction.gasWaster(40, '')
         const accountExecFromEntryPoint_waster: PopulatedTransaction =
-          await account.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
+          await account.populateTransaction.execute(counter.address, 0, waster.data!)
 
         const ops: UserOperation[] = []
         for (const { w, owner } of accounts) {
@@ -180,7 +183,7 @@ describe('Batch gas testing', function () {
 
         const waster = await counter.populateTransaction.gasWaster(0, '1'.repeat(16384))
         const accountExecFromEntryPoint_waster: PopulatedTransaction =
-          await account.populateTransaction.execFromEntryPoint(counter.address, 0, waster.data!)
+          await account.populateTransaction.execute(counter.address, 0, waster.data!)
 
         const ops: UserOperation[] = []
         for (const { w, owner } of accounts) {
