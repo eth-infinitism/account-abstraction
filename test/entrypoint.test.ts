@@ -284,10 +284,23 @@ describe('EntryPoint', function () {
     })
 
     it('should report failure on insufficient verificationGas (OOG) for creation', async () => {
+      const initCode = getAccountInitCode(accountOwner1.address, simpleAccountFactory)
+      const sender = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
+      const op0 = await fillAndSign({
+        initCode,
+        sender,
+        verificationGasLimit: 5e5,
+        maxFeePerGas: 0
+      }, accountOwner1, entryPoint)
+      // must succeed with enough verification gas.
+      await expect(entryPoint.callStatic.simulateValidation(op0, { gasLimit: 1e6 }))
+        .to.revertedWith('SimulationResult')
+
       const op1 = await fillAndSign({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
-        sender: '0x'.padEnd(42, '1'),
-        verificationGasLimit: 1e5
+        initCode,
+        sender,
+        verificationGasLimit: 1e5,
+        maxFeePerGas: 0
       }, accountOwner1, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op1, { gasLimit: 1e6 }))
         .to.revertedWith('AA13 initCode failed or OOG')
@@ -465,6 +478,14 @@ describe('EntryPoint', function () {
       })
 
       it('should report failure on insufficient verificationGas after creation', async () => {
+        const op0 = await fillAndSign({
+          sender: account.address,
+          verificationGasLimit: 5e5
+        }, accountOwner, entryPoint)
+        // must succeed with enough verification gas
+        await expect(entryPoint.callStatic.simulateValidation(op0))
+          .to.revertedWith('SimulationResult')
+
         const op1 = await fillAndSign({
           sender: account.address,
           verificationGasLimit: 10000
