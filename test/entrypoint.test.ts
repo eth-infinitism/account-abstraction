@@ -245,6 +245,7 @@ describe('EntryPoint', function () {
       await expect(entryPoint.callStatic.simulateValidation(op)).to
         .revertedWith('AA23 reverted (or OOG)')
     })
+
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({ sender: account1.address }, accountOwner1, entryPoint)
       await fund(account1)
@@ -261,6 +262,7 @@ describe('EntryPoint', function () {
       const result = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
       expect(result.senderInfo).to.eql({ stake: stakeValue, unstakeDelaySec: unstakeDelay })
     })
+
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
       const op = await fillAndSign({
         preVerificationGas: BigNumber.from(2).pow(130),
@@ -290,6 +292,7 @@ describe('EntryPoint', function () {
       await expect(entryPoint.callStatic.simulateValidation(op1, { gasLimit: 1e6 }))
         .to.revertedWith('AA11 initCode failed')
     })
+
     it('should succeed for creating an account', async () => {
       const sender = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       const op1 = await fillAndSign({
@@ -526,6 +529,7 @@ describe('EntryPoint', function () {
         await expect(ret).to.emit(entryPoint, 'AccountDeployed')
           // eslint-disable-next-line @typescript-eslint/no-base-to-string
           .withArgs(hash, createOp.sender, toChecksumAddress(createOp.initCode.toString().slice(0, 42)), AddressZero)
+
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
       })
 
@@ -788,6 +792,7 @@ describe('EntryPoint', function () {
         }, account2Owner, entryPoint)
         await expect(entryPoint.simulateValidation(op)).to.revertedWith('"AA30 paymaster not deployed"')
       })
+
       it('should fail if paymaster has no deposit', async function () {
         const op = await fillAndSign({
           paymasterAndData: paymaster.address,

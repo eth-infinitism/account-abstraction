@@ -25,6 +25,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         super._initialize(address(0));
         publicKey = aPublicKey;
     }
+
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
     internal override view returns (uint256 deadline) {
 
