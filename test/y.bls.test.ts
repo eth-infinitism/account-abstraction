@@ -6,6 +6,8 @@ import {
   BLSSignatureAggregator__factory,
   BLSAccount,
   BLSAccount__factory,
+  BLSAccountFactory,
+  BLSAccountFactory__factory,
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
@@ -16,8 +18,6 @@ import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber } from 'ethers'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
-import { BLSAccountFactory } from '../typechain/contracts/bls/BLSAccount.sol'
-import { BLSAccountFactory__factory } from '../typechain/factories/contracts/bls/BLSAccount.sol'
 
 describe('bls account', function () {
   this.timeout(20000)
@@ -43,10 +43,14 @@ describe('bls account', function () {
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
 
-    accountDeployer = await new BLSAccountFactory__factory(etherSigner).deploy()
+    const blsAccountImplementation = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
+    accountDeployer = await new BLSAccountFactory__factory(etherSigner).deploy(blsAccountImplementation.address)
 
-    account1 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer1.pubkey)
-    account2 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address, signer2.pubkey)
+    // TODO: these two are not created via the 'accountDeployer' for some reason - I am not touching it for now
+    account1 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
+    await account1['initialize(uint256[4])'](signer1.pubkey)
+    account2 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
+    await account2['initialize(uint256[4])'](signer2.pubkey)
   })
 
   it('#getTrailingPublicKey', async () => {
@@ -133,7 +137,7 @@ describe('bls account', function () {
       signer3 = fact.getSigner(arrayify(BLS_DOMAIN), '0x03')
       initCode = hexConcat([
         accountDeployer.address,
-        accountDeployer.interface.encodeFunctionData('createAccount', [entrypoint.address, blsAgg.address, 0, signer3.pubkey])
+        accountDeployer.interface.encodeFunctionData('createAccount', [entrypoint.address, 0, signer3.pubkey])
       ])
     })
 

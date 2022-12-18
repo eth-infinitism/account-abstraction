@@ -84,29 +84,4 @@ abstract contract BaseAccount is IAccount {
             //ignore failure (its EntryPoint's job to verify, not account.)
         }
     }
-
-    /**
-     * expose an api to modify the entryPoint.
-     * must be called by current "admin" of the account.
-     * @param newEntryPoint the new entrypoint to trust.
-     */
-    function updateEntryPoint(address newEntryPoint) external {
-        _requireFromAdmin();
-        _updateEntryPoint(newEntryPoint);
-    }
-
-    /**
-     * ensure the caller is allowed "admin" operations (such as changing the entryPoint)
-     * default implementation trust the account itself (or any signer that passes "validateUserOp")
-     * to be the "admin"
-     */
-    function _requireFromAdmin() internal view virtual {
-        require(msg.sender == address(this) || msg.sender == address(entryPoint()), "not admin");
-    }
-
-    /**
-     * update the current entrypoint.
-     * subclass should override and update current entrypoint
-     */
-    function _updateEntryPoint(address) internal virtual;
 }

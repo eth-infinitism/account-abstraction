@@ -14,9 +14,14 @@ import "../interfaces/UserOperation.sol";
 contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
     address public immutable aggregator;
 
-    constructor(IEntryPoint anEntryPoint, address anAggregator)
-    SimpleAccount(anEntryPoint, address(0)) {
+    // The constructor is used only for the "implementation" and only sets immutable values.
+    // Mutable values slots for proxy accounts are set by the 'initialize' function.
+    constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint) {
         aggregator = anAggregator;
+    }
+
+    function initialize(address) public virtual override initializer {
+        super._initialize(address(0));
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
