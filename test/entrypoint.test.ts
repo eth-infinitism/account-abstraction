@@ -464,7 +464,7 @@ describe('EntryPoint', function () {
       it('should report failure on insufficient verificationGas after creation', async () => {
         const op1 = await fillAndSign({
           sender: account.address,
-          verificationGasLimit: 100
+          verificationGasLimit: 10000
         }, accountOwner, entryPoint)
         await expect(entryPoint.callStatic.simulateValidation(op1))
           .to.revertedWith('AA23 reverted (or OOG)')
