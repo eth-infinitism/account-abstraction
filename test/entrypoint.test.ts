@@ -280,7 +280,7 @@ describe('EntryPoint', function () {
         verificationGasLimit: 3e6
       }, accountOwner1, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op1))
-        .to.revertedWith('AA12 initCode must return sender')
+        .to.revertedWith('AA14 initCode must return sender')
     })
 
     it('should report failure on insufficient verificationGas (OOG) for creation', async () => {
@@ -290,7 +290,7 @@ describe('EntryPoint', function () {
         verificationGasLimit: 1e5
       }, accountOwner1, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op1, { gasLimit: 1e6 }))
-        .to.revertedWith('AA11 initCode failed')
+        .to.revertedWith('AA13 initCode failed or OOG')
     })
 
     it('should succeed for creating an account', async () => {
@@ -316,7 +316,7 @@ describe('EntryPoint', function () {
         sender
       }, accountOwner, entryPoint)
       const error = await entryPoint.callStatic.simulateValidation(op1).catch(e => e)
-      expect(error.message).to.match(/initCode failed/, error)
+      expect(error.message).to.match(/initCode failed or OOG/, error)
     })
 
     it('should not use banned ops during simulateValidation', async () => {
@@ -490,7 +490,7 @@ describe('EntryPoint', function () {
 
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        })).to.revertedWith('AA12 initCode must return sender')
+        })).to.revertedWith('AA14 initCode must return sender')
       })
 
       it('should reject create if account not funded', async () => {
