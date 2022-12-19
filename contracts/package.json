@@ -22,5 +22,10 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/eth-infinitism/account-abstraction/issues"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@gnosis.pm/safe-contracts": "^1.3.0"
   }
 }

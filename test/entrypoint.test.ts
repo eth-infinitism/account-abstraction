@@ -5,6 +5,8 @@ import {
   EntryPoint,
   SimpleAccount,
   SimpleAccountFactory,
+  TestAggregatedAccount__factory,
+  TestAggregatedAccountFactory__factory,
   TestCounter,
   TestCounter__factory,
   TestExpirePaymaster,
@@ -12,7 +14,10 @@ import {
   TestExpiryAccount,
   TestExpiryAccount__factory,
   TestPaymasterAcceptAll,
-  TestPaymasterAcceptAll__factory
+  TestPaymasterAcceptAll__factory,
+  TestAggregatedAccount,
+  TestSignatureAggregator,
+  TestSignatureAggregator__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -43,12 +48,6 @@ import { ethers } from 'hardhat'
 import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
-import { TestSignatureAggregator } from '../typechain/contracts/samples/TestSignatureAggregator'
-import { TestAggregatedAccount } from '../typechain/contracts/samples/TestAggregatedAccount'
-import {
-  TestSignatureAggregator__factory
-} from '../typechain/factories/contracts/samples/TestSignatureAggregator__factory'
-import { TestAggregatedAccount__factory } from '../typechain/factories/contracts/samples/TestAggregatedAccount__factory'
 import { toChecksumAddress, zeroAddress } from 'ethereumjs-util'
 
 describe('EntryPoint', function () {
@@ -759,8 +758,8 @@ describe('EntryPoint', function () {
           let addr: string
           let userOp: UserOperation
           before(async () => {
-            const aggregatedAccountImplementation = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
-            initCode = await getAggregatedAccountInitCode(entryPoint.address, aggregatedAccountImplementation.address)
+            const factory = await new TestAggregatedAccountFactory__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
+            initCode = await getAggregatedAccountInitCode(entryPoint.address, factory)
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({

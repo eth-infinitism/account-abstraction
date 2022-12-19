@@ -43,8 +43,7 @@ describe('bls account', function () {
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
 
-    const blsAccountImplementation = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
-    accountDeployer = await new BLSAccountFactory__factory(etherSigner).deploy(blsAccountImplementation.address)
+    accountDeployer = await new BLSAccountFactory__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
 
     // TODO: these two are not created via the 'accountDeployer' for some reason - I am not touching it for now
     account1 = await new BLSAccount__factory(etherSigner).deploy(entrypoint.address, blsAgg.address)
@@ -137,7 +136,7 @@ describe('bls account', function () {
       signer3 = fact.getSigner(arrayify(BLS_DOMAIN), '0x03')
       initCode = hexConcat([
         accountDeployer.address,
-        accountDeployer.interface.encodeFunctionData('createAccount', [entrypoint.address, 0, signer3.pubkey])
+        accountDeployer.interface.encodeFunctionData('createAccount', [0, signer3.pubkey])
       ])
     })
 

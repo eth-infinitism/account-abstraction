@@ -20,7 +20,7 @@ describe('test Create2Factory', () => {
   it('should deploy to known address', async () => {
     const initCode = TestToken__factory.bytecode
 
-    const addr = factory.getDeployedAddress(initCode, 0)
+    const addr = Create2Factory.getDeployedAddress(initCode, 0)
 
     expect(await provider.getCode(addr).then(code => code.length)).to.equal(2)
     await factory.deploy(initCode, 0)
@@ -29,7 +29,7 @@ describe('test Create2Factory', () => {
   it('should deploy to different address based on salt', async () => {
     const initCode = TestToken__factory.bytecode
 
-    const addr = factory.getDeployedAddress(initCode, 123)
+    const addr = Create2Factory.getDeployedAddress(initCode, 123)
 
     expect(await provider.getCode(addr).then(code => code.length)).to.equal(2)
     await factory.deploy(initCode, 123)

@@ -16,3 +16,5 @@ artifacts
 /coverage.json
 /.DS_Store
 .DS_Store
+/contracts/dist/
+/contracts/types/
