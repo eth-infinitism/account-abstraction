@@ -234,7 +234,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
         StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
         bytes calldata initCode = userOp.initCode;
-        address factory = initCode.length>=20 ? address(bytes20(initCode[0 : 20])) : address(0);
+        address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
         StakeInfo memory factoryInfo = getStakeInfo(factory);
 
         if (aggregator != address(0)) {
@@ -262,10 +262,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
             if (sender.code.length != 0) revert FailedOp(opIndex, address(0), "AA10 sender already constructed");
-            address sender1 = senderCreator.createSender(initCode);
-            if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA11 initCode failed");
-            if (sender1 != sender) revert FailedOp(opIndex, address(0), "AA12 initCode must return sender");
-            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA13 initCode must create sender");
+            address sender1 = senderCreator.createSender{gas : opInfo.mUserOp.verificationGasLimit}(initCode);
+            if (sender1 == address(0)) revert FailedOp(opIndex, address(0), "AA13 initCode failed or OOG");
+            if (sender1 != sender) revert FailedOp(opIndex, address(0), "AA14 initCode must return sender");
+            if (sender1.code.length == 0) revert FailedOp(opIndex, address(0), "AA15 initCode must create sender");
             address factory = address(bytes20(initCode[0 : 20]));
             emit AccountDeployed(opInfo.userOpHash, sender, factory, opInfo.mUserOp.paymaster);
         }
@@ -296,9 +296,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
             numberMarker();
 
-            if (sender.code.length==0) {
+            if (sender.code.length == 0) {
                 // it would revert anyway. but give a meaningful message
-                revert FailedOp(0,address(0), "AA20 account not deployed");
+                revert FailedOp(0, address(0), "AA20 account not deployed");
+            }
+            if (mUserOp.paymaster != address(0) && mUserOp.paymaster.code.length == 0) {
+                // it would revert anyway. but give a meaningful message
+                revert FailedOp(0, address(0), "AA30 paymaster not deployed");
             }
             try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
                 aggregator = actualAggregator = userOpAggregator;
@@ -321,7 +325,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, address(0), revertReason);
         } catch {
-            revert FailedOp(opIndex, address(0), "");
+            revert FailedOp(opIndex, address(0), "AA23 reverted (or OOG)");
         }
         if (paymaster == address(0)) {
             DepositInfo storage senderInfo = deposits[sender];
@@ -345,6 +349,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateAccountPrepayment) internal returns (bytes memory context, uint256 deadline) {
     unchecked {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
+        uint256 verificationGasLimit = mUserOp.verificationGasLimit;
+        require(verificationGasLimit > gasUsedByValidateAccountPrepayment, "AA41 too little verificationGas");
+        uint256 gas = verificationGasLimit - gasUsedByValidateAccountPrepayment;
+
         address paymaster = mUserOp.paymaster;
         DepositInfo storage paymasterInfo = deposits[paymaster];
         uint256 deposit = paymasterInfo.deposit;
@@ -352,7 +360,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert FailedOp(opIndex, paymaster, "AA31 paymaster deposit too low");
         }
         paymasterInfo.deposit = uint112(deposit - requiredPreFund);
-        uint256 gas = mUserOp.verificationGasLimit - gasUsedByValidateAccountPrepayment;
         try IPaymaster(paymaster).validatePaymasterUserOp{gas : gas}(op, opInfo.userOpHash, requiredPreFund) returns (bytes memory _context, uint256 _deadline){
             // solhint-disable-next-line not-rely-on-time
             if (_deadline != 0 && _deadline < block.timestamp) {
@@ -363,7 +370,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         } catch Error(string memory revertReason) {
             revert FailedOp(opIndex, paymaster, revertReason);
         } catch {
-            revert FailedOp(opIndex, paymaster, "");
+            revert FailedOp(opIndex, paymaster, "AA33 reverted (or OOG)");
         }
     }
     }
@@ -411,7 +418,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 gasUsed = preGas - gasleft();
 
         if (userOp.verificationGasLimit < gasUsed) {
-            revert FailedOp(opIndex, mUserOp.paymaster, "A40 over verificationGasLimit");
+            revert FailedOp(opIndex, mUserOp.paymaster, "AA40 over verificationGasLimit");
         }
         outOpInfo.prefund = requiredPreFund;
         outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);

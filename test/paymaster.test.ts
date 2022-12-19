@@ -115,7 +115,6 @@ describe('EntryPoint with paymaster', function () {
       let createOp: UserOperation
       let created = false
       const beneficiaryAddress = createAddress()
-      // const accountOwner = createAccountOwner() // TODO: not clear how it worked earlier - the account is already deployed by global 'before'
 
       it('should reject if account not funded', async () => {
         const op = await fillAndSign({
