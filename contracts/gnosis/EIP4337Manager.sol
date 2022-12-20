@@ -58,6 +58,20 @@ contract EIP4337Manager is GnosisSafe, IAccount {
 
     /**
      * set up a safe as EIP-4337 enabled.
+     * called from the GnosisSafeAccountFactory during construction time
+     * - enable 3 modules (this module, fallback and the entrypoint)
+     * - this method is called with delegateCall, so the module (usually itself) is passed as parameter, and "this" is the safe itself
+     */
+    function setup4337Modules(
+        EIP4337Manager manager //the manager (this contract)
+    ) external {
+        GnosisSafe safe = GnosisSafe(payable(this));
+        safe.enableModule(manager.entryPoint());
+        safe.enableModule(manager.eip4337Fallback());
+    }
+
+    /**
+     * set up a safe as EIP-4337 enabled.
      * called from the GnosisSafeProxy4337 during construction time
      * - enable 3 modules (this module, fallback and the entrypoint)
      * - this method is called with delegateCall, so the module (usually itself) is passed as parameter, and "this" is the safe itself

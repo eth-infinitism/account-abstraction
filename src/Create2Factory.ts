@@ -1,5 +1,5 @@
 // from: https://github.com/Arachnid/deterministic-deployment-proxy
-import { BigNumber, BigNumberish, Contract, ethers, Signer } from 'ethers'
+import { BigNumber, BigNumberish, ethers, Signer } from 'ethers'
 import { arrayify, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
 import { Provider } from '@ethersproject/providers'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
@@ -61,7 +61,7 @@ export class Create2Factory {
       gasLimit = Math.floor(gasLimit * 64 / 63)
     }
 
-    const ret = await this.signer.sendTransaction({...deployTx, gasLimit})
+    const ret = await this.signer.sendTransaction({ ...deployTx, gasLimit })
     await ret.wait()
     if (await this.provider.getCode(addr).then(code => code.length) === 2) {
       throw new Error('failed to deploy')
