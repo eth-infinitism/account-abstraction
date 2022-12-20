@@ -27,7 +27,6 @@ import {
 import { fillAndSign } from './UserOp'
 import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { expect } from 'chai'
-import { AddressOne } from '@gnosis.pm/safe-contracts'
 
 describe('Gnosis Proxy', function () {
   this.timeout(30000)
@@ -54,7 +53,7 @@ describe('Gnosis Proxy', function () {
     const provider = ethers.provider
     ethersSigner = provider.getSigner()
 
-    //standard safe singleton contract (implementation)
+    // standard safe singleton contract (implementation)
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
     // standard safe proxy factory
     const proxyFactory = await new GnosisSafeProxyFactory__factory(ethersSigner).deploy()
@@ -68,7 +67,7 @@ describe('Gnosis Proxy', function () {
       .deploy(proxyFactory.address, safeSingleton.address, manager.address)
 
     await accountFactory.createAccount(ownerAddress, 0)
-    //we use our accountFactory to create and configure the proxy.
+    // we use our accountFactory to create and configure the proxy.
     // but the actual deployment is done internally by the gnosis factory
     const ev = await proxyFactory.queryFilter(proxyFactory.filters.ProxyCreation())
     const addr = ev[0].args.proxy
@@ -149,9 +148,6 @@ describe('Gnosis Proxy', function () {
       initCode,
       verificationGasLimit: 400000
     }, owner, entryPoint)
-
-    console.log('counterfact=', counterfactualAddress)
-    console.log('op=', op)
 
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)

@@ -32,7 +32,6 @@ contract GnosisSafeAccountFactory {
 
         bytes memory setup4337Modules = abi.encodeCall(
             EIP4337Manager.setup4337Modules, (eip4337Manager));
-        console.log("getinitializer");
 
         return abi.encodeCall(GnosisSafe.setup, (
             owners, threshold,
@@ -45,13 +44,16 @@ contract GnosisSafeAccountFactory {
     //an INEFFICIENT way to get the address.
     // gnosis proxy runs the deployment, and reverts in order to get the address
     // this also doesn't help if the account is already deployed.
+    // better calculate the real create2 address
     function getAddress(address owner, uint salt) public returns (address addr) {
         try proxyFactory.calculateCreateProxyWithNonceAddress(
             safeSingleton, getInitializer(owner), salt)
+        // solhint-disable-next-line no-empty-blocks
         returns (GnosisSafeProxy) {}
         catch (bytes memory errData) {
             //Error(string) with 32-byte string
             require(errData.length == 100, "wrong revert data");
+            /* solhint-disable-next-line no-inline-assembly */
             assembly {
                 addr := shr(96,mload(sub(add(errData, mload(errData)),0)))
             }
