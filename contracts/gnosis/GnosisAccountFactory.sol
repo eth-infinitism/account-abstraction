@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./EIP4337Manager.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
+import "./EIP4337Manager.sol";
 import "../utils/Exec.sol";
 /**
  * A wrapper factory contract to deploy GnosisSafe as an Account-Abstraction wallet contract.
@@ -20,8 +21,11 @@ contract GnosisSafeAccountFactory {
     }
 
     function createAccount(address owner, uint salt) public returns (address) {
-        return address(proxyFactory.createProxyWithNonce(
+        address calc = getAddress(owner, salt);
+        address created = address(proxyFactory.createProxyWithNonce(
                 safeSingleton, getInitializer(owner), salt));
+        require(calc == created, "created wrong address");
+        return created;
     }
 
     function getInitializer(address owner) internal view returns (bytes memory) {
@@ -45,7 +49,7 @@ contract GnosisSafeAccountFactory {
     // gnosis proxy runs the deployment, and reverts in order to get the address
     // this also doesn't help if the account is already deployed.
     // better calculate the real create2 address
-    function getAddress(address owner, uint salt) public returns (address addr) {
+    function getAddress1(address owner, uint salt) public returns (address addr) {
         try proxyFactory.calculateCreateProxyWithNonceAddress(
             safeSingleton, getInitializer(owner), salt)
         // solhint-disable-next-line no-empty-blocks
@@ -60,5 +64,16 @@ contract GnosisSafeAccountFactory {
             return addr;
         }
         revert("never reach here");
+    }
+
+    /**
+    * calculate the counterfactual address of this account as it would be returned by createAccount()
+    */
+    function getAddress(address owner, uint salt) public view returns (address) {
+        bytes memory initializer = getInitializer(owner);
+        //copied from deployProxyWithNonce
+        bytes32 salt2 = keccak256(abi.encodePacked(keccak256(initializer), salt));
+        bytes memory deploymentData = abi.encodePacked(type(GnosisSafeProxy).creationCode, uint256(uint160(safeSingleton)));
+        return Create2.computeAddress(bytes32(salt2), keccak256(deploymentData));
     }
 }

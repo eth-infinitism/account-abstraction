@@ -265,5 +265,6 @@ describe('Batch gas testing', function () {
     }
     await dumpResult()
     results.push(dumpResult)
+    return
   }
 })
