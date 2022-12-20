@@ -1,5 +1,5 @@
-// from https://eips.ethereum.org/EIPS/eip-2470
-import { BigNumber, BigNumberish, Contract, ethers, Signer } from 'ethers'
+// from: https://github.com/Arachnid/deterministic-deployment-proxy
+import { BigNumber, BigNumberish, ethers, Signer } from 'ethers'
 import { arrayify, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
 import { Provider } from '@ethersproject/providers'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
@@ -7,19 +7,21 @@ import { TransactionRequest } from '@ethersproject/abstract-provider'
 export class Create2Factory {
   factoryDeployed = false
 
-  static readonly contractAddress = '0xce0042B868300000d44A59004Da54A005ffdcf9f'
-  static readonly factoryDeployer = '0xBb6e024b9cFFACB947A71991E386681B1Cd1477D'
-  static readonly factoryTx = '0xf9016c8085174876e8008303c4d88080b90154608060405234801561001057600080fd5b50610134806100206000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c634300060200331b83247000822470'
-  static readonly factoryTxHash = '0x803351deb6d745e91545a6a3e1c0ea3e9a6a02a1a4193b70edfcd2f40f71a01c'
-  static readonly factoryDeploymentFee = (0.0247 * 1e18).toString()
+  // from: https://github.com/Arachnid/deterministic-deployment-proxy
+  static readonly contractAddress = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
+  static readonly factoryTx = '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222'
+  static readonly factoryDeployer = '0x3fab184622dc19b6109349b94811493bf2a45362'
+  static readonly deploymentGasPrice = 100e9
+  static readonly deploymentGasLimit = 100000
+  static readonly factoryDeploymentFee = (Create2Factory.deploymentGasPrice * Create2Factory.deploymentGasLimit).toString()
 
   constructor (readonly provider: Provider,
     readonly signer = (provider as ethers.providers.JsonRpcProvider).getSigner()) {
   }
 
   /**
-   * deploy a contract using our EIP-2470 deployer.
-   * The delpoyer is deployed (unless it is already deployed)
+   * deploy a contract using our deterministic deployer.
+   * The deployer is deployed (unless it is already deployed)
    * NOTE: this transaction will fail if already deployed. use getDeployedAddress to check it first.
    * @param initCode delpoyment code. can be a hex string or factory.getDeploymentTransaction(..)
    * @param salt specific salt for deployment
@@ -32,15 +34,17 @@ export class Create2Factory {
       initCode = (initCode as TransactionRequest).data!.toString()
     }
 
-    const addr = this.getDeployedAddress(initCode, salt)
+    const addr = Create2Factory.getDeployedAddress(initCode, salt)
     if (await this.provider.getCode(addr).then(code => code.length) > 2) {
       return addr
     }
 
-    const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'], this.signer)
-    const saltBytes32 = hexZeroPad(hexlify(salt), 32)
+    const deployTx = {
+      to: Create2Factory.contractAddress,
+      data: this.getDeployTransactionCallData(initCode, salt)
+    }
     if (gasLimit === 'estimate') {
-      gasLimit = await factory.estimateGas.deploy(initCode, saltBytes32)
+      gasLimit = await this.signer.estimateGas(deployTx)
     }
 
     // manual estimation (its bit larger: we don't know actual deployed code size)
@@ -57,7 +61,7 @@ export class Create2Factory {
       gasLimit = Math.floor(gasLimit * 64 / 63)
     }
 
-    const ret = await factory.deploy(initCode, saltBytes32, { gasLimit })
+    const ret = await this.signer.sendTransaction({ ...deployTx, gasLimit })
     await ret.wait()
     if (await this.provider.getCode(addr).then(code => code.length) === 2) {
       throw new Error('failed to deploy')
@@ -66,9 +70,11 @@ export class Create2Factory {
   }
 
   getDeployTransactionCallData (initCode: string, salt: BigNumberish = 0): string {
-    const factory = new Contract(Create2Factory.contractAddress, ['function deploy(bytes _initCode, bytes32 _salt) returns(address)'])
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
-    return factory.interface.encodeFunctionData('deploy', [initCode, saltBytes32])
+    return hexConcat([
+      saltBytes32,
+      initCode
+    ])
   }
 
   /**
@@ -77,7 +83,7 @@ export class Create2Factory {
    * @param initCode
    * @param salt
    */
-  getDeployedAddress (initCode: string, salt: BigNumberish): string {
+  static getDeployedAddress (initCode: string, salt: BigNumberish): string {
     const saltBytes32 = hexZeroPad(hexlify(salt), 32)
     return '0x' + keccak256(hexConcat([
       '0xff',
@@ -87,8 +93,7 @@ export class Create2Factory {
     ])).slice(-40)
   }
 
-  // deploy the EIP2470 factory, if not already deployed.
-  // (note that it requires to have a "signer" with 0.0247 eth, to fund the deployer's deployment
+  // deploy the factory, if not already deployed.
   async deployFactory (signer?: Signer): Promise<void> {
     if (await this._isFactoryDeployed()) {
       return
@@ -99,7 +104,7 @@ export class Create2Factory {
     })
     await this.provider.sendTransaction(Create2Factory.factoryTx)
     if (!await this._isFactoryDeployed()) {
-      throw new Error('fatal: failed to deploy Eip2470factory')
+      throw new Error('fatal: failed to deploy deterministic deployer')
     }
   }
 

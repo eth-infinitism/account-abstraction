@@ -2,27 +2,24 @@ import { ethers } from 'hardhat'
 import {
   arrayify,
   hexConcat,
-  Interface,
   keccak256,
   parseEther
 } from 'ethers/lib/utils'
 import { BigNumber, BigNumberish, Contract, ContractReceipt, Signer, Wallet } from 'ethers'
 import {
-  ERC1967Proxy__factory,
   EntryPoint,
   EntryPoint__factory,
   IERC20,
   IEntryPoint,
   SimpleAccount,
   SimpleAccountFactory__factory,
-  SimpleAccount__factory, SimpleAccountFactory
+  SimpleAccount__factory, SimpleAccountFactory, TestAggregatedAccountFactory
 } from '../typechain'
-import { BytesLike, hexValue } from '@ethersproject/bytes'
+import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
-import { zeroAddress } from 'ethereumjs-util'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -105,15 +102,12 @@ export function getAccountInitCode (owner: string, factory: SimpleAccountFactory
   ])
 }
 
-export async function getAggregatedAccountInitCode (entryPoint: string, implementationAddress: string): Promise<BytesLike> {
-  const initializeCall = new Interface(SimpleAccount__factory.abi).encodeFunctionData('initialize', [zeroAddress()])
-  const accountCtr = new ERC1967Proxy__factory(ethers.provider.getSigner()).getDeployTransaction(implementationAddress, initializeCall).data!
-
-  const factory = new Create2Factory(ethers.provider)
-  const initCallData = factory.getDeployTransactionCallData(hexValue(accountCtr), 0)
+export async function getAggregatedAccountInitCode (entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
+  // the test aggregated account doesn't check the owner...
+  const owner = AddressZero
   return hexConcat([
-    Create2Factory.contractAddress,
-    initCallData
+    factory.address,
+    factory.interface.encodeFunctionData('createAccount', [owner, salt])
   ])
 }
 

@@ -1,12 +1,11 @@
 import {
   arrayify,
   defaultAbiCoder,
-  getCreate2Address,
   hexDataSlice,
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
-import { AddressZero, callDataCost, HashZero, rethrow } from './testutils'
+import { AddressZero, callDataCost, rethrow } from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
   EntryPoint
@@ -175,10 +174,11 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
     const initCallData = hexDataSlice(op1.initCode!, 20)
     if (op1.nonce == null) op1.nonce = 0
     if (op1.sender == null) {
-      // hack: if the init contract is our deployer, then we know what the address would be, without a view call
+      // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
       if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
-        const [ctr] = defaultAbiCoder.decode(['bytes', 'bytes32'], '0x' + initCallData.slice(10))
-        op1.sender = getCreate2Address(initAddr, HashZero, keccak256(ctr))
+        const ctr = hexDataSlice(initCallData, 32)
+        const salt = hexDataSlice(initCallData, 0, 32)
+        op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
       } else {
         // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
         if (provider == null) throw new Error('no entrypoint/provider')
