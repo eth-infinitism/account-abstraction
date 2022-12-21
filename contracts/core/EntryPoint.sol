@@ -14,7 +14,6 @@ import "../interfaces/IPaymaster.sol";
 
 import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
-import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
 
@@ -24,8 +23,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     SenderCreator private immutable senderCreator = new SenderCreator();
 
+    /**
+     * for simulation purposes, account should accept signature
+     * failure if this is the given aggregator.
+     */
+    address private constant NO_VALIDATION_AGGREGATOR = address(1);
     // internal value used during simulation: need to query aggregator.
-    address private constant SIMULATE_FIND_AGGREGATOR = address(1);
+    address private constant SIMULATE_FIND_AGGREGATOR = address(2);
 
     /**
      * compensate the caller's beneficiary address with the collected fees of all UserOperations.
