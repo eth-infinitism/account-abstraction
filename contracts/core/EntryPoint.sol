@@ -145,6 +145,27 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _compensate(beneficiary, collected);
     }
 
+    /**
+     * perform estimation of enture UserOperation.
+     * this method will always revert. it performs full validation of the UserOperation,
+     * but passing NO_VALIDATION_AGGREGATOR to the account.validateUserOperation, to signal it
+     * to ignore signature failure.
+     * This way, this method can be used to estimate entire execution without requiring the user
+     * to sign the request.
+     * Note that in order to collect the the success/failure of the target call, it must be executed
+     * with trace enabled to track the emitted events.
+     */
+    function estimateExecution(UserOperation calldata op) external {
+
+        UserOpInfo memory opInfo;
+
+        _validatePrepayment(0, op, opInfo, NO_VALIDATION_AGGREGATOR);
+        uint paid = _executeUserOp(0, op, opInfo);
+        revert ExecutionComplete(paid);
+    }
+
+    error ExecutionComplete(uint256 paid);
+
     //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
     struct MemoryUserOp {
         address sender;
