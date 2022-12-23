@@ -8,8 +8,9 @@ interface IAccount {
     /**
      * Validate user's signature and nonce
      * the entryPoint will make the call to the recipient only if this validation call returns successfully.
-     * signature failure should be reported by returning SIG_VALIDATION_FAILED (1), and not by revert.
+     * signature failure should be reported by returning SIG_VALIDATION_FAILED (1).
      * This allows making a "simulation call" without a valid signature
+     * Other failures (e.g. nonce mismatch, or invalid signature format) should still revert to signal failure.
      *
      * @dev Must validate caller is the entryPoint.
      *      Must validate the signature and nonce

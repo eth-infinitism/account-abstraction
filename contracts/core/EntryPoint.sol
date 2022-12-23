@@ -22,14 +22,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     SenderCreator private immutable senderCreator = new SenderCreator();
 
-    uint256 private constant SIMULATION_INDEX = 99999;
+    uint256 private constant SIMULATION_INDEX = 999999;
 
     /**
-     * for simulation purposes, validatePaymasterUserOp must return this value
+     * for simulation purposes, validateUserOp (and validatePaymasterUserOp) must return this value
      * in case of signature failure, instead of revert.
-     * failure if this is the given aggregator.
-     * (it is guaranteed that this aggregator cannot be used on-chain, only
-     * by estimateExecution, which always reverts)
      */
     uint256 public constant SIG_VALIDATION_FAILED = 1;
 
@@ -152,12 +149,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * perform estimation of enture UserOperation.
+     * performs an estimation of a UserOperation.
      * this method will always revert. it performs full validation of the UserOperation,
-     * but passing NO_VALIDATION_AGGREGATOR to the account.validateUserOperation, to signal it
-     * to ignore signature failure.
-     * This way, this method can be used to estimate entire execution without requiring the user
-     * to sign the request.
      * Note that in order to collect the the success/failure of the target call, it must be executed
      * with trace enabled to track the emitted events.
      */
@@ -405,7 +398,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert if either account deadline or paymaster deadline is expired
      */
     function _validateDeadline(uint opIndex, uint256 deadline, address paymaster, uint256 paymasterDeadline) internal view {
-        //we want to treat "zero" is "maxint", so we subtract one, ignoring overflow
+        //we want to treat "zero" is "maxint", so we subtract one, ignoring underflow
     unchecked {
         // solhint-disable-next-line not-rely-on-time
         if ((deadline - 1) < block.timestamp) {
