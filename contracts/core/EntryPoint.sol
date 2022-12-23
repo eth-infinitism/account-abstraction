@@ -397,7 +397,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     /**
      * revert if either account deadline or paymaster deadline is expired
      */
-    function _validateDeadline(uint opIndex, UserOpInfo memory opInfo, uint256 deadline, uint256 paymasterDeadline) internal view {
+    function _validateDeadline(uint256 opIndex, UserOpInfo memory opInfo, uint256 deadline, uint256 paymasterDeadline) internal view {
         //we want to treat "zero" is "maxint", so we subtract one, ignoring underflow
     unchecked {
         // solhint-disable-next-line not-rely-on-time
