@@ -244,22 +244,22 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 }
 
 /**
- * process exception of SimulationResult
- * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
+ * process exception of ValidationResult
+ * usage: entryPoint.ValidationResult(..).catch(validationResultCatch)
  */
-export function simulationResultCatch (e: any): any {
-  if (e.errorName !== 'SimulationResult') {
+export function validationResultCatch (e: any): any {
+  if (e.errorName !== 'ValidationResult') {
     throw e
   }
   return e.errorArgs
 }
 
 /**
- * process exception of SimulationResultWithAggregation
- * usage: entryPoint.simulationResult(..).catch(simulationResultWithAggregation)
+ * process exception of ValidationResultWithAggregation
+ * usage: entryPoint.ValidationResult(..).catch(ValidationResultWithAggregation)
  */
-export function simulationResultWithAggregationCatch (e: any): any {
-  if (e.errorName !== 'SimulationResultWithAggregation') {
+export function ValidationResultWithAggregationCatch (e: any): any {
+  if (e.errorName !== 'ValidationResultWithAggregation') {
     throw e
   }
   return e.errorArgs

@@ -10,7 +10,7 @@ import {
 import {
   createAccount,
   createAccountOwner, createAddress,
-  deployEntryPoint, simulationResultCatch
+  deployEntryPoint, validationResultCatch
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { arrayify, hexConcat, parseEther } from 'ethers/lib/utils'
@@ -43,7 +43,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, '0x1234'])
       }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
+      await expect(entryPoint.callStatic.validateUserOp(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
 
     it('should reject on invalid signature', async () => {
@@ -51,7 +51,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
+      await expect(entryPoint.callStatic.validateUserOp(userOp)).to.be.revertedWith('ECDSA: invalid signature')
     })
 
     describe('with wrong signature', () => {
@@ -66,7 +66,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       })
 
       it('should return signature error (no revert) on wrong signer signature', async () => {
-        const ret = await entryPoint.callStatic.simulateValidation(wrongSigUserOp).catch(simulationResultCatch)
+        const ret = await entryPoint.callStatic.validateUserOp(wrongSigUserOp).catch(validationResultCatch)
         expect(ret.returnInfo.paymasterDeadline).to.equal(1)
       })
 
@@ -85,7 +85,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         ...userOp1,
         paymasterAndData: hexConcat([paymaster.address, sig])
       }, accountOwner, entryPoint)
-      await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      await entryPoint.callStatic.validateUserOp(userOp).catch(validationResultCatch)
     })
   })
 })

@@ -36,10 +36,10 @@ import {
   createAddress,
   getAccountAddress,
   HashZero,
-  simulationResultCatch,
+  validationResultCatch,
   createAccount,
   getAggregatedAccountInitCode,
-  simulationResultWithAggregationCatch
+  ValidationResultWithAggregationCatch
 } from './testutils'
 import { fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -218,7 +218,7 @@ describe('EntryPoint', function () {
     })
   })
 
-  describe('#simulateValidation', () => {
+  describe('#validateUserOp', () => {
     const accountOwner1 = createAccountOwner()
     let account1: SimpleAccount
 
@@ -229,7 +229,7 @@ describe('EntryPoint', function () {
     it('should fail if validateUserOp fails', async () => {
       // using wrong nonce
       const op = await fillAndSign({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op).catch(rethrow())).to
+      await expect(entryPoint.callStatic.validateUserOp(op).catch(rethrow())).to
         .revertedWith('invalid nonce')
     })
 
@@ -238,7 +238,7 @@ describe('EntryPoint', function () {
       // using wrong owner for account1
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
-      const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+      const { returnInfo } = await entryPoint.callStatic.validateUserOp(op).catch(validationResultCatch)
       expect(returnInfo.deadline).to.eql(await entryPoint.SIG_VALIDATION_FAILED())
     })
 
@@ -248,20 +248,20 @@ describe('EntryPoint', function () {
         nonce: 0,
         verificationGasLimit: 1000
       }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op)).to
+      await expect(entryPoint.callStatic.validateUserOp(op)).to
         .revertedWith('AA20 account not deployed')
     })
 
     it('should revert on oog if not enough verificationGas', async () => {
       const op = await fillAndSign({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op)).to
+      await expect(entryPoint.callStatic.validateUserOp(op)).to
         .revertedWith('AA23 reverted (or OOG)')
     })
 
     it('should succeed if validateUserOp succeeds', async () => {
       const op = await fillAndSign({ sender: account1.address }, accountOwner1, entryPoint)
       await fund(account1)
-      await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+      await entryPoint.callStatic.validateUserOp(op).catch(validationResultCatch)
     })
 
     it('should return stake of sender', async () => {
@@ -271,7 +271,7 @@ describe('EntryPoint', function () {
       await fund(account2)
       await account2.execute(entryPoint.address, stakeValue, entryPoint.interface.encodeFunctionData('addStake', [unstakeDelay]))
       const op = await fillAndSign({ sender: account2.address }, ethersSigner, entryPoint)
-      const result = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+      const result = await entryPoint.callStatic.validateUserOp(op).catch(validationResultCatch)
       expect(result.senderInfo).to.eql({ stake: stakeValue, unstakeDelaySec: unstakeDelay })
     })
 
@@ -281,7 +281,7 @@ describe('EntryPoint', function () {
         sender: account1.address
       }, accountOwner1, entryPoint)
       await expect(
-        entryPoint.callStatic.simulateValidation(op)
+        entryPoint.callStatic.validateUserOp(op)
       ).to.revertedWith('gas values overflow')
     })
 
@@ -291,7 +291,7 @@ describe('EntryPoint', function () {
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 3e6
       }, accountOwner1, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op1))
+      await expect(entryPoint.callStatic.validateUserOp(op1))
         .to.revertedWith('AA14 initCode must return sender')
     })
 
@@ -305,8 +305,8 @@ describe('EntryPoint', function () {
         maxFeePerGas: 0
       }, accountOwner1, entryPoint)
       // must succeed with enough verification gas.
-      await expect(entryPoint.callStatic.simulateValidation(op0, { gasLimit: 1e6 }))
-        .to.revertedWith('SimulationResult')
+      await expect(entryPoint.callStatic.validateUserOp(op0, { gasLimit: 1e6 }))
+        .to.revertedWith('ValidationResult')
 
       const op1 = await fillAndSign({
         initCode,
@@ -314,7 +314,7 @@ describe('EntryPoint', function () {
         verificationGasLimit: 1e5,
         maxFeePerGas: 0
       }, accountOwner1, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op1, { gasLimit: 1e6 }))
+      await expect(entryPoint.callStatic.validateUserOp(op1, { gasLimit: 1e6 }))
         .to.revertedWith('AA13 initCode failed or OOG')
     })
 
@@ -326,7 +326,7 @@ describe('EntryPoint', function () {
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
 
-      await entryPoint.callStatic.simulateValidation(op1).catch(simulationResultCatch)
+      await entryPoint.callStatic.validateUserOp(op1).catch(validationResultCatch)
     })
 
     it('should not call initCode from entrypoint', async () => {
@@ -340,17 +340,17 @@ describe('EntryPoint', function () {
         ]),
         sender
       }, accountOwner, entryPoint)
-      const error = await entryPoint.callStatic.simulateValidation(op1).catch(e => e)
+      const error = await entryPoint.callStatic.validateUserOp(op1).catch(e => e)
       expect(error.message).to.match(/initCode failed or OOG/, error)
     })
 
-    it('should not use banned ops during simulateValidation', async () => {
+    it('should not use banned ops during validateUserOp', async () => {
       const op1 = await fillAndSign({
         initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
         sender: await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
-      await entryPoint.simulateValidation(op1, { gasLimit: 10e6 }).catch(e => e)
+      await entryPoint.validateUserOp(op1, { gasLimit: 10e6 }).catch(e => e)
       const block = await ethers.provider.getBlock('latest')
       const hash = block.transactions[0]
       await checkForBannedOps(hash, false)
@@ -505,14 +505,14 @@ describe('EntryPoint', function () {
           verificationGasLimit: 5e5
         }, accountOwner, entryPoint)
         // must succeed with enough verification gas
-        await expect(entryPoint.callStatic.simulateValidation(op0))
-          .to.revertedWith('SimulationResult')
+        await expect(entryPoint.callStatic.validateUserOp(op0))
+          .to.revertedWith('ValidationResult')
 
         const op1 = await fillAndSign({
           sender: account.address,
           verificationGasLimit: 10000
         }, accountOwner, entryPoint)
-        await expect(entryPoint.callStatic.simulateValidation(op1))
+        await expect(entryPoint.callStatic.validateUserOp(op1))
           .to.revertedWith('AA23 reverted (or OOG)')
       })
     })
@@ -630,7 +630,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 76000
         }, accountOwner2, entryPoint)
 
-        await entryPoint.callStatic.simulateValidation(op2, { gasPrice: 1e9 }).catch(simulationResultCatch)
+        await entryPoint.callStatic.validateUserOp(op2, { gasPrice: 1e9 }).catch(validationResultCatch)
 
         await fund(op1.sender)
         await fund(account2.address)
@@ -794,9 +794,9 @@ describe('EntryPoint', function () {
               nonce: 10
             }, accountOwner, entryPoint)
           })
-          it('simulateValidation should return aggregator and its stake', async () => {
+          it('validateUserOp should return aggregator and its stake', async () => {
             await aggregator.addStake(entryPoint.address, 3, { value: TWO_ETH })
-            const { aggregatorInfo } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
+            const { aggregatorInfo } = await entryPoint.callStatic.validateUserOp(userOp).catch(ValidationResultWithAggregationCatch)
             expect(aggregatorInfo.actualAggregator).to.equal(aggregator.address)
             expect(aggregatorInfo.stakeInfo.stake).to.equal(TWO_ETH)
             expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.equal(3)
@@ -837,7 +837,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
-        await expect(entryPoint.simulateValidation(op)).to.revertedWith('"AA30 paymaster not deployed"')
+        await expect(entryPoint.validateUserOp(op)).to.revertedWith('"AA30 paymaster not deployed"')
       })
 
       it('should fail if paymaster has no deposit', async function () {
@@ -878,7 +878,7 @@ describe('EntryPoint', function () {
           initCode: getAccountInitCode(anOwner.address, simpleAccountFactory)
         }, anOwner, entryPoint)
 
-        const { paymasterInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+        const { paymasterInfo } = await entryPoint.callStatic.validateUserOp(op).catch(validationResultCatch)
         const {
           stake: simRetStake,
           unstakeDelaySec: simRetDelay
@@ -907,7 +907,7 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: account.address
           }, sessionOwner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+          const ret = await entryPoint.callStatic.validateUserOp(userOp).catch(validationResultCatch)
           expect(ret.returnInfo.deadline).to.eql(now + 60)
           expect(ret.returnInfo.paymasterDeadline).to.eql(0)
         })
@@ -918,7 +918,7 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: account.address
           }, sessionOwner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+          const ret = await entryPoint.callStatic.validateUserOp(userOp).catch(validationResultCatch)
           expect(ret.returnInfo.deadline).eql(now - 60)
           expect(ret.returnInfo.paymasterDeadline).to.eql(0)
         })
@@ -945,7 +945,7 @@ describe('EntryPoint', function () {
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, expireTime])
           }, ethersSigner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+          const ret = await entryPoint.callStatic.validateUserOp(userOp).catch(validationResultCatch)
           expect(ret.returnInfo.paymasterDeadline).to.eql(now + 60)
         })
 
@@ -955,7 +955,7 @@ describe('EntryPoint', function () {
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, expireTime])
           }, ethersSigner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+          const ret = await entryPoint.callStatic.validateUserOp(userOp).catch(validationResultCatch)
           expect(ret.returnInfo.paymasterDeadline).to.eql(now - 60)
         })
       })

@@ -64,7 +64,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * Execute a batch of UserOperation.
      * no signature aggregator is used.
      * if any account requires an aggregator (that is, it returned an "actualAggregator" when
-     * performing simulateValidation), then handleAggregatedOps() must be used instead.
+     * performing validateUserOp), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
@@ -149,22 +149,22 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * performs an estimation of a UserOperation.
-     * this method will always revert. it performs full validation of the UserOperation,
+     * simulate full execution of a UserOperation (including both validation and target execution)
+     * this method will always revert. it performs full validation of the UserOperation.
      * Note that in order to collect the the success/failure of the target call, it must be executed
      * with trace enabled to track the emitted events.
      */
-    function estimateExecution(UserOperation calldata op) external {
+    function simulateExecution(UserOperation calldata op) external {
 
         UserOpInfo memory opInfo;
 
-        _validatePrepayment(SIMULATION_INDEX, op, opInfo, address(0));
+        (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(SIMULATION_INDEX, op, opInfo, address(0));
         numberMarker();
         uint paid = _executeUserOp(SIMULATION_INDEX, op, opInfo);
-        revert ExecutionComplete(opInfo.preOpGas, paid);
+        revert ExecutionComplete(opInfo.preOpGas, paid, deadline, paymasterDeadline);
     }
 
-    error ExecutionComplete(uint256 preOpGas, uint256 paid);
+    error ExecutionComplete(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
 
     //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
     struct MemoryUserOp {
@@ -244,11 +244,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
      * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
-     * @dev this method always revert. Successful result is SimulationResult error. other errors are failures.
+     * @dev this method always revert. Successful result is ValidationResult error. other errors are failures.
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.
      * @param userOp the user operation to validate.
      */
-    function simulateValidation(UserOperation calldata userOp) external {
+    function validateUserOp(UserOperation calldata userOp) external {
         UserOpInfo memory outOpInfo;
 
         (uint256 deadline, uint256 paymasterDeadline, address aggregator) = _validatePrepayment(SIMULATION_INDEX, userOp, outOpInfo, address(0));
@@ -262,9 +262,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         if (aggregator != address(0)) {
             AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
-            revert SimulationResultWithAggregation(returnInfo, senderInfo, factoryInfo, paymasterInfo, aggregatorInfo);
+            revert ValidationResultWithAggregation(returnInfo, senderInfo, factoryInfo, paymasterInfo, aggregatorInfo);
         }
-        revert SimulationResult(returnInfo, senderInfo, factoryInfo, paymasterInfo);
+        revert ValidationResult(returnInfo, senderInfo, factoryInfo, paymasterInfo);
 
     }
 
@@ -422,7 +422,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     /**
      * validate account and paymaster (if defined).
      * also make sure total validation doesn't exceed verificationGasLimit
-     * this method is called off-chain (simulateValidation()) and on-chain (from handleOps)
+     * this method is called off-chain (validateUserOp()) and on-chain (from handleOps)
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
      */
@@ -444,7 +444,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
         (gasUsedByValidateAccountPrepayment, actualAggregator, deadline) = _validateAccountPrepayment(opIndex, userOp, outOpInfo, aggregator, requiredPreFund);
         //a "marker" where account opcode validation is done and paymaster opcode validation is about to start
-        // (used only by off-chain simulateValidation)
+        // (used only by off-chain validateUserOp)
         numberMarker();
 
         bytes memory context;
