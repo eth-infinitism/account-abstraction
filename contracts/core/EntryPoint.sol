@@ -77,7 +77,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         for (uint256 i = 0; i < opslen; i++) {
             UserOpInfo memory opInfo = opInfos[i];
             (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(i, ops[i], opInfo, address(0));
-            _validateDeadline(i, deadline, opInfo.mUserOp.paymaster, paymasterDeadline);
+            _validateDeadline(i, opInfo, deadline, paymasterDeadline);
         }
 
         uint256 collected = 0;
@@ -117,7 +117,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             for (uint256 i = 0; i < opslen; i++) {
                 UserOpInfo memory opInfo = opInfos[opIndex];
                 (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(opIndex, ops[i], opInfo, address(aggregator));
-                _validateDeadline(i, deadline, opInfo.mUserOp.paymaster, paymasterDeadline);
+                _validateDeadline(i, opInfo, deadline, paymasterDeadline);
                 opIndex++;
             }
 
@@ -397,7 +397,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     /**
      * revert if either account deadline or paymaster deadline is expired
      */
-    function _validateDeadline(uint opIndex, uint256 deadline, address paymaster, uint256 paymasterDeadline) internal view {
+    function _validateDeadline(uint opIndex, UserOpInfo memory opInfo, uint256 deadline, uint256 paymasterDeadline) internal view {
         //we want to treat "zero" is "maxint", so we subtract one, ignoring underflow
     unchecked {
         // solhint-disable-next-line not-rely-on-time
@@ -410,6 +410,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
         // solhint-disable-next-line not-rely-on-time
         if ((paymasterDeadline - 1) < block.timestamp) {
+            address paymaster = opInfo.mUserOp.paymaster;
             if (paymasterDeadline == SIG_VALIDATION_FAILED) {
                 revert FailedOp(opIndex, paymaster, "AA34 signature error");
             } else {
