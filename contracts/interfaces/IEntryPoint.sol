@@ -113,30 +113,41 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Successful result from simulateValidation.
-     * @param preOpGas the gas used for validation (including preValidationGas)
-     * @param prefund the required prefund for this operation
-     * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
+     * @param returnInfo gas and deadlines returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      */
-    error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline,
+    error SimulationResult(ReturnInfo returnInfo,
         StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
 
 
     /**
      * Successful result from simulateValidation, if the account returns a signature aggregator
-     * @param preOpGas the gas used for validation (including preValidationGas)
-     * @param prefund the required prefund for this operation
-     * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
+     * @param returnInfo gas and deadlines returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
      */
-    error SimulationResultWithAggregation(uint256 preOpGas, uint256 prefund, uint256 deadline,
-        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo, AggregatorStakeInfo aggregatorInfo);
+    error SimulationResultWithAggregation(ReturnInfo returnInfo,
+        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo,
+        AggregatorStakeInfo aggregatorInfo);
+
+    /**
+     * gas and deadlines returned during simulation
+     * @param preOpGas the gas used for validation (including preValidationGas)
+     * @param prefund the required prefund for this operation
+     * @param deadline validateUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
+     * @param paymasterDeadline validatePaymasterUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
+     */
+    struct ReturnInfo {
+        uint256 preOpGas;
+        uint256 prefund;
+        uint256 deadline;
+        uint256 paymasterDeadline;
+    }
 
     /**
      * returned aggregated signature info.
