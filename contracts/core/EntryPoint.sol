@@ -160,7 +160,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(SIMULATION_INDEX, op, opInfo, address(0));
         numberMarker();
-        uint paid = _executeUserOp(SIMULATION_INDEX, op, opInfo);
+        uint256 paid = _executeUserOp(SIMULATION_INDEX, op, opInfo);
         revert ExecutionComplete(opInfo.preOpGas, paid, deadline, paymasterDeadline);
     }
 
