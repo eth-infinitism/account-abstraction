@@ -264,6 +264,13 @@ describe('EntryPoint', function () {
       await entryPoint.callStatic.validateUserOp(op).catch(validationResultCatch)
     })
 
+    it('should return zero paymasterDeadline and empty context if no paymaster', async () => {
+      const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner1, entryPoint)
+      const { returnInfo } = await entryPoint.callStatic.validateUserOp(op).catch(validationResultCatch)
+      expect(returnInfo.paymasterDeadline).to.eql(0)
+      expect(returnInfo.paymasterContext).to.eql('0x')
+    })
+
     it('should return stake of sender', async () => {
       const stakeValue = BigNumber.from(123)
       const unstakeDelay = 3

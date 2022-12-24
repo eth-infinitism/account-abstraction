@@ -259,7 +259,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
         StakeInfo memory factoryInfo = getStakeInfo(factory);
 
-        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, deadline, paymasterDeadline);
+        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, deadline, paymasterDeadline, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (aggregator != address(0)) {
             AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
@@ -452,9 +452,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
             (context, paymasterDeadline) = _validatePaymasterPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, gasUsedByValidateAccountPrepayment);
-        } else {
-            context = "";
-            paymasterDeadline = 0;
         }
     unchecked {
         uint256 gasUsed = preGas - gasleft();

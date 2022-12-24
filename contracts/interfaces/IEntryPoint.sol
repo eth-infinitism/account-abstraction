@@ -141,12 +141,14 @@ interface IEntryPoint is IStakeManager {
      * @param prefund the required prefund for this operation
      * @param deadline validateUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
      * @param paymasterDeadline validatePaymasterUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
+     * @param paymasterContext returned by validatePaymasterUserOp (to be passed into postOp)
      */
     struct ReturnInfo {
         uint256 preOpGas;
         uint256 prefund;
         uint256 deadline;
         uint256 paymasterDeadline;
+        bytes paymasterContext;
     }
 
     /**
