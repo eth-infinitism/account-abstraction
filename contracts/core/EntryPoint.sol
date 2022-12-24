@@ -22,7 +22,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     SenderCreator private immutable senderCreator = new SenderCreator();
 
-    uint256 private constant SIMULATION_INDEX = 999999;
+    // internal value used during simulation: need to query aggregator.
+    address private constant SIMULATE_FIND_AGGREGATOR = address(1);
 
     /**
      * for simulation purposes, validateUserOp (and validatePaymasterUserOp) must return this value
@@ -158,9 +159,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         UserOpInfo memory opInfo;
 
-        (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(SIMULATION_INDEX, op, opInfo, address(0));
+        (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(0, op, opInfo, SIMULATE_FIND_AGGREGATOR);
         numberMarker();
-        uint256 paid = _executeUserOp(SIMULATION_INDEX, op, opInfo);
+        uint256 paid = _executeUserOp(0, op, opInfo);
         revert ExecutionComplete(opInfo.preOpGas, paid, deadline, paymasterDeadline);
     }
 
@@ -251,7 +252,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function validateUserOp(UserOperation calldata userOp) external {
         UserOpInfo memory outOpInfo;
 
-        (uint256 deadline, uint256 paymasterDeadline, address aggregator) = _validatePrepayment(SIMULATION_INDEX, userOp, outOpInfo, address(0));
+        (uint256 deadline, uint256 paymasterDeadline, address aggregator) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
         StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
         StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
         bytes calldata initCode = userOp.initCode;
@@ -316,7 +317,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         address sender = mUserOp.sender;
         _createSenderIfNeeded(opIndex, opInfo, op.initCode);
-        if (opIndex == SIMULATION_INDEX) {
+        if (aggregator == SIMULATE_FIND_AGGREGATOR) {
             numberMarker();
 
             if (sender.code.length == 0) {
