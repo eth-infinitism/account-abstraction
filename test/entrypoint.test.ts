@@ -708,11 +708,13 @@ describe('EntryPoint', function () {
 
         const sig = HashZero
 
-        await expect(entryPoint.handleAggregatedOps([{
+        expect(await entryPoint.handleAggregatedOps([{
           userOps: [userOp],
           aggregator: address1,
           signature: sig
-        }], beneficiaryAddress)).to.revertedWith('reverted without a reason string')
+        }], beneficiaryAddress).catch(e => e.message))
+          .to.match(/reverted without a reason string|function call to a non-contract account/)
+        // (different error in coverage mode (because of different solidity settings)
       })
 
       it('should fail to execute aggregated account with wrong agg. signature', async () => {
