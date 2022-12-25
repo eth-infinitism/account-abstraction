@@ -694,6 +694,27 @@ describe('EntryPoint', function () {
         }], beneficiaryAddress)).to.revertedWith('wrong aggregator')
       })
 
+      it('should reject non-contract (address(1)) aggregator', async () => {
+        // should be detected during simulation (like "wrong aggregator", above)
+        // this is just sanity check that the compiler indeed reverts on a call to "validateSignatures()" to nonexistent contracts
+        const address1 = hexZeroPad('0x1', 20)
+        const aggAccount1 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, address1)
+        await aggAccount1.initialize(zeroAddress())
+
+        const userOp = await fillAndSign({
+          sender: aggAccount1.address,
+          maxFeePerGas: 0
+        }, accountOwner, entryPoint)
+
+        const sig = HashZero
+
+        await expect(entryPoint.handleAggregatedOps([{
+          userOps: [userOp],
+          aggregator: address1,
+          signature: sig
+        }], beneficiaryAddress)).to.revertedWith('reverted without a reason string')
+      })
+
       it('should fail to execute aggregated account with wrong agg. signature', async () => {
         const userOp = await fillAndSign({
           sender: aggAccount.address
