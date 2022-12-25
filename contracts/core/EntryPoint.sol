@@ -149,13 +149,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _compensate(beneficiary, collected);
     }
 
-    /**
-     * simulate full execution of a UserOperation (including both validation and target execution)
-     * this method will always revert. it performs full validation of the UserOperation.
-     * Note that in order to collect the the success/failure of the target call, it must be executed
-     * with trace enabled to track the emitted events.
-     */
-    function simulateExecution(UserOperation calldata op) external {
+    function simulateExecution(UserOperation calldata op) external override {
 
         UserOpInfo memory opInfo;
 
@@ -172,8 +166,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 paid = _executeUserOp(0, op, opInfo);
         revert ExecutionComplete(opInfo.preOpGas, paid, deadline, paymasterDeadline);
     }
-
-    error ExecutionComplete(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
 
     //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
     struct MemoryUserOp {

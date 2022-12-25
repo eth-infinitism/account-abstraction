@@ -173,5 +173,15 @@ interface IEntryPoint is IStakeManager {
      */
     error SenderAddressResult(address sender);
 
+
+    /**
+     * simulate full execution of a UserOperation (including both validation and target execution)
+     * this method will always revert. it performs full validation of the UserOperation.
+     * Note that in order to collect the the success/failure of the target call, it must be executed
+     * with trace enabled to track the emitted events.
+     */
+    function simulateExecution(UserOperation calldata op) external;
+
+    error ExecutionComplete(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
 }
 
