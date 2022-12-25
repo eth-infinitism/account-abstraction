@@ -182,6 +182,6 @@ interface IEntryPoint is IStakeManager {
      */
     function simulateExecution(UserOperation calldata op) external;
 
-    error ExecutionComplete(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
 }
 

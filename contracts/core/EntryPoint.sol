@@ -164,7 +164,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _validateDeadline(0, opInfo, deadline, paymasterDeadline);
         numberMarker();
         uint256 paid = _executeUserOp(0, op, opInfo);
-        revert ExecutionComplete(opInfo.preOpGas, paid, deadline, paymasterDeadline);
+        revert ExecutionResult(opInfo.preOpGas, paid, deadline, paymasterDeadline);
     }
 
     //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
