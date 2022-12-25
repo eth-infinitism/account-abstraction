@@ -364,6 +364,30 @@ describe('EntryPoint', function () {
     })
   })
 
+  describe('#simulateExecution', () => {
+    it('should simulate execution', async () => {
+      const accountOwner1 = createAccountOwner()
+      const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
+      await fund(account)
+      const counter = await new TestCounter__factory(ethersSigner).deploy()
+
+      const count = counter.interface.encodeFunctionData('count')
+      const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, count])
+      // deliberately broken signature.. simulate should work with it too.
+      const userOp = await fillAndSign({
+        sender: account.address,
+        callData,
+        maxFeePerGas: 1 // gasprice=gas...
+      }, accountOwner1, entryPoint)
+
+      const ret = await entryPoint.callStatic.simulateExecution(userOp).catch(e => e.errorArgs)
+      // TODO: we can't directly check simulation called the wallet's execute.
+      // need to do call tracing and parse emitted events
+      // we "hack" it by reporting out gas used, which is expected to be more than just verification
+      console.log('preOpGas=', ret.preOpGas, 'total gas=', ret.paid)
+    })
+  })
+
   describe('without paymaster (account pays in eth)', () => {
     describe('#handleOps', () => {
       let counter: TestCounter
@@ -695,7 +719,6 @@ describe('EntryPoint', function () {
       })
 
       it('should reject non-contract (address(1)) aggregator', async () => {
-        // should be detected during simulation (like "wrong aggregator", above)
         // this is just sanity check that the compiler indeed reverts on a call to "validateSignatures()" to nonexistent contracts
         const address1 = hexZeroPad('0x1', 20)
         const aggAccount1 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, address1)
@@ -898,7 +921,7 @@ describe('EntryPoint', function () {
         const paymasterPaid = ONE_ETH.sub(await entryPoint.balanceOf(paymaster.address))
         expect(paymasterPaid).to.eql(actualGasCost)
       })
-      it('simulate should return paymaster stake and delay', async () => {
+      it('validateUserOp should return paymaster stake and delay', async () => {
         await paymaster.deposit({ value: ONE_ETH })
         const anOwner = createAccountOwner()
 

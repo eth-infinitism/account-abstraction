@@ -160,6 +160,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
         UserOpInfo memory opInfo;
 
         (uint256 deadline, uint256 paymasterDeadline,) = _validatePrepayment(0, op, opInfo, SIMULATE_FIND_AGGREGATOR);
+        //ignore signature check failure
+        if (deadline == SIG_VALIDATION_FAILED) {
+            deadline = 0;
+        }
+        if (paymasterDeadline == SIG_VALIDATION_FAILED) {
+            paymasterDeadline = 0;
+        }
+        _validateDeadline(0, opInfo, deadline, paymasterDeadline);
         numberMarker();
         uint256 paid = _executeUserOp(0, op, opInfo);
         revert ExecutionComplete(opInfo.preOpGas, paid, deadline, paymasterDeadline);
