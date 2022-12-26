@@ -14,7 +14,7 @@ import {
   getBalance,
   isDeployed,
   ONE_ETH,
-  createAccount
+  createAccount, HashZero
 } from './testutils'
 import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
@@ -95,14 +95,15 @@ describe('SimpleAccount', function () {
     it('should increment nonce', async () => {
       expect(await account.nonce()).to.equal(1)
     })
+
     it('should reject same TX on nonce error', async () => {
       await expect(account.validateUserOp(userOp, userOpHash, AddressZero, 0)).to.revertedWith('invalid nonce')
     })
-    it('should reject tx with wrong signature', async () => {
-      // validateUserOp doesn't check the actual UserOp for the signature, but relies on the userOpHash given by
-      // the entrypoint
-      const wrongUserOpHash = ethers.constants.HashZero
-      await expect(account.validateUserOp(userOp, wrongUserOpHash, AddressZero, 0)).to.revertedWith('account: wrong signature')
+
+    it('should return NO_SIG_VALIDATION on wrong signature', async () => {
+      const userOpHash = HashZero
+      const deadline = await account.callStatic.validateUserOp({ ...userOp, nonce: 1 }, userOpHash, AddressZero, 0)
+      expect(deadline).to.eq(1)
     })
   })
   context('SimpleAccountFactory', () => {

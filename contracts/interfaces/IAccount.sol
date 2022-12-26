@@ -8,6 +8,9 @@ interface IAccount {
     /**
      * Validate user's signature and nonce
      * the entryPoint will make the call to the recipient only if this validation call returns successfully.
+     * signature failure should be reported by returning SIG_VALIDATION_FAILED (1).
+     * This allows making a "simulation call" without a valid signature
+     * Other failures (e.g. nonce mismatch, or invalid signature format) should still revert to signal failure.
      *
      * @dev Must validate caller is the entryPoint.
      *      Must validate the signature and nonce
@@ -20,6 +23,7 @@ interface IAccount {
      *      can be withdrawn anytime using "entryPoint.withdrawTo()"
      *      In case there is a paymaster in the request (or the current deposit is high enough), this value will be zero.
      * @return deadline the last block timestamp this operation is valid, or zero if it is valid indefinitely.
+     *      signature failure is returned as SIG_VALIDATION_FAILED value (1)
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address aggregator, uint256 missingAccountFunds)
