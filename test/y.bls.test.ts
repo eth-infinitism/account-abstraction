@@ -11,7 +11,7 @@ import {
   EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { deployEntryPoint, fund, ONE_ETH, ValidationResultWithAggregationCatch } from './testutils'
+import { deployEntryPoint, fund, ONE_ETH, simulationResultWithAggregationCatch } from './testutils'
 import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
@@ -129,7 +129,7 @@ describe('bls account', function () {
     console.log('validateSignatures (on-chain)', Date.now() - now2, 'ms')
   })
 
-  describe('#EntryPoint.validateUserOp with aggregator', () => {
+  describe('#EntryPoint.simulateValidation with aggregator', () => {
     let initCode: BytesLike
     let signer3: any
     before(async () => {
@@ -153,7 +153,7 @@ describe('bls account', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const { aggregatorInfo } = await entrypoint.callStatic.validateUserOp(userOp).catch(ValidationResultWithAggregationCatch)
+      const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
       expect(aggregatorInfo.actualAggregator).to.eq(blsAgg.address)
       expect(aggregatorInfo.stakeInfo.stake).to.eq(ONE_ETH)
       expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.eq(2)

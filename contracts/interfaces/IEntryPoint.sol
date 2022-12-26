@@ -52,8 +52,8 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * a custom revert error of handleOps, to identify the offending op.
-     *  NOTE: if validateUserOp passes successfully, there should be no reason for handleOps to fail on it.
-     *  @param opIndex - index into the array of ops to the failed one (in validateUserOp, this is always zero)
+     *  NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
+     *  @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
      *  @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
      *       this value will be zero (since it failed before accessing the paymaster)
      *  @param reason - revert reason
@@ -81,7 +81,7 @@ interface IEntryPoint is IStakeManager {
      * Execute a batch of UserOperation.
      * no signature aggregator is used.
      * if any account requires an aggregator (that is, it returned an "actualAggregator" when
-     * performing validateUserOp), then handleAggregatedOps() must be used instead.
+     * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
@@ -109,10 +109,10 @@ interface IEntryPoint is IStakeManager {
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.
      * @param userOp the user operation to validate.
      */
-    function validateUserOp(UserOperation calldata userOp) external;
+    function simulateValidation(UserOperation calldata userOp) external;
 
     /**
-     * Successful result from validateUserOp.
+     * Successful result from simulateValidation.
      * @param returnInfo gas and deadlines returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
@@ -123,7 +123,7 @@ interface IEntryPoint is IStakeManager {
 
 
     /**
-     * Successful result from validateUserOp, if the account returns a signature aggregator
+     * Successful result from simulateValidation, if the account returns a signature aggregator
      * @param returnInfo gas and deadlines returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)

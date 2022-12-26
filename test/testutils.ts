@@ -243,9 +243,9 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 
 /**
  * process exception of ValidationResult
- * usage: entryPoint.ValidationResult(..).catch(validationResultCatch)
+ * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
  */
-export function validationResultCatch (e: any): any {
+export function simulationResultCatch (e: any): any {
   if (e.errorName !== 'ValidationResult') {
     throw e
   }
@@ -254,9 +254,9 @@ export function validationResultCatch (e: any): any {
 
 /**
  * process exception of ValidationResultWithAggregation
- * usage: entryPoint.ValidationResult(..).catch(ValidationResultWithAggregation)
+ * usage: entryPoint.simulationResult(..).catch(simulationResultWithAggregation)
  */
-export function ValidationResultWithAggregationCatch (e: any): any {
+export function simulationResultWithAggregationCatch (e: any): any {
   if (e.errorName !== 'ValidationResultWithAggregation') {
     throw e
   }
