@@ -402,7 +402,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         //we want to treat "zero" as "maxint", so we subtract one, ignoring underflow
     unchecked {
         // solhint-disable-next-line not-rely-on-time
-        if ((deadline - 1) < block.timestamp) {
+        if (deadline != 0 && deadline < block.timestamp) {
             if (deadline == SIG_VALIDATION_FAILED) {
                 revert FailedOp(opIndex, address(0), "AA24 signature error");
             } else {
@@ -410,7 +410,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             }
         }
         // solhint-disable-next-line not-rely-on-time
-        if ((paymasterDeadline - 1) < block.timestamp) {
+        if (paymasterDeadline != 0 && paymasterDeadline < block.timestamp) {
             address paymaster = opInfo.mUserOp.paymaster;
             if (paymasterDeadline == SIG_VALIDATION_FAILED) {
                 revert FailedOp(opIndex, paymaster, "AA34 signature error");
