@@ -149,7 +149,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _compensate(beneficiary, collected);
     }
 
-    function simulateExecution(UserOperation calldata op) external override {
+    function simulateHandleOp(UserOperation calldata op) external override {
 
         UserOpInfo memory opInfo;
 

@@ -364,7 +364,7 @@ describe('EntryPoint', function () {
     })
   })
 
-  describe('#simulateExecution', () => {
+  describe('#simulateHandleOp', () => {
     it('should simulate execution', async () => {
       const accountOwner1 = createAccountOwner()
       const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
@@ -380,7 +380,7 @@ describe('EntryPoint', function () {
         maxFeePerGas: 1 // gasprice=gas...
       }, accountOwner1, entryPoint)
 
-      const ret = await entryPoint.callStatic.simulateExecution(userOp).catch(e => e.errorArgs)
+      const ret = await entryPoint.callStatic.simulateHandleOp(userOp).catch(e => e.errorArgs)
       // TODO: we can't directly check simulation called the wallet's execute.
       // need to do call tracing and parse emitted events
       // we "hack" it by reporting out gas used, which is expected to be more than just verification

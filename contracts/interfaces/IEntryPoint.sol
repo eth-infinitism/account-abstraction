@@ -176,11 +176,12 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * simulate full execution of a UserOperation (including both validation and target execution)
-     * this method will always revert. it performs full validation of the UserOperation.
+     * this method will always revert. it performs full validation of the UserOperation, but ignores
+     * signature error.
      * Note that in order to collect the the success/failure of the target call, it must be executed
      * with trace enabled to track the emitted events.
      */
-    function simulateExecution(UserOperation calldata op) external;
+    function simulateHandleOp(UserOperation calldata op) external;
 
     error ExecutionResult(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
 }
