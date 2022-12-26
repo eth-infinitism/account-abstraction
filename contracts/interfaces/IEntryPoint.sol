@@ -105,7 +105,7 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
-     * @dev this method always revert. Successful result is SimulationResult error. other errors are failures.
+     * @dev this method always revert. Successful result is ValidationResult error. other errors are failures.
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.
      * @param userOp the user operation to validate.
      */
@@ -113,30 +113,43 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Successful result from simulateValidation.
-     * @param preOpGas the gas used for validation (including preValidationGas)
-     * @param prefund the required prefund for this operation
-     * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
+     * @param returnInfo gas and deadlines returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      */
-    error SimulationResult(uint256 preOpGas, uint256 prefund, uint256 deadline,
+    error ValidationResult(ReturnInfo returnInfo,
         StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
 
 
     /**
      * Successful result from simulateValidation, if the account returns a signature aggregator
-     * @param preOpGas the gas used for validation (including preValidationGas)
-     * @param prefund the required prefund for this operation
-     * @param deadline until what time this userOp is valid (the minimum value of account and paymaster's deadline)
+     * @param returnInfo gas and deadlines returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
      */
-    error SimulationResultWithAggregation(uint256 preOpGas, uint256 prefund, uint256 deadline,
-        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo, AggregatorStakeInfo aggregatorInfo);
+    error ValidationResultWithAggregation(ReturnInfo returnInfo,
+        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo,
+        AggregatorStakeInfo aggregatorInfo);
+
+    /**
+     * gas and deadlines returned during simulation
+     * @param preOpGas the gas used for validation (including preValidationGas)
+     * @param prefund the required prefund for this operation
+     * @param deadline validateUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
+     * @param paymasterDeadline validatePaymasterUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
+     * @param paymasterContext returned by validatePaymasterUserOp (to be passed into postOp)
+     */
+    struct ReturnInfo {
+        uint256 preOpGas;
+        uint256 prefund;
+        uint256 deadline;
+        uint256 paymasterDeadline;
+        bytes paymasterContext;
+    }
 
     /**
      * returned aggregated signature info.
@@ -160,5 +173,16 @@ interface IEntryPoint is IStakeManager {
      */
     error SenderAddressResult(address sender);
 
+
+    /**
+     * simulate full execution of a UserOperation (including both validation and target execution)
+     * this method will always revert. it performs full validation of the UserOperation, but ignores
+     * signature error.
+     * Note that in order to collect the the success/failure of the target call, it must be executed
+     * with trace enabled to track the emitted events.
+     */
+    function simulateHandleOp(UserOperation calldata op) external;
+
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
 }
 

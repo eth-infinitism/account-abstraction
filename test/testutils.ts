@@ -92,9 +92,7 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
   return { actualGasCost }
 }
 
-// helper function to create a deployer (initCode) call to our account. relies on the global "create2Deployer"
-// note that this is a very naive deployer: merely calls "create2", which means entire constructor code is passed
-// with each deployment. a better deployer will only receive the constructor parameters.
+// helper function to create the initCode to deploy the account, using our account factory.
 export function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): BytesLike {
   return hexConcat([
     factory.address,
@@ -244,22 +242,22 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 }
 
 /**
- * process exception of SimulationResult
+ * process exception of ValidationResult
  * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
  */
 export function simulationResultCatch (e: any): any {
-  if (e.errorName !== 'SimulationResult') {
+  if (e.errorName !== 'ValidationResult') {
     throw e
   }
   return e.errorArgs
 }
 
 /**
- * process exception of SimulationResultWithAggregation
+ * process exception of ValidationResultWithAggregation
  * usage: entryPoint.simulationResult(..).catch(simulationResultWithAggregation)
  */
 export function simulationResultWithAggregationCatch (e: any): any {
-  if (e.errorName !== 'SimulationResultWithAggregation') {
+  if (e.errorName !== 'ValidationResultWithAggregation') {
     throw e
   }
   return e.errorArgs
