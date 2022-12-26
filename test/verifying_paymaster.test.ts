@@ -9,11 +9,12 @@ import {
 } from '../typechain'
 import {
   createAccount,
-  createAccountOwner,
+  createAccountOwner, createAddress,
   deployEntryPoint, simulationResultCatch
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { arrayify, hexConcat, parseEther } from 'ethers/lib/utils'
+import { UserOperation } from './UserOperation'
 
 describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPoint: EntryPoint
@@ -48,9 +49,30 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('should reject on invalid signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x' + '1c'.repeat(65)])
+        paymasterAndData: hexConcat([paymaster.address, '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
+    })
+
+    describe('with wrong signature', () => {
+      let wrongSigUserOp: UserOperation
+      const beneficiaryAddress = createAddress()
+      before(async () => {
+        const sig = await offchainSigner.signMessage(arrayify('0xdead'))
+        wrongSigUserOp = await fillAndSign({
+          sender: account.address,
+          paymasterAndData: hexConcat([paymaster.address, sig])
+        }, accountOwner, entryPoint)
+      })
+
+      it('should return signature error (no revert) on wrong signer signature', async () => {
+        const ret = await entryPoint.callStatic.simulateValidation(wrongSigUserOp).catch(simulationResultCatch)
+        expect(ret.returnInfo.paymasterDeadline).to.equal(1)
+      })
+
+      it('handleOp revert on signature failure in handleOps', async () => {
+        await expect(entryPoint.estimateGas.handleOps([wrongSigUserOp], beneficiaryAddress)).to.revertedWith('AA34 signature error')
+      })
     })
 
     it('succeed with valid signature', async () => {

@@ -16,6 +16,9 @@ import "../interfaces/IEntryPoint.sol";
 abstract contract BaseAccount is IAccount {
     using UserOperationLib for UserOperation;
 
+    //return value in case of signature failure.
+    uint256 constant internal SIG_VALIDATION_FAILED = 1;
+
     /**
      * return the account nonce.
      * subclass should return a nonce value that is used both by _validateAndUpdateNonce, and by the external provider (to read the current nonce)
@@ -56,6 +59,7 @@ abstract contract BaseAccount is IAccount {
      *          (also hashes the entrypoint and chain-id)
      * @param aggregator the current aggregator. can be ignored by accounts that don't use aggregators
      * @return deadline the last block timestamp this operation is valid, or zero if it is valid indefinitely.
+     *      return SIG_VALIDATION_FAILED in case signature fails
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address aggregator)

@@ -4,6 +4,6 @@ module.exports = {
     "bls/lib",
     //solc-coverage fails to compile our Manager module.
     "gnosis",
-    "samples/SimpleWalletForTokens.sol"
+    "utils/Exec.sol"
   ],
 };

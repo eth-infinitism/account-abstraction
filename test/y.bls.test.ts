@@ -140,7 +140,7 @@ describe('bls account', function () {
       ])
     })
 
-    it('validate after simulation returns SimulationResultWithAggregation', async () => {
+    it('validate after simulation returns ValidationResultWithAggregation', async () => {
       const verifier = new BlsVerifier(BLS_DOMAIN)
       const senderAddress = await entrypoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
       await fund(senderAddress, '0.01')
