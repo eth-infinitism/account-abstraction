@@ -400,28 +400,36 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert if either account deadline or paymaster deadline is expired
      */
     function _validateDeadline(uint256 opIndex, UserOpInfo memory opInfo, uint256 deadline, uint256 paymasterDeadline) internal view {
-        //we want to treat "zero" as "maxint", so we subtract one, ignoring underflow
     unchecked {
-        // solhint-disable-next-line not-rely-on-time
-        if (deadline != 0 && deadline < block.timestamp) {
+        if (deadline != 0) {
             if (deadline == SIG_VALIDATION_FAILED) {
                 revert FailedOp(opIndex, address(0), "AA24 signature error");
-            } else {
-                revert FailedOp(opIndex, address(0), "AA22 expired");
+            } else if (!timeInRange(deadline)) {
+                revert FailedOp(opIndex, address(0), "AA22 expired or not due");
             }
         }
-        // solhint-disable-next-line not-rely-on-time
-        if (paymasterDeadline != 0 && paymasterDeadline < block.timestamp) {
+        if (paymasterDeadline != 0) {
             address paymaster = opInfo.mUserOp.paymaster;
             if (paymasterDeadline == SIG_VALIDATION_FAILED) {
                 revert FailedOp(opIndex, paymaster, "AA34 signature error");
-            } else {
+            } else if (!timeInRange(paymasterDeadline)) {
                 revert FailedOp(opIndex, paymaster, "AA32 paymaster expired");
             }
         }
     }
     }
 
+    function timeInRange(uint timeRange) internal view returns (bool) {
+        uint upper = uint32(timeRange);
+        uint32 lower = uint32(timeRange >> 32);
+        if (block.timestamp < upper) {
+            return false;
+        }
+        if (block.timestamp < lower) {
+            return false;
+        }
+        return true;
+    }
     /**
      * validate account and paymaster (if defined).
      * also make sure total validation doesn't exceed verificationGasLimit
