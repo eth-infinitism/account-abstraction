@@ -21,7 +21,7 @@ abstract contract BaseAccount is IAccount {
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     /**
-     * helper to pack the return valid for validateUserOp
+     * helper to pack the return value for validateUserOp
      * @param sigFailed true if the signature check failed, false, if it succeeded.
      * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
      * @param validAfter first timestamp this UserOperation is valid
@@ -72,7 +72,7 @@ abstract contract BaseAccount is IAccount {
      * @return sigTimeRange signature and time-range of this operation
      *      <byte> sigFailure - (1) to mark signature failure, 0 for valid signature.
      *      <8-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
-     *      <8-byte> validFrom - first timestamp this operation is valid
+     *      <8-byte> validAfter - first timestamp this operation is valid
      *      The an account doesn't use time-range, it is enough to return SIG_VALIDATION_FAILED value (1) for signature failure.
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */

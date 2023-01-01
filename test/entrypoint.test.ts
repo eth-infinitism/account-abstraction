@@ -941,50 +941,48 @@ describe('EntryPoint', function () {
       })
     })
 
-    describe('Validation deadline', () => {
-      describe('validateUserOp deadline', function () {
-        let account: TestExpiryAccount
-        let now: number
-        before('init account with session key', async () => {
-          // create a test account. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
-          account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
-          await account.initialize(await ethersSigner.getAddress())
-          await ethersSigner.sendTransaction({ to: account.address, value: parseEther('0.1') })
-          now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
-        })
+    describe('Validation time-range', () => {
+      let account: TestExpiryAccount
+      let now: number
+      let sessionOwner: Wallet
+      before('init account with session key', async () => {
+        // create a test account. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
+        account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
+        await account.initialize(await ethersSigner.getAddress())
+        await ethersSigner.sendTransaction({ to: account.address, value: parseEther('0.1') })
+        now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
+        sessionOwner = createAccountOwner()
+        await account.addTemporaryOwner(sessionOwner.address, 100, now + 60)
+        console.log('sessionowner=', sessionOwner.address)
+      })
 
+      describe('validateUserOp time-range', function () {
         it('should accept non-expired owner', async () => {
-          const sessionOwner = createAccountOwner()
-          await account.addTemporaryOwner(sessionOwner.address, now + 60)
           const userOp = await fillAndSign({
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
           expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
-          expect(ret.returnInfo.validAfter).to.eql(0)
+          expect(ret.returnInfo.validAfter).to.eql(100)
         })
 
         it('should not reject expired owner', async () => {
-          const sessionOwner = createAccountOwner()
-          await account.addTemporaryOwner(sessionOwner.address, now - 60)
+          const expiredOwner = createAccountOwner()
+          await account.addTemporaryOwner(expiredOwner.address, 123, now - 60)
           const userOp = await fillAndSign({
             sender: account.address
-          }, sessionOwner, entryPoint)
+          }, expiredOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
           expect(ret.returnInfo.validUntil).eql(now - 60 - 1)
-          expect(ret.returnInfo.validAfter).to.eql(0)
+          expect(ret.returnInfo.validAfter).to.eql(123)
         })
       })
 
       describe('validatePaymasterUserOp with deadline', function () {
-        let account: TestExpiryAccount
         let paymaster: TestExpirePaymaster
         let now: number
         before('init account with session key', async function () {
           this.timeout(20000)
-          // account without eth - must be paid by paymaster.
-          account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
-          await account.initialize(await ethersSigner.getAddress())
           paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
           await paymaster.addStake(1, { value: paymasterStake })
           await paymaster.deposit({ value: parseEther('0.1') })
@@ -992,23 +990,57 @@ describe('EntryPoint', function () {
         })
 
         it('should accept non-expired paymaster request', async () => {
-          const expireTime = defaultAbiCoder.encode(['uint256'], [now + 60])
+          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [123, now + 60])
           const userOp = await fillAndSign({
             sender: account.address,
-            paymasterAndData: hexConcat([paymaster.address, expireTime])
+            paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
           expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(123)
         })
 
         it('should not reject expired paymaster request', async () => {
-          const expireTime = defaultAbiCoder.encode(['uint256'], [now - 60])
+          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [321, now - 60])
           const userOp = await fillAndSign({
             sender: account.address,
-            paymasterAndData: hexConcat([paymaster.address, expireTime])
+            paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
           expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(321)
+        })
+        describe('time-range overlap of paymaster and account should intersect', () => {
+          let owner: Wallet
+          before(async () => {
+            owner = createAccountOwner()
+            await account.addTemporaryOwner(owner.address, 100, 500)
+          })
+
+          async function simulateWithPaymasterParams (after: number, until: number): Promise<any> {
+            const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
+            const userOp = await fillAndSign({
+              sender: account.address,
+              paymasterAndData: hexConcat([paymaster.address, timeRange])
+            }, owner, entryPoint)
+            const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+            console.log('after=', ret.returnInfo.validAfter, 'until', ret.returnInfo.validUntil)
+            return ret.returnInfo
+          }
+
+          // sessionOwner has a range of 100.. now+60
+          it('should use lower "after" value of paymaster', async () => {
+            expect((await simulateWithPaymasterParams(10, 1000)).validAfter).to.eql(100)
+          })
+          it('should use lower "after" value of account', async () => {
+            expect((await simulateWithPaymasterParams(200, 1000)).validAfter).to.eql(200)
+          })
+          it('should use higher "until" value of paymaster', async () => {
+            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(399)
+          })
+          it('should use higher "until" value of account', async () => {
+            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(499)
+          })
         })
       })
     })

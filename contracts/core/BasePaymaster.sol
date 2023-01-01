@@ -106,7 +106,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /**
-     * helper to pack the return valid for validatePaymasterUserOp
+     * helper to pack the return value for validatePaymasterUserOp
      * (copy of same method from BaseAccount)
      * @param sigFailed true if the signature check failed, false, if it succeeded.
      * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)

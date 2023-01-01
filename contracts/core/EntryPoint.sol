@@ -154,11 +154,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
         UserOpInfo memory opInfo;
 
         (uint256 sigTimeRange, uint256 paymasterTimeRange,) = _validatePrepayment(0, op, opInfo, SIMULATE_FIND_AGGREGATOR);
-        (uint64 validFrom, uint64 validUntil) = _parseTimeRange(sigTimeRange, paymasterTimeRange);
+        (uint64 validAfter, uint64 validUntil) = _parseTimeRange(sigTimeRange, paymasterTimeRange);
 
         numberMarker();
         uint256 paid = _executeUserOp(0, op, opInfo);
-        revert ExecutionResult(opInfo.preOpGas, paid, validFrom, validUntil);
+        revert ExecutionResult(opInfo.preOpGas, paid, validAfter, validUntil);
     }
 
 
@@ -254,12 +254,12 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
         StakeInfo memory factoryInfo = getStakeInfo(factory);
 
-        (bool sigFailed, uint64 validFrom, uint64 validUntil) = _parseSigTimeRange(sigTimeRange);
-        (bool pmSigFailed, uint64 pmValidFrom, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
+        (bool sigFailed, uint64 validAfter, uint64 validUntil) = _parseSigTimeRange(sigTimeRange);
+        (bool pmSigFailed, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
         sigFailed = sigFailed || pmSigFailed;
-        if (validFrom < pmValidFrom) validFrom = pmValidFrom;
+        if (validAfter < pmValidAfter) validAfter = pmValidAfter;
         if (validUntil > pmValidUntil) validUntil = pmValidUntil;
-        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, sigFailed, validFrom, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
+        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, sigFailed, validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (aggregator != address(0)) {
             AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
@@ -419,28 +419,28 @@ contract EntryPoint is IEntryPoint, StakeManager {
         if (sigTimeRange == 0) {
             return (false, false);
         }
-        uint validFrom;
+        uint validAfter;
         uint validUntil;
-        (sigFailed, validFrom, validUntil) = _parseSigTimeRange(sigTimeRange);
+        (sigFailed, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
         // solhint-disable-next-line not-rely-on-time
-        outOfTimeRange = block.timestamp > validUntil || block.timestamp < validFrom;
+        outOfTimeRange = block.timestamp > validUntil || block.timestamp < validAfter;
     }
 
-    //extract sigFailed, validFrom, validUntil.
+    //extract sigFailed, validAfter, validUntil.
     // also convert zero validUntil to type(uint64).max
-    function _parseSigTimeRange(uint sigTimeRange) internal pure returns (bool sigFailed, uint64 validFrom, uint64 validUntil) {
+    function _parseSigTimeRange(uint sigTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
         sigFailed = uint8(sigTimeRange) != 0;
         // subtract one, to explicitly treat zero as max-value
         validUntil = uint64(int64(int(sigTimeRange >> 8) - 1));
-        validFrom = uint64(sigTimeRange >> (8 + 64));
+        validAfter = uint64(sigTimeRange >> (8 + 64));
     }
 
     // for simulation, parse the range this userOp is valid
     // (ignore signature error, and merge userop and paymaster ranges)
-    function _parseTimeRange(uint sigTimeRange, uint paymasterTimeRange) internal pure returns (uint64 validFrom, uint64 validUntil) {
-        (, validFrom, validUntil) = _parseSigTimeRange(sigTimeRange);
-        (, uint64 pmValidFrom, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
-        if (validFrom < pmValidFrom) validFrom = pmValidFrom;
+    function _parseTimeRange(uint sigTimeRange, uint paymasterTimeRange) internal pure returns (uint64 validAfter, uint64 validUntil) {
+        (, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
+        (, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
+        if (validAfter < pmValidAfter) validAfter = pmValidAfter;
         if (validUntil > pmValidUntil) validUntil = pmValidUntil;
     }
 

@@ -23,7 +23,7 @@ interface IPaymaster {
      * @return sigTimeRange signature and time-range of this operation, encoded the same as the return value of validateUserOperation
      *      <byte> sigFailure - (1) to mark signature failure (needed only if paymaster uses signature-based validation,)
      *      <4-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
-     *      <4-byte> validFrom - first timestamp this operation is valid
+     *      <4-byte> validAfter - first timestamp this operation is valid
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
