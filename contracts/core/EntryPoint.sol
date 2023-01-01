@@ -260,7 +260,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
         StakeInfo memory factoryInfo = getStakeInfo(factory);
 
-        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, deadline, paymasterDeadline, getMemoryBytesFromOffset(outOpInfo.contextOffset));
+        bool sigFailed = uint8(deadline | paymasterDeadline) != 0;
+        //TODO: extract validBefore, not only validAfter
+        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, sigFailed, deadline >> 8, paymasterDeadline >> 8, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (aggregator != address(0)) {
             AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
@@ -400,36 +402,40 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert if either account deadline or paymaster deadline is expired
      */
     function _validateDeadline(uint256 opIndex, UserOpInfo memory opInfo, uint256 deadline, uint256 paymasterDeadline) internal view {
-    unchecked {
-        if (deadline != 0) {
-            if (deadline == SIG_VALIDATION_FAILED) {
-                revert FailedOp(opIndex, address(0), "AA24 signature error");
-            } else if (!timeInRange(deadline)) {
-                revert FailedOp(opIndex, address(0), "AA22 expired or not due");
-            }
+        (bool sigFailed, bool outOfTimeRange) = _parseSigTimeRange(deadline);
+        if (sigFailed) {
+            revert FailedOp(opIndex, address(0), "AA24 signature error");
         }
-        if (paymasterDeadline != 0) {
-            address paymaster = opInfo.mUserOp.paymaster;
-            if (paymasterDeadline == SIG_VALIDATION_FAILED) {
-                revert FailedOp(opIndex, paymaster, "AA34 signature error");
-            } else if (!timeInRange(paymasterDeadline)) {
-                revert FailedOp(opIndex, paymaster, "AA32 paymaster expired");
-            }
+        if (outOfTimeRange) {
+            revert FailedOp(opIndex, address(0), "AA22 expired or not due");
         }
-    }
+        (sigFailed, outOfTimeRange) = _parseSigTimeRange(paymasterDeadline);
+        if (sigFailed) {
+            revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA34 signature error");
+        }
+        if (outOfTimeRange) {
+            revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA32 paymaster expired or not due");
+        }
     }
 
-    function timeInRange(uint timeRange) internal view returns (bool) {
-        uint upper = uint32(timeRange);
-        uint32 lower = uint32(timeRange >> 32);
-        if (block.timestamp < upper) {
-            return false;
+    function _parseSigTimeRange(uint deadline) internal view returns (bool sigFailed, bool outOfTimeRange) {
+        if (deadline == 0) {
+            return (false, false);
         }
-        if (block.timestamp < lower) {
-            return false;
+        sigFailed = uint8(deadline) != 0;
+        uint validUntil = uint64(deadline >> 8);
+        uint validFrom = uint64(deadline >> (8 + 64));
+        outOfTimeRange = false;
+        // solhint-disable-next-line not-rely-on-time
+        if (validUntil != 0 && block.timestamp > validUntil) {
+            outOfTimeRange = true;
         }
-        return true;
+        // solhint-disable-next-line not-rely-on-time
+        if (block.timestamp < validFrom) {
+            outOfTimeRange = true;
+        }
     }
+
     /**
      * validate account and paymaster (if defined).
      * also make sure total validation doesn't exceed verificationGasLimit

@@ -32,7 +32,8 @@ contract TestExpiryAccount is SimpleAccount {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
         deadline = ownerDeadlines[signer];
-        require(deadline != 0, "account: wrong signature");
-        //not testing deadline (since we can't). just return it.
+        //we have deadline for all valid owners. so zero deadline means "invalid signature"
+        bool sigFound = deadline != 0;
+        return packSigTimeRange(sigFound, uint64(deadline), 0);
     }
 }

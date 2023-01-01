@@ -14,7 +14,7 @@ contract TestExpirePaymaster is BasePaymaster {
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint maxCost) external virtual override view
     returns (bytes memory context, uint256 deadline) {
         (userOp, userOpHash, maxCost);
-        deadline = uint256(bytes32(userOp.paymasterAndData[20:]));
+        deadline = packSigTimeRange(false, uint256(bytes32(userOp.paymasterAndData[20 :])), 0);
         context = "";
     }
 }
