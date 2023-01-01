@@ -5,7 +5,7 @@ import "../samples/SimpleAccount.sol";
 
 /**
  * A test account, for testing expiry.
- * add "temporary" owners, each with a deadline time for each.
+ * add "temporary" owners, each with a sigTimeRange time for each.
  * NOTE: this is not a full "session key" implementation: a real session key should probably limit
  * other things, like target contracts and methods to be called.
  */
@@ -22,18 +22,18 @@ contract TestExpiryAccount is SimpleAccount {
         addTemporaryOwner(anOwner, type(uint256).max);
     }
 
-    function addTemporaryOwner(address owner, uint256 deadline) public onlyOwner {
-        ownerDeadlines[owner] = deadline;
+    function addTemporaryOwner(address owner, uint256 sigTimeRange) public onlyOwner {
+        ownerDeadlines[owner] = sigTimeRange;
     }
 
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address)
-    internal override view returns (uint256 deadline) {
+    internal override view returns (uint256 sigTimeRange) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
-        deadline = ownerDeadlines[signer];
-        //we have deadline for all valid owners. so zero deadline means "invalid signature"
-        bool sigFound = deadline != 0;
-        return packSigTimeRange(sigFound, uint64(deadline), 0);
+        sigTimeRange = ownerDeadlines[signer];
+        //we have sigTimeRange for all valid owners. so zero sigTimeRange means "invalid signature"
+        bool sigFound = sigTimeRange != 0;
+        return packSigTimeRange(sigFound, uint64(sigTimeRange), 0);
     }
 }

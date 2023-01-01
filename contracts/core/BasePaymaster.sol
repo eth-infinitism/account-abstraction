@@ -26,7 +26,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
-    external virtual override returns (bytes memory context, uint256 deadline);
+    external virtual override returns (bytes memory context, uint256 sigTimeRange);
 
     function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external override {
         _requireFromEntryPoint();

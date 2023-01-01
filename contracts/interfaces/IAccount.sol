@@ -22,7 +22,7 @@ interface IAccount {
      *      The excess is left as a deposit in the entrypoint, for future calls.
      *      can be withdrawn anytime using "entryPoint.withdrawTo()"
      *      In case there is a paymaster in the request (or the current deposit is high enough), this value will be zero.
-     * @return deadline signature and time-range of this operation
+     * @return sigTimeRange signature and time-range of this operation
      *      <byte> sigFailure - (1) to mark signature failure, 0 for valid signature.
      *      <8-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *      <8-byte> validFrom - first timestamp this operation is valid
@@ -30,5 +30,5 @@ interface IAccount {
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address aggregator, uint256 missingAccountFunds)
-    external returns (uint256 deadline);
+    external returns (uint256 sigTimeRange);
 }

@@ -67,7 +67,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
       it('should return signature error (no revert) on wrong signer signature', async () => {
         const ret = await entryPoint.callStatic.simulateValidation(wrongSigUserOp).catch(simulationResultCatch)
-        expect(ret.returnInfo.paymasterDeadline).to.equal(1)
+        expect(ret.returnInfo.sigFailed).to.be.true
       })
 
       it('handleOp revert on signature failure in handleOps', async () => {

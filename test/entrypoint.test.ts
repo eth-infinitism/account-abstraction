@@ -239,7 +239,7 @@ describe('EntryPoint', function () {
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
       const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
-      expect(returnInfo.deadline).to.eql(await entryPoint.SIG_VALIDATION_FAILED())
+      expect(returnInfo.sigFailed).to.be.true
     })
 
     it('should revert if wallet not deployed (and no initcode)', async () => {
@@ -264,10 +264,9 @@ describe('EntryPoint', function () {
       await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
     })
 
-    it('should return zero paymasterDeadline and empty context if no paymaster', async () => {
+    it('should return empty context if no paymaster', async () => {
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner1, entryPoint)
       const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
-      expect(returnInfo.paymasterDeadline).to.eql(0)
       expect(returnInfo.paymasterContext).to.eql('0x')
     })
 
@@ -798,11 +797,11 @@ describe('EntryPoint', function () {
         const rcpt = await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 }).then(async ret => ret.wait())
         const events = rcpt.events?.map((ev: Event) => {
           if (ev.event === 'UserOperationEvent') {
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             return `userOp(${ev.args?.sender})`
           }
           if (ev.event === 'SignatureAggregatorChanged') {
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             return `agg(${ev.args?.aggregator})`
           } else return null
         }).filter(ev => ev != null)
@@ -961,8 +960,8 @@ describe('EntryPoint', function () {
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.deadline).to.eql(now + 60)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(0)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(0)
         })
 
         it('should not reject expired owner', async () => {
@@ -972,8 +971,8 @@ describe('EntryPoint', function () {
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.deadline).eql(now - 60)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(0)
+          expect(ret.returnInfo.validUntil).eql(now - 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(0)
         })
       })
 
@@ -999,7 +998,7 @@ describe('EntryPoint', function () {
             paymasterAndData: hexConcat([paymaster.address, expireTime])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(now + 60)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
         })
 
         it('should not reject expired paymaster request', async () => {
@@ -1009,7 +1008,7 @@ describe('EntryPoint', function () {
             paymasterAndData: hexConcat([paymaster.address, expireTime])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(now - 60)
+          expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
         })
       })
     })

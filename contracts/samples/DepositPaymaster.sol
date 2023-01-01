@@ -123,7 +123,7 @@ contract DepositPaymaster is BasePaymaster {
      * this deposit will be used to compensate the paymaster for the transaction.
      */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
-    external view override returns (bytes memory context, uint256 deadline) {
+    external view override returns (bytes memory context, uint256 sigTimeRange) {
 
         (userOpHash);
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough

@@ -25,7 +25,7 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
-    internal override view returns (uint256 deadline) {
+    internal override view returns (uint256 sigTimeRange) {
         (userOp, userOpHash);
         require(userOpAggregator == aggregator, "wrong aggregator");
         return 0;

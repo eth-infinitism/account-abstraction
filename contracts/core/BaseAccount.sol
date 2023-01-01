@@ -47,9 +47,9 @@ abstract contract BaseAccount is IAccount {
      * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address aggregator, uint256 missingAccountFunds)
-    external override virtual returns (uint256 deadline) {
+    external override virtual returns (uint256 sigTimeRange) {
         _requireFromEntryPoint();
-        deadline = _validateSignature(userOp, userOpHash, aggregator);
+        sigTimeRange = _validateSignature(userOp, userOpHash, aggregator);
         if (userOp.initCode.length == 0) {
             _validateAndUpdateNonce(userOp);
         }
@@ -69,7 +69,7 @@ abstract contract BaseAccount is IAccount {
      * @param userOpHash convenient field: the hash of the request, to check the signature against
      *          (also hashes the entrypoint and chain-id)
      * @param aggregator the current aggregator. can be ignored by accounts that don't use aggregators
-     * @return deadline signature and time-range of this operation
+     * @return sigTimeRange signature and time-range of this operation
      *      <byte> sigFailure - (1) to mark signature failure, 0 for valid signature.
      *      <8-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *      <8-byte> validFrom - first timestamp this operation is valid
@@ -77,7 +77,7 @@ abstract contract BaseAccount is IAccount {
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address aggregator)
-    internal virtual returns (uint256 deadline);
+    internal virtual returns (uint256 sigTimeRange);
 
     /**
      * validate the current nonce matches the UserOperation nonce.
