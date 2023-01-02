@@ -433,15 +433,15 @@ describe('EntryPoint', function () {
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
       })
 
-      it.only('account should pay for high gas usage tx', async function () {
-        const iterations = 120
+      it('account should pay for high gas usage tx', async function () {
+        const iterations = 45
         const count = await counter.populateTransaction.gasWaster(iterations, "")
         const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)
         const op = await fillAndSign({
           sender: account.address,
           callData: accountExec.data,
           verificationGasLimit: 1e6,
-          callGasLimit: 29e5
+          callGasLimit: 11e5
         }, accountOwner, entryPoint)
         const beneficiaryAddress = createAddress()
         const offsetBefore = await counter.offset()
@@ -453,26 +453,30 @@ describe('EntryPoint', function () {
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
         const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
-          gasLimit: 188e5
+          gasLimit: 13e5
         }).then(async t => await t.wait())
 
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
 
+        // check that the state of the counter contract is updated
+        // this ensures that the `callGasLimit` is high enough
+        // therefore this value can be used as a reference in the test below
         console.log('  == offset after', await counter.offset())
         expect(await counter.offset()).to.equal(offsetBefore.add(iterations))
       })
 
-      it.only('account should not pay if the executor sets a too low gas limit', async function () {
-        const iterations = 120
+      it('account should not pay if too low gas limit was set', async function () {
+        const iterations = 45
         const count = await counter.populateTransaction.gasWaster(iterations, "")
         const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)
         const op = await fillAndSign({
           sender: account.address,
           callData: accountExec.data,
           verificationGasLimit: 1e6,
-          callGasLimit: 29e5
+          callGasLimit: 11e5
         }, accountOwner, entryPoint)
+        const inititalAccountBalance = await getBalance(account.address)
         const beneficiaryAddress = createAddress()
         const offsetBefore = await counter.offset()
         console.log('  == offset before', offsetBefore)
@@ -481,16 +485,14 @@ describe('EntryPoint', function () {
 
         // must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+        // this transaction should revert as the gasLimit is too low to satisfy the expected `callGasLimit` (see test above)
+        await expect(entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
-          gasLimit: 29e5
-        }).then(async t => await t.wait())
+          gasLimit: 12e5
+        })).to.revertedWith('Transaction ran out of gas')
 
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
-        await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
-
-        console.log('  == offset after', await counter.offset())
-        expect(await counter.offset()).to.equal(offsetBefore.add(iterations))
+        // Make sure that the user did not pay for the transaction
+        expect(await getBalance(account.address)).to.eq(inititalAccountBalance)
       })
 
       it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
