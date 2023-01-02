@@ -250,16 +250,22 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (uint256 sigTimeRange, uint256 paymasterTimeRange, address aggregator) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
         StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
         StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
-        bytes calldata initCode = userOp.initCode;
-        address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
-        StakeInfo memory factoryInfo = getStakeInfo(factory);
+        StakeInfo memory factoryInfo;
+        {
+            bytes calldata initCode = userOp.initCode;
+            address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
+            factoryInfo = getStakeInfo(factory);
+        }
 
         (bool sigFailed, uint64 validAfter, uint64 validUntil) = _parseSigTimeRange(sigTimeRange);
-        (bool pmSigFailed, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
-        sigFailed = sigFailed || pmSigFailed;
-        if (validAfter < pmValidAfter) validAfter = pmValidAfter;
-        if (validUntil > pmValidUntil) validUntil = pmValidUntil;
-        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund, sigFailed, validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
+        {
+            (bool pmSigFailed, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
+            sigFailed = sigFailed || pmSigFailed;
+            if (validAfter < pmValidAfter) validAfter = pmValidAfter;
+            if (validUntil > pmValidUntil) validUntil = pmValidUntil;
+        }
+        ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund,
+            sigFailed, validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (aggregator != address(0)) {
             AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));

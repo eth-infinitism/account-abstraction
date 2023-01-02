@@ -24,10 +24,10 @@ contract TestExpiryAccount is SimpleAccount {
         addTemporaryOwner(anOwner, 0, type(uint64).max);
     }
 
-    function addTemporaryOwner(address owner, uint64 _after, uint64 until) public onlyOwner {
-        require(until > _after);
+    function addTemporaryOwner(address owner, uint64 _after, uint64 _until) public onlyOwner {
+        require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
-        ownerUntil[owner] = until;
+        ownerUntil[owner] = _until;
     }
 
     /// implement template method of BaseAccount
@@ -35,11 +35,11 @@ contract TestExpiryAccount is SimpleAccount {
     internal override view returns (uint256 sigTimeRange) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
-        uint64 until = ownerUntil[signer];
+        uint64 _until = ownerUntil[signer];
         uint64 _after = ownerAfter[signer];
 
-        //we have "till" value for all valid owners. so zero means "invalid signature"
-        bool sigFound = until != 0;
-        return packSigTimeRange(sigFound, until, _after);
+        //we have "until" value for all valid owners. so zero means "invalid signature"
+        bool sigFound = _until != 0;
+        return packSigTimeRange(sigFound, _until, _after);
     }
 }
