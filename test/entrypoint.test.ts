@@ -490,7 +490,7 @@ describe('EntryPoint', function () {
         await expect(entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 12e5
-        })).to.revertedWith('Transaction ran out of gas')
+        })).to.revertedWith('AA95 out of gas')
 
         // Make sure that the user did not pay for the transaction
         expect(await getBalance(account.address)).to.eq(inititalAccountBalance)
