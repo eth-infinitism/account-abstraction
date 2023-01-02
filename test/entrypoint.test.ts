@@ -440,7 +440,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           sender: account.address,
           callData: accountExec.data,
-          verificationGasLimit: 1e6,
+          verificationGasLimit: 1e5,
           callGasLimit: 11e5
         }, accountOwner, entryPoint)
         const beneficiaryAddress = createAddress()
@@ -473,7 +473,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           sender: account.address,
           callData: accountExec.data,
-          verificationGasLimit: 1e6,
+          verificationGasLimit: 1e5,
           callGasLimit: 11e5
         }, accountOwner, entryPoint)
         const inititalAccountBalance = await getBalance(account.address)
