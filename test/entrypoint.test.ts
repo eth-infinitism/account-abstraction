@@ -434,6 +434,9 @@ describe('EntryPoint', function () {
       })
 
       it('account should pay for high gas usage tx', async function () {
+        if (process.env.COVERAGE != null) {
+          return
+        }
         const iterations = 45
         const count = await counter.populateTransaction.gasWaster(iterations, '')
         const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)
@@ -489,7 +492,7 @@ describe('EntryPoint', function () {
         await expect(entryPoint.handleOps([op], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 12e5
-        })).to.revertedWith('Transaction ran out of gas')
+        })).to.revertedWith('AA95 out of gas')
 
         // Make sure that the user did not pay for the transaction
         expect(await getBalance(account.address)).to.eq(inititalAccountBalance)
@@ -650,7 +653,7 @@ describe('EntryPoint', function () {
         await fund(preAddr)
         createOp = await fillAndSign({
           initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory, salt),
-          callGasLimit: 1e7,
+          callGasLimit: 1e6,
           verificationGasLimit: 2e6
 
         }, accountOwner, entryPoint)
