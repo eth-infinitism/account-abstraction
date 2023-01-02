@@ -433,7 +433,6 @@ describe('EntryPoint', function () {
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
       })
 
-      // rimeissner:
       it('account should pay for high gas usage tx', async function () {
         if (process.env.COVERAGE != null) {
           return
