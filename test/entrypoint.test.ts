@@ -435,6 +435,9 @@ describe('EntryPoint', function () {
 
       // rimeissner:
       it('account should pay for high gas usage tx', async function () {
+        if (process.env.COVERAGE != null) {
+          return
+        }
         const iterations = 45
         const count = await counter.populateTransaction.gasWaster(iterations, '')
         const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)

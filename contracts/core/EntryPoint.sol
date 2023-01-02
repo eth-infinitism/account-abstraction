@@ -65,7 +65,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 innerRevertCode := mload(0)
             }
             // handleOps was called with gas limit too low. abort entire bundle.
-            require(innerRevertCode != INNER_OUT_OF_GAS, "AA95 out of gas");
+            if(innerRevertCode == INNER_OUT_OF_GAS) {
+                //report paymaster, since if it is deliberately caused by the bundler,
+                // it must be a revert caused by paymaster.
+                revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA95 out of gas");
+            }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             collected = _handlePostOp(opIndex, IPaymaster.PostOpMode.postOpReverted, opInfo, context, actualGas);
