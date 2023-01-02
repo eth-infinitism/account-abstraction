@@ -202,13 +202,15 @@ contract EntryPoint is IEntryPoint, StakeManager {
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
+    unchecked {
         // handleOps was called with gas limit too low. abort entire bundle.
-        if (gasleft() < mUserOp.callGasLimit + mUserOp.verificationGasLimit + 5000 ) {
+        if (gasleft() < mUserOp.callGasLimit + mUserOp.verificationGasLimit + 5000) {
             assembly {
                 mstore(0, INNER_OUT_OF_GAS)
                 revert(0, 32)
             }
         }
+    }
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
