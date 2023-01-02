@@ -20,11 +20,14 @@ interface IPaymaster {
      * @param maxCost the maximum cost of this transaction (based on maximum gas and gas price from userOp)
      * @return context value to send to a postOp
      *  zero length to signify postOp is not required.
-     * @return deadline the last block timestamp this operation is valid, or zero if it is valid indefinitely.
+     * @return sigTimeRange signature and time-range of this operation, encoded the same as the return value of validateUserOperation
+     *      <byte> sigFailure - (1) to mark signature failure (needed only if paymaster uses signature-based validation,)
+     *      <4-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
+     *      <4-byte> validAfter - first timestamp this operation is valid
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
-    external returns (bytes memory context, uint256 deadline);
+    external returns (bytes memory context, uint256 sigTimeRange);
 
     /**
      * post-operation handler.

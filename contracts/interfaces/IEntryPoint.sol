@@ -113,7 +113,7 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Successful result from simulateValidation.
-     * @param returnInfo gas and deadlines returned values
+     * @param returnInfo gas and time-range returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
@@ -124,7 +124,7 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Successful result from simulateValidation, if the account returns a signature aggregator
-     * @param returnInfo gas and deadlines returned values
+     * @param returnInfo gas and time-range returned values
      * @param senderInfo stake information about the sender
      * @param factoryInfo stake information about the factor (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
@@ -136,18 +136,20 @@ interface IEntryPoint is IStakeManager {
         AggregatorStakeInfo aggregatorInfo);
 
     /**
-     * gas and deadlines returned during simulation
+     * gas and return values during simulation
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
-     * @param deadline validateUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
-     * @param paymasterDeadline validatePaymasterUserOp's deadline (or SIG_VALIDATION_FAILED for signature failure)
+     * @param sigFailed validateUserOp's (or paymaster's) signature check failed
+     * @param validAfter - first timestamp this UserOp is valid (merging account and paymaster time-range)
+     * @param validUntil - last timestamp this UserOp is valid (merging account and paymaster time-range)
      * @param paymasterContext returned by validatePaymasterUserOp (to be passed into postOp)
      */
     struct ReturnInfo {
         uint256 preOpGas;
         uint256 prefund;
-        uint256 deadline;
-        uint256 paymasterDeadline;
+        bool sigFailed;
+        uint64 validAfter;
+        uint64 validUntil;
         bytes paymasterContext;
     }
 
@@ -176,13 +178,13 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * simulate full execution of a UserOperation (including both validation and target execution)
-     * this method will always revert. it performs full validation of the UserOperation, but ignores
-     * signature error.
+     * this method will always revert with "ExecutionResult".
+     * it performs full validation of the UserOperation, but ignores signature error.
      * Note that in order to collect the the success/failure of the target call, it must be executed
      * with trace enabled to track the emitted events.
      */
     function simulateHandleOp(UserOperation calldata op) external;
 
-    error ExecutionResult(uint256 preOpGas, uint256 paid, uint256 deadline, uint256 paymasterDeadline);
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validBefore);
 }
 

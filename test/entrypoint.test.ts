@@ -239,7 +239,7 @@ describe('EntryPoint', function () {
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
       const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
-      expect(returnInfo.deadline).to.eql(await entryPoint.SIG_VALIDATION_FAILED())
+      expect(returnInfo.sigFailed).to.be.true
     })
 
     it('should revert if wallet not deployed (and no initcode)', async () => {
@@ -264,10 +264,9 @@ describe('EntryPoint', function () {
       await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
     })
 
-    it('should return zero paymasterDeadline and empty context if no paymaster', async () => {
+    it('should return empty context if no paymaster', async () => {
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner1, entryPoint)
       const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
-      expect(returnInfo.paymasterDeadline).to.eql(0)
       expect(returnInfo.paymasterContext).to.eql('0x')
     })
 
@@ -798,11 +797,11 @@ describe('EntryPoint', function () {
         const rcpt = await entryPoint.handleAggregatedOps(aggInfos, beneficiaryAddress, { gasLimit: 3e6 }).then(async ret => ret.wait())
         const events = rcpt.events?.map((ev: Event) => {
           if (ev.event === 'UserOperationEvent') {
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             return `userOp(${ev.args?.sender})`
           }
           if (ev.event === 'SignatureAggregatorChanged') {
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             return `agg(${ev.args?.aggregator})`
           } else return null
         }).filter(ev => ev != null)
@@ -942,50 +941,48 @@ describe('EntryPoint', function () {
       })
     })
 
-    describe('Validation deadline', () => {
-      describe('validateUserOp deadline', function () {
-        let account: TestExpiryAccount
-        let now: number
-        before('init account with session key', async () => {
-          // create a test account. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
-          account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
-          await account.initialize(await ethersSigner.getAddress())
-          await ethersSigner.sendTransaction({ to: account.address, value: parseEther('0.1') })
-          now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
-        })
+    describe('Validation time-range', () => {
+      const beneficiary = createAddress()
+      let account: TestExpiryAccount
+      let now: number
+      let sessionOwner: Wallet
+      before('init account with session key', async () => {
+        // create a test account. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
+        account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
+        await account.initialize(await ethersSigner.getAddress())
+        await ethersSigner.sendTransaction({ to: account.address, value: parseEther('0.1') })
+        now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
+        sessionOwner = createAccountOwner()
+        await account.addTemporaryOwner(sessionOwner.address, 100, now + 60)
+      })
 
+      describe('validateUserOp time-range', function () {
         it('should accept non-expired owner', async () => {
-          const sessionOwner = createAccountOwner()
-          await account.addTemporaryOwner(sessionOwner.address, now + 60)
           const userOp = await fillAndSign({
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.deadline).to.eql(now + 60)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(0)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(100)
         })
 
         it('should not reject expired owner', async () => {
-          const sessionOwner = createAccountOwner()
-          await account.addTemporaryOwner(sessionOwner.address, now - 60)
+          const expiredOwner = createAccountOwner()
+          await account.addTemporaryOwner(expiredOwner.address, 123, now - 60)
           const userOp = await fillAndSign({
             sender: account.address
-          }, sessionOwner, entryPoint)
+          }, expiredOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.deadline).eql(now - 60)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(0)
+          expect(ret.returnInfo.validUntil).eql(now - 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(123)
         })
       })
 
       describe('validatePaymasterUserOp with deadline', function () {
-        let account: TestExpiryAccount
         let paymaster: TestExpirePaymaster
         let now: number
         before('init account with session key', async function () {
           this.timeout(20000)
-          // account without eth - must be paid by paymaster.
-          account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
-          await account.initialize(await ethersSigner.getAddress())
           paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
           await paymaster.addStake(1, { value: paymasterStake })
           await paymaster.deposit({ value: parseEther('0.1') })
@@ -993,23 +990,89 @@ describe('EntryPoint', function () {
         })
 
         it('should accept non-expired paymaster request', async () => {
-          const expireTime = defaultAbiCoder.encode(['uint256'], [now + 60])
+          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [123, now + 60])
           const userOp = await fillAndSign({
             sender: account.address,
-            paymasterAndData: hexConcat([paymaster.address, expireTime])
+            paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(now + 60)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(123)
         })
 
         it('should not reject expired paymaster request', async () => {
-          const expireTime = defaultAbiCoder.encode(['uint256'], [now - 60])
+          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [321, now - 60])
           const userOp = await fillAndSign({
             sender: account.address,
-            paymasterAndData: hexConcat([paymaster.address, expireTime])
+            paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.paymasterDeadline).to.eql(now - 60)
+          expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
+          expect(ret.returnInfo.validAfter).to.eql(321)
+        })
+
+        // helper method
+        async function createOpWithPaymasterParams (owner: Wallet, after: number, until: number): Promise<UserOperation> {
+          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
+          return await fillAndSign({
+            sender: account.address,
+            paymasterAndData: hexConcat([paymaster.address, timeRange])
+          }, owner, entryPoint)
+        }
+
+        describe('time-range overlap of paymaster and account should intersect', () => {
+          let owner: Wallet
+          before(async () => {
+            owner = createAccountOwner()
+            await account.addTemporaryOwner(owner.address, 100, 500)
+          })
+
+          async function simulateWithPaymasterParams (after: number, until: number): Promise<any> {
+            const userOp = await createOpWithPaymasterParams(owner, after, until)
+            const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+            return ret.returnInfo
+          }
+
+          // sessionOwner has a range of 100.. now+60
+          it('should use lower "after" value of paymaster', async () => {
+            expect((await simulateWithPaymasterParams(10, 1000)).validAfter).to.eql(100)
+          })
+          it('should use lower "after" value of account', async () => {
+            expect((await simulateWithPaymasterParams(200, 1000)).validAfter).to.eql(200)
+          })
+          it('should use higher "until" value of paymaster', async () => {
+            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(399)
+          })
+          it('should use higher "until" value of account', async () => {
+            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(499)
+          })
+
+          it('handleOps should revert on expired paymaster request', async () => {
+            const userOp = await createOpWithPaymasterParams(sessionOwner, now + 100, now + 200)
+            await expect(entryPoint.handleOps([userOp], beneficiary))
+              .to.revertedWith('AA32 paymaster expired or not due')
+          })
+        })
+      })
+      describe('handleOps should abort on time-range', () => {
+        it('should revert on expired account', async () => {
+          const expiredOwner = createAccountOwner()
+          await account.addTemporaryOwner(expiredOwner.address, 1, 2)
+          const userOp = await fillAndSign({
+            sender: account.address
+          }, expiredOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        it('should revert on date owner', async () => {
+          const futureOwner = createAccountOwner()
+          await account.addTemporaryOwner(futureOwner.address, now + 100, now + 200)
+          const userOp = await fillAndSign({
+            sender: account.address
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
         })
       })
     })

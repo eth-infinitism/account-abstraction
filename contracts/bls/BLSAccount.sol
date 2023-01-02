@@ -27,7 +27,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
-    internal override view returns (uint256 deadline) {
+    internal override view returns (uint256 sigTimeRange) {
 
         (userOp, userOpHash);
         require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");

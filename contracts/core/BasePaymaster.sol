@@ -26,7 +26,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
-    external virtual override returns (bytes memory context, uint256 deadline);
+    external virtual override returns (bytes memory context, uint256 sigTimeRange);
 
     function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external override {
         _requireFromEntryPoint();
@@ -103,5 +103,16 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     /// validate the call is made from a valid entrypoint
     function _requireFromEntryPoint() internal virtual {
         require(msg.sender == address(entryPoint));
+    }
+
+    /**
+     * helper to pack the return value for validatePaymasterUserOp
+     * (copy of same method from BaseAccount)
+     * @param sigFailed true if the signature check failed, false, if it succeeded.
+     * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
+     * @param validAfter first timestamp this UserOperation is valid
+     */
+    function packSigTimeRange(bool sigFailed, uint256 validUntil, uint256 validAfter) internal pure returns (uint256) {
+        return uint256(sigFailed ? 1 : 0) | uint256(validUntil << 8) | uint256(validAfter << (64 + 8));
     }
 }
