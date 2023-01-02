@@ -942,6 +942,7 @@ describe('EntryPoint', function () {
     })
 
     describe('Validation time-range', () => {
+      const beneficiary = createAddress()
       let account: TestExpiryAccount
       let now: number
       let sessionOwner: Wallet
@@ -1010,6 +1011,16 @@ describe('EntryPoint', function () {
           expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
           expect(ret.returnInfo.validAfter).to.eql(321)
         })
+
+        // helper method
+        async function createOpWithPaymasterParams (owner: Wallet, after: number, until: number): Promise<UserOperation> {
+          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
+          return await fillAndSign({
+            sender: account.address,
+            paymasterAndData: hexConcat([paymaster.address, timeRange])
+          }, owner, entryPoint)
+        }
+
         describe('time-range overlap of paymaster and account should intersect', () => {
           let owner: Wallet
           before(async () => {
@@ -1018,11 +1029,7 @@ describe('EntryPoint', function () {
           })
 
           async function simulateWithPaymasterParams (after: number, until: number): Promise<any> {
-            const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
-            const userOp = await fillAndSign({
-              sender: account.address,
-              paymasterAndData: hexConcat([paymaster.address, timeRange])
-            }, owner, entryPoint)
+            const userOp = await createOpWithPaymasterParams(owner, after, until)
             const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
             console.log('after=', ret.returnInfo.validAfter, 'until', ret.returnInfo.validUntil)
             return ret.returnInfo
@@ -1041,6 +1048,33 @@ describe('EntryPoint', function () {
           it('should use higher "until" value of account', async () => {
             expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(499)
           })
+
+          it('handleOps should revert on expired paymaster request', async () => {
+            const userOp = await createOpWithPaymasterParams(sessionOwner, now + 100, now + 200)
+            await expect(entryPoint.handleOps([userOp], beneficiary))
+              .to.revertedWith('AA32 paymaster expired or not due')
+          })
+        })
+      })
+      describe('handleOps should abort on time-range', () => {
+        it('should revert on expired account', async () => {
+          const expiredOwner = createAccountOwner()
+          await account.addTemporaryOwner(expiredOwner.address, 1, 2)
+          const userOp = await fillAndSign({
+            sender: account.address
+          }, expiredOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        it('should revert on date owner', async () => {
+          const futureOwner = createAccountOwner()
+          await account.addTemporaryOwner(futureOwner.address, now + 100, now + 200)
+          const userOp = await fillAndSign({
+            sender: account.address
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
         })
       })
     })
