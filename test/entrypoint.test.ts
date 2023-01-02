@@ -954,7 +954,6 @@ describe('EntryPoint', function () {
         now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
         sessionOwner = createAccountOwner()
         await account.addTemporaryOwner(sessionOwner.address, 100, now + 60)
-        console.log('sessionowner=', sessionOwner.address)
       })
 
       describe('validateUserOp time-range', function () {
@@ -1031,7 +1030,6 @@ describe('EntryPoint', function () {
           async function simulateWithPaymasterParams (after: number, until: number): Promise<any> {
             const userOp = await createOpWithPaymasterParams(owner, after, until)
             const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-            console.log('after=', ret.returnInfo.validAfter, 'until', ret.returnInfo.validUntil)
             return ret.returnInfo
           }
 

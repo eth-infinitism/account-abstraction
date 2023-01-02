@@ -154,7 +154,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         UserOpInfo memory opInfo;
 
         (uint256 sigTimeRange, uint256 paymasterTimeRange,) = _validatePrepayment(0, op, opInfo, SIMULATE_FIND_AGGREGATOR);
-        (uint64 validAfter, uint64 validUntil) = _parseTimeRange(sigTimeRange, paymasterTimeRange);
+        (,uint64 validAfter, uint64 validUntil) = _intersectTimeRange(sigTimeRange, paymasterTimeRange);
 
         numberMarker();
         uint256 paid = _executeUserOp(0, op, opInfo);
@@ -257,13 +257,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             factoryInfo = getStakeInfo(factory);
         }
 
-        (bool sigFailed, uint64 validAfter, uint64 validUntil) = _parseSigTimeRange(sigTimeRange);
-        {
-            (bool pmSigFailed, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
-            sigFailed = sigFailed || pmSigFailed;
-            if (validAfter < pmValidAfter) validAfter = pmValidAfter;
-            if (validUntil > pmValidUntil) validUntil = pmValidUntil;
-        }
+        (bool sigFailed, uint64 validAfter, uint64 validUntil) = _intersectTimeRange(sigTimeRange, paymasterTimeRange);
         ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund,
             sigFailed, validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
@@ -441,11 +435,12 @@ contract EntryPoint is IEntryPoint, StakeManager {
         validAfter = uint64(sigTimeRange >> (8 + 64));
     }
 
-    // for simulation, parse the range this userOp is valid
-    // (ignore signature error, and merge userop and paymaster ranges)
-    function _parseTimeRange(uint sigTimeRange, uint paymasterTimeRange) internal pure returns (uint64 validAfter, uint64 validUntil) {
-        (, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
-        (, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
+    // intersect account and paymaster ranges.
+    function _intersectTimeRange(uint sigTimeRange, uint paymasterTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
+        (sigFailed, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
+        (bool pmSigFailed, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
+        sigFailed = sigFailed || pmSigFailed;
+
         if (validAfter < pmValidAfter) validAfter = pmValidAfter;
         if (validUntil > pmValidUntil) validUntil = pmValidUntil;
     }
