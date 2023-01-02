@@ -130,7 +130,7 @@ describe('EntryPoint with paymaster', function () {
       it('should succeed to create account with tokens', async () => {
         createOp = await fillAndSign({
           initCode: getAccountDeployer(entryPoint.address, accountOwner.address, 3),
-          verificationGasLimit: 1e7,
+          verificationGasLimit: 2e6,
           paymasterAndData: paymaster.address,
           nonce: 0
         }, accountOwner, entryPoint)

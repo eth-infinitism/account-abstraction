@@ -25,6 +25,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // internal value used during simulation: need to query aggregator.
     address private constant SIMULATE_FIND_AGGREGATOR = address(1);
 
+    // marker for inner call revert on out of gas
+    bytes32 private constant INNER_OUT_OF_GAS = hex'deaddead';
+
     /**
      * for simulation purposes, validateUserOp (and validatePaymasterUserOp) must return this value
      * in case of signature failure, instead of revert.
@@ -56,6 +59,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
         try this.innerHandleOp(userOp.callData, opInfo, context) returns (uint256 _actualGasCost) {
             collected = _actualGasCost;
         } catch {
+            bytes32 innerRevertCode;
+            assembly {
+                returndatacopy(0, 0, 32)
+                innerRevertCode := mload(0)
+            }
+            // handleOps was called with gas limit too low. abort entire bundle.
+            require(innerRevertCode != INNER_OUT_OF_GAS, "AA95 out of gas");
+
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             collected = _handlePostOp(opIndex, IPaymaster.PostOpMode.postOpReverted, opInfo, context, actualGas);
         }
@@ -190,6 +201,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 preGas = gasleft();
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
+
+        // handleOps was called with gas limit too low. abort entire bundle.
+        if (gasleft() < mUserOp.callGasLimit + mUserOp.verificationGasLimit + 5000 ) {
+            assembly {
+                mstore(0, INNER_OUT_OF_GAS)
+                revert(0, 32)
+            }
+        }
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
