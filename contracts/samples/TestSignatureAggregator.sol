@@ -18,7 +18,6 @@ contract TestSignatureAggregator is IAggregator {
         for (uint i = 0; i < userOps.length; i++) {
             uint nonce = userOps[i].nonce;
             sum += nonce;
-            // console.log('%s validate sender=%s nonce %s', i, address(senderAccount), nonce);
         }
         require(signature.length == 32, "TestSignatureValidator: sig must be uint");
         (uint sig) = abi.decode(signature, (uint));
