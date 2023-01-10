@@ -295,15 +295,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     }
 
-    function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal view returns (uint256 requiredPrefund) {
+    function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal pure returns (uint256 requiredPrefund) {
     unchecked {
         //when using a Paymaster, the verificationGasLimit is used also to as a limit for the postOp call.
         // our security model might call postOp eventually twice
         uint256 mul = mUserOp.paymaster != address(0) ? 3 : 1;
         uint256 requiredGas = mUserOp.callGasLimit + mUserOp.verificationGasLimit * mul + mUserOp.preVerificationGas;
 
-        // TODO: copy logic of gasPrice?
-        requiredPrefund = requiredGas * getUserOpGasPrice(mUserOp);
+        requiredPrefund = requiredGas * mUserOp.maxFeePerGas;
     }
     }
 
