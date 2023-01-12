@@ -36,6 +36,24 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1') });
     ({ proxy: account } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address))
   })
+  describe.only('#encodeSigTimeRange', () => {
+    it('should parse data properly', async () => {
+        const paymasterAndData =  hexConcat([paymaster.address, '0x0000000000001234', '0x0000000012345678', '0x1234']);
+        const res = await paymaster.encodeSigTimeRange(true, 4660, 305419896);
+        console.log(res.toHexString());
+    });
+  });
+
+  describe.only('#parsePaymasterAndData', () => {
+    it('should parse data properly', async () => {
+        const paymasterAndData =  hexConcat([paymaster.address, '0x0000000000001234', '0x0000000012345678', '0x1234']);
+        console.log(paymasterAndData);
+        const res = await paymaster.parsePaymasterAndData(paymasterAndData);
+        expect(res.validUntil.toNumber()).equal(4660);
+        expect(res.validAfter.toNumber()).equal(305419896);
+        expect(res.signature).equal('0x1234');
+    });
+  });
 
   describe('#validatePaymasterUserOp', () => {
     it('should reject on no signature', async () => {
