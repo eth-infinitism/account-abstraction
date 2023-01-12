@@ -17,7 +17,7 @@ import {
   TestPaymasterAcceptAll__factory,
   TestAggregatedAccount,
   TestSignatureAggregator,
-  TestSignatureAggregator__factory
+  TestSignatureAggregator__factory, MaliciousAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -384,6 +384,48 @@ describe('EntryPoint', function () {
       // need to do call tracing and parse emitted events
       // we "hack" it by reporting out gas used, which is expected to be more than just verification
       console.log('preOpGas=', ret.preOpGas, 'total gas=', ret.paid)
+    })
+  })
+
+  describe('flickering account validation', () => {
+    it('should prevent leakage of basefee', async () => {
+      const maliciousAccount = await new MaliciousAccount__factory(ethersSigner).deploy(entryPoint.address, { value: '0x' + 1e18.toString(16) })
+
+      const snap = await ethers.provider.send('evm_snapshot', [])
+      await ethers.provider.send('evm_mine', [])
+      const block = await ethers.provider.getBlock('latest')
+      await ethers.provider.send('evm_revert', [snap])
+
+      if (block.baseFeePerGas == null) {
+        expect.fail(null, null, 'test error: no basefee')
+      }
+
+      const userOp: UserOperation = {
+        sender: maliciousAccount.address,
+        nonce: block.baseFeePerGas,
+        initCode: '0x',
+        callData: '0x',
+        callGasLimit: '0x' + 1e5.toString(16),
+        verificationGasLimit: '0x' + 1e5.toString(16),
+        preVerificationGas: '0x' + 1e5.toString(16),
+        // we need maxFeeperGas > block.basefee + maxPriorityFeePerGas so requiredPrefund onchain is basefee + maxPriorityFeePerGas
+        maxFeePerGas: block.baseFeePerGas.mul(3),
+        maxPriorityFeePerGas: block.baseFeePerGas,
+        paymasterAndData: '0x',
+        signature: '0x'
+      }
+      try {
+        await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
+          .to.revertedWith('ValidationResult')
+        console.log('after first simulation')
+        await ethers.provider.send('evm_mine', [])
+        await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
+          .to.revertedWith('Revert after first validation')
+        // if we get here, it means the userOp passed first sim and reverted second
+        expect.fail(null, null, 'should fail on first simulation')
+      } catch (e: any) {
+        expect(e.message).to.include('Revert after first validation')
+      }
     })
   })
 
