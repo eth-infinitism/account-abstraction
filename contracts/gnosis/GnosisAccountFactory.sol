@@ -55,7 +55,7 @@ contract GnosisSafeAccountFactory {
         bytes memory initializer = getInitializer(owner);
         //copied from deployProxyWithNonce
         bytes32 salt2 = keccak256(abi.encodePacked(keccak256(initializer), salt));
-        bytes memory deploymentData = abi.encodePacked(type(GnosisSafeProxy).creationCode, uint256(uint160(safeSingleton)));
+        bytes memory deploymentData = abi.encodePacked(proxyFactory.proxyCreationCode(), uint256(uint160(safeSingleton)));
         return Create2.computeAddress(bytes32(salt2), keccak256(deploymentData), address (proxyFactory));
     }
 }
