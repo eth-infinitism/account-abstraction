@@ -5,6 +5,7 @@ pragma solidity ^0.8.12;
 
 import "../core/BasePaymaster.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 /**
  * A sample paymaster that uses external service to decide whether to pay for the UserOp.
@@ -15,7 +16,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * - the paymaster signs to agree to PAY for GAS.
  * - the wallet signs to prove identity and account ownership.
  */
-contract VerifyingPaymaster is BasePaymaster {
+contract VerifyingPaymaster is BasePaymaster, EIP712 {
 
     using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
@@ -26,7 +27,7 @@ contract VerifyingPaymaster is BasePaymaster {
 
     uint256 private constant SIGNATURE_OFFSET = 36;
 
-    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) {
+    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) EIP712("VerifyingPaymaster", "0.0.1") {
         verifyingSigner = _verifyingSigner;
     }
 
@@ -42,7 +43,6 @@ contract VerifyingPaymaster is BasePaymaster {
     function getHash(UserOperation calldata userOp)
     public view returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
-        //audit : why can't we use paymasterAndData for hash? i think we need it
         address sender = userOp.getSender();
         return keccak256(abi.encode(
                 sender,
@@ -53,11 +53,7 @@ contract VerifyingPaymaster is BasePaymaster {
                 userOp.verificationGasLimit,
                 userOp.preVerificationGas,
                 userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
-                block.chainid,
-                address(this),
-                userOp.paymasterAndData[VALID_TIMESTAMP_OFFSET:], //this is includes paymaster address, signature validity
-                senderNonce[sender]
+                userOp.maxPriorityFeePerGas
             ));
     }
 
@@ -74,7 +70,7 @@ contract VerifyingPaymaster is BasePaymaster {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
-        senderNonce[userOp.getSender()]++;
+        uint256 nonce = senderNonce[userOp.getSender()]++;
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         (uint64 validUntil, uint64 validAfter, bytes calldata signature) = parsePaymasterAndData(paymasterAndData);
         uint256 sigLength = signature.length;
@@ -84,17 +80,21 @@ contract VerifyingPaymaster is BasePaymaster {
         require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");
 
         //don't revert on signature failure: return SIG_VALIDATION_FAILED
-        if (verifyingSigner != hash.toEthSignedMessageHash().recover(signature)) {
-            return ("",encodeSigTimeRange(true,validUntil,validAfter));
+        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
+            keccak256("ValidatePaymasterUserOp(bytes32 hash,uint64 validUntil,uint64 validAfter,uint256 senderNonce)"),
+            hash,
+            validUntil,
+            validAfter,
+            nonce
+        )));
+        address signer = ECDSA.recover(digest, signature);
+        if (verifyingSigner != signer) {
+            return ("",packSigTimeRange(true,validUntil,validAfter));
         }
 
         //no need for other on-chain validation: entire UserOp should have been checked
         // by the external service prior to signing it.
-        return ("",encodeSigTimeRange(false,validUntil,validAfter));
-    }
-
-    function encodeSigTimeRange(bool fail, uint64 validUntil, uint64 validAfter) public view returns(uint256) {
-        return uint256(fail ? 1 : 0) << 248 | uint256(validUntil) << 184 | uint256(validAfter) << 120;
+        return ("",packSigTimeRange(false,validUntil,validAfter));
     }
 
     function parsePaymasterAndData(bytes calldata paymasterAndData) public view returns(uint64 validUntil, uint64 validAfter, bytes calldata signature) {
