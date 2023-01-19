@@ -19,7 +19,8 @@ import {
   TestAggregatedAccount,
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
-  MaliciousAccount__factory
+  MaliciousAccount__factory,
+  TestWarmColdAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -391,7 +392,8 @@ describe('EntryPoint', function () {
 
   describe('flickering account validation', () => {
     it('should prevent leakage of basefee', async () => {
-      const maliciousAccount = await new MaliciousAccount__factory(ethersSigner).deploy(entryPoint.address, { value: '0x' + 1e18.toString(16) })
+      const maliciousAccount = await new MaliciousAccount__factory(ethersSigner).deploy(entryPoint.address,
+        { value: '0x' + 1e18.toString(16) })
 
       const snap = await ethers.provider.send('evm_snapshot', [])
       await ethers.provider.send('evm_mine', [])
@@ -452,6 +454,54 @@ describe('EntryPoint', function () {
       expect(userOperationRevertReasonEvent?.event).to.equal('UserOperationRevertReason')
       const revertReason = Buffer.from(arrayify(userOperationRevertReasonEvent?.args?.revertReason))
       expect(revertReason.length).to.equal(REVERT_REASON_MAX_LEN)
+    })
+    describe('warm/cold storage detection in simulation vs execution', () => {
+      const TOUCH_GET_AGGREGATOR = 1
+      const TOUCH_PAYMASTER = 2
+      it('should prevent detection through getAggregator()', async () => {
+        const testWarmColdAccount = await new TestWarmColdAccount__factory(ethersSigner).deploy(entryPoint.address,
+          { value: '0x' + 1e18.toString(16) })
+        const badOp: UserOperation = {
+          ...DefaultsForUserOp,
+          nonce: TOUCH_GET_AGGREGATOR,
+          sender: testWarmColdAccount.address
+        }
+        const beneficiaryAddress = createAddress()
+        try {
+          await entryPoint.simulateValidation(badOp, { gasLimit: 1e6 })
+        } catch (e: any) {
+          if ((e as Error).message.includes('ValidationResult')) {
+            const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
+            await tx.wait()
+          } else {
+            expect(e.message).to.include('FailedOp(0, "0x0000000000000000000000000000000000000000", "AA23 reverted (or OOG)")')
+          }
+        }
+      })
+
+      it('should prevent detection through paymaster.code.length', async () => {
+        const testWarmColdAccount = await new TestWarmColdAccount__factory(ethersSigner).deploy(entryPoint.address,
+          { value: '0x' + 1e18.toString(16) })
+        const paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
+        await paymaster.deposit({ value: ONE_ETH })
+        const badOp: UserOperation = {
+          ...DefaultsForUserOp,
+          nonce: TOUCH_PAYMASTER,
+          paymasterAndData: paymaster.address,
+          sender: testWarmColdAccount.address
+        }
+        const beneficiaryAddress = createAddress()
+        try {
+          await entryPoint.simulateValidation(badOp, { gasLimit: 1e6 })
+        } catch (e: any) {
+          if ((e as Error).message.includes('ValidationResult')) {
+            const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
+            await tx.wait()
+          } else {
+            expect(e.message).to.include('FailedOp(0, "0x0000000000000000000000000000000000000000", "AA23 reverted (or OOG)")')
+          }
+        }
+      })
     })
   })
 
