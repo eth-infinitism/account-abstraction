@@ -334,6 +334,35 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
+    * Get aggregator from sender account as revert reason.
+    * Called only during simulation.
+    * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
+    */
+    function _simulateFindAggregator(address sender, address paymaster) external view {
+        require(msg.sender == address(this), "AA92 internal call only");
+        address aggregator;
+        if (sender.code.length == 0) {
+            // it would revert anyway. but give a meaningful message
+            revert("AA20 account not deployed");
+        }
+        if (paymaster != address(0) && paymaster.code.length == 0) {
+            // it would revert anyway. but give a meaningful message
+            revert("AA30 paymaster not deployed");
+        }
+        // during simulation, we don't use given aggregator,
+        // but query the account for its aggregator
+        try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
+            aggregator = userOpAggregator;
+        } catch {
+            aggregator = address(0);
+        }
+        assembly {
+            mstore(0,aggregator)
+            revert(0,32)
+        }
+    }
+
+    /**
      * call account.validateUserOp.
      * revert (with FailedOp) in case validateUserOp reverts, or account didn't send required prefund.
      * decrement account's deposit if needed
@@ -345,27 +374,25 @@ contract EntryPoint is IEntryPoint, StakeManager {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         address sender = mUserOp.sender;
         _createSenderIfNeeded(opIndex, opInfo, op.initCode);
+        address paymaster = mUserOp.paymaster;
         if (aggregator == SIMULATE_FIND_AGGREGATOR) {
             numberMarker();
 
-            if (sender.code.length == 0) {
-                // it would revert anyway. but give a meaningful message
-                revert FailedOp(0, address(0), "AA20 account not deployed");
+            // solhint-disable-next-line no-empty-blocks
+            try this._simulateFindAggregator(sender, paymaster) {}
+            catch Error(string memory revertReason) {
+                revert FailedOp(opIndex, paymaster, revertReason);
             }
-            if (mUserOp.paymaster != address(0) && mUserOp.paymaster.code.length == 0) {
-                // it would revert anyway. but give a meaningful message
-                revert FailedOp(0, address(0), "AA30 paymaster not deployed");
-            }
-            // during simulation, we don't use given aggregator,
-            // but query the account for its aggregator
-            try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
-                aggregator = actualAggregator = userOpAggregator;
-            } catch {
-                aggregator = actualAggregator = address(0);
+            catch (bytes memory revertReason) {
+                if (revertReason.length != 32) {
+                    // Should not get here, since every revert other than aggregator should be handled
+                    // in the previous catch block.
+                    revert FailedOp(0, paymaster, string(revertReason));
+                }
+                aggregator = actualAggregator = abi.decode(revertReason, (address));
             }
         }
         uint256 missingAccountFunds = 0;
-        address paymaster = mUserOp.paymaster;
         if (paymaster == address(0)) {
             uint256 bal = balanceOf(sender);
             missingAccountFunds = bal > requiredPrefund ? 0 : requiredPrefund - bal;
