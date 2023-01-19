@@ -218,11 +218,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
-        if (callData.length > 0) {
+        if (callData.length != 0) {
 
             (bool success,bytes memory result) = address(mUserOp.sender).call{gas : callGasLimit}(callData);
             if (!success) {
-                if (result.length > 0) {
+                if (result.length != 0) {
                     emit UserOperationRevertReason(opInfo.userOpHash, mUserOp.sender, mUserOp.nonce, result);
                 }
                 mode = IPaymaster.PostOpMode.opReverted;
@@ -256,7 +256,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         mUserOp.maxFeePerGas = userOp.maxFeePerGas;
         mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         bytes calldata paymasterAndData = userOp.paymasterAndData;
-        if (paymasterAndData.length > 0) {
+        if (paymasterAndData.length != 0) {
             require(paymasterAndData.length >= 20, "AA93 invalid paymasterAndData");
             mUserOp.paymaster = address(bytes20(paymasterAndData[: 20]));
         } else {
@@ -537,7 +537,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             refundAddress = mUserOp.sender;
         } else {
             refundAddress = paymaster;
-            if (context.length > 0) {
+            if (context.length != 0) {
                 actualGasCost = actualGas * gasPrice;
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
                     IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost);
