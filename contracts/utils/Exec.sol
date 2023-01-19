@@ -37,12 +37,16 @@ library Exec {
     }
 
     // get returned data from last call or calldelegate
-    function getReturnData() internal pure returns (bytes memory returnData) {
+    function getReturnData(uint maxLen) internal pure returns (bytes memory returnData) {
         assembly {
+            let len := returndatasize()
+            if gt(len, maxLen) {
+                len := maxLen
+            }
             let ptr := mload(0x40)
-            mstore(0x40, add(ptr, add(returndatasize(), 0x20)))
-            mstore(ptr, returndatasize())
-            returndatacopy(add(ptr, 0x20), 0, returndatasize())
+            mstore(0x40, add(ptr, add(len, 0x20)))
+            mstore(ptr, len)
+            returndatacopy(add(ptr, 0x20), 0, len)
             returnData := ptr
         }
     }
@@ -54,10 +58,10 @@ library Exec {
         }
     }
 
-    function callAndRevert(address to, bytes memory data) internal {
+    function callAndRevert(address to, bytes memory data, uint maxLen) internal {
         bool success = call(to,0,data,gasleft());
         if (!success) {
-            revertWithData(getReturnData());
+            revertWithData(getReturnData(maxLen));
         }
     }
 }

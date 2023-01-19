@@ -15,9 +15,11 @@ import {
   TestExpiryAccount__factory,
   TestPaymasterAcceptAll,
   TestPaymasterAcceptAll__factory,
+  TestRevertAccount__factory,
   TestAggregatedAccount,
   TestSignatureAggregator,
-  TestSignatureAggregator__factory, MaliciousAccount__factory
+  TestSignatureAggregator__factory,
+  MaliciousAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -41,11 +43,11 @@ import {
   getAggregatedAccountInitCode,
   simulationResultWithAggregationCatch
 } from './testutils'
-import { fillAndSign, getUserOpHash } from './UserOp'
+import { DefaultsForUserOp, fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress, zeroAddress } from 'ethereumjs-util'
@@ -426,6 +428,30 @@ describe('EntryPoint', function () {
       } catch (e: any) {
         expect(e.message).to.include('Revert after first validation')
       }
+    })
+
+    it('should limit revert reason length before emitting it', async () => {
+      const revertLength = 1e5
+      const REVERT_REASON_MAX_LEN = 2048
+      const testRevertAccount = await new TestRevertAccount__factory(ethersSigner).deploy(entryPoint.address, { value: '0x' + 1e18.toString(16) })
+      const badData = await testRevertAccount.populateTransaction.revertLong(revertLength + 1)
+      const badOp: UserOperation = {
+        ...DefaultsForUserOp,
+        sender: testRevertAccount.address,
+        callGasLimit: 1e5,
+        maxFeePerGas: 1,
+        verificationGasLimit: 1e5,
+        callData: badData.data!
+      }
+      const beneficiaryAddress = createAddress()
+      await expect(entryPoint.simulateValidation(badOp, { gasLimit: 3e5 }))
+        .to.revertedWith('ValidationResult')
+      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 3e5 })
+      const receipt = await tx.wait()
+      const userOperationRevertReasonEvent = receipt.events?.find(event => event.event === 'UserOperationRevertReason')
+      expect(userOperationRevertReasonEvent?.event).to.equal('UserOperationRevertReason')
+      const revertReason = Buffer.from(arrayify(userOperationRevertReasonEvent?.args?.revertReason))
+      expect(revertReason.length).to.equal(REVERT_REASON_MAX_LEN)
     })
   })
 
