@@ -393,7 +393,7 @@ describe('EntryPoint', function () {
   describe('flickering account validation', () => {
     it('should prevent leakage of basefee', async () => {
       const maliciousAccount = await new MaliciousAccount__factory(ethersSigner).deploy(entryPoint.address,
-        { value: '0x' + 1e18.toString(16) })
+        { value: parseEther('1') })
 
       const snap = await ethers.provider.send('evm_snapshot', [])
       await ethers.provider.send('evm_mine', [])
@@ -435,7 +435,7 @@ describe('EntryPoint', function () {
     it('should limit revert reason length before emitting it', async () => {
       const revertLength = 1e5
       const REVERT_REASON_MAX_LEN = 2048
-      const testRevertAccount = await new TestRevertAccount__factory(ethersSigner).deploy(entryPoint.address, { value: '0x' + 1e18.toString(16) })
+      const testRevertAccount = await new TestRevertAccount__factory(ethersSigner).deploy(entryPoint.address, { value: parseEther('1') })
       const badData = await testRevertAccount.populateTransaction.revertLong(revertLength + 1)
       const badOp: UserOperation = {
         ...DefaultsForUserOp,
@@ -460,7 +460,7 @@ describe('EntryPoint', function () {
       const TOUCH_PAYMASTER = 2
       it('should prevent detection through getAggregator()', async () => {
         const testWarmColdAccount = await new TestWarmColdAccount__factory(ethersSigner).deploy(entryPoint.address,
-          { value: '0x' + 1e18.toString(16) })
+          { value: parseEther('1') })
         const badOp: UserOperation = {
           ...DefaultsForUserOp,
           nonce: TOUCH_GET_AGGREGATOR,
@@ -481,7 +481,7 @@ describe('EntryPoint', function () {
 
       it('should prevent detection through paymaster.code.length', async () => {
         const testWarmColdAccount = await new TestWarmColdAccount__factory(ethersSigner).deploy(entryPoint.address,
-          { value: '0x' + 1e18.toString(16) })
+          { value: parseEther('1') })
         const paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
         await paymaster.deposit({ value: ONE_ETH })
         const badOp: UserOperation = {

@@ -5,7 +5,8 @@ pragma solidity ^0.8.12;
 import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
 
-
+// Using eip-2929 (https://eips.ethereum.org/EIPS/eip-2929) warm/cold storage access gas costs to detect simulation vs execution
+// COLD_ACCOUNT_ACCESS_COST == 2600, COLD_SLOAD_COST == 2100, WARM_STORAGE_READ_COST == 100
 contract TestWarmColdAccount is IAggregatedAccount {
     IEntryPoint private ep;
     uint public state = 1;
@@ -17,9 +18,11 @@ contract TestWarmColdAccount is IAggregatedAccount {
     external override returns (uint256 sigTimeRange) {
         ep.depositTo{value : missingAccountFunds}(address(this));
         if (userOp.nonce == 1) {
+            // can only succeed if storage is already warm
             this.touchStorage{gas: 1000}();
         } else if (userOp.nonce == 2) {
             address paymaster = address(bytes20(userOp.paymasterAndData[: 20]));
+            // can only succeed if storage is already warm
             this.touchPaymaster{gas: 1000}(paymaster);
         }
         return 0;
