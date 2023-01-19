@@ -13,6 +13,7 @@ import "../interfaces/IPaymaster.sol";
 
 import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
+import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
 
@@ -27,6 +28,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     // marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex'deaddead';
+
+    uint private constant REVERT_REASON_MAX_LEN = 2048;
 
     /**
      * for simulation purposes, validateUserOp (and validatePaymasterUserOp) must return this value
@@ -201,7 +204,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * inner function to handle a UserOperation.
      * Must be declared "external" to open a call context, but it can only be called by handleOps.
      */
-    function innerHandleOp(bytes calldata callData, UserOpInfo memory opInfo, bytes calldata context) external returns (uint256 actualGasCost) {
+    function innerHandleOp(bytes memory callData, UserOpInfo memory opInfo, bytes calldata context) external returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -219,9 +222,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
-
-            (bool success,bytes memory result) = address(mUserOp.sender).call{gas : callGasLimit}(callData);
+            bool success = Exec.call(mUserOp.sender, 0, callData, callGasLimit);
             if (!success) {
+                bytes memory result = Exec.getReturnData(REVERT_REASON_MAX_LEN);
                 if (result.length > 0) {
                     emit UserOperationRevertReason(opInfo.userOpHash, mUserOp.sender, mUserOp.nonce, result);
                 }
