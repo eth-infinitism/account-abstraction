@@ -8,7 +8,7 @@ import "../utils/Exec.sol";
 /**
  * A wrapper factory contract to deploy GnosisSafe as an Account-Abstraction wallet contract.
  */
-contract GnosisSafeAccountFactory {
+contract GnosisAccountFactory {
 
     GnosisSafeProxyFactory public immutable proxyFactory;
     address public immutable safeSingleton;
