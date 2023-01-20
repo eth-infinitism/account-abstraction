@@ -25,6 +25,10 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     address public immutable eip4337Fallback;
     address public immutable entryPoint;
 
+    // return value in case of signature failure, with no time-range.
+    // equivalent to packSigTimeRange(true,0,0);
+    uint256 constant internal SIG_VALIDATION_FAILED = 1;
+
     constructor(address anEntryPoint) {
         entryPoint = anEntryPoint;
         eip4337Fallback = address(new EIP4337Fallback(address(this)));
@@ -42,7 +46,9 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address recovered = hash.recover(userOp.signature);
         require(threshold == 1, "account: only threshold 1");
-        require(pThis.isOwner(recovered), "account: wrong signature");
+        if (!pThis.isOwner(recovered)) {
+            sigTimeRange = SIG_VALIDATION_FAILED;
+        }
 
         if (userOp.initCode.length == 0) {
             require(nonce++ == userOp.nonce, "account: invalid nonce");
@@ -54,7 +60,6 @@ contract EIP4337Manager is GnosisSafe, IAccount {
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }
-        return 0;
     }
 
     /**
@@ -109,14 +114,14 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
-        UserOperation memory userOp = UserOperation(address(safe), 0, "", "", 0, 1000000, 0, 0, 0, "", sig);
+        UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));
         try _entryPoint.handleOps(userOps, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
-            if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "account: wrong signature"))) {
+            if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,address,string)", 0, address(0), "AA24 signature error"))) {
                 revert(string(error));
             }
         }

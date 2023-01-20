@@ -73,7 +73,7 @@ describe('Gnosis Proxy', function () {
     const addr = ev[0].args.proxy
 
     proxy =
-    proxySafe = GnosisSafe__factory.connect(addr, owner)
+      proxySafe = GnosisSafe__factory.connect(addr, owner)
 
     await ethersSigner.sendTransaction({
       to: proxy.address,
@@ -103,7 +103,7 @@ describe('Gnosis Proxy', function () {
   })
 
   it('should fail on invalid userop', async function () {
-    const op = await fillAndSign({
+    let op = await fillAndSign({
       sender: proxy.address,
       nonce: 1234,
       callGasLimit: 1e6,
@@ -111,8 +111,14 @@ describe('Gnosis Proxy', function () {
     }, owner, entryPoint)
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('account: invalid nonce')
 
+    op = await fillAndSign({
+      sender: proxy.address,
+      callGasLimit: 1e6,
+      callData: safe_execTxCallData
+    }, owner, entryPoint)
+    // invalidate the signature
     op.callGasLimit = 1
-    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('account: wrong signature')
+    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('FailedOp(0, "0x0000000000000000000000000000000000000000", "AA24 signature error")')
   })
 
   it('should exec', async function () {

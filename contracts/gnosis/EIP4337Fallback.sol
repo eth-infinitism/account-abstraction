@@ -27,7 +27,7 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
                 revert(add(ret, 32), mload(ret))
             }
         }
-        return 0;
+        return abi.decode(ret, (uint256));
     }
 
 }
