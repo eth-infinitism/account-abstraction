@@ -39,19 +39,19 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   describe('#parsePaymasterAndData', () => {
     it('should parse data properly', async () => {
-        const paymasterAndData =  hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x1234']);
-        const res = await paymaster.parsePaymasterAndData(paymasterAndData);
-        expect(res.validUntil.toNumber()).equal(305419896);
-        expect(res.validAfter.toNumber()).equal(4660);
-        expect(res.signature).equal('0x1234');
-    });
-  });
+      const paymasterAndData = hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x1234'])
+      const res = await paymaster.parsePaymasterAndData(paymasterAndData)
+      expect(res.validUntil.toNumber()).equal(305419896)
+      expect(res.validAfter.toNumber()).equal(4660)
+      expect(res.signature).equal('0x1234')
+    })
+  })
 
   describe('#validatePaymasterUserOp', () => {
     it('should reject on no signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x1234']),
+        paymasterAndData: hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x1234'])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
@@ -59,7 +59,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('should reject on invalid signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address,'0x0000000012345678','0x0000000000001234',  '0x' + '00'.repeat(65)])
+        paymasterAndData: hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
     })
@@ -88,49 +88,49 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('succeed with valid signature', async () => {
       const userOp1 = await fillAndSign({
         sender: account.address,
-        paymasterAndData : hexConcat([paymaster.address, '0x000000007B9F2E9D', '0x0000000000000000' ])
+        paymasterAndData: hexConcat([paymaster.address, '0x000000007B9F2E9D', '0x0000000000000000'])
       }, accountOwner, entryPoint)
       const hash = await paymaster.getHash(userOp1)
-      const sig = await signEIP712(offchainSigner, paymaster, hash, 2074029725, 0, (await paymaster.senderNonce(account.address)).toNumber());
+      const sig = await signEIP712(offchainSigner, paymaster, hash, 2074029725, 0, (await paymaster.senderNonce(account.address)).toNumber())
       const userOp = await fillAndSign({
         ...userOp1,
         paymasterAndData: hexConcat([paymaster.address, '0x000000007B9F2E9D', '0x0000000000000000', sig])
       }, accountOwner, entryPoint)
       const res = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-      expect(res.returnInfo.sigFailed).to.be.false;
-      expect(res.returnInfo.validAfter).to.be.equal(0);
-      expect(res.returnInfo.validUntil).to.be.equal(2074029725 - 1);
+      expect(res.returnInfo.sigFailed).to.be.false
+      expect(res.returnInfo.validAfter).to.be.equal(0)
+      expect(res.returnInfo.validUntil).to.be.equal(2074029725 - 1)
     })
   })
 })
 
-async function signEIP712(
-  signer : Wallet,
-  contract : VerifyingPaymaster,
-  hash : string,
-  validUntil : number, 
-  validAfter : number, 
-  nonce : number
-) :  Promise<string>{
+async function signEIP712 (
+  signer: Wallet,
+  contract: VerifyingPaymaster,
+  hash: string,
+  validUntil: number,
+  validAfter: number,
+  nonce: number
+): Promise<string> {
   const domain = {
-    name : "VerifyingPaymaster",
-    version : "0.0.1",
-    chainId : 31337,
+    name: 'VerifyingPaymaster',
+    version: '0.0.1',
+    chainId: 31337,
     verifyingContract: contract.address
-  };
+  }
   const types = {
-    ValidatePaymasterUserOp : [
-      { name : "hash", type : "bytes32"},
-      { name : "validUntil", type : "uint64"},
-      { name : "validAfter", type : "uint64"},
-      { name : "senderNonce", type : "uint256"}
+    ValidatePaymasterUserOp: [
+      { name: 'hash', type: 'bytes32' },
+      { name: 'validUntil', type: 'uint64' },
+      { name: 'validAfter', type: 'uint64' },
+      { name: 'senderNonce', type: 'uint256' }
     ]
-  };
+  }
   const value = {
-    hash : hash,
-    validUntil : validUntil,
-    validAfter : validAfter,
-    senderNonce : nonce
-  };
-  return await signer._signTypedData(domain, types, value);
+    hash: hash,
+    validUntil: validUntil,
+    validAfter: validAfter,
+    senderNonce: nonce
+  }
+  return await signer._signTypedData(domain, types, value)
 }
