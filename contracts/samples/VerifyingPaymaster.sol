@@ -24,8 +24,6 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
 
     address public immutable verifyingSigner;
 
-    uint256 private constant VALID_TIMESTAMP_OFFSET = 20;
-
     uint256 private constant SIGNATURE_OFFSET = 36;
 
     constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) EIP712("VerifyingPaymaster", "0.0.1") {
