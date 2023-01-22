@@ -14,7 +14,7 @@ context('Minimal Paymaster', function () {
   let paymasterAddress: string
   before(async () => {
     const paymasterInit = hexValue(new TestPaymasterAcceptAll__factory(ethersSigner).getDeployTransaction(g.entryPoint().address).data!)
-    const paymasterAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(paymasterInit, 0)
+    paymasterAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(paymasterInit, 0)
     const paymaster = TestPaymasterAcceptAll__factory.connect(paymasterAddress, ethersSigner)
     await paymaster.addStake(1, { value: 1 })
     await g.entryPoint().depositTo(paymaster.address, { value: parseEther('10') })
