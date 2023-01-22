@@ -14,11 +14,13 @@ contract TestPaymasterAcceptAll is BasePaymaster {
         if (tx.origin != msg.sender) {
             _transferOwnership(tx.origin);
         }
+
     }
 
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint maxCost) external virtual override view
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint maxCost)
+    internal virtual override view
     returns (bytes memory context, uint256 sigTimeRange) {
         (userOp, userOpHash, maxCost);
-        return ("", 0);
+        return ("", maxCost == 12345 ? 1 : 0);
     }
 }
