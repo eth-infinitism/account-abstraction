@@ -16,7 +16,7 @@ import { fillAndSign } from './UserOp'
 import { arrayify, hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
-describe.only('EntryPoint with VerifyingPaymaster', function () {
+describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPoint: EntryPoint
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
