@@ -41,7 +41,7 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
      * which will carry the signature itself.
      */
     function getHash(UserOperation calldata userOp)
-    public view returns (bytes32) {
+    public pure returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
         address sender = userOp.getSender();
         return keccak256(abi.encode(
@@ -97,7 +97,7 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
         return ("",packSigTimeRange(false,validUntil,validAfter));
     }
 
-    function parsePaymasterAndData(bytes calldata paymasterAndData) public view returns(uint64 validUntil, uint64 validAfter, bytes calldata signature) {
+    function parsePaymasterAndData(bytes calldata paymasterAndData) public pure returns(uint64 validUntil, uint64 validAfter, bytes calldata signature) {
         assembly {
             validUntil := calldataload(sub(paymasterAndData.offset, 4))
             validAfter := calldataload(add(paymasterAndData.offset, 4))
