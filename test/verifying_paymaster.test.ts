@@ -13,8 +13,12 @@ import {
   deployEntryPoint, simulationResultCatch
 } from './testutils'
 import { fillAndSign } from './UserOp'
-import { arrayify, hexConcat, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
+
+const MOCK_VALID_UNTIL = '0x00000000deadbeef'
+const MOCK_VALID_AFTER = '0x0000000000001234'
+const MOCK_SIG = '0x1234'
 
 describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPoint: EntryPoint
@@ -39,11 +43,12 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   describe('#parsePaymasterAndData', () => {
     it('should parse data properly', async () => {
-      const paymasterAndData = hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x1234'])
+      const paymasterAndData = hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG])
+      console.log(paymasterAndData)
       const res = await paymaster.parsePaymasterAndData(paymasterAndData)
-      expect(res.validUntil.toNumber()).equal(305419896)
-      expect(res.validAfter.toNumber()).equal(4660)
-      expect(res.signature).equal('0x1234')
+      expect(res.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
+      expect(res.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
+      expect(res.signature).equal(MOCK_SIG)
     })
   })
 
@@ -51,7 +56,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('should reject on no signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x1234'])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x1234'])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
@@ -59,7 +64,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('should reject on invalid signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x0000000012345678', '0x0000000000001234', '0x' + '00'.repeat(65)])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
     })
@@ -71,7 +76,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         const sig = await offchainSigner.signMessage(arrayify('0xdead'))
         wrongSigUserOp = await fillAndSign({
           sender: account.address,
-          paymasterAndData: hexConcat([paymaster.address, '0x000000007B9F2E9D', '0x0000000000001234', sig])
+          paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
         }, accountOwner, entryPoint)
       })
 
@@ -88,49 +93,18 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('succeed with valid signature', async () => {
       const userOp1 = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x000000007B9F2E9D', '0x0000000000000000'])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER])])
       }, accountOwner, entryPoint)
-      const hash = await paymaster.getHash(userOp1)
-      const sig = await signEIP712(offchainSigner, paymaster, hash, 2074029725, 0, (await paymaster.senderNonce(account.address)).toNumber())
+      const hash = await paymaster.getHash(userOp1, MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
+      const sig = await offchainSigner.signMessage(arrayify(hash))
       const userOp = await fillAndSign({
         ...userOp1,
-        paymasterAndData: hexConcat([paymaster.address, '0x000000007B9F2E9D', '0x0000000000000000', sig])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
       }, accountOwner, entryPoint)
       const res = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
       expect(res.returnInfo.sigFailed).to.be.false
-      expect(res.returnInfo.validAfter).to.be.equal(0)
-      expect(res.returnInfo.validUntil).to.be.equal(2074029725 - 1)
+      expect(res.returnInfo.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
+      expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL).sub(1))
     })
   })
 })
-
-async function signEIP712 (
-  signer: Wallet,
-  contract: VerifyingPaymaster,
-  hash: string,
-  validUntil: number,
-  validAfter: number,
-  nonce: number
-): Promise<string> {
-  const domain = {
-    name: 'VerifyingPaymaster',
-    version: '0.0.1',
-    chainId: 31337,
-    verifyingContract: contract.address
-  }
-  const types = {
-    ValidatePaymasterUserOp: [
-      { name: 'hash', type: 'bytes32' },
-      { name: 'validUntil', type: 'uint64' },
-      { name: 'validAfter', type: 'uint64' },
-      { name: 'senderNonce', type: 'uint256' }
-    ]
-  }
-  const value = {
-    hash: hash,
-    validUntil: validUntil,
-    validAfter: validAfter,
-    senderNonce: nonce
-  }
-  return await signer._signTypedData(domain, types, value)
-}
