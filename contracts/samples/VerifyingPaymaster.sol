@@ -17,16 +17,18 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
  * - the paymaster signs to agree to PAY for GAS.
  * - the wallet signs to prove identity and account ownership.
  */
-contract VerifyingPaymaster is BasePaymaster, EIP712 {
+contract VerifyingPaymaster is BasePaymaster {
 
     using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
 
     address public immutable verifyingSigner;
 
-    uint256 private constant SIGNATURE_OFFSET = 36;
+    uint256 private constant VALID_TIMESTAMP_OFFSET = 20;
 
-    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) EIP712("VerifyingPaymaster", "0.0.1") {
+    uint256 private constant SIGNATURE_OFFSET = 84;
+
+    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) {
         verifyingSigner = _verifyingSigner;
     }
 
@@ -39,8 +41,8 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
      * note that this signature covers all fields of the UserOperation, except the "paymasterAndData",
      * which will carry the signature itself.
      */
-    function getHash(UserOperation calldata userOp)
-    public pure returns (bytes32) {
+    function getHash(UserOperation calldata userOp, uint64 validUntil, uint64 validAfter)
+    public view returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
         address sender = userOp.getSender();
         return keccak256(abi.encode(
@@ -52,7 +54,12 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
                 userOp.verificationGasLimit,
                 userOp.preVerificationGas,
                 userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas
+                userOp.maxPriorityFeePerGas,
+                block.chainid,
+                address(this),
+                senderNonce[sender],
+                validUntil,
+                validAfter
             ));
     }
 
@@ -60,34 +67,23 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
      * verify our external signer signed this request.
      * the "paymasterAndData" is expected to be the paymaster and a signature over the entire request params
      * paymasterAndData[:20] : address(this)
-     * paymasterAndData[20:28] : validUntil
-     * paymasterAndData[28:36] : validAfter
-     * paymasterAndData[36:] : signature
+     * paymasterAndData[20:84] : abi.encode(validUntil, validAfter)
+     * paymasterAndData[84:] : signature
      */
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     internal view override returns (bytes memory context, uint256 sigTimeRange) {
         (requiredPreFund);
 
-        bytes32 hash = getHash(userOp);
-        uint256 nonce = senderNonce[userOp.getSender()]++;
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         (uint64 validUntil, uint64 validAfter, bytes calldata signature) = parsePaymasterAndData(paymasterAndData);
-        uint256 sigLength = signature.length;
-
         //ECDSA library supports both 64 and 65-byte long signatures.
         // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
-        require(sigLength == 64 || sigLength == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");
+        require(signature.length == 64 || signature.length == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");
+        bytes32 hash = ECDSA.toEthSignedMessageHash(getHash(userOp, validUntil, validAfter));
+        senderNonce[userOp.getSender()]++;
 
         //don't revert on signature failure: return SIG_VALIDATION_FAILED
-        bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(
-            keccak256("ValidatePaymasterUserOp(bytes32 hash,uint64 validUntil,uint64 validAfter,uint256 senderNonce)"),
-            hash,
-            validUntil,
-            validAfter,
-            nonce
-        )));
-        address signer = ECDSA.recover(digest, signature);
-        if (verifyingSigner != signer) {
+        if (verifyingSigner != ECDSA.recover(hash, signature)) {
             return ("",packSigTimeRange(true,validUntil,validAfter));
         }
 
@@ -97,10 +93,7 @@ contract VerifyingPaymaster is BasePaymaster, EIP712 {
     }
 
     function parsePaymasterAndData(bytes calldata paymasterAndData) public pure returns(uint64 validUntil, uint64 validAfter, bytes calldata signature) {
-        assembly {
-            validUntil := calldataload(sub(paymasterAndData.offset, 4))
-            validAfter := calldataload(add(paymasterAndData.offset, 4))
-        }
+        (validUntil, validAfter) = abi.decode(paymasterAndData[VALID_TIMESTAMP_OFFSET:SIGNATURE_OFFSET],(uint64, uint64));
         signature = paymasterAndData[SIGNATURE_OFFSET:];
     }
 }
