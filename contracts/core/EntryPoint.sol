@@ -68,7 +68,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 innerRevertCode := mload(0)
             }
             // handleOps was called with gas limit too low. abort entire bundle.
-            if(innerRevertCode == INNER_OUT_OF_GAS) {
+            if (innerRevertCode == INNER_OUT_OF_GAS) {
                 //report paymaster, since if it is deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
                 revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA95 out of gas");
@@ -167,7 +167,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _compensate(beneficiary, collected);
     }
 
-    function simulateHandleOp(UserOperation calldata op) external override {
+    function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external override {
 
         UserOpInfo memory opInfo;
 
@@ -176,7 +176,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         numberMarker();
         uint256 paid = _executeUserOp(0, op, opInfo);
-        revert ExecutionResult(opInfo.preOpGas, paid, validAfter, validUntil);
+        numberMarker();
+        bool targetSuccess;
+        bytes memory targetResult;
+        if (target != address(0)) {
+            (targetSuccess, targetResult) = target.call(targetCallData);
+        }
+        revert ExecutionResult(opInfo.preOpGas, paid, validAfter, validUntil, targetSuccess, targetResult);
     }
 
 
@@ -357,8 +363,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
             aggregator = address(0);
         }
         assembly {
-            mstore(0,aggregator)
-            revert(0,32)
+            mstore(0, aggregator)
+            revert(0, 32)
         }
     }
 
