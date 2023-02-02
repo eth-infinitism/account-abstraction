@@ -51,7 +51,7 @@ import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
-import { toChecksumAddress, zeroAddress } from 'ethereumjs-util'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint

@@ -25,6 +25,7 @@ contract TestExpiryAccount is SimpleAccount {
     }
 
     // As this is a test contract, no need for proxy, so no need to disable init
+    // solhint-disable-next-line no-empty-blocks
     function _disableInitializers () internal override {}
 
     function addTemporaryOwner(address owner, uint64 _after, uint64 _until) public onlyOwner {
