@@ -4,7 +4,6 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./SimpleAccount.sol";
 import "../core/BasePaymaster.sol";
 
 /**

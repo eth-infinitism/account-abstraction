@@ -7,7 +7,6 @@ import "../interfaces/IEntryPoint.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
 import "./IBLSAccount.sol";
 import "./BLSHelper.sol";
-import "hardhat/console.sol";
 
 /**
  * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSAccount
