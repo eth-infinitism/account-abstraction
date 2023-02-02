@@ -378,15 +378,20 @@ describe('EntryPoint', function () {
       // deliberately broken signature.. simulate should work with it too.
       const userOp = await fillAndSign({
         sender: account.address,
-        callData,
-        maxFeePerGas: 1 // gasprice=gas...
+        callData
       }, accountOwner1, entryPoint)
 
-      const ret = await entryPoint.callStatic.simulateHandleOp(userOp).catch(e => e.errorArgs)
-      // TODO: we can't directly check simulation called the wallet's execute.
-      // need to do call tracing and parse emitted events
-      // we "hack" it by reporting out gas used, which is expected to be more than just verification
-      console.log('preOpGas=', ret.preOpGas, 'total gas=', ret.paid)
+      const ret = await entryPoint.callStatic.simulateHandleOp(userOp,
+        counter.address,
+        counter.interface.encodeFunctionData('counters', [account.address])
+      ).catch(e => e.errorArgs)
+
+      const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
+      expect(countResult).to.eql(1)
+      expect(ret.targetSuccess).to.be.true
+
+      // actual counter is zero
+      expect(await counter.counters(account.address)).to.eql(0)
     })
   })
 
