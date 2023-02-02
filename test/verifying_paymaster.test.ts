@@ -95,8 +95,8 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
-      const hash = await paymaster.getHash(userOp1, MOCK_VALID_UNTIL, MOCK_VALID_AFTER);
-      const sig = await offchainSigner.signMessage(arrayify(hash));
+      const hash = await paymaster.getHash(userOp1, MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
+      const sig = await offchainSigner.signMessage(arrayify(hash))
       const userOp = await fillAndSign({
         ...userOp1,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint64', 'uint64'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
