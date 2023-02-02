@@ -122,8 +122,8 @@ contract DepositPaymaster is BasePaymaster {
      * Note that the sender's balance is not checked. If it fails to pay from its balance,
      * this deposit will be used to compensate the paymaster for the transaction.
      */
-    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
-    external view override returns (bytes memory context, uint256 sigTimeRange) {
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
+    internal view override returns (bytes memory context, uint256 sigTimeRange) {
 
         (userOpHash);
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
