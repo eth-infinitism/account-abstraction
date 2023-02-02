@@ -63,6 +63,35 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     }
 
     /**
+     * Execute a call but also revert if the execution fails.
+     * The default behavior of the Safe is to not revert if the call fails,
+     * which is challenging for integrating with ERC4337 because then the
+     * EntryPoint wouldn't know to emit the UserOperationRevertReason event,
+     * which the frontend/client uses to capture the reason for the failure.
+     */
+    function executeAndRevert(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation
+    ) external {
+        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(_msgSender == entryPoint, "account: not from entrypoint");
+
+        (bool success, bytes memory returnData) = execTransactionFromModuleReturnData(to, value, data, operation);
+
+        // Revert with the actual reason string
+        // Adopted from: https://github.com/Uniswap/v3-periphery/blob/464a8a49611272f7349c970e0fadb7ec1d3c1086/contracts/base/Multicall.sol#L16-L23
+        if (!success) {
+            if (returnData.length < 68) revert();
+            assembly {
+                returnData := add(returnData, 0x04)
+            }
+            revert(abi.decode(returnData, (string)));
+        }
+    }
+
+    /**
      * set up a safe as EIP-4337 enabled.
      * called from the GnosisSafeAccountFactory during construction time
      * - enable 3 modules (this module, fallback and the entrypoint)
