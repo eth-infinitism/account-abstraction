@@ -26,8 +26,8 @@ abstract contract BaseAccount is IAccount {
      * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
      * @param validAfter first timestamp this UserOperation is valid
      */
-    function packSigTimeRange(bool sigFailed, uint256 validUntil, uint256 validAfter) internal pure returns (uint256) {
-        return uint256(sigFailed ? 1 : 0) | uint256(validUntil << 8) | uint256(validAfter << (64+8));
+    function packSigTimeRange(bool sigFailed, uint64 validUntil, uint64 validAfter) internal pure returns (uint256) {
+        return uint256(sigFailed ? 1 : 0) | (uint256(validUntil) << 8) | (uint256(validAfter) << 64+8);
     }
 
     /**
