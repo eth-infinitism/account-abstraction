@@ -149,12 +149,12 @@ describe('Gnosis Proxy', function () {
 
     // decode the revertReason
     const ev = rcpt.events!.find(ev => ev.event === 'UserOperationRevertReason')!
-    let message = ev.args!.revertReason
+    let message: string = ev.args!.revertReason
     if (message.startsWith('0x08c379a0')) {
       // Error(string)
       message = defaultAbiCoder.decode(['string'], '0x' + message.substring(10)).toString()
     }
-    expect(message).to.eq("count failed")
+    expect(message).to.eq('count failed')
   })
 
   let counterfactualAddress: string
