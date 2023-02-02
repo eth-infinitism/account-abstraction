@@ -5,10 +5,14 @@ pragma solidity ^0.8.7;
 
 import "@gnosis.pm/safe-contracts/contracts/handler/DefaultCallbackHandler.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../interfaces/IAccount.sol";
 import "./EIP4337Manager.sol";
 
-contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
+using ECDSA for bytes32;
+
+contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
     address immutable public eip4337manager;
     constructor(address _eip4337manager) {
         eip4337manager = _eip4337manager;
@@ -30,4 +34,20 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
         return abi.decode(ret, (uint256));
     }
 
+    function isValidSignature(
+        bytes32 _hash,
+        bytes memory _signature
+    ) external override view returns (bytes4) {
+        bytes32 hash = _hash.toEthSignedMessageHash();
+        address recovered = hash.recover(_signature);
+
+        GnosisSafe safe = GnosisSafe(payable(address(msg.sender)));
+
+        // Validate signatures
+        if (safe.isOwner(recovered)) {
+            return 0x1626ba7e;
+        } else {
+            return 0xffffffff;
+        }
+    }
 }
