@@ -6,8 +6,6 @@ pragma solidity ^0.8.12;
 
 import "../core/BasePaymaster.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-
 /**
  * A sample paymaster that uses external service to decide whether to pay for the UserOp.
  * The paymaster trusts an external signer to sign the transaction.
@@ -34,6 +32,22 @@ contract VerifyingPaymaster is BasePaymaster {
 
     mapping(address => uint256) public senderNonce;
 
+    function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
+        // lighter signature scheme. must match UserOp.ts#packUserOp
+        bytes calldata pnd = userOp.paymasterAndData;
+        // copy directly the userOp from calldata up to (but not including) the paymasterAndData.
+        // this encoding depends on the ABI encoding of calldata, but is much lighter to copy
+        // than referencing each field separately.
+        assembly {
+            let ofs := userOp
+            let len := sub(sub(pnd.offset, ofs), 32)
+            ret := mload(0x40)
+            mstore(0x40, add(ret, add(len, 32)))
+            mstore(ret, len)
+            calldatacopy(add(ret, 32), ofs, len)
+        }
+    }
+
     /**
      * return the hash we're going to sign off-chain (and validate on-chain)
      * this method is called by the off-chain service, to sign the request.
@@ -44,20 +58,12 @@ contract VerifyingPaymaster is BasePaymaster {
     function getHash(UserOperation calldata userOp, uint64 validUntil, uint64 validAfter)
     public view returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
-        address sender = userOp.getSender();
+
         return keccak256(abi.encode(
-                sender,
-                userOp.nonce,
-                keccak256(userOp.initCode),
-                keccak256(userOp.callData),
-                userOp.callGasLimit,
-                userOp.verificationGasLimit,
-                userOp.preVerificationGas,
-                userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
+                pack(userOp),
                 block.chainid,
                 address(this),
-                senderNonce[sender],
+                senderNonce[userOp.getSender()],
                 validUntil,
                 validAfter
             ));
@@ -70,12 +76,10 @@ contract VerifyingPaymaster is BasePaymaster {
      * paymasterAndData[20:84] : abi.encode(validUntil, validAfter)
      * paymasterAndData[84:] : signature
      */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 /*requiredPreFund*/)
     internal override returns (bytes memory context, uint256 sigTimeRange) {
-        (requiredPreFund);
 
-        bytes calldata paymasterAndData = userOp.paymasterAndData;
-        (uint64 validUntil, uint64 validAfter, bytes calldata signature) = parsePaymasterAndData(paymasterAndData);
+        (uint64 validUntil, uint64 validAfter, bytes calldata signature) = parsePaymasterAndData(userOp.paymasterAndData);
         //ECDSA library supports both 64 and 65-byte long signatures.
         // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
         require(signature.length == 64 || signature.length == 65, "VerifyingPaymaster: invalid signature length in paymasterAndData");

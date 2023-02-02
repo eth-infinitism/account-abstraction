@@ -46,7 +46,6 @@ const config: HardhatUserConfig = {
     overrides: {
       'contracts/core/EntryPoint.sol': optimizedComilerSettings,
       'contracts/samples/SimpleAccount.sol': optimizedComilerSettings,
-      'contracts/samples/VerifyingPaymaster.sol': optimizedComilerSettings
     }
   },
   networks: {
