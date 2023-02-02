@@ -232,8 +232,8 @@ describe('EntryPoint', function () {
     it('should fail if validateUserOp fails', async () => {
       // using wrong nonce
       const op = await fillAndSign({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op).catch(rethrow())).to
-        .revertedWith('invalid nonce')
+      await expect(entryPoint.callStatic.simulateValidation(op)).to
+        .revertedWith('AA23 reverted: account: invalid nonce')
     })
 
     it('should report signature failure without revert', async () => {
