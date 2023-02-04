@@ -175,11 +175,11 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         (address[] memory modules,) = safe.getModulesPaginated(SENTINEL_MODULES, 100);
         for (uint i = 0; i < modules.length; i++) {
             address module = modules[i];
-            (bool success,bytes memory ret) = module.staticcall(abi.encodeWithSignature("eip4337manager()"));
-            if (success) {
-                manager = abi.decode(ret, (address));
-                return (prev, manager);
+            try EIP4337Fallback(module).eip4337manager() returns (address _manager) {
+                return (prev, _manager);
             }
+            // solhint-disable-next-line no-empty-blocks
+            catch {}
             prev = module;
         }
         return (address(0), address(0));
