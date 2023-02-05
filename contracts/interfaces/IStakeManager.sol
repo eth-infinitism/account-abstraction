@@ -64,9 +64,10 @@ interface IStakeManager {
         uint256 unstakeDelaySec;
     }
 
+    /// @return info - full deposit information of given account
     function getDepositInfo(address account) external view returns (DepositInfo memory info);
 
-    /// return the deposit (for gas payment) of the account
+    /// @return the deposit (for gas payment) of the account
     function balanceOf(address account) external view returns (uint256);
 
     /**

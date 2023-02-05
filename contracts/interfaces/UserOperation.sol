@@ -32,6 +32,9 @@ pragma solidity ^0.8.12;
         bytes signature;
     }
 
+/**
+ * Utility functions helpful when working with UserOperation structs.
+ */
 library UserOperationLib {
 
     function getSender(UserOperation calldata userOp) internal pure returns (address) {

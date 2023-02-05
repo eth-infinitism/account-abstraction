@@ -17,6 +17,11 @@ contract BLSSignatureAggregator is IAggregator {
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
+    /**
+     * @return publicKey - the public key from a BLS keypair the Aggregator will use to verify this UserOp;
+     *         normally public key will be queried from the deployed BLSAccount itself;
+     *         the public key will be read from the 'initCode' if the account is not deployed yet;
+     */
     function getUserOpPublicKey(UserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
         bytes memory initCode = userOp.initCode;
         if (initCode.length > 0) {
@@ -44,6 +49,7 @@ contract BLSSignatureAggregator is IAggregator {
         }
     }
 
+    /// @inheritdoc IAggregator
     function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature)
     external view override {
         require(signature.length == 64, "BLS: invalid signature");
@@ -96,7 +102,7 @@ contract BLSSignatureAggregator is IAggregator {
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
 
-    //TODO: helper for test
+    // helper for test
     function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
         bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _getUserOpHash(userOp, hashPublicKey);
@@ -109,7 +115,6 @@ contract BLSSignatureAggregator is IAggregator {
     function _getPublicKeyHash(uint256[4] memory publicKey) internal pure returns(bytes32) {
         return keccak256(abi.encode(publicKey));
     }
-
     /**
      * validate signature of a single userOp
      * This method is called after EntryPoint.simulateValidation() returns an aggregator.
