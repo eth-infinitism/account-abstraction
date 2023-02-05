@@ -17,6 +17,9 @@ contract BLSSignatureAggregator is IAggregator {
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
+    // copied from BLS.sol
+    uint256 public  constant N = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+
     function getUserOpPublicKey(UserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
         bytes memory initCode = userOp.initCode;
         if (initCode.length > 0) {
@@ -129,9 +132,6 @@ contract BLSSignatureAggregator is IAggregator {
         require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
         return "";
     }
-
-    //copied from BLS.sol
-    uint256 public  constant N = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     /**
      * aggregate multiple signatures into a single value.

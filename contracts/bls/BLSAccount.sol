@@ -34,8 +34,6 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         return 0;
     }
 
-    event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);
-
     function setBlsPublicKey(uint256[4] memory newPublicKey) external onlyOwner {
         emit PublicKeyChanged(publicKey, newPublicKey);
         publicKey = newPublicKey;
