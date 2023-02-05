@@ -108,13 +108,12 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /**
-     * helper to pack the return value for validatePaymasterUserOp
-     * (copy of same method from BaseAccount)
+     * helper to pack the return value for validateUserOp
      * @param sigFailed true if the signature check failed, false, if it succeeded.
      * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
      * @param validAfter first timestamp this UserOperation is valid
      */
-    function packSigTimeRange(bool sigFailed, uint256 validUntil, uint256 validAfter) internal pure returns (uint256) {
-        return uint256(sigFailed ? 1 : 0) | uint256(validUntil << 8) | uint256(validAfter << (64 + 8));
+    function packSigTimeRange(bool sigFailed, uint48 validUntil, uint48 validAfter) internal pure returns (uint256) {
+        return uint160(sigFailed ? 1 : 0) | uint256(validUntil << 160) | uint256(validAfter << (160+48));
     }
 }

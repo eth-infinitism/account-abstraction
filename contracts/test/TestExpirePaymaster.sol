@@ -15,7 +15,7 @@ contract TestExpirePaymaster is BasePaymaster {
     internal virtual override view
     returns (bytes memory context, uint256 sigTimeRange) {
         (userOp, userOpHash, maxCost);
-        (uint64 validAfter, uint64 validUntil) = abi.decode(userOp.paymasterAndData[20 :], (uint64, uint64));
+        (uint48 validAfter, uint48 validUntil) = abi.decode(userOp.paymasterAndData[20 :], (uint48, uint48));
         sigTimeRange = packSigTimeRange(false, validUntil, validAfter);
         context = "";
     }

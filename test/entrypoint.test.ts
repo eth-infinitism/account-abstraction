@@ -242,7 +242,7 @@ describe('EntryPoint', function () {
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
       const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
-      expect(returnInfo.sigFailed).to.be.true
+      expect(returnInfo.sigAuthorizer).to.match(/0x0*1$/)
     })
 
     it('should revert if wallet not deployed (and no initcode)', async () => {
@@ -1178,7 +1178,7 @@ describe('EntryPoint', function () {
         })
 
         it('should accept non-expired paymaster request', async () => {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [123, now + 60])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [123, now + 60])
           const userOp = await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
@@ -1189,7 +1189,7 @@ describe('EntryPoint', function () {
         })
 
         it('should not reject expired paymaster request', async () => {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [321, now - 60])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [321, now - 60])
           const userOp = await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
@@ -1201,7 +1201,7 @@ describe('EntryPoint', function () {
 
         // helper method
         async function createOpWithPaymasterParams (owner: Wallet, after: number, until: number): Promise<UserOperation> {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [after, until])
           return await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])

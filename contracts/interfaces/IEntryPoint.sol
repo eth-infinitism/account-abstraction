@@ -147,9 +147,8 @@ interface IEntryPoint is IStakeManager {
     struct ReturnInfo {
         uint256 preOpGas;
         uint256 prefund;
-        bool sigFailed;
-        uint64 validAfter;
-        uint64 validUntil;
+        uint48 validAfter;
+        uint48 validUntil;
         bytes paymasterContext;
     }
 
@@ -191,6 +190,6 @@ interface IEntryPoint is IStakeManager {
      */
     function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external;
 
-    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validBefore, bool targetSuccess, bytes targetResult);
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint48 validAfter, uint48 validBefore, bool targetSuccess, bytes targetResult);
 }
 

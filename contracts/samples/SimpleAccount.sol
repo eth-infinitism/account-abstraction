@@ -104,7 +104,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     }
 
     /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override virtual returns (uint256 sigTimeRange) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         if (owner != hash.recover(userOp.signature))

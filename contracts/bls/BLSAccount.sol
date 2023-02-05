@@ -26,12 +26,11 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         publicKey = aPublicKey;
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override view returns (uint256 sigTimeRange) {
 
         (userOp, userOpHash);
-        require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
-        return 0;
+        return packSigTimeRange(aggregator, 0,0);
     }
 
     event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);

@@ -55,7 +55,7 @@ interface IStakeManager {
         bool staked;
         uint112 stake;
         uint32 unstakeDelaySec;
-        uint64 withdrawTime;
+        uint48 withdrawTime;
     }
 
     //API struct used by getStakeInfo and simulateValidation
