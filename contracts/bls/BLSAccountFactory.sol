@@ -8,9 +8,9 @@ import "../interfaces/IEntryPoint.sol";
 import "./BLSAccount.sol";
 
 /**
- * Based n SimpleAccountFactory
- * can't be a subclass, since both constructor and createAccount depend on the
- * actual wallet contract constructor and initializer
+ * Based on SimpleAccountFactory.
+ * Cannot be a subclass since both constructor and createAccount depend on the
+ * constructor and initializer of the actual account contract.
  */
 contract BLSAccountFactory {
     BLSAccount public immutable accountImplementation;
