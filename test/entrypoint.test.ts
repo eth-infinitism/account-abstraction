@@ -241,7 +241,7 @@ describe('EntryPoint', function () {
       // using wrong owner for account1
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
-      const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+      const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultWithAggregationCatch)
       expect(returnInfo.sigAuthorizer).to.match(/0x0*1$/)
     })
 
@@ -888,7 +888,7 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
 
         // no aggregator is kind of "wrong aggregator"
-        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
       it('should fail to execute aggregated account with wrong aggregator', async () => {
         const userOp = await fillAndSign({
@@ -902,7 +902,7 @@ describe('EntryPoint', function () {
           userOps: [userOp],
           aggregator: wrongAggregator.address,
           signature: sig
-        }], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        }], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
 
       it('should reject non-contract (address(1)) aggregator', async () => {
