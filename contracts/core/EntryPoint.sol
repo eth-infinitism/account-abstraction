@@ -23,6 +23,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     SenderCreator private immutable senderCreator = new SenderCreator();
 
+    function getSenderCreator() public override view returns (address) {
+        return address(senderCreator);
+    }
+
     // internal value used during simulation: need to query aggregator.
     address private constant SIMULATE_FIND_AGGREGATOR = address(1);
 

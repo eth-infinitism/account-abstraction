@@ -187,8 +187,9 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
     }
     if (op1.verificationGasLimit == null) {
       if (provider == null) throw new Error('no entrypoint/provider')
+      const senderCreator = await entryPoint?.getSenderCreator()
       const initEstimate = await provider.estimateGas({
-        from: entryPoint?.address,
+        from: senderCreator,
         to: initAddr,
         data: initCallData,
         gasLimit: 10e6

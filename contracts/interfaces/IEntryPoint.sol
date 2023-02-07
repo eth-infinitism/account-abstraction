@@ -104,6 +104,12 @@ interface IEntryPoint is IStakeManager {
     function getUserOpHash(UserOperation calldata userOp) external view returns (bytes32);
 
     /**
+     * return the address the initCode factory is called from.
+     * (can be used to validate this call indeed came from this entrypoint)
+     */
+    function getSenderCreator() external view returns (address);
+
+    /**
      * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
      * @dev this method always revert. Successful result is ValidationResult error. other errors are failures.
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.

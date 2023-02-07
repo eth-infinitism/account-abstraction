@@ -347,6 +347,7 @@ describe('EntryPoint', function () {
           account.address,
           account.interface.encodeFunctionData('execute', [sender, 0, '0x'])
         ]),
+        verificationGasLimit: 1e5,
         sender
       }, accountOwner, entryPoint)
       const error = await entryPoint.callStatic.simulateValidation(op1).catch(e => e)

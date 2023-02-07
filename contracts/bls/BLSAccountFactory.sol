@@ -16,8 +16,10 @@ import "./BLSAccount.sol";
  */
 contract BLSAccountFactory {
     BLSAccount public immutable accountImplementation;
+    IEntryPoint public immutable entryPoint;
 
-    constructor(IEntryPoint entryPoint, address aggregator){
+    constructor(IEntryPoint _entryPoint, address aggregator){
+        entryPoint = _entryPoint;
         accountImplementation = new BLSAccount(entryPoint, aggregator);
     }
 
@@ -29,6 +31,9 @@ contract BLSAccountFactory {
      * Also note that our BLSSignatureAggregator requires that the public-key is the last parameter
      */
     function createAccount(uint salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
+        // MUST be callable only through entrypoint.
+        // Otherwise, accounts are compromised.
+        require(entryPoint.getSenderCreator() == msg.sender, "only from entrypoint");
 
         // the BLSSignatureAggregator depends on the public-key being the last 4 uint256 of msg.data.
         uint slot;

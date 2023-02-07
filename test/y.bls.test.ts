@@ -9,7 +9,8 @@ import {
   BLSAccountFactory,
   BLSAccountFactory__factory,
   BrokenBLSAccountFactory__factory,
-  EntryPoint
+  EntryPoint,
+  ERC1967Proxy__factory
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { createAddress, deployEntryPoint, fund, ONE_ETH, simulationResultWithAggregationCatch } from './testutils'
@@ -20,11 +21,14 @@ import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
 import { BigNumber, Signer } from 'ethers'
 import { BytesLike, hexValue } from '@ethersproject/bytes'
 
+// can't use factory: factory can only be used through the entrypoint.
 async function deployBlsAccount (ethersSigner: Signer, factoryAddr: string, blsSigner: any): Promise<BLSAccount> {
   const factory = BLSAccountFactory__factory.connect(factoryAddr, ethersSigner)
-  const addr = await factory.callStatic.createAccount(0, blsSigner.pubkey)
-  await factory.createAccount(0, blsSigner.pubkey)
-  return BLSAccount__factory.connect(addr, ethersSigner)
+  const impl = await factory.accountImplementation()
+  const initCalldata = BLSAccount__factory.createInterface()
+    .encodeFunctionData('initialize(uint256[4])', [blsSigner.pubkey])
+  const proxy = await new ERC1967Proxy__factory(ethersSigner).deploy(impl, initCalldata)
+  return BLSAccount__factory.connect(proxy.address, ethersSigner)
 }
 
 describe('bls account', function () {
