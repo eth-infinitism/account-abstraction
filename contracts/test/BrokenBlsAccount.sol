@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import "../samples/SimpleAccount.sol";
-import "../bls/IBLSAccount.sol";
+import "../samples/bls/IBLSAccount.sol";
 
 /**
  * for testing: a BLS account that fails to return its public-key (completely ignores its publickey)
