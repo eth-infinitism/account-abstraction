@@ -187,7 +187,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
 
-    //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
+    // A memory copy of UserOp static fields only.
+    // Excluding: callData, initCode and signature. Replacing paymasterAndData with paymaster.
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
@@ -425,11 +426,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * in case the request has a paymaster:
-     * validate paymaster is staked and has enough deposit.
-     * call paymaster.validatePaymasterUserOp.
-     * revert with proper FailedOp in case paymaster reverts.
-     * decrement paymaster's deposit
+     * In case the request has a paymaster:
+     * Validate paymaster has enough deposit.
+     * Call paymaster.validatePaymasterUserOp.
+     * Revert with proper FailedOp in case paymaster reverts.
+     * Decrement paymaster's deposit
      */
     function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateAccountPrepayment)
     internal returns (bytes memory context, uint256 sigTimeRange) {

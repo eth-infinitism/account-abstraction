@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 /**
  * manage deposits and stakes.
  * deposit is just a balance used to pay for UserOperations (either by a paymaster or an account)
- * stake is value locked for at least "unstakeDelay" by a paymaster.
+ * stake is value locked for at least "unstakeDelay" by the staked entity.
  */
 interface IStakeManager {
 
@@ -39,12 +39,12 @@ interface IStakeManager {
     );
 
     /**
-     * @param deposit the account's deposit
-     * @param staked true if this account is staked as a paymaster
-     * @param stake actual amount of ether staked for this paymaster.
-     * @param unstakeDelaySec minimum delay to withdraw the stake. must be above the global unstakeDelaySec
+     * @param deposit the entity's deposit
+     * @param staked true if this entity is staked.
+     * @param stake actual amount of ether staked for this entity.
+     * @param unstakeDelaySec minimum delay to withdraw the stake.
      * @param withdrawTime - first block timestamp where 'withdrawStake' will be callable, or zero if already locked
-     * @dev sizes were chosen so that (deposit,staked) fit into one cell (used during handleOps)
+     * @dev sizes were chosen so that (deposit,staked, stake) fit into one cell (used during handleOps)
      *    and the rest fit into a 2nd cell.
      *    112 bit allows for 10^15 eth
      *    64 bit for full timestamp
