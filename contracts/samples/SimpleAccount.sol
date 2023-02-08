@@ -43,6 +43,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
 
     constructor(IEntryPoint anEntryPoint) {
         _entryPoint = anEntryPoint;
+        _disableInitializers();
     }
 
     modifier onlyOwner() {
