@@ -29,7 +29,7 @@ library  BLSHelper {
         ret.y = y;
     }
 
-    /// @dev Adds two points (x1, y1, z1) and (x2 y2, z2).
+    /// @dev Adds two points (x1, y1, z1) and (x2, y2, z2).
     /// @param _x1 coordinate x of P1
     /// @param _y1 coordinate y of P1
     /// @param _z1 coordinate z of P1
@@ -134,7 +134,7 @@ library  BLSHelper {
         return q;
     }
 
-    /// @dev Doubles a points (x, y, z).
+    /// @dev Doubles a point (x, y, z).
     /// @param _x coordinate x of P1
     /// @param _y coordinate y of P1
     /// @param _z coordinate z of P1

@@ -137,7 +137,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
      */
     function validateEip4337(GnosisSafe safe, EIP4337Manager manager) public {
 
-        // this prevent mistaken replaceEIP4337Manager to disable the module completely.
+        // this prevents mistaken replaceEIP4337Manager to disable the module completely.
         // minimal signature that pass "recover"
         bytes memory sig = new bytes(65);
         sig[64] = bytes1(uint8(27));

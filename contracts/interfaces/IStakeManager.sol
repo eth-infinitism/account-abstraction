@@ -19,7 +19,7 @@ interface IStakeManager {
         uint256 amount
     );
 
-    /// Emitted once a stake is scheduled for withdrawal
+    /// Emitted when the stake is added
     event StakeLocked(
         address indexed account,
         uint256 totalStaked,
@@ -48,7 +48,7 @@ interface IStakeManager {
      *    and the rest fit into a 2nd cell.
      *    112 bit allows for 10^15 eth
      *    64 bit for full timestamp
-     *    32 bit allow 150 years for unstake delay
+     *    32 bit allows 150 years for unstake delay
      */
     struct DepositInfo {
         uint112 deposit;

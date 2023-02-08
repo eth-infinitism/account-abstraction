@@ -15,7 +15,7 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
     address public immutable aggregator;
 
     // The constructor is used only for the "implementation" and only sets immutable values.
-    // Mutable values slots for proxy accounts are set by the 'initialize' function.
+    // Mutable value slots for proxy accounts are set by the 'initialize' function.
     constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint) {
         aggregator = anAggregator;
     }
