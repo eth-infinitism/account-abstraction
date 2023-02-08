@@ -19,11 +19,11 @@ interface IStakeManager {
         uint256 amount
     );
 
-    /// Emitted once a stake is scheduled for withdrawal
+    /// Emitted when stake or unstake delay are modified
     event StakeLocked(
         address indexed account,
         uint256 totalStaked,
-        uint256 withdrawTime
+        uint256 unstakeDelaySec
     );
 
     /// Emitted once a stake is scheduled for withdrawal
