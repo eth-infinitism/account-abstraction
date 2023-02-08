@@ -27,7 +27,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
      */
     function initialize(uint256[4] memory aPublicKey) public virtual initializer {
         super._initialize(address(0));
-        publicKey = aPublicKey;
+        _setBlsPublicKey(aPublicKey);
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
@@ -48,16 +48,20 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);
 
     /**
-     * Allows the owner to set or change the BSL key.
+     * Allows the owner to set or change the BLS key.
      * @param newPublicKey public key from a BLS keypair that will have a full ownership and control of this account.
      */
-    function setBlsPublicKey(uint256[4] memory newPublicKey) external onlyOwner {
+    function setBlsPublicKey(uint256[4] memory newPublicKey) public onlyOwner {
+        _setBlsPublicKey(newPublicKey);
+    }
+
+    function _setBlsPublicKey(uint256[4] memory newPublicKey) internal {
         emit PublicKeyChanged(publicKey, newPublicKey);
         publicKey = newPublicKey;
     }
 
     /**
-     * @return address of an aggregator contract trusted by this account to verify BSL signatures aggregated in a batch.
+     * @return address of an aggregator contract trusted by this account to verify BLS signatures aggregated in a batch.
      */
     function getAggregator() external view returns (address) {
         return aggregator;
