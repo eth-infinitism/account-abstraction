@@ -67,6 +67,39 @@ interface IEntryPoint is IStakeManager {
      */
     error SignatureValidationFailed(address aggregator);
 
+    /**
+     * Successful result from simulateValidation.
+     * @param returnInfo gas and time-range returned values
+     * @param senderInfo stake information about the sender
+     * @param factoryInfo stake information about the factor (if any)
+     * @param paymasterInfo stake information about the paymaster (if any)
+     */
+    error ValidationResult(ReturnInfo returnInfo,
+        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
+
+    /**
+     * Successful result from simulateValidation, if the account returns a signature aggregator
+     * @param returnInfo gas and time-range returned values
+     * @param senderInfo stake information about the sender
+     * @param factoryInfo stake information about the factor (if any)
+     * @param paymasterInfo stake information about the paymaster (if any)
+     * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
+     *      bundler MUST use it to verify the signature, or reject the UserOperation
+     */
+    error ValidationResultWithAggregation(ReturnInfo returnInfo,
+        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo,
+        AggregatorStakeInfo aggregatorInfo);
+
+    /**
+     * return value of getSenderAddress
+     */
+    error SenderAddressResult(address sender);
+
+    /**
+     * return value of simulateHandleOp
+     */
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validBefore, bool targetSuccess, bytes targetResult);
+
     //UserOps handled, per aggregator
     struct UserOpsPerAggregator {
         UserOperation[] userOps;
@@ -112,30 +145,6 @@ interface IEntryPoint is IStakeManager {
     function simulateValidation(UserOperation calldata userOp) external;
 
     /**
-     * Successful result from simulateValidation.
-     * @param returnInfo gas and time-range returned values
-     * @param senderInfo stake information about the sender
-     * @param factoryInfo stake information about the factor (if any)
-     * @param paymasterInfo stake information about the paymaster (if any)
-     */
-    error ValidationResult(ReturnInfo returnInfo,
-        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo);
-
-
-    /**
-     * Successful result from simulateValidation, if the account returns a signature aggregator
-     * @param returnInfo gas and time-range returned values
-     * @param senderInfo stake information about the sender
-     * @param factoryInfo stake information about the factor (if any)
-     * @param paymasterInfo stake information about the paymaster (if any)
-     * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
-     *      bundler MUST use it to verify the signature, or reject the UserOperation
-     */
-    error ValidationResultWithAggregation(ReturnInfo returnInfo,
-        StakeInfo senderInfo, StakeInfo factoryInfo, StakeInfo paymasterInfo,
-        AggregatorStakeInfo aggregatorInfo);
-
-    /**
      * gas and return values during simulation
      * @param preOpGas the gas used for validation (including preValidationGas)
      * @param prefund the required prefund for this operation
@@ -170,11 +179,6 @@ interface IEntryPoint is IStakeManager {
      */
     function getSenderAddress(bytes memory initCode) external;
 
-    /**
-     * return value of getSenderAddress
-     */
-    error SenderAddressResult(address sender);
-
 
     /**
      * simulate full execution of a UserOperation (including both validation and target execution)
@@ -190,7 +194,5 @@ interface IEntryPoint is IStakeManager {
      * @param targetCallData callData to pass to target address
      */
     function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external;
-
-    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validBefore, bool targetSuccess, bytes targetResult);
 }
 

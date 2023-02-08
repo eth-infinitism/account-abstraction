@@ -7,6 +7,7 @@ import "../../interfaces/IAggregatedAccount.sol";
  * a BLS account should expose its own public key.
  */
 interface IBLSAccount is IAggregatedAccount {
+    event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);
 
     /**
      * @return public key from a BLS keypair that is used to verify the BLS signature, both separately and aggregated.
