@@ -81,7 +81,7 @@ describe('Gnosis Proxy', function () {
     })
 
     const counter_countCallData = counter.interface.encodeFunctionData('count')
-    safe_execTxCallData = safeSingleton.interface.encodeFunctionData('execTransactionFromModule', [counter.address, 0, counter_countCallData, 0])
+    safe_execTxCallData = manager.interface.encodeFunctionData('executeAndRevert', [counter.address, 0, counter_countCallData, 0])
   })
   let beneficiary: string
   beforeEach(() => {
@@ -133,6 +133,28 @@ describe('Gnosis Proxy', function () {
     const ev = rcpt.events!.find(ev => ev.event === 'UserOperationEvent')!
     expect(ev.args!.success).to.eq(true)
     expect(await getBalance(beneficiary)).to.eq(ev.args!.actualGasCost)
+  })
+
+  it('should revert with reason', async function () {
+    const counter_countFailCallData = counter.interface.encodeFunctionData('countFail')
+    const safe_execFailTxCallData = manager.interface.encodeFunctionData('executeAndRevert', [counter.address, 0, counter_countFailCallData, 0])
+
+    const op = await fillAndSign({
+      sender: proxy.address,
+      callGasLimit: 1e6,
+      callData: safe_execFailTxCallData
+    }, owner, entryPoint)
+    const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
+    console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
+
+    // decode the revertReason
+    const ev = rcpt.events!.find(ev => ev.event === 'UserOperationRevertReason')!
+    let message: string = ev.args!.revertReason
+    if (message.startsWith('0x08c379a0')) {
+      // Error(string)
+      message = defaultAbiCoder.decode(['string'], '0x' + message.substring(10)).toString()
+    }
+    expect(message).to.eq('count failed')
   })
 
   let counterfactualAddress: string
