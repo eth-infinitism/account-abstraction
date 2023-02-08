@@ -24,10 +24,12 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     uint96 private _nonce;
     address public owner;
 
+    /// @inheritdoc BaseAccount
     function nonce() public view virtual override returns (uint256) {
         return _nonce;
     }
 
+    /// @inheritdoc BaseAccount
     function entryPoint() public view virtual override returns (IEntryPoint) {
         return _entryPoint;
     }

@@ -70,6 +70,10 @@ contract DepositPaymaster is BasePaymaster {
         }
     }
 
+    /**
+     * @return amount - the amount of given token deposited to the Paymaster.
+     * @return _unlockBlock - the block height at which the deposit can be withdrawn.
+     */
     function depositInfo(IERC20 token, address account) public view returns (uint256 amount, uint256 _unlockBlock) {
         amount = balances[token][account];
         _unlockBlock = unlockBlock[account];

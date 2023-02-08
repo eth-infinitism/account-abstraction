@@ -21,6 +21,10 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         aggregator = anAggregator;
     }
 
+    /**
+     * The initializer for the BLSAccount instance.
+     * @param aPublicKey public key from a BLS keypair that will have a full ownership and control of this account.
+     */
     function initialize(uint256[4] memory aPublicKey) public virtual initializer {
         super._initialize(address(0));
         publicKey = aPublicKey;
@@ -30,7 +34,6 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     internal override view returns (uint256 sigTimeRange) {
 
         (userOp, userOpHash);
-
         if (userOp.initCode.length != 0) {
             // BLSSignatureAggregator.getUserOpPublicKey() assumes that during account creation, the public key is
             // the suffix of the initCode.
@@ -38,22 +41,29 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
             bytes32 pubKeyHash = keccak256(abi.encode(getBlsPublicKey()));
             require(keccak256(userOp.initCode[userOp.initCode.length - 128 :]) == pubKeyHash, "wrong pubkey");
         }
-
         require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
         return 0;
     }
 
     event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);
 
+    /**
+     * Allows the owner to set or change the BSL key.
+     * @param newPublicKey public key from a BLS keypair that will have a full ownership and control of this account.
+     */
     function setBlsPublicKey(uint256[4] memory newPublicKey) external onlyOwner {
         emit PublicKeyChanged(publicKey, newPublicKey);
         publicKey = newPublicKey;
     }
 
+    /**
+     * @return address of an aggregator contract trusted by this account to verify BSL signatures aggregated in a batch.
+     */
     function getAggregator() external view returns (address) {
         return aggregator;
     }
 
+    /// @inheritdoc IBLSAccount
     function getBlsPublicKey() public override view returns (uint256[4] memory) {
         return publicKey;
     }

@@ -168,6 +168,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         _compensate(beneficiary, collected);
     }
 
+    /// @inheritdoc IEntryPoint
     function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external override {
 
         UserOpInfo memory opInfo;
