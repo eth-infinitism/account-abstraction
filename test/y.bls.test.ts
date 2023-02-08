@@ -192,7 +192,7 @@ describe('bls account', function () {
       userOp.signature = hexConcat(sigParts)
 
       const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
-      expect(aggregatorInfo.actualAggregator).to.eq(blsAgg.address)
+      expect(aggregatorInfo.aggregator).to.eq(blsAgg.address)
       expect(aggregatorInfo.stakeInfo.stake).to.eq(ONE_ETH)
       expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.eq(2)
 

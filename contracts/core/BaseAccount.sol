@@ -17,7 +17,7 @@ abstract contract BaseAccount is IAccount {
     using UserOperationLib for UserOperation;
 
     //return value in case of signature failure, with no time-range.
-    // equivalent to packSigTimeRange(true,0,0);
+    // equivalent to _packSigTimeRange(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     /**
@@ -26,7 +26,7 @@ abstract contract BaseAccount is IAccount {
      * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
      * @param validAfter first timestamp this UserOperation is valid
      */
-    function packSigTimeRange(bool sigFailed, uint64 validUntil, uint64 validAfter) internal pure returns (uint256) {
+    function _packSigTimeRange(bool sigFailed, uint64 validUntil, uint64 validAfter) internal pure returns (uint256) {
         return uint256(sigFailed ? 1 : 0) | (uint256(validUntil) << 8) | (uint256(validAfter) << 64+8);
     }
 

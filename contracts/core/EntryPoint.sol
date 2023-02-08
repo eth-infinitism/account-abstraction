@@ -82,7 +82,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     /**
      * Execute a batch of UserOperation.
      * no signature aggregator is used.
-     * if any account requires an aggregator (that is, it returned an "actualAggregator" when
+     * if any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
@@ -286,13 +286,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
         UserOpInfo memory outOpInfo;
 
         (uint256 sigTimeRange, uint256 paymasterTimeRange, address aggregator) = _validatePrepayment(0, userOp, outOpInfo, SIMULATE_FIND_AGGREGATOR);
-        StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
-        StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
+        StakeInfo memory paymasterInfo = _getStakeInfo(outOpInfo.mUserOp.paymaster);
+        StakeInfo memory senderInfo = _getStakeInfo(outOpInfo.mUserOp.sender);
         StakeInfo memory factoryInfo;
         {
             bytes calldata initCode = userOp.initCode;
             address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
-            factoryInfo = getStakeInfo(factory);
+            factoryInfo = _getStakeInfo(factory);
         }
 
         (bool sigFailed, uint64 validAfter, uint64 validUntil) = _intersectTimeRange(sigTimeRange, paymasterTimeRange);
@@ -300,7 +300,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             sigFailed, validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (aggregator != address(0)) {
-            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
+            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, _getStakeInfo(aggregator));
             revert ValidationResultWithAggregation(returnInfo, senderInfo, factoryInfo, paymasterInfo, aggregatorInfo);
         }
         revert ValidationResult(returnInfo, senderInfo, factoryInfo, paymasterInfo);
@@ -601,7 +601,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert FailedOp(opIndex, paymaster, "A51 prefund below actualGasCost");
         }
         uint256 refund = opInfo.prefund - actualGasCost;
-        internalIncrementDeposit(refundAddress, refund);
+        _incrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
         emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, success, actualGasCost, actualGas);
     } // unchecked
