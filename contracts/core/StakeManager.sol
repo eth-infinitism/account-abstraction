@@ -15,6 +15,7 @@ abstract contract StakeManager is IStakeManager {
     /// maps paymaster to their deposits and stakes
     mapping(address => DepositInfo) public deposits;
 
+    /// @inheritdoc IStakeManager
     function getDepositInfo(address account) public view returns (DepositInfo memory info) {
         return deposits[account];
     }
@@ -62,7 +63,7 @@ abstract contract StakeManager is IStakeManager {
         require(_unstakeDelaySec >= info.unstakeDelaySec, "cannot decrease unstake time");
         uint256 stake = info.stake + msg.value;
         require(stake > 0, "no stake specified");
-        require(stake < type(uint112).max, "stake overflow");
+        require(stake <= type(uint112).max, "stake overflow");
         deposits[msg.sender] = DepositInfo(
             info.deposit,
             true,
