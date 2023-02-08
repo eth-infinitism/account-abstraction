@@ -127,9 +127,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
      * deposit more funds for this account in the entryPoint
      */
     function addDeposit() public payable {
-
-        (bool req,) = address(entryPoint()).call{value : msg.value}("");
-        require(req);
+        entryPoint().depositTo{value : msg.value}(address(this));
     }
 
     /**

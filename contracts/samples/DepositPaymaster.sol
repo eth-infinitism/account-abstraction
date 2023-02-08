@@ -46,7 +46,7 @@ contract DepositPaymaster is BasePaymaster {
      * owner of the paymaster should add supported tokens
      */
     function addToken(IERC20 token, IOracle tokenPriceOracle) external onlyOwner {
-        require(oracles[token] == NULL_ORACLE);
+        require(oracles[token] == NULL_ORACLE, "Token already set");
         oracles[token] = tokenPriceOracle;
     }
 
