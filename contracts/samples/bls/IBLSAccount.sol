@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity >=0.7.6;
 
-import "../interfaces/IAggregatedAccount.sol";
+import "../../interfaces/IAggregatedAccount.sol";
 
 /**
  * a BLS account should expose its own public key.

@@ -8,8 +8,8 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "./EIP4337Fallback.sol";
-import "../interfaces/IAccount.sol";
-import "../interfaces/IEntryPoint.sol";
+import "../../interfaces/IAccount.sol";
+import "../../interfaces/IEntryPoint.sol";
 
     using ECDSA for bytes32;
 
