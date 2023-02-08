@@ -30,6 +30,15 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     internal override view returns (uint256 sigTimeRange) {
 
         (userOp, userOpHash);
+
+        if (userOp.initCode.length != 0) {
+            // BLSSignatureAggregator.getUserOpPublicKey() assumes that during account creation, the public key is
+            // the suffix of the initCode.
+            // The account MUST validate it
+            bytes32 pubKeyHash = keccak256(abi.encode(getBlsPublicKey()));
+            require(keccak256(userOp.initCode[userOp.initCode.length - 128 :]) == pubKeyHash, "wrong pubkey");
+        }
+
         require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
         return 0;
     }
@@ -45,7 +54,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         return aggregator;
     }
 
-    function getBlsPublicKey() external override view returns (uint256[4] memory) {
+    function getBlsPublicKey() public override view returns (uint256[4] memory) {
         return publicKey;
     }
 }
