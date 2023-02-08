@@ -3,6 +3,9 @@ pragma solidity >=0.7.5 <0.9.0;
 
 // solhint-disable no-inline-assembly
 
+/**
+ * Utility functions helpful when making different kinds of contract calls in Solidity.
+ */
 library Exec {
 
     function call(
