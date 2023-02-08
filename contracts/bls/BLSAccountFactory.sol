@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../interfaces/IEntryPoint.sol";
 import "./BLSAccount.sol";
 
+/* solhint-disable no-inline-assembly */
+
 /**
  * Based n SimpleAccountFactory
  * can't be a subclass, since both constructor and createAccount depend on the
@@ -24,9 +26,14 @@ contract BLSAccountFactory {
      * returns the address even if the account is already deployed.
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
-     * Also note that out BLSSignatureAggregator requires that the public-key is the last parameter
+     * Also note that our BLSSignatureAggregator requires that the public-key is the last parameter
      */
-    function createAccount(uint salt, uint256[4] memory aPublicKey) public returns (BLSAccount) {
+    function createAccount(uint salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
+
+        // the BLSSignatureAggregator depends on the public-key being the last 4 uint256 of msg.data.
+        uint slot;
+        assembly {slot := aPublicKey}
+        require(slot == msg.data.length - 128, "wrong pubkey offset");
 
         address addr = getAddress(salt, aPublicKey);
         uint codeSize = addr.code.length;
