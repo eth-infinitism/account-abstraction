@@ -58,7 +58,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         _approve(address(this), newOwner, type(uint).max);
     }
 
-    //TODO: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
+    //Note: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
     // or a setter.
     function getTokenValueOfEth(uint256 valueEth) internal view virtual returns (uint256 valueToken) {
         return valueEth / 100;

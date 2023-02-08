@@ -55,7 +55,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         }
 
         if (missingAccountFunds > 0) {
-            //TODO: MAY pay more than the minimum, to deposit for future transactions
+            //Note: MAY pay more than the minimum, to deposit for future transactions
             (bool success,) = payable(_msgSender).call{value : missingAccountFunds}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
