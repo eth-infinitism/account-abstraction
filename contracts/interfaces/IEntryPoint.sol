@@ -48,7 +48,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * signature aggregator used by the following UserOperationEvents within this bundle.
      */
-    event SignatureAggregatorChanged(address aggregator);
+    event SignatureAggregatorChanged(address indexed aggregator);
 
     /**
      * a custom revert error of handleOps, to identify the offending op.
