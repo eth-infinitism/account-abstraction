@@ -36,7 +36,11 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     }
 
 
-    //helpers for owner, to mint and withdraw tokens.
+    /**
+     * helpers for owner, to mint and withdraw tokens.
+     * @param recipient - the address that will receive the minted tokens.
+     * @param amount - the amount it will receive.
+     */
     function mintTokens(address recipient, uint256 amount) external onlyOwner {
         _mint(recipient, amount);
     }
