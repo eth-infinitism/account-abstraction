@@ -492,8 +492,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // also convert zero validUntil to type(uint64).max
     function _parseSigTimeRange(uint sigTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
         sigFailed = uint8(sigTimeRange) != 0;
-        // subtract one, to explicitly treat zero as max-value
-        validUntil = uint64(int64(int(sigTimeRange >> 8) - 1));
+        // Treat zero as max-value
+        validUntil = uint64(sigTimeRange >> 8);
+        if (validUntil == 0) {
+            validUntil = type(uint64).max;
+        }
         validAfter = uint64(sigTimeRange >> (8 + 64));
     }
 

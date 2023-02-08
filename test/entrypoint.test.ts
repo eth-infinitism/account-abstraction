@@ -1150,7 +1150,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(100)
         })
 
@@ -1161,7 +1161,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, expiredOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).eql(now - 60 - 1)
+          expect(ret.returnInfo.validUntil).eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
       })
@@ -1184,7 +1184,7 @@ describe('EntryPoint', function () {
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
 
@@ -1195,7 +1195,7 @@ describe('EntryPoint', function () {
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(321)
         })
 
@@ -1229,10 +1229,10 @@ describe('EntryPoint', function () {
             expect((await simulateWithPaymasterParams(200, 1000)).validAfter).to.eql(200)
           })
           it('should use higher "until" value of paymaster', async () => {
-            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(399)
+            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(400)
           })
           it('should use higher "until" value of account', async () => {
-            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(499)
+            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(500)
           })
 
           it('handleOps should revert on expired paymaster request', async () => {
