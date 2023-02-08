@@ -2,12 +2,11 @@
 pragma solidity >=0.8.4 <0.9.0;
 pragma abicoder v2;
 
-import "../interfaces/IAggregator.sol";
-import "../interfaces/IEntryPoint.sol";
+import "../../interfaces/IAggregator.sol";
+import "../../interfaces/IEntryPoint.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
 import "./IBLSAccount.sol";
 import "./BLSHelper.sol";
-import "hardhat/console.sol";
 
 /**
  * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSAccount
@@ -17,12 +16,17 @@ contract BLSSignatureAggregator is IAggregator {
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
+    /**
+     * @return publicKey - the public key from a BLS keypair the Aggregator will use to verify this UserOp;
+     *         normally public key will be queried from the deployed BLSAccount itself;
+     *         the public key will be read from the 'initCode' if the account is not deployed yet;
+     */
     function getUserOpPublicKey(UserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
         bytes memory initCode = userOp.initCode;
         if (initCode.length > 0) {
             publicKey = getTrailingPublicKey(initCode);
         } else {
-            return IBLSAccount(userOp.sender).getBlsPublicKey();
+            return IBLSAccount(userOp.sender).getBlsPublicKey{gas : 50000}();
         }
     }
 
@@ -44,6 +48,7 @@ contract BLSSignatureAggregator is IAggregator {
         }
     }
 
+    /// @inheritdoc IAggregator
     function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature)
     external view override {
         require(signature.length == 64, "BLS: invalid signature");
@@ -55,11 +60,9 @@ contract BLSSignatureAggregator is IAggregator {
         for (uint256 i = 0; i < userOpsLen; i++) {
 
             UserOperation memory userOp = userOps[i];
-            IBLSAccount blsAccount = IBLSAccount(userOp.sender);
+            blsPublicKeys[i] = getUserOpPublicKey(userOp);
 
-            blsPublicKeys[i] = blsAccount.getBlsPublicKey{gas : 30000}();
-
-            messages[i] = _userOpToMessage(userOp, keccak256(abi.encode(blsPublicKeys[i])));
+            messages[i] = _userOpToMessage(userOp, _getPublicKeyHash(blsPublicKeys[i]));
         }
         require(BLSOpen.verifyMultiple(blsSignature, blsPublicKeys, messages), "BLS: validateSignatures failed");
     }
@@ -89,7 +92,7 @@ contract BLSSignatureAggregator is IAggregator {
      * the account checks the signature over this value  using its public-key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
-        bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
+        bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _userOpToMessage(userOp, hashPublicKey);
     }
 
@@ -98,13 +101,9 @@ contract BLSSignatureAggregator is IAggregator {
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
 
-    //return the public-key hash of a userOp.
-    function _getUserOpPubkeyHash(UserOperation memory userOp) internal view returns (bytes32 hashPublicKey) {
-        return keccak256(abi.encode(getUserOpPublicKey(userOp)));
-    }
-
+    // helper for test
     function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
-        bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
+        bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _getUserOpHash(userOp, hashPublicKey);
     }
 
@@ -112,9 +111,12 @@ contract BLSSignatureAggregator is IAggregator {
         return keccak256(abi.encode(internalUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
     }
 
+    function _getPublicKeyHash(uint256[4] memory publicKey) internal pure returns(bytes32) {
+        return keccak256(abi.encode(publicKey));
+    }
     /**
      * validate signature of a single userOp
-     * This method is called after EntryPoint.simulateUserOperation() returns an aggregator.
+     * This method is called after EntryPoint.simulateValidation() returns an aggregator.
      * First it validates the signature over the userOp. then it return data to be used when creating the handleOps:
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
@@ -124,7 +126,7 @@ contract BLSSignatureAggregator is IAggregator {
     external view returns (bytes memory sigForUserOp) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
         uint256[4] memory pubkey = getUserOpPublicKey(userOp);
-        uint256[2] memory message = userOpToMessage(userOp);
+        uint256[2] memory message = _userOpToMessage(userOp, _getPublicKeyHash(pubkey));
 
         require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
         return "";
@@ -143,7 +145,7 @@ contract BLSSignatureAggregator is IAggregator {
     function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
         BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
         for (uint i = 0; i < points.length; i++) {
-            (uint x, uint y) = abi.decode(userOps[i].signature, (uint, uint));
+            (uint256 x, uint256 y) = abi.decode(userOps[i].signature, (uint256, uint256));
             points[i] = BLSHelper.XY(x, y);
         }
         BLSHelper.XY memory sum = BLSHelper.sum(points, N);

@@ -69,8 +69,8 @@ abstract contract BaseAccount is IAccount {
      * @param userOpHash convenient field: the hash of the request, to check the signature against
      *          (also hashes the entrypoint and chain-id)
      * @param aggregator the current aggregator. can be ignored by accounts that don't use aggregators
-     * @return sigTimeRange signature and time-range of this operation
-     *      <byte> sigFailure - (1) to mark signature failure, 0 for valid signature.
+     * @return sigTimeRange signature validation status and time-range of this operation
+     *      <byte> sigCheckStatus - (1) to mark signature failure, 0 for valid signature.
      *      <8-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *      <8-byte> validAfter - first timestamp this operation is valid
      *      The an account doesn't use time-range, it is enough to return SIG_VALIDATION_FAILED value (1) for signature failure.

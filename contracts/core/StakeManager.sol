@@ -15,6 +15,7 @@ abstract contract StakeManager is IStakeManager {
     /// maps paymaster to their deposits and stakes
     mapping(address => DepositInfo) public deposits;
 
+    /// @inheritdoc IStakeManager
     function getDepositInfo(address account) public view returns (DepositInfo memory info) {
         return deposits[account];
     }
