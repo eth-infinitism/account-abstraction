@@ -40,7 +40,7 @@ library Exec {
     }
 
     // get returned data from last call or calldelegate
-    function getReturnData(uint maxLen) internal pure returns (bytes memory returnData) {
+    function getReturnData(uint256 maxLen) internal pure returns (bytes memory returnData) {
         assembly {
             let len := returndatasize()
             if gt(len, maxLen) {
@@ -61,7 +61,7 @@ library Exec {
         }
     }
 
-    function callAndRevert(address to, bytes memory data, uint maxLen) internal {
+    function callAndRevert(address to, bytes memory data, uint256 maxLen) internal {
         bool success = call(to,0,data,gasleft());
         if (!success) {
             revertWithData(getReturnData(maxLen));

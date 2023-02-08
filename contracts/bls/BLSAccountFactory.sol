@@ -8,7 +8,6 @@ import "../interfaces/IEntryPoint.sol";
 import "./BLSAccount.sol";
 
 /* solhint-disable no-inline-assembly */
-
 /**
  * Based n SimpleAccountFactory
  * can't be a subclass, since both constructor and createAccount depend on the
@@ -28,7 +27,7 @@ contract BLSAccountFactory {
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      * Also note that our BLSSignatureAggregator requires that the public-key is the last parameter
      */
-    function createAccount(uint salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
+    function createAccount(uint256 salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
 
         // the BLSSignatureAggregator depends on the public-key being the last 4 uint256 of msg.data.
         uint slot;
@@ -49,7 +48,7 @@ contract BLSAccountFactory {
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(uint salt, uint256[4] memory aPublicKey) public view returns (address) {
+    function getAddress(uint256 salt, uint256[4] memory aPublicKey) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
                 type(ERC1967Proxy).creationCode,
                 abi.encode(

@@ -146,7 +146,7 @@ contract BLSSignatureAggregator is IAggregator {
     function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
         BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
         for (uint i = 0; i < points.length; i++) {
-            (uint x, uint y) = abi.decode(userOps[i].signature, (uint, uint));
+            (uint256 x, uint256 y) = abi.decode(userOps[i].signature, (uint256, uint256));
             points[i] = BLSHelper.XY(x, y);
         }
         BLSHelper.XY memory sum = BLSHelper.sum(points, N);

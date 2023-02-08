@@ -29,7 +29,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex'deaddead';
 
-    uint private constant REVERT_REASON_MAX_LEN = 2048;
+    uint256 private constant REVERT_REASON_MAX_LEN = 2048;
 
     /**
      * for simulation purposes, validateUserOp (and validatePaymasterUserOp) must return this value
@@ -479,7 +479,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
     }
 
-    function _getSigTimeRange(uint sigTimeRange) internal view returns (bool sigFailed, bool outOfTimeRange) {
+    function _getSigTimeRange(uint256 sigTimeRange) internal view returns (bool sigFailed, bool outOfTimeRange) {
         if (sigTimeRange == 0) {
             return (false, false);
         }
@@ -492,7 +492,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     //extract sigFailed, validAfter, validUntil.
     // also convert zero validUntil to type(uint64).max
-    function _parseSigTimeRange(uint sigTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
+    function _parseSigTimeRange(uint256 sigTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
         sigFailed = uint8(sigTimeRange) != 0;
         // Treat zero as max-value
         validUntil = uint64(sigTimeRange >> 8);
@@ -503,7 +503,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // intersect account and paymaster ranges.
-    function _intersectTimeRange(uint sigTimeRange, uint paymasterTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
+    function _intersectTimeRange(uint256 sigTimeRange, uint256 paymasterTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
         (sigFailed, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
         (bool pmSigFailed, uint64 pmValidAfter, uint64 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
         sigFailed = sigFailed || pmSigFailed;

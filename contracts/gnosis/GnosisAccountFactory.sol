@@ -20,7 +20,7 @@ contract GnosisSafeAccountFactory {
         eip4337Manager = _eip4337Manager;
     }
 
-    function createAccount(address owner, uint salt) public returns (address) {
+    function createAccount(address owner,uint256 salt) public returns (address) {
         address addr = getAddress(owner, salt);
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
@@ -51,7 +51,7 @@ contract GnosisSafeAccountFactory {
     * calculate the counterfactual address of this account as it would be returned by createAccount()
     * (uses the same "create2 signature" used by GnosisSafeProxyFactory.createProxyWithNonce)
     */
-    function getAddress(address owner, uint salt) public view returns (address) {
+    function getAddress(address owner,uint256 salt) public view returns (address) {
         bytes memory initializer = getInitializer(owner);
         //copied from deployProxyWithNonce
         bytes32 salt2 = keccak256(abi.encodePacked(keccak256(initializer), salt));
