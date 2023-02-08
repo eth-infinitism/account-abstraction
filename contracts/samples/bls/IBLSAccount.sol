@@ -9,7 +9,7 @@ import "../../interfaces/IAggregatedAccount.sol";
 interface IBLSAccount is IAggregatedAccount {
 
     /**
-     * @return public key from a BLS keypair that is used to verify the BSL signature, both separately and aggregated.
+     * @return public key from a BLS keypair that is used to verify the BLS signature, both separately and aggregated.
      */
     function getBlsPublicKey() external view returns (uint256[4] memory);
 }
