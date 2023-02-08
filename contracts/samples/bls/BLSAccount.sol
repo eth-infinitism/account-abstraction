@@ -27,7 +27,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
      */
     function initialize(uint256[4] memory aPublicKey) public virtual initializer {
         super._initialize(address(0));
-        publicKey = aPublicKey;
+        setBlsPublicKey(aPublicKey);
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
@@ -51,7 +51,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
      * Allows the owner to set or change the BSL key.
      * @param newPublicKey public key from a BLS keypair that will have a full ownership and control of this account.
      */
-    function setBlsPublicKey(uint256[4] memory newPublicKey) external onlyOwner {
+    function setBlsPublicKey(uint256[4] memory newPublicKey) public onlyOwner {
         emit PublicKeyChanged(publicKey, newPublicKey);
         publicKey = newPublicKey;
     }
