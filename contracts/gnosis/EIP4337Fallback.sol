@@ -8,6 +8,12 @@ import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "../interfaces/IAccount.sol";
 import "./EIP4337Manager.sol";
 
+/**
+ * The GnosisSafe enables adding custom functions implementation to the Safe by setting a 'fallbackHandler'.
+ * This 'fallbackHandler' adds an implementation of 'validateUserOp' to the GnosisSafe.
+ * Note that the implementation of the 'validateUserOp' method is located in the EIP4337Manager.
+ * Upon receiving the 'validateUserOp', a Safe with EIP4337Fallback enabled makes a 'delegatecall' to EIP4337Manager.
+ */
 contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
     address immutable public eip4337manager;
     constructor(address _eip4337manager) {

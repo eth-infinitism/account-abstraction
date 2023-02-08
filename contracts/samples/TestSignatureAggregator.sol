@@ -13,6 +13,7 @@ import "./SimpleAccount.sol";
  */
 contract TestSignatureAggregator is IAggregator {
 
+    /// @inheritdoc IAggregator
     function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) external pure override {
         uint sum = 0;
         for (uint i = 0; i < userOps.length; i++) {
@@ -24,6 +25,7 @@ contract TestSignatureAggregator is IAggregator {
         require(sig == sum, "TestSignatureValidator: aggregated signature mismatch (nonce sum)");
     }
 
+    /// @inheritdoc IAggregator
     function validateUserOpSignature(UserOperation calldata)
     external pure returns (bytes memory) {
         return "";
@@ -40,6 +42,11 @@ contract TestSignatureAggregator is IAggregator {
         return abi.encode(sum);
     }
 
+    /**
+     * Calls the 'addStake' method of the EntryPoint. Forwards the entire msg.value to this call.
+     * @param entryPoint - the EntryPoint to send the stake to.
+     * @param delay - the new lock duration before the deposit can be withdrawn.
+     */
     function addStake(IEntryPoint entryPoint, uint32 delay) external payable {
         entryPoint.addStake{value: msg.value}(delay);
     }

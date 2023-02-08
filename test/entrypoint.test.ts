@@ -51,7 +51,7 @@ import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
-import { toChecksumAddress, zeroAddress } from 'ethereumjs-util'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -877,8 +877,6 @@ describe('EntryPoint', function () {
         aggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
         aggAccount = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
         aggAccount2 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
-        await aggAccount.initialize(zeroAddress())
-        await aggAccount2.initialize(zeroAddress())
         await ethersSigner.sendTransaction({ to: aggAccount.address, value: parseEther('0.1') })
         await ethersSigner.sendTransaction({ to: aggAccount2.address, value: parseEther('0.1') })
       })
@@ -909,7 +907,6 @@ describe('EntryPoint', function () {
         // this is just sanity check that the compiler indeed reverts on a call to "validateSignatures()" to nonexistent contracts
         const address1 = hexZeroPad('0x1', 20)
         const aggAccount1 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, address1)
-        await aggAccount1.initialize(zeroAddress())
 
         const userOp = await fillAndSign({
           sender: aggAccount1.address,
@@ -945,7 +942,6 @@ describe('EntryPoint', function () {
       it('should run with multiple aggregators (and non-aggregated-accounts)', async () => {
         const aggregator3 = await new TestSignatureAggregator__factory(ethersSigner).deploy()
         const aggAccount3 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
-        await aggAccount3.initialize(zeroAddress())
         await ethersSigner.sendTransaction({ to: aggAccount3.address, value: parseEther('0.1') })
 
         const userOp1 = await fillAndSign({
@@ -1150,7 +1146,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(100)
         })
 
@@ -1161,7 +1157,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, expiredOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).eql(now - 60 - 1)
+          expect(ret.returnInfo.validUntil).eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
       })
@@ -1184,7 +1180,7 @@ describe('EntryPoint', function () {
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
 
@@ -1195,7 +1191,7 @@ describe('EntryPoint', function () {
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(321)
         })
 
@@ -1229,10 +1225,10 @@ describe('EntryPoint', function () {
             expect((await simulateWithPaymasterParams(200, 1000)).validAfter).to.eql(200)
           })
           it('should use higher "until" value of paymaster', async () => {
-            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(399)
+            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(400)
           })
           it('should use higher "until" value of account', async () => {
-            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(499)
+            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(500)
           })
 
           it('handleOps should revert on expired paymaster request', async () => {
