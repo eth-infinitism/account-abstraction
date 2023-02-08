@@ -9,6 +9,12 @@ import "./UserOperation.sol";
  */
 interface IPaymaster {
 
+    enum PostOpMode {
+        opSucceeded, // user op succeeded
+        opReverted, // user op reverted. still has to pay for gas.
+        postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
+    }
+
     /**
      * payment validation: check if paymaster agree to pay.
      * Must verify sender is the entryPoint.
@@ -41,10 +47,4 @@ interface IPaymaster {
      * @param actualGasCost - actual gas used so far (without this postOp call).
      */
     function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external;
-
-    enum PostOpMode {
-        opSucceeded, // user op succeeded
-        opReverted, // user op reverted. still has to pay for gas.
-        postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
-    }
 }

@@ -88,6 +88,13 @@ describe('Gnosis Proxy', function () {
     beneficiary = createAddress()
   })
 
+  it('#getCurrentEIP4337Manager', async () => {
+    // need some manager to query the current manager of a safe
+    const tempManager = await new EIP4337Manager__factory(ethersSigner).deploy(AddressZero)
+    const { manager: curManager } = await tempManager.getCurrentEIP4337Manager(proxySafe.address)
+    expect(curManager).to.eq(manager.address)
+  })
+
   it('should validate', async function () {
     await manager.callStatic.validateEip4337(proxySafe.address, manager.address, { gasLimit: 10e6 })
   })
@@ -250,6 +257,9 @@ describe('Gnosis Proxy', function () {
       expect(await proxySafe.isModuleEnabled(newFallback)).to.equal(true)
       expect(await proxySafe.isModuleEnabled(entryPoint.address)).to.equal(false)
       expect(await proxySafe.isModuleEnabled(oldFallback)).to.equal(false)
+
+      const { manager: curManager } = await manager.getCurrentEIP4337Manager(proxySafe.address)
+      expect(curManager).to.eq(newManager.address)
     })
   })
 })

@@ -104,10 +104,10 @@ describe('EntryPoint with paymaster', function () {
         }, accountOwner, entryPoint)
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
+        })).to.revertedWith('AA33 reverted: TokenPaymaster: no balance')
         await expect(entryPoint.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
+        })).to.revertedWith('AA33 reverted: TokenPaymaster: no balance')
       })
     })
 
