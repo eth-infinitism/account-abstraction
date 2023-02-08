@@ -22,7 +22,7 @@ contract BLSSignatureAggregator is IAggregator {
         if (initCode.length > 0) {
             publicKey = getTrailingPublicKey(initCode);
         } else {
-            return IBLSAccount(userOp.sender).getBlsPublicKey();
+            return IBLSAccount(userOp.sender).getBlsPublicKey{gas : 50000}();
         }
     }
 
@@ -55,11 +55,9 @@ contract BLSSignatureAggregator is IAggregator {
         for (uint256 i = 0; i < userOpsLen; i++) {
 
             UserOperation memory userOp = userOps[i];
-            IBLSAccount blsAccount = IBLSAccount(userOp.sender);
+            blsPublicKeys[i] = getUserOpPublicKey(userOp);
 
-            blsPublicKeys[i] = blsAccount.getBlsPublicKey{gas : 30000}();
-
-            messages[i] = _userOpToMessage(userOp, keccak256(abi.encode(blsPublicKeys[i])));
+            messages[i] = _userOpToMessage(userOp, _getPublicKeyHash(blsPublicKeys[i]));
         }
         require(BLSOpen.verifyMultiple(blsSignature, blsPublicKeys, messages), "BLS: validateSignatures failed");
     }
@@ -89,7 +87,7 @@ contract BLSSignatureAggregator is IAggregator {
      * the account checks the signature over this value  using its public-key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
-        bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
+        bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _userOpToMessage(userOp, hashPublicKey);
     }
 
@@ -98,18 +96,18 @@ contract BLSSignatureAggregator is IAggregator {
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
 
-    //return the public-key hash of a userOp.
-    function _getUserOpPubkeyHash(UserOperation memory userOp) internal view returns (bytes32 hashPublicKey) {
-        return keccak256(abi.encode(getUserOpPublicKey(userOp)));
-    }
-
+    //TODO: helper for test
     function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
-        bytes32 hashPublicKey = _getUserOpPubkeyHash(userOp);
+        bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _getUserOpHash(userOp, hashPublicKey);
     }
 
     function _getUserOpHash(UserOperation memory userOp, bytes32 hashPublicKey) internal view returns (bytes32) {
         return keccak256(abi.encode(internalUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
+    }
+
+    function _getPublicKeyHash(uint256[4] memory publicKey) internal pure returns(bytes32) {
+        return keccak256(abi.encode(publicKey));
     }
 
     /**
@@ -124,7 +122,7 @@ contract BLSSignatureAggregator is IAggregator {
     external view returns (bytes memory sigForUserOp) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
         uint256[4] memory pubkey = getUserOpPublicKey(userOp);
-        uint256[2] memory message = userOpToMessage(userOp);
+        uint256[2] memory message = _userOpToMessage(userOp, _getPublicKeyHash(pubkey));
 
         require(BLSOpen.verifySingle(signature, pubkey, message), "BLS: wrong sig");
         return "";
