@@ -49,12 +49,12 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     }
 
     function _onlyOwner() internal view {
-        //directly from EOA owner, or through the entryPoint (which gets redirected through execFromEntryPoint)
+        //directly from EOA owner, or through the account itself (which gets redirected through execute())
         require(msg.sender == owner || msg.sender == address(this), "only owner");
     }
 
     /**
-     * execute a transaction (called directly from owner, not by entryPoint)
+     * execute a transaction (called directly from owner, or by entryPoint)
      */
     function execute(address dest, uint256 value, bytes calldata func) external {
         _requireFromEntryPointOrOwner();
@@ -73,9 +73,9 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     }
 
     /**
-     * change entry-point:
-     * an account must have a method for replacing the entryPoint, in case the the entryPoint is
-     * upgraded to a newer version.
+     * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
+     * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
+      * the implementation by calling `upgradeTo()`
      */
     function initialize(address anOwner) public virtual initializer {
         _initialize(anOwner);
@@ -86,14 +86,7 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
         emit SimpleAccountInitialized(_entryPoint, owner);
     }
 
-    /**
-     * validate the userOp is correct.
-     * revert if it doesn't.
-     * - must only be called from the entryPoint.
-     * - make sure the signature is of our supported signer.
-     * - validate current nonce matches request nonce, and increment it.
-     * - pay prefund, in case current deposit is not enough
-     */
+    // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrOwner() internal view {
         require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
     }

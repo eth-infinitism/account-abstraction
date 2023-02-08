@@ -20,10 +20,10 @@ interface IEntryPoint is IStakeManager {
      * @param userOpHash - unique identifier for the request (hash its entire content, except signature).
      * @param sender - the account that generates this request.
      * @param paymaster - if non-null, the paymaster that pays for this request.
-     * @param nonce - the nonce value from the request
-     * @param actualGasCost - actual amount paid (by account or paymaster) for this UserOperation
-     * @param actualGasUsed - total gas used by this UserOperation (including preVerification, creation, validation and execution)
+     * @param nonce - the nonce value from the request.
      * @param success - true if the sender transaction succeeded, false if reverted.
+     * @param actualGasCost - actual amount paid (by account or paymaster) for this UserOperation.
+     * @param actualGasUsed - total gas used by this UserOperation (including preVerification, creation, validation and execution).
      */
     event UserOperationEvent(bytes32 indexed userOpHash, address indexed sender, address indexed paymaster, uint256 nonce, bool success, uint256 actualGasCost, uint256 actualGasUsed);
 

@@ -132,13 +132,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
             UserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
-            uint256 opslen = ops.length;
-            for (uint256 i = 0; i < opslen; i++) {
-                UserOpInfo memory opInfo = opInfos[opIndex];
-                (uint256 sigTimeRange, uint256 paymasterTimeRange,) = _validatePrepayment(opIndex, ops[i], opInfo, address(aggregator));
-                _validateSigTimeRange(i, opInfo, sigTimeRange, paymasterTimeRange);
-                opIndex++;
-            }
 
             if (address(aggregator) != address(0)) {
                 // solhint-disable-next-line no-empty-blocks
@@ -146,6 +139,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
                 catch {
                     revert SignatureValidationFailed(address(aggregator));
                 }
+            }
+
+            uint256 opslen = ops.length;
+            for (uint256 i = 0; i < opslen; i++) {
+                UserOpInfo memory opInfo = opInfos[opIndex];
+                (uint256 sigTimeRange, uint256 paymasterTimeRange,) = _validatePrepayment(opIndex, ops[i], opInfo, address(aggregator));
+                _validateSigTimeRange(i, opInfo, sigTimeRange, paymasterTimeRange);
+                opIndex++;
             }
         }
 
@@ -186,7 +187,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
 
-    //a memory copy of UserOp fields (except that dynamic byte arrays: callData, initCode and signature
+    // A memory copy of UserOp static fields only.
+    // Excluding: callData, initCode and signature. Replacing paymasterAndData with paymaster.
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
@@ -424,11 +426,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * in case the request has a paymaster:
-     * validate paymaster is staked and has enough deposit.
-     * call paymaster.validatePaymasterUserOp.
-     * revert with proper FailedOp in case paymaster reverts.
-     * decrement paymaster's deposit
+     * In case the request has a paymaster:
+     * Validate paymaster has enough deposit.
+     * Call paymaster.validatePaymasterUserOp.
+     * Revert with proper FailedOp in case paymaster reverts.
+     * Decrement paymaster's deposit
      */
     function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateAccountPrepayment)
     internal returns (bytes memory context, uint256 sigTimeRange) {
@@ -491,8 +493,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
     // also convert zero validUntil to type(uint64).max
     function _parseSigTimeRange(uint sigTimeRange) internal pure returns (bool sigFailed, uint64 validAfter, uint64 validUntil) {
         sigFailed = uint8(sigTimeRange) != 0;
-        // subtract one, to explicitly treat zero as max-value
-        validUntil = uint64(int64(int(sigTimeRange >> 8) - 1));
+        // Treat zero as max-value
+        validUntil = uint64(sigTimeRange >> 8);
+        if (validUntil == 0) {
+            validUntil = type(uint64).max;
+        }
         validAfter = uint64(sigTimeRange >> (8 + 64));
     }
 
