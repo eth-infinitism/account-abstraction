@@ -18,7 +18,7 @@ import "../interfaces/IEntryPoint.sol";
  * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IAccount",
  * so must implement validateUserOp
  * holds an immutable reference to the EntryPoint
- * Inherits GnosisSafeStorage so that it can reference the memory storage
+ * Inherits GnosisSafe so that it can reference the memory storage
  */
 contract EIP4337Manager is GnosisSafe, IAccount {
 
