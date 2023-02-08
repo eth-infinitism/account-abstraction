@@ -410,7 +410,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         returns (uint256 _sigTimeRange) {
             sigTimeRange = _sigTimeRange;
         } catch Error(string memory revertReason) {
-            revert FailedOp(opIndex, address(0), revertReason);
+            revert FailedOp(opIndex, address(0), string.concat("AA23 reverted: ", revertReason));
         } catch {
             revert FailedOp(opIndex, address(0), "AA23 reverted (or OOG)");
         }
@@ -452,7 +452,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             context = _context;
             sigTimeRange = _sigTimeRange;
         } catch Error(string memory revertReason) {
-            revert FailedOp(opIndex, paymaster, revertReason);
+            revert FailedOp(opIndex, paymaster, string.concat("AA33 reverted: ", revertReason));
         } catch {
             revert FailedOp(opIndex, paymaster, "AA33 reverted (or OOG)");
         }
