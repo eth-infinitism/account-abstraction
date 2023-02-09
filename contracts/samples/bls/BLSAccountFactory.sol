@@ -4,18 +4,21 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import "./TestAggregatedAccount.sol";
+import "../../interfaces/IEntryPoint.sol";
+import "./BLSAccount.sol";
+
+/* solhint-disable no-inline-assembly */
 
 /**
  * Based on SimpleAccountFactory.
  * Cannot be a subclass since both constructor and createAccount depend on the
  * constructor and initializer of the actual account contract.
  */
-contract TestAggregatedAccountFactory {
-    TestAggregatedAccount public immutable accountImplementation;
+contract BLSAccountFactory {
+    BLSAccount public immutable accountImplementation;
 
-    constructor(IEntryPoint anEntryPoint, address anAggregator){
-        accountImplementation = new TestAggregatedAccount(anEntryPoint, anAggregator);
+    constructor(IEntryPoint entryPoint, address aggregator){
+        accountImplementation = new BLSAccount(entryPoint, aggregator);
     }
 
     /**
@@ -23,28 +26,35 @@ contract TestAggregatedAccountFactory {
      * returns the address even if the account is already deployed.
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
+     * Also note that our BLSSignatureAggregator requires that the public key is the last parameter
      */
-    function createAccount(address owner, uint salt) public returns (TestAggregatedAccount ret) {
-        address addr = getAddress(owner, salt);
+    function createAccount(uint256 salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
+
+        // the BLSSignatureAggregator depends on the public-key being the last 4 uint256 of msg.data.
+        uint slot;
+        assembly {slot := aPublicKey}
+        require(slot == msg.data.length - 128, "wrong pubkey offset");
+
+        address addr = getAddress(salt, aPublicKey);
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
-            return TestAggregatedAccount(payable(addr));
+            return BLSAccount(payable(addr));
         }
-        ret = TestAggregatedAccount(payable(new ERC1967Proxy{salt : bytes32(salt)}(
+        return BLSAccount(payable(new ERC1967Proxy{salt : bytes32(salt)}(
                 address(accountImplementation),
-                abi.encodeCall(TestAggregatedAccount.initialize, (owner))
+                abi.encodeCall(BLSAccount.initialize, aPublicKey)
             )));
     }
 
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(address owner, uint salt) public view returns (address) {
+    function getAddress(uint256 salt, uint256[4] memory aPublicKey) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
                 type(ERC1967Proxy).creationCode,
                 abi.encode(
                     address(accountImplementation),
-                    abi.encodeCall(TestAggregatedAccount.initialize, (owner))
+                    abi.encodeCall(BLSAccount.initialize, (aPublicKey))
                 )
             )));
     }
