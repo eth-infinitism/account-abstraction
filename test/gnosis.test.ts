@@ -82,11 +82,18 @@ describe('Gnosis Proxy', function () {
     })
 
     const counter_countCallData = counter.interface.encodeFunctionData('count')
-    safe_execTxCallData = safeSingleton.interface.encodeFunctionData('execTransactionFromModule', [counter.address, 0, counter_countCallData, 0])
+    safe_execTxCallData = manager.interface.encodeFunctionData('executeAndRevert', [counter.address, 0, counter_countCallData, 0])
   })
   let beneficiary: string
   beforeEach(() => {
     beneficiary = createAddress()
+  })
+
+  it('#getCurrentEIP4337Manager', async () => {
+    // need some manager to query the current manager of a safe
+    const tempManager = await new EIP4337Manager__factory(ethersSigner).deploy(AddressZero)
+    const { manager: curManager } = await tempManager.getCurrentEIP4337Manager(proxySafe.address)
+    expect(curManager).to.eq(manager.address)
   })
 
   it('should validate', async function () {
@@ -134,6 +141,28 @@ describe('Gnosis Proxy', function () {
     const ev = rcpt.events!.find(ev => ev.event === 'UserOperationEvent')!
     expect(ev.args!.success).to.eq(true)
     expect(await getBalance(beneficiary)).to.eq(ev.args!.actualGasCost)
+  })
+
+  it('should revert with reason', async function () {
+    const counter_countFailCallData = counter.interface.encodeFunctionData('countFail')
+    const safe_execFailTxCallData = manager.interface.encodeFunctionData('executeAndRevert', [counter.address, 0, counter_countFailCallData, 0])
+
+    const op = await fillAndSign({
+      sender: proxy.address,
+      callGasLimit: 1e6,
+      callData: safe_execFailTxCallData
+    }, owner, entryPoint)
+    const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
+    console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
+
+    // decode the revertReason
+    const ev = rcpt.events!.find(ev => ev.event === 'UserOperationRevertReason')!
+    let message: string = ev.args!.revertReason
+    if (message.startsWith('0x08c379a0')) {
+      // Error(string)
+      message = defaultAbiCoder.decode(['string'], '0x' + message.substring(10)).toString()
+    }
+    expect(message).to.eq('count failed')
   })
 
   let counterfactualAddress: string
@@ -244,6 +273,9 @@ describe('Gnosis Proxy', function () {
       expect(await proxySafe.isModuleEnabled(newFallback)).to.equal(true)
       expect(await proxySafe.isModuleEnabled(entryPoint.address)).to.equal(false)
       expect(await proxySafe.isModuleEnabled(oldFallback)).to.equal(false)
+
+      const { manager: curManager } = await manager.getCurrentEIP4337Manager(proxySafe.address)
+      expect(curManager).to.eq(newManager.address)
     })
   })
 })
