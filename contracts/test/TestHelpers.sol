@@ -5,19 +5,19 @@ import "../core/Helpers.sol";
 
 contract TestHelpers {
 
-    function parseSigTimeRange(uint sigTimeRange) public pure returns (address sigAuthorizer, uint48 validAfter, uint48 validUntil) {
-        return _parseSigTimeRange(sigTimeRange);
+    function parseSigTimeRange(uint validationData) public pure returns (ValidationData memory) {
+        return _parseValidationData(validationData);
     }
 
-    function intersectTimeRange(uint256 sigTimeRange, uint256 paymasterTimeRange) public pure returns (address sigAuthorizer, uint48 validAfter, uint48 validUntil) {
-        return _intersectTimeRange(sigTimeRange, paymasterTimeRange);
+    function intersectTimeRange(uint256 validationData, uint256 paymasterTimeRange) public pure returns (ValidationData memory) {
+        return _intersectTimeRange(validationData, paymasterTimeRange);
     }
 
-    function packSigTimeRangeAgg(address sigAuthorizer, uint48 validUntil, uint48 validAfter) public pure returns (uint256) {
-        return _packSigTimeRange(sigAuthorizer, validUntil, validAfter);
+    function _packValidationDataStruct(ValidationData memory data) public pure returns (uint256) {
+        return _packValidationData(data);
     }
 
     function packSigTimeRange(bool sigFailed, uint48 validUntil, uint48 validAfter) public pure returns (uint256) {
-        return _packSigTimeRange(sigFailed, validUntil, validAfter);
+        return _packValidationData(sigFailed, validUntil, validAfter);
     }
 }

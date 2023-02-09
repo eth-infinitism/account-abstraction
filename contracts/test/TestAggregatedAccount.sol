@@ -25,8 +25,8 @@ contract TestAggregatedAccount is SimpleAccount {
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override view returns (uint256 sigTimeRange) {
+    internal override view returns (uint256 validationData) {
         (userOp, userOpHash);
-        return _packSigTimeRange(aggregator,0,0);
+        return _packValidationData(ValidationData(aggregator, 0, 0));
     }
 }

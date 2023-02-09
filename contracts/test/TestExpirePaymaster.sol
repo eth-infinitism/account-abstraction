@@ -13,10 +13,10 @@ contract TestExpirePaymaster is BasePaymaster {
 
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
     internal virtual override view
-    returns (bytes memory context, uint256 sigTimeRange) {
+    returns (bytes memory context, uint256 validationData) {
         (userOp, userOpHash, maxCost);
         (uint48 validAfter, uint48 validUntil) = abi.decode(userOp.paymasterAndData[20 :], (uint48, uint48));
-        sigTimeRange = _packSigTimeRange(false, validUntil, validAfter);
+        validationData = _packValidationData(false, validUntil, validAfter);
         context = "";
     }
 }

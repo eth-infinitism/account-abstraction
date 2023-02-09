@@ -26,10 +26,10 @@ contract BrokenBLSAccount is SimpleAccount, IBLSAccount {
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override view returns (uint256 sigTimeRange) {
+    internal override view returns (uint256 validationData) {
 
         (userOp, userOpHash);
-        return _packSigTimeRange(aggregator, 0,0);
+        return _packValidationData(ValidationData(aggregator, 0,0));
     }
 
     function getBlsPublicKey() external override pure returns (uint256[4] memory) {

@@ -18,7 +18,7 @@ abstract contract BaseAccount is IAccount {
     using UserOperationLib for UserOperation;
 
     //return value in case of signature failure, with no time-range.
-    // equivalent to _packSigTimeRange(true,0,0);
+    // equivalent to _packValidationData(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     /**
@@ -38,9 +38,9 @@ abstract contract BaseAccount is IAccount {
      * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
-    external override virtual returns (uint256 sigTimeRange) {
+    external override virtual returns (uint256 validationData) {
         _requireFromEntryPoint();
-        sigTimeRange = _validateSignature(userOp, userOpHash);
+        validationData = _validateSignature(userOp, userOpHash);
         if (userOp.initCode.length == 0) {
             _validateAndUpdateNonce(userOp);
         }
@@ -59,7 +59,7 @@ abstract contract BaseAccount is IAccount {
      * @param userOp validate the userOp.signature field
      * @param userOpHash convenient field: the hash of the request, to check the signature against
      *          (also hashes the entrypoint and chain-id)
-     * @return sigTimeRange signature and time-range of this operation
+     * @return validationData signature and time-range of this operation
      *      <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
      *         otherwise, an address of an "authorizer" contract.
      *      <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
@@ -68,7 +68,7 @@ abstract contract BaseAccount is IAccount {
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal virtual returns (uint256 sigTimeRange);
+    internal virtual returns (uint256 validationData);
 
     /**
      * validate the current nonce matches the UserOperation nonce.

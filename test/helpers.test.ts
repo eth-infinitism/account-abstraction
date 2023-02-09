@@ -27,13 +27,13 @@ describe('#SigTimeRange helpers', function () {
 
   it('#parseSigTimeRange', async () => {
     expect(await helpers.parseSigTimeRange(0))
-      .to.eql({ sigAuthorizer: AddressZero, validAfter: 0, validUntil: max48 })
+      .to.eql({ aggregator: AddressZero, validAfter: 0, validUntil: max48 })
     expect(await helpers.parseSigTimeRange(1))
-      .to.eql({ sigAuthorizer: addr1, validAfter: 0, validUntil: max48 })
+      .to.eql({ aggregator: addr1, validAfter: 0, validUntil: max48 })
     expect(await helpers.parseSigTimeRange(pack(AddressZero, 0, 10)))
-      .to.eql({ sigAuthorizer: AddressZero, validAfter: 10, validUntil: max48 })
+      .to.eql({ aggregator: AddressZero, validAfter: 10, validUntil: max48 })
     expect(await helpers.parseSigTimeRange(pack(AddressZero, 10, 0)))
-      .to.eql({ sigAuthorizer: AddressZero, validAfter: 0, validUntil: 10 })
+      .to.eql({ aggregator: AddressZero, validAfter: 0, validUntil: 10 })
   })
 
   it('#packSigTimeRange', async () => {
@@ -50,15 +50,15 @@ describe('#SigTimeRange helpers', function () {
 
   it('#intersectTimeRange', async () => {
     expect(await helpers.intersectTimeRange(pack(AddressZero, 0, 0), pack(AddressZero, 0, 0)))
-      .to.eql({ sigAuthorizer: AddressZero, validAfter: 0, validUntil: max48 })
+      .to.eql({ aggregator: AddressZero, validAfter: 0, validUntil: max48 })
     expect(await helpers.intersectTimeRange(pack(AddressZero, 100, 10), pack(AddressZero, 200, 50)))
-      .to.eql({ sigAuthorizer: AddressZero, validAfter: 50, validUntil: 100 })
+      .to.eql({ aggregator: AddressZero, validAfter: 50, validUntil: 100 })
 
     expect(await helpers.intersectTimeRange(pack(addr, 100, 10), pack(AddressZero, 200, 50)))
-      .to.eql({ sigAuthorizer: addr, validAfter: 50, validUntil: 100 })
+      .to.eql({ aggregator: addr, validAfter: 50, validUntil: 100 })
     expect(await helpers.intersectTimeRange(pack(addr, 100, 10), pack(addr1, 200, 50)))
-      .to.eql({ sigAuthorizer: addr, validAfter: 50, validUntil: 100 })
+      .to.eql({ aggregator: addr, validAfter: 50, validUntil: 100 })
     expect(await helpers.intersectTimeRange(pack(AddressZero, 100, 10), pack(addr1, 200, 50)))
-      .to.eql({ sigAuthorizer: addr1, validAfter: 50, validUntil: 100 })
+      .to.eql({ aggregator: addr1, validAfter: 50, validUntil: 100 })
   })
 })

@@ -31,7 +31,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     }
 
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override view returns (uint256 sigTimeRange) {
+    internal override view returns (uint256 validationData) {
 
         (userOp, userOpHash);
         if (userOp.initCode.length != 0) {
@@ -41,7 +41,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
             bytes32 pubKeyHash = keccak256(abi.encode(getBlsPublicKey()));
             require(keccak256(userOp.initCode[userOp.initCode.length - 128 :]) == pubKeyHash, "wrong pubkey");
         }
-        return _packSigTimeRange(aggregator, 0,0);
+        return _packValidationData(ValidationData(aggregator, 0,0));
     }
 
     /**

@@ -54,7 +54,7 @@ contract VerifyingPaymaster is BasePaymaster {
      * the "paymasterAndData" is expected to be the paymaster and a signature over the entire request params
      */
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
-    internal view override returns (bytes memory context, uint256 sigTimeRange) {
+    internal view override returns (bytes memory context, uint256 validationData) {
         (requiredPreFund);
 
         bytes32 hash = getHash(userOp);
