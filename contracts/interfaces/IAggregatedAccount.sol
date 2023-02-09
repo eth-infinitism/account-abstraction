@@ -6,9 +6,9 @@ import "./IAccount.sol";
 import "./IAggregator.sol";
 
 /**
- * Aggregated account, that support IAggregator.
+ * Aggregated account that support IAggregator.
  * - the validateUserOp will be called only after the aggregator validated this account (with all other accounts of this aggregator).
- * - the validateUserOp MUST valiate the aggregator parameter, and MAY ignore the userOp.signature field.
+ * - the validateUserOp MUST validate the aggregator parameter, and MAY ignore the userOp.signature field.
  */
 interface IAggregatedAccount is IAccount {
 

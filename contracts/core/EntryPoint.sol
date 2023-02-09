@@ -50,7 +50,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
      * execute a user op
-     * @param opIndex into into the opInfo array
+     * @param opIndex index into the opInfo array
      * @param userOp the userOp to execute
      * @param opInfo the opInfo filled by validatePrepayment for this userOp.
      * @return collected the total amount this userOp paid.
@@ -69,7 +69,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             }
             // handleOps was called with gas limit too low. abort entire bundle.
             if (innerRevertCode == INNER_OUT_OF_GAS) {
-                //report paymaster, since if it is deliberately caused by the bundler,
+                //report paymaster, since if it is not deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
                 revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA95 out of gas");
             }
@@ -80,7 +80,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * Execute a batch of UserOperation.
+     * Execute a batch of UserOperations.
      * no signature aggregator is used.
      * if any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
@@ -560,7 +560,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * process post-operation.
      * called just after the callData is executed.
      * if a paymaster is defined and its validation returned a non-empty context, its postOp is called.
-     * the excess amount is refunded to the account (or paymaster - if it is was used in the request)
+     * the excess amount is refunded to the account (or paymaster - if it was used in the request)
      * @param opIndex index in the batch
      * @param mode - whether is called from innerHandleOp, or outside (postOpReverted)
      * @param opInfo userOp fields and info collected during validation
@@ -590,7 +590,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                         revert FailedOp(opIndex, paymaster, reason);
                     }
                     catch {
-                        revert FailedOp(opIndex, paymaster, "A50 postOp revert");
+                        revert FailedOp(opIndex, paymaster, "AA50 postOp revert");
                     }
                 }
             }
@@ -598,7 +598,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         actualGas += preGas - gasleft();
         actualGasCost = actualGas * gasPrice;
         if (opInfo.prefund < actualGasCost) {
-            revert FailedOp(opIndex, paymaster, "A51 prefund below actualGasCost");
+            revert FailedOp(opIndex, paymaster, "AA51 prefund below actualGasCost");
         }
         uint256 refund = opInfo.prefund - actualGasCost;
         _incrementDeposit(refundAddress, refund);

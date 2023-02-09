@@ -11,7 +11,7 @@ import "../core/BasePaymaster.sol";
 import "./IOracle.sol";
 
 /**
- * A token-based paymaster that accepts token deposit
+ * A token-based paymaster that accepts token deposits
  * The deposit is only a safeguard: the user pays with his token balance.
  *  only if the user didn't approve() the paymaster, or if the token balance is not enough, the deposit will be used.
  *  thus the required deposit is to cover just one method call.

@@ -8,10 +8,10 @@ import "./SimpleAccount.sol";
 import "../core/BasePaymaster.sol";
 
 /**
- * A sample paymaster that define itself as a token to pay for gas.
+ * A sample paymaster that defines itself as a token to pay for gas.
  * The paymaster IS the token to use, since a paymaster cannot use an external contract.
  * Also, the exchange rate has to be fixed, since it can't reference an external Uniswap or other exchange contract.
- * subclass should override "getTokenValueOfEth to provide actual token exchange rate, settable by the owner.
+ * subclass should override "getTokenValueOfEth" to provide actual token exchange rate, settable by the owner.
  * Known Limitation: this paymaster is exploitable when put into a batch with multiple ops (of different accounts):
  * - while a single op can't exploit the paymaster (if postOp fails to withdraw the tokens, the user's op is reverted,
  *   and then we know we can withdraw the tokens), multiple ops with different senders (all using this paymaster)
@@ -66,8 +66,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
 
     /**
       * validate the request:
-      * if this is a constructor call, make sure it is a known account (that is, a contract that
-      * we trust that in its constructor will set
+      * if this is a constructor call, make sure it is a known account.
       * verify the sender has enough tokens.
       * (since the paymaster is also the token, there is no notion of "approval")
       */

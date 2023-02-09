@@ -12,11 +12,11 @@ interface IPaymaster {
     enum PostOpMode {
         opSucceeded, // user op succeeded
         opReverted, // user op reverted. still has to pay for gas.
-        postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
+        postOpReverted //user op succeeded, but caused postOp to revert. Now it's a 2nd call, after user's op was deliberately reverted.
     }
 
     /**
-     * payment validation: check if paymaster agree to pay.
+     * payment validation: check if paymaster agrees to pay.
      * Must verify sender is the entryPoint.
      * Revert to reject this request.
      * Note that bundlers will reject this method if it changes the state, unless the paymaster is trusted (whitelisted)
@@ -27,7 +27,7 @@ interface IPaymaster {
      * @return context value to send to a postOp
      *  zero length to signify postOp is not required.
      * @return sigTimeRange signature and time-range of this operation, encoded the same as the return value of validateUserOperation
-     *      <byte> sigFailure - (1) to mark signature failure (needed only if paymaster uses signature-based validation,)
+     *      <byte> sigFailure - (1) to mark signature failure (needed only if paymaster uses signature-based validation)
      *      <8-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *      <8-byte> validAfter - first timestamp this operation is valid
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.

@@ -71,7 +71,7 @@ interface IEntryPoint is IStakeManager {
      * Successful result from simulateValidation.
      * @param returnInfo gas and time-range returned values
      * @param senderInfo stake information about the sender
-     * @param factoryInfo stake information about the factor (if any)
+     * @param factoryInfo stake information about the factory (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      */
     error ValidationResult(ReturnInfo returnInfo,
@@ -81,7 +81,7 @@ interface IEntryPoint is IStakeManager {
      * Successful result from simulateValidation, if the account returns a signature aggregator
      * @param returnInfo gas and time-range returned values
      * @param senderInfo stake information about the sender
-     * @param factoryInfo stake information about the factor (if any)
+     * @param factoryInfo stake information about the factory (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
