@@ -29,9 +29,9 @@ pragma solidity ^0.8.12;
     }
 
 // intersect account and paymaster ranges.
-    function _intersectTimeRange(uint256 validationData, uint256 paymasterTimeRange) pure returns (ValidationData memory) {
+    function _intersectTimeRange(uint256 validationData, uint256 paymasterValidationData) pure returns (ValidationData memory) {
         ValidationData memory accountValidationData = _parseValidationData(validationData);
-        ValidationData memory pmValidationData = _parseValidationData(paymasterTimeRange);
+        ValidationData memory pmValidationData = _parseValidationData(paymasterValidationData);
         address aggregator = accountValidationData.aggregator;
         if (aggregator == address(0)) {
             aggregator = pmValidationData.aggregator;
