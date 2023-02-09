@@ -24,6 +24,10 @@ contract TestExpiryAccount is SimpleAccount {
         addTemporaryOwner(anOwner, 0, type(uint64).max);
     }
 
+    // As this is a test contract, no need for proxy, so no need to disable init
+    // solhint-disable-next-line no-empty-blocks
+    function _disableInitializers () internal override {}
+
     function addTemporaryOwner(address owner, uint64 _after, uint64 _until) public onlyOwner {
         require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
@@ -40,6 +44,6 @@ contract TestExpiryAccount is SimpleAccount {
 
         //we have "until" value for all valid owners. so zero means "invalid signature"
         bool sigFailed = _until == 0;
-        return packSigTimeRange(sigFailed, _until, _after);
+        return _packSigTimeRange(sigFailed, _until, _after);
     }
 }

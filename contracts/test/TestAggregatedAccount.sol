@@ -2,7 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "../interfaces/IAggregatedAccount.sol";
-import "./SimpleAccount.sol";
+import "../samples/SimpleAccount.sol";
 
 /**
  * test aggregated-signature account.
@@ -18,6 +18,7 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
         aggregator = anAggregator;
     }
 
+    /// @inheritdoc SimpleAccount
     function initialize(address) public virtual override initializer {
         super._initialize(address(0));
     }
@@ -29,6 +30,7 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
         return 0;
     }
 
+    /// @inheritdoc IAggregatedAccount
     function getAggregator() external override view returns (address) {
         return aggregator;
     }
