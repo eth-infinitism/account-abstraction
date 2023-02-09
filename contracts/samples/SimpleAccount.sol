@@ -24,6 +24,15 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     uint96 private _nonce;
     address public owner;
 
+    IEntryPoint private immutable _entryPoint;
+
+    event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
+
+    modifier onlyOwner() {
+        _onlyOwner();
+        _;
+    }
+
     /// @inheritdoc BaseAccount
     function nonce() public view virtual override returns (uint256) {
         return _nonce;
@@ -34,9 +43,6 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
         return _entryPoint;
     }
 
-    IEntryPoint private immutable _entryPoint;
-
-    event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
@@ -44,11 +50,6 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
     constructor(IEntryPoint anEntryPoint) {
         _entryPoint = anEntryPoint;
         _disableInitializers();
-    }
-
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
     }
 
     function _onlyOwner() internal view {

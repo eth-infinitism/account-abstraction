@@ -16,6 +16,9 @@ contract BLSSignatureAggregator is IAggregator {
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
+     //copied from BLS.sol
+    uint256 public  constant N = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
+
     /**
      * @return publicKey - the public key from a BLS keypair the Aggregator will use to verify this UserOp;
      *         normally public key will be queried from the deployed BLSAccount itself;
@@ -132,8 +135,6 @@ contract BLSSignatureAggregator is IAggregator {
         return "";
     }
 
-    //copied from BLS.sol
-    uint256 public  constant N = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     /**
      * aggregate multiple signatures into a single value.

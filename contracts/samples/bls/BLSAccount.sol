@@ -45,8 +45,6 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         return 0;
     }
 
-    event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);
-
     /**
      * Allows the owner to set or change the BLS key.
      * @param newPublicKey public key from a BLS keypair that will have a full ownership and control of this account.
