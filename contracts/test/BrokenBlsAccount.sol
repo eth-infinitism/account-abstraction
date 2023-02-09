@@ -29,7 +29,7 @@ contract BrokenBLSAccount is SimpleAccount, IBLSAccount {
     internal override view returns (uint256 sigTimeRange) {
 
         (userOp, userOpHash);
-        return packSigTimeRange(aggregator, 0,0);
+        return _packSigTimeRange(aggregator, 0,0);
     }
 
     function getAggregator() external view returns (address) {

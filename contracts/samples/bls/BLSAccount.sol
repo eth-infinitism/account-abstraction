@@ -41,7 +41,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
             bytes32 pubKeyHash = keccak256(abi.encode(getBlsPublicKey()));
             require(keccak256(userOp.initCode[userOp.initCode.length - 128 :]) == pubKeyHash, "wrong pubkey");
         }
-        return packSigTimeRange(aggregator, 0,0);
+        return _packSigTimeRange(aggregator, 0,0);
     }
 
     event PublicKeyChanged(uint256[4] oldPublicKey, uint256[4] newPublicKey);

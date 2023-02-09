@@ -26,7 +26,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     address public immutable entryPoint;
 
     // return value in case of signature failure, with no time-range.
-    // equivalent to packSigTimeRange(true,0,0);
+    // equivalent to _packSigTimeRange(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     constructor(address anEntryPoint) {

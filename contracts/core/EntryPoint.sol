@@ -95,7 +95,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
             UserOpInfo memory opInfo = opInfos[i];
-            (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(i, ops[i], opInfo);
+            (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(i, ops[i], opInfo, false);
             _validateSigTimeRange(i, opInfo, sigTimeRange, paymasterTimeRange, address(0));
         }
 
@@ -144,7 +144,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 opslen = ops.length;
             for (uint256 i = 0; i < opslen; i++) {
                 UserOpInfo memory opInfo = opInfos[opIndex];
-                (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(opIndex, ops[i], opInfo);
+                (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(opIndex, ops[i], opInfo, false);
                 _validateSigTimeRange(i, opInfo, sigTimeRange, paymasterTimeRange, address(aggregator));
                 opIndex++;
             }
@@ -173,7 +173,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         UserOpInfo memory opInfo;
 
-        (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(0, op, opInfo);
+        (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(0, op, opInfo, true);
         (,uint48 validAfter, uint48 validUntil) = _intersectTimeRange(sigTimeRange, paymasterTimeRange);
 
         numberMarker();
@@ -285,7 +285,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function simulateValidation(UserOperation calldata userOp) external {
         UserOpInfo memory outOpInfo;
 
-        (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(0, userOp, outOpInfo);
+        (uint256 sigTimeRange, uint256 paymasterTimeRange) = _validatePrepayment(0, userOp, outOpInfo, true);
         StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
         StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
         StakeInfo memory factoryInfo;
@@ -376,7 +376,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert (with FailedOp) in case validateUserOp reverts, or account didn't send required prefund.
      * decrement account's deposit if needed
      */
-    function _validateAccountPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPrefund)
+    function _validateAccountPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPrefund, bool simulateOnly)
     internal returns (uint256 gasUsedByValidateAccountPrepayment, uint256 sigTimeRange) {
     unchecked {
         uint256 preGas = gasleft();
@@ -384,7 +384,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address sender = mUserOp.sender;
         _createSenderIfNeeded(opIndex, opInfo, op.initCode);
         address paymaster = mUserOp.paymaster;
-        if (true) {//TODO: this code is needed only during simulation
+        if (simulateOnly) {
             numberMarker();
 
             if (sender.code.length == 0) {
@@ -513,7 +513,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
      */
-    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo)
+    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, bool simulateOnly)
     private returns (uint256 sigTimeRange, uint256 paymasterTimeRange) {
 
         uint256 preGas = gasleft();
@@ -529,7 +529,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         uint256 gasUsedByValidateAccountPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
-        (gasUsedByValidateAccountPrepayment, sigTimeRange) = _validateAccountPrepayment(opIndex, userOp, outOpInfo, requiredPreFund);
+        (gasUsedByValidateAccountPrepayment, sigTimeRange) = _validateAccountPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, simulateOnly);
         //a "marker" where account opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
         numberMarker();

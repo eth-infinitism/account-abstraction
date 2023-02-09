@@ -43,6 +43,6 @@ contract TestExpiryAccount is SimpleAccount {
 
         //we have "until" value for all valid owners. so zero means "invalid signature"
         address  sigAuthorizer = _until == 0 ? address(1): address (0);
-        return packSigTimeRange(sigAuthorizer, _until, _after);
+        return _packSigTimeRange(sigAuthorizer, _until, _after);
     }
 }
