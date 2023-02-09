@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./TestAggregatedAccount.sol";
 
 /**
- * Based on SimpleAccountFactory
- * can't be a subclass, since both constructor and createAccount depend on the
- * actual wallet contract constructor, initializer
+ * Based on SimpleAccountFactory.
+ * Cannot be a subclass since both constructor and createAccount depend on the
+ * constructor and initializer of the actual account contract.
  */
 contract TestAggregatedAccountFactory {
     TestAggregatedAccount public immutable accountImplementation;

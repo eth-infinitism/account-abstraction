@@ -6,7 +6,7 @@ import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./EIP4337Manager.sol";
 
 /**
- * A wrapper factory contract to deploy GnosisSafe as an Account-Abstraction wallet contract.
+ * A wrapper factory contract to deploy GnosisSafe as an ERC-4337 account contract.
  */
 contract GnosisSafeAccountFactory {
 
