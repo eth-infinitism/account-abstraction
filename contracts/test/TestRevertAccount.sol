@@ -15,7 +15,7 @@ contract TestRevertAccount is IAccount {
         return 0;
     }
 
-    function revertLong(uint length) public pure{
+    function revertLong(uint256 length) public pure{
         assembly {
             revert(0, length)
         }

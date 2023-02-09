@@ -33,11 +33,11 @@ contract TestWarmColdAccount is IAggregatedAccount {
         return address(0);
     }
 
-    function touchStorage() public view returns (uint) {
+    function touchStorage() public view returns (uint256) {
         return state;
     }
 
-    function touchPaymaster(address paymaster) public view returns (uint) {
+    function touchPaymaster(address paymaster) public view returns (uint256) {
         return paymaster.code.length;
     }
 }
