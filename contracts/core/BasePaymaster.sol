@@ -7,6 +7,7 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
+import "./Helpers.sol";
 
 /**
  * Helper class for creating a paymaster.
@@ -107,15 +108,5 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     /// validate the call is made from a valid entrypoint
     function _requireFromEntryPoint() internal virtual {
         require(msg.sender == address(entryPoint), "Sender not EntryPoint");
-    }
-
-    /**
-     * helper to pack the return value for validateUserOp
-     * @param sigFailed true if the signature check failed, false, if it succeeded.
-     * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
-     * @param validAfter first timestamp this UserOperation is valid
-     */
-    function _packSigTimeRange(bool sigFailed, uint48 validUntil, uint48 validAfter) internal pure returns (uint256) {
-        return uint160(sigFailed ? 1 : 0) | uint256(validUntil << 160) | uint256(validAfter << (160+48));
     }
 }

@@ -10,11 +10,12 @@ pragma solidity ^0.8.12;
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IPaymaster.sol";
-
 import "../interfaces/IEntryPoint.sol";
-import "../utils/Exec.sol";
+
+import "../utils/Exec.s ol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
+import  "./Helpers.sol";
 
 contract EntryPoint is IEntryPoint, StakeManager {
 
@@ -454,27 +455,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         (sigAuthorizer, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
         // solhint-disable-next-line not-rely-on-time
         outOfTimeRange = block.timestamp > validUntil || block.timestamp < validAfter;
-    }
-
-    //extract sigFailed, validAfter, validUntil.
-    // also convert zero validUntil to type(uint48).max
-    function _parseSigTimeRange(uint sigTimeRange) internal pure returns (address sigAuthorizer, uint48 validAfter, uint48 validUntil) {
-        sigAuthorizer = address(uint160(sigTimeRange));
-        // subtract one, to explicitly treat zero as max-value
-        validUntil = uint48(int48(int(sigTimeRange >> 160) - 1));
-        validAfter = uint48(sigTimeRange >> (48 + 160));
-    }
-
-    // intersect account and paymaster ranges.
-    function _intersectTimeRange(uint256 sigTimeRange, uint256 paymasterTimeRange) internal pure returns (address sigAuthorizer, uint48 validAfter, uint48 validUntil) {
-        (sigAuthorizer, validAfter, validUntil) = _parseSigTimeRange(sigTimeRange);
-        (address pmsigAuthorizer, uint48 pmValidAfter, uint48 pmValidUntil) = _parseSigTimeRange(paymasterTimeRange);
-        if (sigAuthorizer == address(0)) {
-            sigAuthorizer = pmsigAuthorizer;
-        }
-
-        if (validAfter < pmValidAfter) validAfter = pmValidAfter;
-        if (validUntil > pmValidUntil) validUntil = pmValidUntil;
     }
 
     /**
