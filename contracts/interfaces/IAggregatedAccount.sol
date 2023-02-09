@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./UserOperation.sol";
 import "./IAccount.sol";
-import "./IAggregator.sol";
 
 /**
  * Aggregated account that support IAggregator.

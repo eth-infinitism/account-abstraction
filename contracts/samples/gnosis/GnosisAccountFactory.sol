@@ -4,6 +4,7 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./EIP4337Manager.sol";
+
 /**
  * A wrapper factory contract to deploy GnosisSafe as an Account-Abstraction wallet contract.
  */
@@ -47,9 +48,9 @@ contract GnosisSafeAccountFactory {
     }
 
     /**
-    * calculate the counterfactual address of this account as it would be returned by createAccount()
-    * (uses the same "create2 signature" used by GnosisSafeProxyFactory.createProxyWithNonce)
-    */
+     * calculate the counterfactual address of this account as it would be returned by createAccount()
+     * (uses the same "create2 signature" used by GnosisSafeProxyFactory.createProxyWithNonce)
+     */
     function getAddress(address owner,uint256 salt) public view returns (address) {
         bytes memory initializer = getInitializer(owner);
         //copied from deployProxyWithNonce

@@ -2,9 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "../interfaces/IAggregatedAccount.sol";
-import "../core/BaseAccount.sol";
 import "../samples/SimpleAccount.sol";
-import "../interfaces/UserOperation.sol";
 
 /**
  * test aggregated-signature account.
