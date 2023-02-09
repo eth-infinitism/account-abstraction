@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "../interfaces/IAggregatedAccount.sol";
 import "../core/BaseAccount.sol";
 import "../samples/SimpleAccount.sol";
 import "../interfaces/UserOperation.sol";
@@ -11,7 +10,7 @@ import "../interfaces/UserOperation.sol";
  * works only with TestAggregatedSignature, which doesn't really check signature, but nonce sum
  * a true aggregated account should expose data (e.g. its public key) to the aggregator.
  */
-contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
+contract TestAggregatedAccount is SimpleAccount {
     address public immutable aggregator;
 
     // The constructor is used only for the "implementation" and only sets immutable values.
@@ -29,10 +28,5 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
     internal override view returns (uint256 sigTimeRange) {
         (userOp, userOpHash);
         return _packSigTimeRange(aggregator,0,0);
-    }
-
-    /// @inheritdoc IAggregatedAccount
-    function getAggregator() external override view returns (address) {
-        return aggregator;
     }
 }

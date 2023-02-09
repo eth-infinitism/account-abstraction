@@ -59,13 +59,6 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         publicKey = newPublicKey;
     }
 
-    /**
-     * @return address of an aggregator contract trusted by this account to verify BLS signatures aggregated in a batch.
-     */
-    function getAggregator() external view returns (address) {
-        return aggregator;
-    }
-
     /// @inheritdoc IBLSAccount
     function getBlsPublicKey() public override view returns (uint256[4] memory) {
         return publicKey;

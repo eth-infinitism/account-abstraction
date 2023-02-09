@@ -11,7 +11,6 @@ pragma solidity ^0.8.12;
 import "../interfaces/IAccount.sol";
 import "../interfaces/IPaymaster.sol";
 
-import "../interfaces/IAggregatedAccount.sol";
 import "../interfaces/IEntryPoint.sol";
 import "../utils/Exec.sol";
 import "./StakeManager.sol";
@@ -340,35 +339,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
      */
     function getSenderAddress(bytes calldata initCode) public {
         revert SenderAddressResult(senderCreator.createSender(initCode));
-    }
-
-    /**
-    * Get aggregator from sender account as revert reason.
-    * Called only during simulation.
-    * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
-    */
-    function _simulateFindAggregator(address sender, address paymaster) external view {
-        require(msg.sender == address(this), "AA92 internal call only");
-        address aggregator;
-        if (sender.code.length == 0) {
-            // it would revert anyway. but give a meaningful message
-            revert("AA20 account not deployed");
-        }
-        if (paymaster != address(0) && paymaster.code.length == 0) {
-            // it would revert anyway. but give a meaningful message
-            revert("AA30 paymaster not deployed");
-        }
-        // during simulation, we don't use given aggregator,
-        // but query the account for its aggregator
-        try IAggregatedAccount(sender).getAggregator() returns (address userOpAggregator) {
-            aggregator = userOpAggregator;
-        } catch {
-            aggregator = address(0);
-        }
-        assembly {
-            mstore(0, aggregator)
-            revert(0, 32)
-        }
     }
 
     /**

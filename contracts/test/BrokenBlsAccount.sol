@@ -32,10 +32,6 @@ contract BrokenBLSAccount is SimpleAccount, IBLSAccount {
         return _packSigTimeRange(aggregator, 0,0);
     }
 
-    function getAggregator() external view returns (address) {
-        return aggregator;
-    }
-
     function getBlsPublicKey() external override pure returns (uint256[4] memory) {
         uint256[4] memory pubkey;
         return pubkey;

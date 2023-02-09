@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity >=0.7.6;
 
-import "../../interfaces/IAggregatedAccount.sol";
+import "../../interfaces/IAccount.sol";
 
 /**
  * a BLS account should expose its own public key.
  */
-interface IBLSAccount is IAggregatedAccount {
+interface IBLSAccount is IAccount {
 
     /**
      * @return public key from a BLS keypair that is used to verify the BLS signature, both separately and aggregated.
