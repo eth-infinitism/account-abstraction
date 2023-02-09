@@ -9,7 +9,7 @@ import "./BLSAccount.sol";
 
 /* solhint-disable no-inline-assembly */
 /**
- * Based n SimpleAccountFactory
+ * Based on SimpleAccountFactory
  * can't be a subclass, since both constructor and createAccount depend on the
  * actual wallet contract constructor and initializer
  */
@@ -25,7 +25,7 @@ contract BLSAccountFactory {
      * returns the address even if the account is already deployed.
      * Note that during UserOperation execution, this method is called only if the account is not deployed.
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
-     * Also note that our BLSSignatureAggregator requires that the public-key is the last parameter
+     * Also note that our BLSSignatureAggregator requires that the public key is the last parameter
      */
     function createAccount(uint256 salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
 

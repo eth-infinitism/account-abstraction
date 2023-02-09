@@ -38,7 +38,7 @@ contract BLSSignatureAggregator is IAggregator {
      */
     function getTrailingPublicKey(bytes memory data) public pure returns (uint256[4] memory publicKey) {
         uint len = data.length;
-        require(len > 32 * 4, "data to short for sig");
+        require(len > 32 * 4, "data too short for sig");
 
         /* solhint-disable-next-line no-inline-assembly */
         assembly {
@@ -92,7 +92,7 @@ contract BLSSignatureAggregator is IAggregator {
 
     /**
      * return the BLS "message" for the given UserOp.
-     * the account checks the signature over this value  using its public-key
+     * the account checks the signature over this value using its public key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
         bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
@@ -155,7 +155,7 @@ contract BLSSignatureAggregator is IAggregator {
 
     /**
      * allow staking for this aggregator
-     * there is no limit on stake  or delay, but it is not a problem, since it is a permissionless
+     * there is no limit on stake or delay, but it is not a problem, since it is a permissionless
      * signature aggregator, which doesn't support unstaking.
      */
     function addStake(IEntryPoint entryPoint, uint32 delay) external payable {
