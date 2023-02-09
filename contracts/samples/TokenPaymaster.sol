@@ -36,7 +36,11 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
     }
 
 
-    //helpers for owner, to mint and withdraw tokens.
+    /**
+     * helpers for owner, to mint and withdraw tokens.
+     * @param recipient - the address that will receive the minted tokens.
+     * @param amount - the amount it will receive.
+     */
     function mintTokens(address recipient, uint256 amount) external onlyOwner {
         _mint(recipient, amount);
     }
@@ -54,7 +58,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
         _approve(address(this), newOwner, type(uint).max);
     }
 
-    //TODO: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
+    //Note: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
     // or a setter.
     function getTokenValueOfEth(uint256 valueEth) internal view virtual returns (uint256 valueToken) {
         return valueEth / 100;

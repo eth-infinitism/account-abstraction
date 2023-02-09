@@ -8,8 +8,8 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "./EIP4337Fallback.sol";
-import "../interfaces/IAccount.sol";
-import "../interfaces/IEntryPoint.sol";
+import "../../interfaces/IAccount.sol";
+import "../../interfaces/IEntryPoint.sol";
 
     using ECDSA for bytes32;
 
@@ -18,7 +18,7 @@ import "../interfaces/IEntryPoint.sol";
  * Called (through the fallback module) using "delegate" from the GnosisSafe as an "IAccount",
  * so must implement validateUserOp
  * holds an immutable reference to the EntryPoint
- * Inherits GnosisSafeStorage so that it can reference the memory storage
+ * Inherits GnosisSafe so that it can reference the memory storage
  */
 contract EIP4337Manager is GnosisSafe, IAccount {
 
@@ -26,7 +26,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     address public immutable entryPoint;
 
     // return value in case of signature failure, with no time-range.
-    // equivalent to packSigTimeRange(true,0,0);
+    // equivalent to _packSigTimeRange(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     constructor(address anEntryPoint) {
@@ -39,8 +39,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address /*aggregator*/, uint256 missingAccountFunds)
     external override returns (uint256 sigTimeRange) {
-        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == entryPoint, "account: not from entrypoint");
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(msgSender == entryPoint, "account: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
         bytes32 hash = userOpHash.toEthSignedMessageHash();
@@ -55,8 +55,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         }
 
         if (missingAccountFunds > 0) {
-            //TODO: MAY pay more than the minimum, to deposit for future transactions
-            (bool success,) = payable(_msgSender).call{value : missingAccountFunds}("");
+            //Note: MAY pay more than the minimum, to deposit for future transactions
+            (bool success,) = payable(msgSender).call{value : missingAccountFunds}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }
@@ -75,8 +75,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         bytes memory data,
         Enum.Operation operation
     ) external {
-        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == entryPoint, "account: not from entrypoint");
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(msgSender == entryPoint, "account: not from entrypoint");
 
         (bool success, bytes memory returnData) = execTransactionFromModuleReturnData(to, value, data, operation);
 
@@ -175,11 +175,11 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         (address[] memory modules,) = safe.getModulesPaginated(SENTINEL_MODULES, 100);
         for (uint i = 0; i < modules.length; i++) {
             address module = modules[i];
-            (bool success,bytes memory ret) = module.staticcall(abi.encodeWithSignature("eip4337manager()"));
-            if (success) {
-                manager = abi.decode(ret, (address));
-                return (prev, manager);
+            try EIP4337Fallback(module).eip4337manager() returns (address _manager) {
+                return (prev, _manager);
             }
+            // solhint-disable-next-line no-empty-blocks
+            catch {}
             prev = module;
         }
         return (address(0), address(0));

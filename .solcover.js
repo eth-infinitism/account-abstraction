@@ -1,9 +1,9 @@
 module.exports = {
   skipFiles: [
     "test",
-    "bls/lib",
+    "samples/bls/lib",
     //solc-coverage fails to compile our Manager module.
-    "gnosis",
+    "sammples/gnosis",
     "utils/Exec.sol"
   ],
 };

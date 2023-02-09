@@ -16,7 +16,7 @@ library  BLSHelper {
      * @param _pp the modulus of the curve
      * @return ret the sum of all points
      */
-    function sum(XY[] memory points, uint _pp) internal pure returns (XY memory ret){
+    function sum(XY[] memory points, uint256 _pp) internal pure returns (XY memory ret){
         uint x = points[0].x;
         uint y = points[0].y;
         uint z = 1;
