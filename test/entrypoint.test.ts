@@ -19,7 +19,7 @@ import {
   TestAggregatedAccount,
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
-  MaliciousAccount__factory,
+  MaliciousAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -240,8 +240,8 @@ describe('EntryPoint', function () {
       // using wrong owner for account1
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
-      const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultWithAggregationCatch)
-      expect(returnInfo.sigAuthorizer).to.match(/0x0*1$/)
+      const { returnInfo } = await entryPoint.callStatic.simulateValidation(op).catch(simulationResultCatch)
+      expect(returnInfo.sigFailed).to.be.true
     })
 
     it('should revert if wallet not deployed (and no initcode)', async () => {

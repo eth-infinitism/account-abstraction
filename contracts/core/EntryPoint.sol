@@ -295,8 +295,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
 
         (address sigAuthorizer, uint48 validAfter, uint48 validUntil) = _intersectTimeRange(sigTimeRange, paymasterTimeRange);
+        bool sigFailed = sigAuthorizer == address(1);
         ReturnInfo memory returnInfo = ReturnInfo(outOpInfo.preOpGas, outOpInfo.prefund,
-            validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
+            sigFailed, validAfter, validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (sigAuthorizer != address(0) && sigAuthorizer != address(1)) {
             AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(sigAuthorizer, getStakeInfo(sigAuthorizer));
