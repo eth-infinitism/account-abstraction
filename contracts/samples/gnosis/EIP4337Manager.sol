@@ -26,7 +26,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     address public immutable entryPoint;
 
     // return value in case of signature failure, with no time-range.
-    // equivalent to packSigTimeRange(true,0,0);
+    // equivalent to _packSigTimeRange(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     constructor(address anEntryPoint) {
@@ -39,8 +39,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address /*aggregator*/, uint256 missingAccountFunds)
     external override returns (uint256 sigTimeRange) {
-        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == entryPoint, "account: not from entrypoint");
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(msgSender == entryPoint, "account: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
         bytes32 hash = userOpHash.toEthSignedMessageHash();
@@ -56,7 +56,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
 
         if (missingAccountFunds > 0) {
             //Note: MAY pay more than the minimum, to deposit for future transactions
-            (bool success,) = payable(_msgSender).call{value : missingAccountFunds}("");
+            (bool success,) = payable(msgSender).call{value : missingAccountFunds}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }
@@ -75,8 +75,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         bytes memory data,
         Enum.Operation operation
     ) external {
-        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == entryPoint, "account: not from entrypoint");
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(msgSender == entryPoint, "account: not from entrypoint");
 
         (bool success, bytes memory returnData) = execTransactionFromModuleReturnData(to, value, data, operation);
 

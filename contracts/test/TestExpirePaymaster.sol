@@ -16,7 +16,7 @@ contract TestExpirePaymaster is BasePaymaster {
     returns (bytes memory context, uint256 sigTimeRange) {
         (userOp, userOpHash, maxCost);
         (uint64 validAfter, uint64 validUntil) = abi.decode(userOp.paymasterAndData[20 :], (uint64, uint64));
-        sigTimeRange = packSigTimeRange(false, validUntil, validAfter);
+        sigTimeRange = _packSigTimeRange(false, validUntil, validAfter);
         context = "";
     }
 }

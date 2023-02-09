@@ -116,7 +116,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
      * @param validAfter first timestamp this UserOperation is valid
      */
-    function packSigTimeRange(bool sigFailed, uint64 validUntil, uint64 validAfter) internal pure returns (uint256) {
+    function _packSigTimeRange(bool sigFailed, uint64 validUntil, uint64 validAfter) internal pure returns (uint256) {
         return uint256(sigFailed ? 1 : 0) | (uint256(validUntil) << 8) | (uint256(validAfter) << 64 + 8);
     }
 }

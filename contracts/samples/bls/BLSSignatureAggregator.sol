@@ -95,8 +95,8 @@ contract BLSSignatureAggregator is IAggregator {
      * the account checks the signature over this value  using its public-key
      */
     function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
-        bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
-        return _userOpToMessage(userOp, hashPublicKey);
+        bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
+        return _userOpToMessage(userOp, publicKeyHash);
     }
 
     function _userOpToMessage(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (uint256[2] memory) {
@@ -106,12 +106,12 @@ contract BLSSignatureAggregator is IAggregator {
 
     // helper for test
     function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
-        bytes32 hashPublicKey = _getPublicKeyHash(getUserOpPublicKey(userOp));
-        return _getUserOpHash(userOp, hashPublicKey);
+        bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
+        return _getUserOpHash(userOp, publicKeyHash);
     }
 
-    function _getUserOpHash(UserOperation memory userOp, bytes32 hashPublicKey) internal view returns (bytes32) {
-        return keccak256(abi.encode(internalUserOpHash(userOp), hashPublicKey, address(this), block.chainid));
+    function _getUserOpHash(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (bytes32) {
+        return keccak256(abi.encode(internalUserOpHash(userOp), publicKeyHash, address(this), block.chainid));
     }
 
     function _getPublicKeyHash(uint256[4] memory publicKey) internal pure returns(bytes32) {
@@ -141,9 +141,9 @@ contract BLSSignatureAggregator is IAggregator {
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
      * @param userOps array of UserOperations to collect the signatures from.
-     * @return aggregatesSignature the aggregated signature
+     * @return aggregatedSignature the aggregated signature
      */
-    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
+    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
         BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
         for (uint i = 0; i < points.length; i++) {
             (uint256 x, uint256 y) = abi.decode(userOps[i].signature, (uint256, uint256));

@@ -98,7 +98,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * return value of simulateHandleOp
      */
-    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validBefore, bool targetSuccess, bytes targetResult);
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validUntil, bool targetSuccess, bytes targetResult);
 
     //UserOps handled, per aggregator
     struct UserOpsPerAggregator {
@@ -113,7 +113,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * Execute a batch of UserOperation.
      * no signature aggregator is used.
-     * if any account requires an aggregator (that is, it returned an "actualAggregator" when
+     * if any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
@@ -167,7 +167,7 @@ interface IEntryPoint is IStakeManager {
      * the aggregator returned by the account, and its current stake.
      */
     struct AggregatorStakeInfo {
-        address actualAggregator;
+        address aggregator;
         StakeInfo stakeInfo;
     }
 

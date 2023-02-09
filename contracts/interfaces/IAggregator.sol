@@ -30,7 +30,7 @@ interface IAggregator {
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
      * @param userOps array of UserOperations to collect the signatures from.
-     * @return aggregatesSignature the aggregated signature
+     * @return aggregatedSignature the aggregated signature
      */
-    function aggregateSignatures(UserOperation[] calldata userOps) external view returns (bytes memory aggregatesSignature);
+    function aggregateSignatures(UserOperation[] calldata userOps) external view returns (bytes memory aggregatedSignature);
 }

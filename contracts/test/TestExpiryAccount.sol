@@ -44,6 +44,6 @@ contract TestExpiryAccount is SimpleAccount {
 
         //we have "until" value for all valid owners. so zero means "invalid signature"
         bool sigFailed = _until == 0;
-        return packSigTimeRange(sigFailed, _until, _after);
+        return _packSigTimeRange(sigFailed, _until, _after);
     }
 }
