@@ -479,7 +479,7 @@ describe('EntryPoint', function () {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('FailedOp(0, "0x0000000000000000000000000000000000000000", "AA23 reverted (or OOG)")')
+            expect(e.message).to.include('FailedOp(0, "AA23 reverted (or OOG)")')
           }
         }
       })
@@ -503,7 +503,7 @@ describe('EntryPoint', function () {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('FailedOp(0, "0x0000000000000000000000000000000000000000", "AA23 reverted (or OOG)")')
+            expect(e.message).to.include('FailedOp(0, "AA23 reverted (or OOG)")')
           }
         }
       })
