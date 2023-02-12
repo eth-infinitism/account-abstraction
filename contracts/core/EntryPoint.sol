@@ -438,8 +438,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
         if (outOfTimeRange) {
             revert FailedOp(opIndex, address(0), "AA22 expired or not due");
         }
-        (aggregator, outOfTimeRange) = _getValidationData(paymasterValidationData);
-        if (aggregator != address(0)) {
+        //pmAggregator is not a real signature aggregator: we don't have logic to handle it as address.
+        // non-zero address means that the paymaster fails due to some signature check (which is ok only during estimation)
+        address pmAggregator;
+        (pmAggregator, outOfTimeRange) = _getValidationData(paymasterValidationData);
+        if (pmAggregator != address(0)) {
             revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA34 signature error");
         }
         if (outOfTimeRange) {
