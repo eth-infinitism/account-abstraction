@@ -96,7 +96,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         for (uint256 i = 0; i < opslen; i++) {
             UserOpInfo memory opInfo = opInfos[i];
             (uint256 sigTimeRange, uint256 paymasterTimeRange,) = _validatePrepayment(i, ops[i], opInfo, address(0));
-            _validateSigTimeRange(i, opInfo, sigTimeRange, paymasterTimeRange);
+            _validateSigTimeRange(i, sigTimeRange, paymasterTimeRange);
         }
 
         uint256 collected = 0;
@@ -145,7 +145,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             for (uint256 i = 0; i < opslen; i++) {
                 UserOpInfo memory opInfo = opInfos[opIndex];
                 (uint256 sigTimeRange, uint256 paymasterTimeRange,) = _validatePrepayment(opIndex, ops[i], opInfo, address(aggregator));
-                _validateSigTimeRange(i, opInfo, sigTimeRange, paymasterTimeRange);
+                _validateSigTimeRange(i, sigTimeRange, paymasterTimeRange);
                 opIndex++;
             }
         }
@@ -462,7 +462,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     /**
      * revert if either account sigTimeRange or paymaster sigTimeRange is expired
      */
-    function _validateSigTimeRange(uint256 opIndex, UserOpInfo memory opInfo, uint256 sigTimeRange, uint256 paymasterTimeRange) internal view {
+    function _validateSigTimeRange(uint256 opIndex, uint256 sigTimeRange, uint256 paymasterTimeRange) internal view {
         (bool sigFailed, bool outOfTimeRange) = _getSigTimeRange(sigTimeRange);
         if (sigFailed) {
             revert FailedOp(opIndex, "AA24 signature error");
