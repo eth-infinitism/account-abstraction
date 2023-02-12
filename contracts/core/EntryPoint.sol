@@ -359,6 +359,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert("AA30 paymaster not deployed");
         }
         // always revert
+        // solhint-disable-next-line reason-string
         revert();
     }
 
