@@ -95,7 +95,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     unchecked {
         for (uint256 i = 0; i < opslen; i++) {
             UserOpInfo memory opInfo = opInfos[i];
-            (uint256 validationData, uint256 pmValidationData) = _validatePrepayment(i, ops[i], opInfo, false);
+            (uint256 validationData, uint256 pmValidationData) = _validatePrepayment(i, ops[i], opInfo);
             _validateAccountAndPaymasterValidationData(i, opInfo, validationData, pmValidationData, address(0));
         }
 
@@ -133,6 +133,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
             UserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
+            //address(1) is special marker of "signature error"
+            require(address(aggregator) != address(1), "AA96 invalid aggregator");
+
             if (address(aggregator) != address(0)) {
                 // solhint-disable-next-line no-empty-blocks
                 try aggregator.validateSignatures(ops, opa.signature) {}
@@ -144,7 +147,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             uint256 opslen = ops.length;
             for (uint256 i = 0; i < opslen; i++) {
                 UserOpInfo memory opInfo = opInfos[opIndex];
-                (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(opIndex, ops[i], opInfo, false);
+                (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(opIndex, ops[i], opInfo);
                 _validateAccountAndPaymasterValidationData(i, opInfo, validationData, paymasterValidationData, address(aggregator));
                 opIndex++;
             }
@@ -172,8 +175,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external override {
 
         UserOpInfo memory opInfo;
-
-        (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(0, op, opInfo, true);
+        _simulationOnlyValidations(op);
+        (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(0, op, opInfo);
         ValidationData memory data = _intersectTimeRange(validationData, paymasterValidationData);
 
         numberMarker();
@@ -285,7 +288,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function simulateValidation(UserOperation calldata userOp) external {
         UserOpInfo memory outOpInfo;
 
-        (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(0, userOp, outOpInfo, true);
+        _simulationOnlyValidations(userOp);
+        (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(0, userOp, outOpInfo);
         StakeInfo memory paymasterInfo = _getStakeInfo(outOpInfo.mUserOp.paymaster);
         StakeInfo memory senderInfo = _getStakeInfo(outOpInfo.mUserOp.sender);
         StakeInfo memory factoryInfo;
@@ -344,19 +348,31 @@ contract EntryPoint is IEntryPoint, StakeManager {
         revert SenderAddressResult(senderCreator.createSender(initCode));
     }
 
+    function _simulationOnlyValidations(UserOperation calldata userOp) internal view {
+        // solhint-disable-next-line no-empty-blocks
+        try this._validateSenderAndPaymaster(userOp.initCode, userOp.sender, userOp.paymasterAndData) {}
+        catch Error(string memory revertReason) {
+            if (bytes(revertReason).length != 0) {
+                revert FailedOp(0, address(0), revertReason);
+            }
+        }
+    }
+
     /**
     * Called only during simulation.
     * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
     */
-    function _simulationOnlyValidations(address sender, address paymaster) external view {
-        require(msg.sender == address(this), "AA92 internal call only");
-        if (sender.code.length == 0) {
+    function _validateSenderAndPaymaster(bytes calldata initCode, address sender, bytes calldata paymasterAndData) external view {
+        if (initCode.length == 0 && sender.code.length == 0) {
             // it would revert anyway. but give a meaningful message
             revert("AA20 account not deployed");
         }
-        if (paymaster != address(0) && paymaster.code.length == 0) {
-            // it would revert anyway. but give a meaningful message
-            revert("AA30 paymaster not deployed");
+        if (paymasterAndData.length >= 20) {
+            address paymaster = address(bytes20(paymasterAndData[0 : 20]));
+            if (paymaster.code.length == 0) {
+                // it would revert anyway. but give a meaningful message
+                revert("AA30 paymaster not deployed");
+            }
         }
         // always revert
         revert("");
@@ -367,7 +383,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * revert (with FailedOp) in case validateUserOp reverts, or account didn't send required prefund.
      * decrement account's deposit if needed
      */
-    function _validateAccountPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPrefund, bool simulateOnly)
+    function _validateAccountPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPrefund)
     internal returns (uint256 gasUsedByValidateAccountPrepayment, uint256 validationData) {
     unchecked {
         uint256 preGas = gasleft();
@@ -375,17 +391,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         address sender = mUserOp.sender;
         _createSenderIfNeeded(opIndex, opInfo, op.initCode);
         address paymaster = mUserOp.paymaster;
-        if (simulateOnly) {
-            numberMarker();
-
-            // solhint-disable-next-line no-empty-blocks
-            try this._simulationOnlyValidations(sender, paymaster) {}
-            catch Error(string memory revertReason) {
-                if (bytes(revertReason).length != 0) {
-                    revert FailedOp(opIndex, paymaster, revertReason);
-                }
-            }
-        }
+        numberMarker();
         uint256 missingAccountFunds = 0;
         if (paymaster == address(0)) {
             uint256 bal = balanceOf(sender);
@@ -484,7 +490,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param opIndex the index of this userOp into the "opInfos" array
      * @param userOp the userOp to validate
      */
-    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo, bool simulateOnly)
+    function _validatePrepayment(uint256 opIndex, UserOperation calldata userOp, UserOpInfo memory outOpInfo)
     private returns (uint256 validationData, uint256 paymasterValidationData) {
 
         uint256 preGas = gasleft();
@@ -500,7 +506,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
         uint256 gasUsedByValidateAccountPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
-        (gasUsedByValidateAccountPrepayment, validationData) = _validateAccountPrepayment(opIndex, userOp, outOpInfo, requiredPreFund, simulateOnly);
+        (gasUsedByValidateAccountPrepayment, validationData) = _validateAccountPrepayment(opIndex, userOp, outOpInfo, requiredPreFund);
         //a "marker" where account opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
         numberMarker();

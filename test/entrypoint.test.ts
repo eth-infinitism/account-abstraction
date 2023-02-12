@@ -919,8 +919,8 @@ describe('EntryPoint', function () {
           userOps: [userOp],
           aggregator: address1,
           signature: sig
-        }], beneficiaryAddress).catch(e => e.message))
-          .to.match(/reverted without a reason string|function call to a non-contract account/)
+        }], beneficiaryAddress).catch(e => e.reason))
+          .to.match(/invalid aggregator/)
         // (different error in coverage mode (because of different solidity settings)
       })
 
