@@ -359,8 +359,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert("AA30 paymaster not deployed");
         }
         // always revert
-        // solhint-disable-next-line reason-string
-        revert();
+        revert("");
     }
 
     /**
@@ -382,10 +381,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
             // solhint-disable-next-line no-empty-blocks
             try this._simulationOnlyValidations(sender, paymaster) {}
             catch Error(string memory revertReason) {
-                revert FailedOp(opIndex, paymaster, revertReason);
+                if (bytes(revertReason).length != 0) {
+                    revert FailedOp(opIndex, paymaster, revertReason);
+                }
             }
-            // solhint-disable-next-line no-empty-blocks
-            catch{}
         }
         uint256 missingAccountFunds = 0;
         if (paymaster == address(0)) {
