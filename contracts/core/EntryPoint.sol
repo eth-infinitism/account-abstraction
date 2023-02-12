@@ -345,6 +345,24 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
+    * Called only during simulation.
+    * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
+    */
+    function _simulationOnlyValidations(address sender, address paymaster) external view {
+        require(msg.sender == address(this), "AA92 internal call only");
+        if (sender.code.length == 0) {
+            // it would revert anyway. but give a meaningful message
+            revert("AA20 account not deployed");
+        }
+        if (paymaster != address(0) && paymaster.code.length == 0) {
+            // it would revert anyway. but give a meaningful message
+            revert("AA30 paymaster not deployed");
+        }
+        // always revert
+        revert();
+    }
+
+    /**
      * call account.validateUserOp.
      * revert (with FailedOp) in case validateUserOp reverts, or account didn't send required prefund.
      * decrement account's deposit if needed
@@ -360,14 +378,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
         if (simulateOnly) {
             numberMarker();
 
-            if (sender.code.length == 0) {
-                // it would revert anyway. but give a meaningful message
-                revert FailedOp(opIndex, address(0), "AA20 account not deployed");
+            // solhint-disable-next-line no-empty-blocks
+            try this._simulationOnlyValidations(sender, paymaster) {}
+            catch Error(string memory revertReason) {
+                revert FailedOp(opIndex, paymaster, revertReason);
             }
-            if (paymaster != address(0) && paymaster.code.length == 0) {
-                // it would revert anyway. but give a meaningful message
-                revert FailedOp(opIndex, paymaster, "AA30 paymaster not deployed");
-            }
+            // solhint-disable-next-line no-empty-blocks
+            catch{}
         }
         uint256 missingAccountFunds = 0;
         if (paymaster == address(0)) {
