@@ -122,14 +122,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
         for (uint256 i = 0; i < opasLen; i++) {
-            totalOps += opsPerAggregator[i].userOps.length;
-        }
-
-        UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
-
-        uint256 opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
-            UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+            UserOpsPerAggregator calldata opa = opsPerAggregator[i];
             UserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
@@ -143,6 +136,17 @@ contract EntryPoint is IEntryPoint, StakeManager {
                     revert SignatureValidationFailed(address(aggregator));
                 }
             }
+
+            totalOps += ops.length;
+        }
+
+        UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
+
+        uint256 opIndex = 0;
+        for (uint256 a = 0; a < opasLen; a++) {
+            UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+            UserOperation[] calldata ops = opa.userOps;
+            IAggregator aggregator = opa.aggregator;
 
             uint256 opslen = ops.length;
             for (uint256 i = 0; i < opslen; i++) {
