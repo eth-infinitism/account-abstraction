@@ -44,7 +44,7 @@ describe('#ValidationData helpers', function () {
   })
 
   it('#packValidationData with aggregator', async () => {
-    expect(hexlify(await helpers.packValidationDataStruct({aggregator:addr, validAfter:234, validUntil:567})))
+    expect(hexlify(await helpers.packValidationDataStruct({ aggregator: addr, validUntil: 234, validAfter: 567 })))
       .to.eql(hexlify(pack(addr, 234, 567)))
   })
 
