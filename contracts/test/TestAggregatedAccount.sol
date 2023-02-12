@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "../core/BaseAccount.sol";
 import "../samples/SimpleAccount.sol";
-import "../interfaces/UserOperation.sol";
 
 /**
  * test aggregated-signature account.
@@ -14,7 +12,7 @@ contract TestAggregatedAccount is SimpleAccount {
     address public immutable aggregator;
 
     // The constructor is used only for the "implementation" and only sets immutable values.
-    // Mutable values slots for proxy accounts are set by the 'initialize' function.
+    // Mutable value slots for proxy accounts are set by the 'initialize' function.
     constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint) {
         aggregator = anAggregator;
     }

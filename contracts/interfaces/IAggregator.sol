@@ -17,7 +17,7 @@ interface IAggregator {
     /**
      * validate signature of a single userOp
      * This method is should be called by bundler after EntryPoint.simulateValidation() returns (reverts) with ValidationResultWithAggregation
-     * First it validates the signature over the userOp. then it return data to be used when creating the handleOps:
+     * First it validates the signature over the userOp. Then it returns data to be used when creating the handleOps.
      * @param userOp the userOperation received from the user.
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
      *    (usually empty, unless account and aggregator support some kind of "multisig"
@@ -30,7 +30,7 @@ interface IAggregator {
      * This method is called off-chain to calculate the signature to pass with handleOps()
      * bundler MAY use optimized custom code perform this aggregation
      * @param userOps array of UserOperations to collect the signatures from.
-     * @return aggregatesSignature the aggregated signature
+     * @return aggregatedSignature the aggregated signature
      */
-    function aggregateSignatures(UserOperation[] calldata userOps) external view returns (bytes memory aggregatesSignature);
+    function aggregateSignatures(UserOperation[] calldata userOps) external view returns (bytes memory aggregatedSignature);
 }

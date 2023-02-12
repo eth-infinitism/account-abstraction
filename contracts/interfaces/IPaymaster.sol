@@ -12,11 +12,11 @@ interface IPaymaster {
     enum PostOpMode {
         opSucceeded, // user op succeeded
         opReverted, // user op reverted. still has to pay for gas.
-        postOpReverted //user op succeeded, but caused postOp to revert. Now its a 2nd call, after user's op was deliberately reverted.
+        postOpReverted //user op succeeded, but caused postOp to revert. Now it's a 2nd call, after user's op was deliberately reverted.
     }
 
     /**
-     * payment validation: check if paymaster agree to pay.
+     * payment validation: check if paymaster agrees to pay.
      * Must verify sender is the entryPoint.
      * Revert to reject this request.
      * Note that bundlers will reject this method if it changes the state, unless the paymaster is trusted (whitelisted)

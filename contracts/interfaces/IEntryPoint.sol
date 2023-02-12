@@ -71,7 +71,7 @@ interface IEntryPoint is IStakeManager {
      * Successful result from simulateValidation.
      * @param returnInfo gas and time-range returned values
      * @param senderInfo stake information about the sender
-     * @param factoryInfo stake information about the factor (if any)
+     * @param factoryInfo stake information about the factory (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      */
     error ValidationResult(ReturnInfo returnInfo,
@@ -81,7 +81,7 @@ interface IEntryPoint is IStakeManager {
      * Successful result from simulateValidation, if the account returns a signature aggregator
      * @param returnInfo gas and time-range returned values
      * @param senderInfo stake information about the sender
-     * @param factoryInfo stake information about the factor (if any)
+     * @param factoryInfo stake information about the factory (if any)
      * @param paymasterInfo stake information about the paymaster (if any)
      * @param aggregatorInfo signature aggregation info (if the account requires signature aggregator)
      *      bundler MUST use it to verify the signature, or reject the UserOperation
@@ -98,7 +98,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * return value of simulateHandleOp
      */
-    error ExecutionResult(uint256 preOpGas, uint256 paid, uint48 validAfter, uint48 validBefore, bool targetSuccess, bytes targetResult);
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint48 validAfter, uint48 validUntil, bool targetSuccess, bytes targetResult);
 
     //UserOps handled, per aggregator
     struct UserOpsPerAggregator {
@@ -113,7 +113,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * Execute a batch of UserOperation.
      * no signature aggregator is used.
-     * if any account requires an aggregator (that is, it returned an "actualAggregator" when
+     * if any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
@@ -168,7 +168,7 @@ interface IEntryPoint is IStakeManager {
      * the aggregator returned by the account, and its current stake.
      */
     struct AggregatorStakeInfo {
-        address actualAggregator;
+        address aggregator;
         StakeInfo stakeInfo;
     }
 

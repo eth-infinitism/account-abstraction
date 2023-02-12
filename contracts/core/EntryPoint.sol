@@ -50,7 +50,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     /**
      * execute a user op
-     * @param opIndex into into the opInfo array
+     * @param opIndex index into the opInfo array
      * @param userOp the userOp to execute
      * @param opInfo the opInfo filled by validatePrepayment for this userOp.
      * @return collected the total amount this userOp paid.
@@ -69,7 +69,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             }
             // handleOps was called with gas limit too low. abort entire bundle.
             if (innerRevertCode == INNER_OUT_OF_GAS) {
-                //report paymaster, since if it is deliberately caused by the bundler,
+                //report paymaster, since if it is not deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
                 revert FailedOp(opIndex, opInfo.mUserOp.paymaster, "AA95 out of gas");
             }
@@ -80,9 +80,9 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /**
-     * Execute a batch of UserOperation.
+     * Execute a batch of UserOperations.
      * no signature aggregator is used.
-     * if any account requires an aggregator (that is, it returned an "actualAggregator" when
+     * if any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
@@ -286,13 +286,13 @@ contract EntryPoint is IEntryPoint, StakeManager {
         UserOpInfo memory outOpInfo;
 
         (uint256 validationData, uint256 paymasterValidationData) = _validatePrepayment(0, userOp, outOpInfo, true);
-        StakeInfo memory paymasterInfo = getStakeInfo(outOpInfo.mUserOp.paymaster);
-        StakeInfo memory senderInfo = getStakeInfo(outOpInfo.mUserOp.sender);
+        StakeInfo memory paymasterInfo = _getStakeInfo(outOpInfo.mUserOp.paymaster);
+        StakeInfo memory senderInfo = _getStakeInfo(outOpInfo.mUserOp.sender);
         StakeInfo memory factoryInfo;
         {
             bytes calldata initCode = userOp.initCode;
             address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
-            factoryInfo = getStakeInfo(factory);
+            factoryInfo = _getStakeInfo(factory);
         }
 
         ValidationData memory data = _intersectTimeRange(validationData, paymasterValidationData);
@@ -302,7 +302,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             sigFailed, data.validAfter, data.validUntil, getMemoryBytesFromOffset(outOpInfo.contextOffset));
 
         if (aggregator != address(0) && aggregator != address(1)) {
-            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, getStakeInfo(aggregator));
+            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(aggregator, _getStakeInfo(aggregator));
             revert ValidationResultWithAggregation(returnInfo, senderInfo, factoryInfo, paymasterInfo, aggregatorInfo);
         }
         revert ValidationResult(returnInfo, senderInfo, factoryInfo, paymasterInfo);
@@ -525,7 +525,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * process post-operation.
      * called just after the callData is executed.
      * if a paymaster is defined and its validation returned a non-empty context, its postOp is called.
-     * the excess amount is refunded to the account (or paymaster - if it is was used in the request)
+     * the excess amount is refunded to the account (or paymaster - if it was used in the request)
      * @param opIndex index in the batch
      * @param mode - whether is called from innerHandleOp, or outside (postOpReverted)
      * @param opInfo userOp fields and info collected during validation
@@ -555,7 +555,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                         revert FailedOp(opIndex, paymaster, reason);
                     }
                     catch {
-                        revert FailedOp(opIndex, paymaster, "A50 postOp revert");
+                        revert FailedOp(opIndex, paymaster, "AA50 postOp revert");
                     }
                 }
             }
@@ -563,10 +563,10 @@ contract EntryPoint is IEntryPoint, StakeManager {
         actualGas += preGas - gasleft();
         actualGasCost = actualGas * gasPrice;
         if (opInfo.prefund < actualGasCost) {
-            revert FailedOp(opIndex, paymaster, "A51 prefund below actualGasCost");
+            revert FailedOp(opIndex, paymaster, "AA51 prefund below actualGasCost");
         }
         uint256 refund = opInfo.prefund - actualGasCost;
-        internalIncrementDeposit(refundAddress, refund);
+        _incrementDeposit(refundAddress, refund);
         bool success = mode == IPaymaster.PostOpMode.opSucceeded;
         emit UserOperationEvent(opInfo.userOpHash, mUserOp.sender, mUserOp.paymaster, mUserOp.nonce, success, actualGasCost, actualGas);
     } // unchecked

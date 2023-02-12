@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "../interfaces/IAggregator.sol";
-import "hardhat/console.sol";
+import "../interfaces/IEntryPoint.sol";
 import "../samples/SimpleAccount.sol";
 
 /**
@@ -34,7 +34,7 @@ contract TestSignatureAggregator is IAggregator {
     /**
      * dummy test aggregator: sum all nonce values of UserOps.
      */
-    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatesSignature) {
+    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
         uint sum = 0;
         for (uint i = 0; i < userOps.length; i++) {
             sum += userOps[i].nonce;
