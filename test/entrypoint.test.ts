@@ -51,7 +51,7 @@ import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
-import { toChecksumAddress, zeroAddress } from 'ethereumjs-util'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -232,8 +232,8 @@ describe('EntryPoint', function () {
     it('should fail if validateUserOp fails', async () => {
       // using wrong nonce
       const op = await fillAndSign({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(op).catch(rethrow())).to
-        .revertedWith('invalid nonce')
+      await expect(entryPoint.callStatic.simulateValidation(op)).to
+        .revertedWith('AA23 reverted: account: invalid nonce')
     })
 
     it('should report signature failure without revert', async () => {
@@ -378,15 +378,20 @@ describe('EntryPoint', function () {
       // deliberately broken signature.. simulate should work with it too.
       const userOp = await fillAndSign({
         sender: account.address,
-        callData,
-        maxFeePerGas: 1 // gasprice=gas...
+        callData
       }, accountOwner1, entryPoint)
 
-      const ret = await entryPoint.callStatic.simulateHandleOp(userOp).catch(e => e.errorArgs)
-      // TODO: we can't directly check simulation called the wallet's execute.
-      // need to do call tracing and parse emitted events
-      // we "hack" it by reporting out gas used, which is expected to be more than just verification
-      console.log('preOpGas=', ret.preOpGas, 'total gas=', ret.paid)
+      const ret = await entryPoint.callStatic.simulateHandleOp(userOp,
+        counter.address,
+        counter.interface.encodeFunctionData('counters', [account.address])
+      ).catch(e => e.errorArgs)
+
+      const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
+      expect(countResult).to.eql(1)
+      expect(ret.targetSuccess).to.be.true
+
+      // actual counter is zero
+      expect(await counter.counters(account.address)).to.eql(0)
     })
   })
 
@@ -872,8 +877,6 @@ describe('EntryPoint', function () {
         aggregator = await new TestSignatureAggregator__factory(ethersSigner).deploy()
         aggAccount = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
         aggAccount2 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator.address)
-        await aggAccount.initialize(zeroAddress())
-        await aggAccount2.initialize(zeroAddress())
         await ethersSigner.sendTransaction({ to: aggAccount.address, value: parseEther('0.1') })
         await ethersSigner.sendTransaction({ to: aggAccount2.address, value: parseEther('0.1') })
       })
@@ -883,7 +886,7 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
 
         // no aggregator is kind of "wrong aggregator"
-        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
       it('should fail to execute aggregated account with wrong aggregator', async () => {
         const userOp = await fillAndSign({
@@ -897,14 +900,13 @@ describe('EntryPoint', function () {
           userOps: [userOp],
           aggregator: wrongAggregator.address,
           signature: sig
-        }], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        }], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
 
       it('should reject non-contract (address(1)) aggregator', async () => {
         // this is just sanity check that the compiler indeed reverts on a call to "validateSignatures()" to nonexistent contracts
         const address1 = hexZeroPad('0x1', 20)
         const aggAccount1 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, address1)
-        await aggAccount1.initialize(zeroAddress())
 
         const userOp = await fillAndSign({
           sender: aggAccount1.address,
@@ -917,8 +919,8 @@ describe('EntryPoint', function () {
           userOps: [userOp],
           aggregator: address1,
           signature: sig
-        }], beneficiaryAddress).catch(e => e.message))
-          .to.match(/reverted without a reason string|function call to a non-contract account/)
+        }], beneficiaryAddress).catch(e => e.reason))
+          .to.match(/invalid aggregator/)
         // (different error in coverage mode (because of different solidity settings)
       })
 
@@ -940,7 +942,6 @@ describe('EntryPoint', function () {
       it('should run with multiple aggregators (and non-aggregated-accounts)', async () => {
         const aggregator3 = await new TestSignatureAggregator__factory(ethersSigner).deploy()
         const aggAccount3 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.address, aggregator3.address)
-        await aggAccount3.initialize(zeroAddress())
         await ethersSigner.sendTransaction({ to: aggAccount3.address, value: parseEther('0.1') })
 
         const userOp1 = await fillAndSign({
@@ -1032,7 +1033,7 @@ describe('EntryPoint', function () {
           it('simulateValidation should return aggregator and its stake', async () => {
             await aggregator.addStake(entryPoint.address, 3, { value: TWO_ETH })
             const { aggregatorInfo } = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
-            expect(aggregatorInfo.actualAggregator).to.equal(aggregator.address)
+            expect(aggregatorInfo.aggregator).to.equal(aggregator.address)
             expect(aggregatorInfo.stakeInfo.stake).to.equal(TWO_ETH)
             expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.equal(3)
           })
@@ -1145,7 +1146,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(100)
         })
 
@@ -1156,7 +1157,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, expiredOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).eql(now - 60 - 1)
+          expect(ret.returnInfo.validUntil).eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
       })
@@ -1173,30 +1174,30 @@ describe('EntryPoint', function () {
         })
 
         it('should accept non-expired paymaster request', async () => {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [123, now + 60])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [123, now + 60])
           const userOp = await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now + 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
 
         it('should not reject expired paymaster request', async () => {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [321, now - 60])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [321, now - 60])
           const userOp = await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
-          expect(ret.returnInfo.validUntil).to.eql(now - 60 - 1)
+          expect(ret.returnInfo.validUntil).to.eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(321)
         })
 
         // helper method
         async function createOpWithPaymasterParams (owner: Wallet, after: number, until: number): Promise<UserOperation> {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [after, until])
           return await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
@@ -1224,10 +1225,10 @@ describe('EntryPoint', function () {
             expect((await simulateWithPaymasterParams(200, 1000)).validAfter).to.eql(200)
           })
           it('should use higher "until" value of paymaster', async () => {
-            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(399)
+            expect((await simulateWithPaymasterParams(10, 400)).validUntil).to.eql(400)
           })
           it('should use higher "until" value of account', async () => {
-            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(499)
+            expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(500)
           })
 
           it('handleOps should revert on expired paymaster request', async () => {

@@ -5,9 +5,15 @@ pragma solidity ^0.8.7;
 
 import "@gnosis.pm/safe-contracts/contracts/handler/DefaultCallbackHandler.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
-import "../interfaces/IAccount.sol";
+import "../../interfaces/IAccount.sol";
 import "./EIP4337Manager.sol";
 
+/**
+ * The GnosisSafe enables adding custom functions implementation to the Safe by setting a 'fallbackHandler'.
+ * This 'fallbackHandler' adds an implementation of 'validateUserOp' to the GnosisSafe.
+ * Note that the implementation of the 'validateUserOp' method is located in the EIP4337Manager.
+ * Upon receiving the 'validateUserOp', a Safe with EIP4337Fallback enabled makes a 'delegatecall' to EIP4337Manager.
+ */
 contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
     address immutable public eip4337manager;
     constructor(address _eip4337manager) {
@@ -33,7 +39,7 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
     /**
      * called from the Safe. delegate actual work to EIP4337Manager
      */
-    function validateUserOp(UserOperation calldata, bytes32, address, uint256) override external returns (uint256 deadline){
+    function validateUserOp(UserOperation calldata, bytes32, uint256) override external returns (uint256 deadline){
         bytes memory ret = delegateToManager();
         return abi.decode(ret, (uint256));
     }
