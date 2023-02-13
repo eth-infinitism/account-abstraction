@@ -562,7 +562,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
                     // solhint-disable-next-line no-empty-blocks
                     try IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
-                        revert FailedOp(opIndex, reason);
+                        revert FailedOp(opIndex, string.concat("AA50 postOp reverted: ", reason));
                     }
                     catch {
                         revert FailedOp(opIndex, "AA50 postOp revert");
