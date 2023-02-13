@@ -3,7 +3,7 @@ module.exports = {
     "test",
     "samples/bls/lib",
     //solc-coverage fails to compile our Manager module.
-    "sammples/gnosis",
+    "samples/gnosis",
     "utils/Exec.sol"
   ],
 };
