@@ -104,7 +104,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       const res = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
       expect(res.returnInfo.sigFailed).to.be.false
       expect(res.returnInfo.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
-      expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL).sub(1))
+      expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
     })
   })
 })
