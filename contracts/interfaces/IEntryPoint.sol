@@ -54,13 +54,13 @@ interface IEntryPoint is IStakeManager {
      * a custom revert error of handleOps, to identify the offending op.
      *  NOTE: if simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
      *  @param opIndex - index into the array of ops to the failed one (in simulateValidation, this is always zero)
-     *  @param paymaster - if paymaster.validatePaymasterUserOp fails, this will be the paymaster's address. if validateUserOp failed,
-     *       this value will be zero (since it failed before accessing the paymaster)
      *  @param reason - revert reason
+     *      The string starts with a unique code "AAmn", where "m" is "1" for factory, "2" for account and "3" for paymaster issues,
+     *      so a failure can be attributed to the correct entity.
      *   Should be caught in off-chain handleOps simulation and not happen on-chain.
-     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of account/paymaster reverts.
+     *   Useful for mitigating DoS attempts against batchers or for troubleshooting of factory/account/paymaster reverts.
      */
-    error FailedOp(uint256 opIndex, address paymaster, string reason);
+    error FailedOp(uint256 opIndex, string reason);
 
     /**
      * error case when a signature aggregator fails to verify the aggregated signature it had created.
