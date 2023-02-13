@@ -82,7 +82,7 @@ abstract contract StakeManager is IStakeManager {
         DepositInfo storage info = deposits[msg.sender];
         require(info.unstakeDelaySec != 0, "not staked");
         require(info.staked, "already unstaking");
-        uint64 withdrawTime = uint64(block.timestamp) + info.unstakeDelaySec;
+        uint48 withdrawTime = uint48(block.timestamp) + info.unstakeDelaySec;
         info.withdrawTime = withdrawTime;
         info.staked = false;
         emit StakeUnlocked(msg.sender, withdrawTime);

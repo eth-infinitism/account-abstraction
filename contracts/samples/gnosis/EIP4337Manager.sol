@@ -26,7 +26,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     address public immutable entryPoint;
 
     // return value in case of signature failure, with no time-range.
-    // equivalent to _packSigTimeRange(true,0,0);
+    // equivalent to _packValidationData(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     constructor(address anEntryPoint) {
@@ -37,8 +37,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address /*aggregator*/, uint256 missingAccountFunds)
-    external override returns (uint256 sigTimeRange) {
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+    external override returns (uint256 validationData) {
         address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(msgSender == entryPoint, "account: not from entrypoint");
 
@@ -47,7 +47,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         address recovered = hash.recover(userOp.signature);
         require(threshold == 1, "account: only threshold 1");
         if (!pThis.isOwner(recovered)) {
-            sigTimeRange = SIG_VALIDATION_FAILED;
+            validationData = SIG_VALIDATION_FAILED;
         }
 
         if (userOp.initCode.length == 0) {

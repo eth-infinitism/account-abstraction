@@ -8,7 +8,6 @@ import {
   TestUtil__factory
 } from '../typechain'
 import {
-  AddressZero,
   createAddress,
   createAccountOwner,
   getBalance,
@@ -83,7 +82,7 @@ describe('SimpleAccount', function () {
       expectedPay = actualGasPrice * (callGasLimit + verificationGasLimit)
 
       preBalance = await getBalance(account.address)
-      const ret = await account.validateUserOp(userOp, userOpHash, AddressZero, expectedPay, { gasPrice: actualGasPrice })
+      const ret = await account.validateUserOp(userOp, userOpHash, expectedPay, { gasPrice: actualGasPrice })
       await ret.wait()
     })
 
@@ -97,12 +96,12 @@ describe('SimpleAccount', function () {
     })
 
     it('should reject same TX on nonce error', async () => {
-      await expect(account.validateUserOp(userOp, userOpHash, AddressZero, 0)).to.revertedWith('invalid nonce')
+      await expect(account.validateUserOp(userOp, userOpHash, 0)).to.revertedWith('invalid nonce')
     })
 
     it('should return NO_SIG_VALIDATION on wrong signature', async () => {
       const userOpHash = HashZero
-      const deadline = await account.callStatic.validateUserOp({ ...userOp, nonce: 1 }, userOpHash, AddressZero, 0)
+      const deadline = await account.callStatic.validateUserOp({ ...userOp, nonce: 1 }, userOpHash, 0)
       expect(deadline).to.eq(1)
     })
   })
