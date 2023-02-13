@@ -5,8 +5,12 @@ pragma solidity ^0.8.7;
 
 import "@gnosis.pm/safe-contracts/contracts/handler/DefaultCallbackHandler.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../interfaces/IAccount.sol";
 import "./EIP4337Manager.sol";
+
+using ECDSA for bytes32;
 
 /**
  * The GnosisSafe enables adding custom functions implementation to the Safe by setting a 'fallbackHandler'.
@@ -14,7 +18,9 @@ import "./EIP4337Manager.sol";
  * Note that the implementation of the 'validateUserOp' method is located in the EIP4337Manager.
  * Upon receiving the 'validateUserOp', a Safe with EIP4337Fallback enabled makes a 'delegatecall' to EIP4337Manager.
  */
-contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
+contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
+    bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
+
     address immutable public eip4337manager;
     constructor(address _eip4337manager) {
         eip4337manager = _eip4337manager;
@@ -54,5 +60,22 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount {
         Enum.Operation
     ) external {
         delegateToManager();
+    }
+
+    function isValidSignature(
+        bytes32 _hash,
+        bytes memory _signature
+    ) external override view returns (bytes4) {
+        bytes32 hash = _hash.toEthSignedMessageHash();
+        address recovered = hash.recover(_signature);
+
+        GnosisSafe safe = GnosisSafe(payable(address(msg.sender)));
+
+        // Validate signatures
+        if (safe.isOwner(recovered)) {
+            return ERC1271_MAGIC_VALUE;
+        } else {
+            return 0xffffffff;
+        }
     }
 }
