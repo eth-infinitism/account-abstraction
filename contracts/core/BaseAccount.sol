@@ -7,6 +7,7 @@ pragma solidity ^0.8.12;
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
+import "./Helpers.sol";
 
 /**
  * Basic account implementation.
@@ -17,18 +18,8 @@ abstract contract BaseAccount is IAccount {
     using UserOperationLib for UserOperation;
 
     //return value in case of signature failure, with no time-range.
-    // equivalent to _packSigTimeRange(true,0,0);
+    // equivalent to _packValidationData(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
-
-    /**
-     * helper to pack the return value for validateUserOp
-     * @param sigFailed true if the signature check failed, false, if it succeeded.
-     * @param validUntil last timestamp this UserOperation is valid (or zero for infinite)
-     * @param validAfter first timestamp this UserOperation is valid
-     */
-    function _packSigTimeRange(bool sigFailed, uint64 validUntil, uint64 validAfter) internal pure returns (uint256) {
-        return uint256(sigFailed ? 1 : 0) | (uint256(validUntil) << 8) | (uint256(validAfter) << 64+8);
-    }
 
     /**
      * return the account nonce.
@@ -46,10 +37,10 @@ abstract contract BaseAccount is IAccount {
      * Validate user's signature and nonce.
      * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, address aggregator, uint256 missingAccountFunds)
-    external override virtual returns (uint256 sigTimeRange) {
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+    external override virtual returns (uint256 validationData) {
         _requireFromEntryPoint();
-        sigTimeRange = _validateSignature(userOp, userOpHash, aggregator);
+        validationData = _validateSignature(userOp, userOpHash);
         if (userOp.initCode.length == 0) {
             _validateAndUpdateNonce(userOp);
         }
@@ -68,16 +59,16 @@ abstract contract BaseAccount is IAccount {
      * @param userOp validate the userOp.signature field
      * @param userOpHash convenient field: the hash of the request, to check the signature against
      *          (also hashes the entrypoint and chain id)
-     * @param aggregator the current aggregator. can be ignored by accounts that don't use aggregators
-     * @return sigTimeRange signature validation status and time-range of this operation
-     *      <byte> sigCheckStatus - (1) to mark signature failure, 0 for valid signature.
-     *      <8-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
-     *      <8-byte> validAfter - first timestamp this operation is valid
+     * @return validationData signature and time-range of this operation
+     *      <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
+     *         otherwise, an address of an "authorizer" contract.
+     *      <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
+     *      <6-byte> validAfter - first timestamp this operation is valid
      *      If the account doesn't use time-range, it is enough to return SIG_VALIDATION_FAILED value (1) for signature failure.
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address aggregator)
-    internal virtual returns (uint256 sigTimeRange);
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    internal virtual returns (uint256 validationData);
 
     /**
      * validate the current nonce matches the UserOperation nonce.

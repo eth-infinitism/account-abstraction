@@ -70,7 +70,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
       * (since the paymaster is also the token, there is no notion of "approval")
       */
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
-    internal view override returns (bytes memory context, uint256 sigTimeRange) {
+    internal view override returns (bytes memory context, uint256 validationData) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough

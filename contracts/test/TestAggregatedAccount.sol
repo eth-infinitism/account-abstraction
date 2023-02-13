@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "../interfaces/IAggregatedAccount.sol";
 import "../samples/SimpleAccount.sol";
 
 /**
@@ -9,7 +8,7 @@ import "../samples/SimpleAccount.sol";
  * works only with TestAggregatedSignature, which doesn't really check signature, but nonce sum
  * a true aggregated account should expose data (e.g. its public key) to the aggregator.
  */
-contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
+contract TestAggregatedAccount is SimpleAccount {
     address public immutable aggregator;
 
     // The constructor is used only for the "implementation" and only sets immutable values.
@@ -23,15 +22,9 @@ contract TestAggregatedAccount is SimpleAccount, IAggregatedAccount {
         super._initialize(address(0));
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
-    internal override view returns (uint256 sigTimeRange) {
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    internal override view returns (uint256 validationData) {
         (userOp, userOpHash);
-        require(userOpAggregator == aggregator, "wrong aggregator");
-        return 0;
-    }
-
-    /// @inheritdoc IAggregatedAccount
-    function getAggregator() external override view returns (address) {
-        return aggregator;
+        return _packValidationData(ValidationData(aggregator, 0, 0));
     }
 }

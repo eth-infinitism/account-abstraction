@@ -13,37 +13,37 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
-    mapping(address => uint64) public ownerAfter;
-    mapping(address => uint64) public ownerUntil;
+    mapping(address => uint48) public ownerAfter;
+    mapping(address => uint48) public ownerUntil;
 
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
-        addTemporaryOwner(anOwner, 0, type(uint64).max);
+        addTemporaryOwner(anOwner, 0, type(uint48).max);
     }
 
     // As this is a test contract, no need for proxy, so no need to disable init
     // solhint-disable-next-line no-empty-blocks
-    function _disableInitializers () internal override {}
+    function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint64 _after, uint64 _until) public onlyOwner {
+    function addTemporaryOwner(address owner, uint48 _after, uint48 _until) public onlyOwner {
         require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
         ownerUntil[owner] = _until;
     }
 
     /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address)
-    internal override view returns (uint256 sigTimeRange) {
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    internal override view returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
-        uint64 _until = ownerUntil[signer];
-        uint64 _after = ownerAfter[signer];
+        uint48 _until = ownerUntil[signer];
+        uint48 _after = ownerAfter[signer];
 
         //we have "until" value for all valid owners. so zero means "invalid signature"
         bool sigFailed = _until == 0;
-        return _packSigTimeRange(sigFailed, _until, _after);
+        return _packValidationData(sigFailed, _until, _after);
     }
 }

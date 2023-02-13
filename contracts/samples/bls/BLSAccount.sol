@@ -30,8 +30,8 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         _setBlsPublicKey(aPublicKey);
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
-    internal override view returns (uint256 sigTimeRange) {
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    internal override view returns (uint256 validationData) {
 
         (userOp, userOpHash);
         if (userOp.initCode.length != 0) {
@@ -41,8 +41,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
             bytes32 pubKeyHash = keccak256(abi.encode(getBlsPublicKey()));
             require(keccak256(userOp.initCode[userOp.initCode.length - 128 :]) == pubKeyHash, "wrong pubkey");
         }
-        require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
-        return 0;
+        return _packValidationData(ValidationData(aggregator, 0,0));
     }
 
     /**
@@ -56,13 +55,6 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
     function _setBlsPublicKey(uint256[4] memory newPublicKey) internal {
         emit PublicKeyChanged(publicKey, newPublicKey);
         publicKey = newPublicKey;
-    }
-
-    /**
-     * @return address of an aggregator contract trusted by this account to verify BLS signatures aggregated in a batch.
-     */
-    function getAggregator() external view returns (address) {
-        return aggregator;
     }
 
     /// @inheritdoc IBLSAccount

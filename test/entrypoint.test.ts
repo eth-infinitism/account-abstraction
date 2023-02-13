@@ -886,7 +886,7 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
 
         // no aggregator is kind of "wrong aggregator"
-        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        await expect(entryPoint.handleOps([userOp], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
       it('should fail to execute aggregated account with wrong aggregator', async () => {
         const userOp = await fillAndSign({
@@ -900,7 +900,7 @@ describe('EntryPoint', function () {
           userOps: [userOp],
           aggregator: wrongAggregator.address,
           signature: sig
-        }], beneficiaryAddress)).to.revertedWith('wrong aggregator')
+        }], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
 
       it('should reject non-contract (address(1)) aggregator', async () => {
@@ -919,8 +919,8 @@ describe('EntryPoint', function () {
           userOps: [userOp],
           aggregator: address1,
           signature: sig
-        }], beneficiaryAddress).catch(e => e.message))
-          .to.match(/reverted without a reason string|function call to a non-contract account/)
+        }], beneficiaryAddress).catch(e => e.reason))
+          .to.match(/invalid aggregator/)
         // (different error in coverage mode (because of different solidity settings)
       })
 
@@ -1174,7 +1174,7 @@ describe('EntryPoint', function () {
         })
 
         it('should accept non-expired paymaster request', async () => {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [123, now + 60])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [123, now + 60])
           const userOp = await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
@@ -1185,7 +1185,7 @@ describe('EntryPoint', function () {
         })
 
         it('should not reject expired paymaster request', async () => {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [321, now - 60])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [321, now - 60])
           const userOp = await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
@@ -1197,7 +1197,7 @@ describe('EntryPoint', function () {
 
         // helper method
         async function createOpWithPaymasterParams (owner: Wallet, after: number, until: number): Promise<UserOperation> {
-          const timeRange = defaultAbiCoder.encode(['uint64', 'uint64'], [after, until])
+          const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [after, until])
           return await fillAndSign({
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])

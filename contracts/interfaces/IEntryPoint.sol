@@ -98,7 +98,7 @@ interface IEntryPoint is IStakeManager {
     /**
      * return value of simulateHandleOp
      */
-    error ExecutionResult(uint256 preOpGas, uint256 paid, uint64 validAfter, uint64 validUntil, bool targetSuccess, bytes targetResult);
+    error ExecutionResult(uint256 preOpGas, uint256 paid, uint48 validAfter, uint48 validUntil, bool targetSuccess, bytes targetResult);
 
     //UserOps handled, per aggregator
     struct UserOpsPerAggregator {
@@ -157,8 +157,8 @@ interface IEntryPoint is IStakeManager {
         uint256 preOpGas;
         uint256 prefund;
         bool sigFailed;
-        uint64 validAfter;
-        uint64 validUntil;
+        uint48 validAfter;
+        uint48 validUntil;
         bytes paymasterContext;
     }
 

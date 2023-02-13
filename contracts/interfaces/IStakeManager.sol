@@ -47,7 +47,7 @@ interface IStakeManager {
      * @dev sizes were chosen so that (deposit,staked, stake) fit into one cell (used during handleOps)
      *    and the rest fit into a 2nd cell.
      *    112 bit allows for 10^15 eth
-     *    64 bit for full timestamp
+     *    48 bit for full timestamp
      *    32 bit allows 150 years for unstake delay
      */
     struct DepositInfo {
@@ -55,7 +55,7 @@ interface IStakeManager {
         bool staked;
         uint112 stake;
         uint32 unstakeDelaySec;
-        uint64 withdrawTime;
+        uint48 withdrawTime;
     }
 
     //API struct used by getStakeInfo and simulateValidation

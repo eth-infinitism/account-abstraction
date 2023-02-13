@@ -25,16 +25,11 @@ contract BrokenBLSAccount is SimpleAccount, IBLSAccount {
         super._initialize(address(0));
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, address userOpAggregator)
-    internal override view returns (uint256 sigTimeRange) {
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    internal override view returns (uint256 validationData) {
 
         (userOp, userOpHash);
-        require(userOpAggregator == aggregator, "BLSAccount: wrong aggregator");
-        return 0;
-    }
-
-    function getAggregator() external view returns (address) {
-        return aggregator;
+        return _packValidationData(ValidationData(aggregator, 0,0));
     }
 
     function getBlsPublicKey() external override pure returns (uint256[4] memory) {
