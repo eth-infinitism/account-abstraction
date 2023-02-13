@@ -12,6 +12,7 @@ import "@gnosis.pm/safe-contracts/contracts/examples/libraries/GnosisSafeStorage
 import "./EIP4337Fallback.sol";
 import "../../interfaces/IAccount.sol";
 import "../../interfaces/IEntryPoint.sol";
+import "../../utils/Exec.sol";
 
     using ECDSA for bytes32;
 
@@ -92,21 +93,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
             type(uint256).max
         );
 
-        bytes memory returnData;
-        assembly {
-            // Load free memory location
-            let ptr := mload(0x40)
-            // We allocate memory for the return data by setting the free memory location to
-            // current free memory location + data size + 32 bytes for data size value
-            mstore(0x40, add(ptr, add(returndatasize(), 0x20)))
-            // Store the size
-            mstore(ptr, returndatasize())
-            // Store the data
-            returndatacopy(add(ptr, 0x20), 0, returndatasize())
-            // Point the return data to the correct memory location
-            returnData := ptr
-        }
-
+        bytes memory returnData = Exec.getReturnData(type(uint256).max);
         // Revert with the actual reason string
         // Adopted from: https://github.com/Uniswap/v3-periphery/blob/464a8a49611272f7349c970e0fadb7ec1d3c1086/contracts/base/Multicall.sol#L16-L23
         if (!success) {
