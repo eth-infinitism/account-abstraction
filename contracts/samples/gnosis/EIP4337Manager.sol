@@ -80,8 +80,8 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         bytes memory data,
         Enum.Operation operation
     ) external {
-        address _msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
-        require(_msgSender == entryPoint, "account: not from entrypoint");
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        require(msgSender == entryPoint, "account: not from entrypoint");
         require(msg.sender == eip4337Fallback, "account: not from EIP4337Fallback");
 
         bool success = execute(
