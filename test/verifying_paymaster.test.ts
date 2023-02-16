@@ -13,8 +13,12 @@ import {
   deployEntryPoint, simulationResultCatch
 } from './testutils'
 import { fillAndSign } from './UserOp'
-import { arrayify, hexConcat, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
+
+const MOCK_VALID_UNTIL = '0x00000000deadbeef'
+const MOCK_VALID_AFTER = '0x0000000000001234'
+const MOCK_SIG = '0x1234'
 
 describe('EntryPoint with VerifyingPaymaster', function () {
   let entryPoint: EntryPoint
@@ -37,11 +41,22 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     ({ proxy: account } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address))
   })
 
+  describe('#parsePaymasterAndData', () => {
+    it('should parse data properly', async () => {
+      const paymasterAndData = hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG])
+      console.log(paymasterAndData)
+      const res = await paymaster.parsePaymasterAndData(paymasterAndData)
+      expect(res.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
+      expect(res.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
+      expect(res.signature).equal(MOCK_SIG)
+    })
+  })
+
   describe('#validatePaymasterUserOp', () => {
     it('should reject on no signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x1234'])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x1234'])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
@@ -49,7 +64,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('should reject on invalid signature', async () => {
       const userOp = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, '0x' + '00'.repeat(65)])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
     })
@@ -61,7 +76,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         const sig = await offchainSigner.signMessage(arrayify('0xdead'))
         wrongSigUserOp = await fillAndSign({
           sender: account.address,
-          paymasterAndData: hexConcat([paymaster.address, sig])
+          paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
         }, accountOwner, entryPoint)
       })
 
@@ -77,15 +92,19 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
     it('succeed with valid signature', async () => {
       const userOp1 = await fillAndSign({
-        sender: account.address
+        sender: account.address,
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
-      const hash = await paymaster.getHash(userOp1)
+      const hash = await paymaster.getHash(userOp1, MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
       const sig = await offchainSigner.signMessage(arrayify(hash))
       const userOp = await fillAndSign({
         ...userOp1,
-        paymasterAndData: hexConcat([paymaster.address, sig])
+        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
       }, accountOwner, entryPoint)
-      await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      const res = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      expect(res.returnInfo.sigFailed).to.be.false
+      expect(res.returnInfo.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
+      expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
     })
   })
 })

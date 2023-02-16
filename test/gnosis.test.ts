@@ -260,7 +260,7 @@ describe('Gnosis Proxy', function () {
       expect(oldManager.toLowerCase()).to.eq(manager.address.toLowerCase())
       await ethersSigner.sendTransaction({
         to: ownerAddress,
-        value: parseEther('0.1')
+        value: parseEther('33')
       })
 
       const replaceManagerCallData = manager.interface.encodeFunctionData('replaceEIP4337Manager',

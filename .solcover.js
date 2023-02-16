@@ -6,4 +6,5 @@ module.exports = {
     "samples/gnosis",
     "utils/Exec.sol"
   ],
+  configureYulOptimizer: true,
 };
