@@ -299,7 +299,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         StakeInfo memory factoryInfo;
         {
             bytes calldata initCode = userOp.initCode;
-            address factory = initCode.length >= 20 ? address(bytes20(initCode[0 : 20])) : address(0);
+            address factory = initCode.length >= 20 ? address(bytes20(initCode)) : address(0);
             factoryInfo = _getStakeInfo(factory);
         }
 
@@ -337,7 +337,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             if (sender1 == address(0)) revert FailedOp(opIndex, "AA13 initCode failed or OOG");
             if (sender1 != sender) revert FailedOp(opIndex, "AA14 initCode must return sender");
             if (sender1.code.length == 0) revert FailedOp(opIndex, "AA15 initCode must create sender");
-            address factory = address(bytes20(initCode[0 : 20]));
+            address factory = address(bytes20(initCode));
             emit AccountDeployed(opInfo.userOpHash, sender, factory, opInfo.mUserOp.paymaster);
         }
     }
@@ -372,7 +372,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
             revert("AA20 account not deployed");
         }
         if (paymasterAndData.length >= 20) {
-            address paymaster = address(bytes20(paymasterAndData[0 : 20]));
+            address paymaster = address(bytes20(paymasterAndData));
             if (paymaster.code.length == 0) {
                 // it would revert anyway. but give a meaningful message
                 revert("AA30 paymaster not deployed");
