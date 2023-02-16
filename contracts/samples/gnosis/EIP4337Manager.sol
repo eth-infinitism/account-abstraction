@@ -7,9 +7,12 @@ pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
+import "@gnosis.pm/safe-contracts/contracts/base/Executor.sol";
+import "@gnosis.pm/safe-contracts/contracts/examples/libraries/GnosisSafeStorage.sol";
 import "./EIP4337Fallback.sol";
 import "../../interfaces/IAccount.sol";
 import "../../interfaces/IEntryPoint.sol";
+import "../../utils/Exec.sol";
 
     using ECDSA for bytes32;
 
@@ -20,7 +23,7 @@ import "../../interfaces/IEntryPoint.sol";
  * holds an immutable reference to the EntryPoint
  * Inherits GnosisSafe so that it can reference the memory storage
  */
-contract EIP4337Manager is GnosisSafe, IAccount {
+contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
 
     address public immutable eip4337Fallback;
     address public immutable entryPoint;
@@ -28,6 +31,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     // return value in case of signature failure, with no time-range.
     // equivalent to _packValidationData(true,0,0);
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
+
+    address internal constant SENTINEL_MODULES = address(0x1);
 
     constructor(address anEntryPoint) {
         entryPoint = anEntryPoint;
@@ -51,7 +56,8 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         }
 
         if (userOp.initCode.length == 0) {
-            require(nonce++ == userOp.nonce, "account: invalid nonce");
+            require(uint256(nonce) == userOp.nonce, "account: invalid nonce");
+            nonce = bytes32(uint256(nonce) + 1);
         }
 
         if (missingAccountFunds > 0) {
@@ -77,9 +83,17 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     ) external {
         address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(msgSender == entryPoint, "account: not from entrypoint");
+        require(msg.sender == eip4337Fallback, "account: not from EIP4337Fallback");
 
-        (bool success, bytes memory returnData) = execTransactionFromModuleReturnData(to, value, data, operation);
+        bool success = execute(
+            to,
+            value,
+            data,
+            operation,
+            type(uint256).max
+        );
 
+        bytes memory returnData = Exec.getReturnData(type(uint256).max);
         // Revert with the actual reason string
         // Adopted from: https://github.com/Uniswap/v3-periphery/blob/464a8a49611272f7349c970e0fadb7ec1d3c1086/contracts/base/Multicall.sol#L16-L23
         if (!success) {
@@ -91,6 +105,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         }
     }
 
+
     /**
      * set up a safe as EIP-4337 enabled.
      * called from the GnosisSafeAccountFactory during construction time
@@ -100,7 +115,9 @@ contract EIP4337Manager is GnosisSafe, IAccount {
     function setup4337Modules(
         EIP4337Manager manager //the manager (this contract)
     ) external {
-        GnosisSafe safe = GnosisSafe(payable(this));
+        GnosisSafe safe = GnosisSafe(payable(address(this)));
+        require(!safe.isModuleEnabled(manager.entryPoint()), "setup4337Modules: entrypoint already enabled");
+        require(!safe.isModuleEnabled(manager.eip4337Fallback()), "setup4337Modules: eip4337Fallback already enabled");
         safe.enableModule(manager.entryPoint());
         safe.enableModule(manager.eip4337Fallback());
     }
@@ -113,7 +130,6 @@ contract EIP4337Manager is GnosisSafe, IAccount {
      * @param newManager the new EIP4337Manager, usually with a new EntryPoint
      */
     function replaceEIP4337Manager(address prevModule, EIP4337Manager oldManager, EIP4337Manager newManager) public {
-
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
         address oldFallback = oldManager.eip4337Fallback();
         require(pThis.isModuleEnabled(oldFallback), "replaceEIP4337Manager: oldManager is not active");
@@ -124,7 +140,6 @@ contract EIP4337Manager is GnosisSafe, IAccount {
 
         pThis.enableModule(newManager.entryPoint());
         pThis.enableModule(eip4337fallback);
-
         pThis.setFallbackHandler(eip4337fallback);
 
         validateEip4337(pThis, newManager);
@@ -143,7 +158,7 @@ contract EIP4337Manager is GnosisSafe, IAccount {
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
-        UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", 0, 1000000, 0, 0, 0, "", sig);
+        UserOperation memory userOp = UserOperation(address(safe), uint256(nonce), "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));
@@ -155,22 +170,12 @@ contract EIP4337Manager is GnosisSafe, IAccount {
             }
         }
     }
-
-    function delegateCall(address to, bytes memory data) internal {
-        bool success;
-        assembly {
-            success := delegatecall(sub(0, 1), to, add(data, 0x20), mload(data), 0, 0)
-        }
-        require(success, "delegate failed");
-    }
-
     /**
      * enumerate modules, and find the currently active EIP4337 manager (and previous module)
      * @return prev prev module, needed by replaceEIP4337Manager
      * @return manager the current active EIP4337Manager
      */
     function getCurrentEIP4337Manager(GnosisSafe safe) public view returns (address prev, address manager) {
-
         prev = address(SENTINEL_MODULES);
         (address[] memory modules,) = safe.getModulesPaginated(SENTINEL_MODULES, 100);
         for (uint i = 0; i < modules.length; i++) {
