@@ -29,7 +29,7 @@ contract TokenCallbackHandler is IERC777Recipient, IERC721Receiver, IERC1155Rece
         uint256,
         bytes calldata
     ) external pure override returns (bytes4) {
-        return 0x150b7a02;
+        return IERC721Receiver.onERC721Received.selector;
     }
 
     function onERC1155Received(
@@ -39,7 +39,7 @@ contract TokenCallbackHandler is IERC777Recipient, IERC721Receiver, IERC1155Rece
         uint256,
         bytes calldata
     ) external pure override returns (bytes4) {
-        return 0xf23a6e61;
+        return IERC1155Receiver.onERC1155Received.selector;
     }
 
     function onERC1155BatchReceived(
@@ -49,7 +49,7 @@ contract TokenCallbackHandler is IERC777Recipient, IERC721Receiver, IERC1155Rece
         uint256[] calldata,
         bytes calldata
     ) external pure override returns (bytes4) {
-        return 0xbc197c81;
+        return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
     function supportsInterface(bytes4 interfaceId) external view virtual override returns (bool) {
