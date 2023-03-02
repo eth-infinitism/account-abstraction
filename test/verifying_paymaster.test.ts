@@ -12,8 +12,8 @@ import {
   createAccountOwner, createAddress,
   deployEntryPoint, simulationResultCatch
 } from './testutils'
-import { fillAndSign } from './UserOp'
-import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
+import { fillAndSign, packUserOp } from './UserOp'
+import { AbiCoder, arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
 const MOCK_VALID_UNTIL = '0x00000000deadbeef'
@@ -93,7 +93,6 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     it('succeed with valid signature', async () => {
       const userOp1 = await fillAndSign({
         sender: account.address,
-        paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       const hash = await paymaster.getHash(userOp1, MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
       const sig = await offchainSigner.signMessage(arrayify(hash))

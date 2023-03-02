@@ -31,8 +31,32 @@ function encode (typevalues: Array<{ type: string, val: any }>, forSignature: bo
 //   return packed
 // }
 
-export function packUserOp (op: UserOperation, forSignature = true): string {
-  if (forSignature) {
+export function packUserOp (op: UserOperation, forSignature = true, forPaymaster = false): string {
+  if (forPaymaster) {
+    // lighter signature scheme (must match UserOperation#pack): do encode a zero-length paymasterAnd data and signature, but strip afterwards the appended zero-length value, also strip the paymasterAndData offset and signature offset as well as the paymasterData itself
+    const userOpType = {
+      components: [
+        { type: 'address', name: 'sender' },
+        { type: 'uint256', name: 'nonce' },
+        { type: 'bytes', name: 'initCode' },
+        { type: 'bytes', name: 'callData' },
+        { type: 'uint256', name: 'callGasLimit' },
+        { type: 'uint256', name: 'verificationGasLimit' },
+        { type: 'uint256', name: 'preVerificationGas' },
+        { type: 'uint256', name: 'maxFeePerGas' },
+        { type: 'uint256', name: 'maxPriorityFeePerGas' },
+        { type: 'bytes', name: 'paymasterAndData' },
+        { type: 'bytes', name: 'signature' }
+      ],
+      name: 'userOp',
+      type: 'tuple'
+    }
+    let encoded = defaultAbiCoder.encode([userOpType as any], [{ ...op, paymasterAndData: '0x', signature: '0x' }])
+    // remove leading word (total length) and trailing word (zero-length signature)
+    encoded = '0x' + encoded.slice(2 + 64, 2 + 640) + encoded.slice(2 + 640 + 128, encoded.length - 128)
+    return encoded
+  }
+  else if (forSignature) {
     // lighter signature scheme (must match UserOperation#pack): do encode a zero-length signature, but strip afterwards the appended zero-length value
     const userOpType = {
       components: [
@@ -101,8 +125,8 @@ export function packUserOp1 (op: UserOperation): string {
   ])
 }
 
-export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number): string {
-  const userOpHash = keccak256(packUserOp(op, true))
+export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number, forPaymaster = false): string {
+  const userOpHash = keccak256(packUserOp(op, true, forPaymaster))
   const enc = defaultAbiCoder.encode(
     ['bytes32', 'address', 'uint256'],
     [userOpHash, entryPoint, chainId])
@@ -232,12 +256,12 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   return op2
 }
 
-export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, forPaymaster = false): Promise<UserOperation> {
   const provider = entryPoint?.provider
   const op2 = await fillUserOp(op, entryPoint)
 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
-  const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId))
+  const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId, forPaymaster))
 
   return {
     ...op2,
