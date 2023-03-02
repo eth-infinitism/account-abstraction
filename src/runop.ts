@@ -48,28 +48,28 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
     }
   } else { sendUserOp = localUserOpSender(entryPointAddress, ethersSigner) }
 
-  // index is unique for a wallet (so same owner can have multiple wallets, with different index
+  // index is unique for an account (so same owner can have multiple accounts, with different index
   const index = parseInt(process.env.AA_INDEX ?? '0')
   console.log('using account index (AA_INDEX)', index)
   const aasigner = new AASigner(ethersSigner, entryPointAddress, sendUserOp, index)
-  // connect to pre-deployed wallet
-  // await aasigner.connectWalletAddress(walletAddress)
+  // connect to pre-deployed account
+  // await aasigner.connectAccountAddress(accountAddress)
   const myAddress = await aasigner.getAddress()
   if (await provider.getBalance(myAddress) < parseEther('0.01')) {
-    console.log('prefund wallet')
+    console.log('prefund account')
     await ethersSigner.sendTransaction({ to: myAddress, value: parseEther('0.01') })
   }
 
-  // usually, a wallet will deposit for itself (that is, get created using eth, run "addDeposit" for itself
+  // usually, an account will deposit for itself (that is, get created using eth, run "addDeposit" for itself
   // and from there on will use deposit
   // for testing,
   const entryPoint = EntryPoint__factory.connect(entryPointAddress, ethersSigner)
-  console.log('wallet address=', myAddress)
+  console.log('account address=', myAddress)
   let preDeposit = await entryPoint.balanceOf(myAddress)
   console.log('current deposit=', preDeposit, 'current balance', await provider.getBalance(myAddress))
 
   if (preDeposit.lte(parseEther('0.005'))) {
-    console.log('depositing for wallet')
+    console.log('depositing for account')
     await entryPoint.depositTo(myAddress, { value: parseEther('0.01') })
     preDeposit = await entryPoint.balanceOf(myAddress)
   }
@@ -103,10 +103,9 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
     const ev = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), block)
     // if (ev.length === 0) return {}
     return ev.map(event => {
-      const { nonce, actualGasCost, actualGasPrice } = event.args
-      const gasPaid = actualGasCost.div(actualGasPrice).toNumber()
+      const { nonce, actualGasUsed } = event.args
       const gasUsed = rcpt.gasUsed.toNumber()
-      return { nonce: nonce.toNumber(), gasPaid, gasUsed: gasUsed, diff: gasUsed - gasPaid }
+      return { nonce: nonce.toNumber(), gasPaid, gasUsed: gasUsed, diff: gasUsed - actualGasUsed.toNumber() }
     })
   }
 })()

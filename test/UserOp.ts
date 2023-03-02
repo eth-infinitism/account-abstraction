@@ -1,4 +1,9 @@
-import { arrayify, defaultAbiCoder, keccak256 } from 'ethers/lib/utils'
+import {
+  arrayify,
+  defaultAbiCoder,
+  hexDataSlice,
+  keccak256
+} from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
 import { AddressZero, callDataCost, rethrow } from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
@@ -6,6 +11,7 @@ import {
   EntryPoint
 } from '../typechain'
 import { UserOperation } from './UserOperation'
+import { Create2Factory } from '../src/Create2Factory'
 
 function encode (typevalues: Array<{ type: string, val: any }>, forSignature: boolean): string {
   const types = typevalues.map(typevalue => typevalue.type === 'bytes' && forSignature ? 'bytes32' : typevalue.type)
@@ -34,13 +40,12 @@ export function packUserOp (op: UserOperation, forSignature = true): string {
         { type: 'uint256', name: 'nonce' },
         { type: 'bytes', name: 'initCode' },
         { type: 'bytes', name: 'callData' },
-        { type: 'uint256', name: 'callGas' },
-        { type: 'uint256', name: 'verificationGas' },
+        { type: 'uint256', name: 'callGasLimit' },
+        { type: 'uint256', name: 'verificationGasLimit' },
         { type: 'uint256', name: 'preVerificationGas' },
         { type: 'uint256', name: 'maxFeePerGas' },
         { type: 'uint256', name: 'maxPriorityFeePerGas' },
-        { type: 'address', name: 'paymaster' },
-        { type: 'bytes', name: 'paymasterData' },
+        { type: 'bytes', name: 'paymasterAndData' },
         { type: 'bytes', name: 'signature' }
       ],
       name: 'userOp',
@@ -56,13 +61,12 @@ export function packUserOp (op: UserOperation, forSignature = true): string {
     { type: 'uint256', val: op.nonce },
     { type: 'bytes', val: op.initCode },
     { type: 'bytes', val: op.callData },
-    { type: 'uint256', val: op.callGas },
-    { type: 'uint256', val: op.verificationGas },
+    { type: 'uint256', val: op.callGasLimit },
+    { type: 'uint256', val: op.verificationGasLimit },
     { type: 'uint256', val: op.preVerificationGas },
     { type: 'uint256', val: op.maxFeePerGas },
     { type: 'uint256', val: op.maxPriorityFeePerGas },
-    { type: 'address', val: op.paymaster },
-    { type: 'bytes', val: op.paymasterData }
+    { type: 'bytes', val: op.paymasterAndData }
   ]
   if (!forSignature) {
     // for the purpose of calculating gas cost, also hash signature
@@ -77,29 +81,27 @@ export function packUserOp1 (op: UserOperation): string {
     'uint256', // nonce
     'bytes32', // initCode
     'bytes32', // callData
-    'uint256', // callGas
-    'uint', // verificationGas
+    'uint256', // callGasLimit
+    'uint', // verificationGasLimit
     'uint', // preVerificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
-    'address', // paymaster
-    'bytes32' // paymasterData
+    'bytes32' // paymasterAndData
   ], [
     op.sender,
     op.nonce,
     keccak256(op.initCode),
     keccak256(op.callData),
-    op.callGas,
-    op.verificationGas,
+    op.callGasLimit,
+    op.verificationGasLimit,
     op.preVerificationGas,
     op.maxFeePerGas,
     op.maxPriorityFeePerGas,
-    op.paymaster,
-    keccak256(op.paymasterData)
+    keccak256(op.paymasterAndData)
   ])
 }
 
-export function getRequestId (op: UserOperation, entryPoint: string, chainId: number): string {
+export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number): string {
   const userOpHash = keccak256(packUserOp(op, true))
   const enc = defaultAbiCoder.encode(
     ['bytes32', 'address', 'uint256'],
@@ -112,18 +114,17 @@ export const DefaultsForUserOp: UserOperation = {
   nonce: 0,
   initCode: '0x',
   callData: '0x',
-  callGas: 0,
-  verificationGas: 100000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
+  callGasLimit: 0,
+  verificationGasLimit: 100000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
   preVerificationGas: 21000, // should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
-  paymaster: AddressZero,
-  paymasterData: '0x',
+  paymasterAndData: '0x',
   signature: '0x'
 }
 
 export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
-  const message = getRequestId(op, entryPoint, chainId)
+  const message = getUserOpHash(op, entryPoint, chainId)
   const msg1 = Buffer.concat([
     Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
     Buffer.from(arrayify(message))
@@ -139,7 +140,7 @@ export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: strin
   }
 }
 
-export function fillUserOp (op: Partial<UserOperation>, defaults = DefaultsForUserOp): UserOperation {
+export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = DefaultsForUserOp): UserOperation {
   const partial: any = { ...op }
   // we want "item:undefined" to be used from defaults, and not override defaults, so we must explicitly
   // remove those so "merge" will succeed.
@@ -154,30 +155,45 @@ export function fillUserOp (op: Partial<UserOperation>, defaults = DefaultsForUs
 }
 
 // helper to fill structure:
-// - default callGas to estimate call from entryPoint to wallet (TODO: add overhead)
+// - default callGasLimit to estimate call from entryPoint to account (TODO: add overhead)
 // if there is initCode:
-//  - default nonce (used as salt) to zero
-//  - calculate sender using getSenderAddress
-//  - default verificationGas to create2 cost + 100000
+//  - calculate sender by eth_call the deployment code
+//  - default verificationGasLimit estimateGas of deployment code plus default 100000
 // no initCode:
-//  - update nonce from wallet.nonce()
+//  - update nonce from account.nonce()
 // entryPoint param is only required to fill in "sender address when specifying "initCode"
 // nonce: assume contract as "nonce()" function, and fill in.
 // sender - only in case of construction: fill sender from initCode.
-// callGas: VERY crude estimation (by estimating call to wallet, and add rough entryPoint overhead
-// verificationGas: hard-code default at 100k. should add "create2" cost
-export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+// callGasLimit: VERY crude estimation (by estimating call to account, and add rough entryPoint overhead
+// verificationGasLimit: hard-code default at 100k. should add "create2" cost
+export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint): Promise<UserOperation> {
   const op1 = { ...op }
   const provider = entryPoint?.provider
   if (op.initCode != null) {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!op1.nonce) op1.nonce = 0
+    const initAddr = hexDataSlice(op1.initCode!, 0, 20)
+    const initCallData = hexDataSlice(op1.initCode!, 20)
+    if (op1.nonce == null) op1.nonce = 0
     if (op1.sender == null) {
-      if (entryPoint == null) throw new Error('must have entryPoint to calc sender address from initCode')
-      op1.sender = await entryPoint.getSenderAddress(op.initCode, op1.nonce)
+      // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
+      if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
+        const ctr = hexDataSlice(initCallData, 32)
+        const salt = hexDataSlice(initCallData, 0, 32)
+        op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
+      } else {
+        // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
+        if (provider == null) throw new Error('no entrypoint/provider')
+        op1.sender = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs.sender)
+      }
     }
-    if (op1.verificationGas == null) {
-      op1.verificationGas = BigNumber.from(DefaultsForUserOp.verificationGas).add(32000 + 200 * op.initCode.length / 2)
+    if (op1.verificationGasLimit == null) {
+      if (provider == null) throw new Error('no entrypoint/provider')
+      const initEstimate = await provider.estimateGas({
+        from: entryPoint?.address,
+        to: initAddr,
+        data: initCallData,
+        gasLimit: 10e6
+      })
+      op1.verificationGasLimit = BigNumber.from(DefaultsForUserOp.verificationGasLimit).add(initEstimate)
     }
   }
   if (op1.nonce == null) {
@@ -185,8 +201,8 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
     const c = new Contract(op.sender!, ['function nonce() view returns(address)'], provider)
     op1.nonce = await c.nonce().catch(rethrow())
   }
-  if (op1.callGas == null && op.callData != null) {
-    if (provider == null) throw new Error('must have entryPoint for callGas estimate')
+  if (op1.callGasLimit == null && op.callData != null) {
+    if (provider == null) throw new Error('must have entryPoint for callGasLimit estimate')
     const gasEtimated = await provider.estimateGas({
       from: entryPoint?.address,
       to: op1.sender,
@@ -195,7 +211,7 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
 
     // console.log('estim', op1.sender,'len=', op1.callData!.length, 'res=', gasEtimated)
     // estimateGas assumes direct call from entryPoint. add wrapper cost.
-    op1.callGas = gasEtimated // .add(55000)
+    op1.callGasLimit = gasEtimated // .add(55000)
   }
   if (op1.maxFeePerGas == null) {
     if (provider == null) throw new Error('must have entryPoint to autofill maxFeePerGas')
@@ -207,15 +223,21 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
   if (op1.maxPriorityFeePerGas == null) {
     op1.maxPriorityFeePerGas = DefaultsForUserOp.maxPriorityFeePerGas
   }
-  const op2 = fillUserOp(op1)
+  const op2 = fillUserOpDefaults(op1)
   // eslint-disable-next-line @typescript-eslint/no-base-to-string
   if (op2.preVerificationGas.toString() === '0') {
     // TODO: we don't add overhead, which is ~21000 for a single TX, but much lower in a batch.
     op2.preVerificationGas = callDataCost(packUserOp(op2, false))
   }
+  return op2
+}
+
+export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+  const provider = entryPoint?.provider
+  const op2 = await fillUserOp(op, entryPoint)
 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
-  const message = arrayify(getRequestId(op2, entryPoint!.address, chainId))
+  const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId))
 
   return {
     ...op2,

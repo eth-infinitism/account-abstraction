@@ -1,23 +1,29 @@
-import { describe } from 'mocha'
 import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  SimpleWallet,
-  SimpleWallet__factory,
+  SimpleAccount,
+  SimpleAccountFactory__factory,
   TestUtil,
   TestUtil__factory
 } from '../typechain'
-import { createWalletOwner, getBalance, ONE_ETH } from './testutils'
-import { fillUserOp, getRequestId, packUserOp, signUserOp } from './UserOp'
+import {
+  createAddress,
+  createAccountOwner,
+  getBalance,
+  isDeployed,
+  ONE_ETH,
+  createAccount, HashZero
+} from './testutils'
+import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
-describe('SimpleWallet', function () {
+describe('SimpleAccount', function () {
   const entryPoint = '0x'.padEnd(42, '2')
   let accounts: string[]
   let testUtil: TestUtil
-  let walletOwner: Wallet
+  let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
 
   before(async function () {
@@ -25,30 +31,30 @@ describe('SimpleWallet', function () {
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()
     testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    walletOwner = createWalletOwner()
+    accountOwner = createAccountOwner()
   })
 
   it('owner should be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
-    await ethersSigner.sendTransaction({ from: accounts[0], to: wallet.address, value: parseEther('2') })
-    await wallet.transfer(accounts[2], ONE_ETH)
+    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
+    await account.execute(accounts[2], ONE_ETH, '0x')
   })
   it('other account should not be able to call transfer', async () => {
-    const wallet = await new SimpleWallet__factory(ethers.provider.getSigner()).deploy(entryPoint, accounts[0])
-    await expect(wallet.connect(ethers.provider.getSigner(1)).transfer(accounts[2], ONE_ETH))
-      .to.be.revertedWith('only owner')
+    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    await expect(account.connect(ethers.provider.getSigner(1)).execute(accounts[2], ONE_ETH, '0x'))
+      .to.be.revertedWith('account: not Owner or EntryPoint')
   })
 
   it('should pack in js the same as solidity', async () => {
-    const op = await fillUserOp({ sender: accounts[0] })
+    const op = await fillUserOpDefaults({ sender: accounts[0] })
     const packed = packUserOp(op)
     expect(await testUtil.packUserOp(op)).to.equal(packed)
   })
 
   describe('#validateUserOp', () => {
-    let wallet: SimpleWallet
+    let account: SimpleAccount
     let userOp: UserOperation
-    let requestId: string
+    let userOpHash: string
     let preBalance: number
     let expectedPay: number
 
@@ -56,48 +62,57 @@ describe('SimpleWallet', function () {
 
     before(async () => {
       // that's the account of ethersSigner
-      const entryPoint = accounts[2]
-      wallet = await new SimpleWallet__factory(await ethers.getSigner(entryPoint)).deploy(entryPoint, walletOwner.address)
-      await ethersSigner.sendTransaction({ from: accounts[0], to: wallet.address, value: parseEther('0.2') })
-      const callGas = 200000
-      const verificationGas = 100000
+      const entryPoint = accounts[2];
+      ({ proxy: account } = await createAccount(await ethers.getSigner(entryPoint), accountOwner.address, entryPoint))
+      await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('0.2') })
+      const callGasLimit = 200000
+      const verificationGasLimit = 100000
       const maxFeePerGas = 3e9
       const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-      userOp = signUserOp(fillUserOp({
-        sender: wallet.address,
-        callGas,
-        verificationGas,
+      userOp = signUserOp(fillUserOpDefaults({
+        sender: account.address,
+        callGasLimit,
+        verificationGasLimit,
         maxFeePerGas
-      }), walletOwner, entryPoint, chainId)
+      }), accountOwner, entryPoint, chainId)
 
-      requestId = await getRequestId(userOp, entryPoint, chainId)
+      userOpHash = await getUserOpHash(userOp, entryPoint, chainId)
 
-      expectedPay = actualGasPrice * (callGas + verificationGas)
+      expectedPay = actualGasPrice * (callGasLimit + verificationGasLimit)
 
-      preBalance = await getBalance(wallet.address)
-      const ret = await wallet.validateUserOp(userOp, requestId, expectedPay, { gasPrice: actualGasPrice })
+      preBalance = await getBalance(account.address)
+      const ret = await account.validateUserOp(userOp, userOpHash, expectedPay, { gasPrice: actualGasPrice })
       await ret.wait()
     })
 
     it('should pay', async () => {
-      const prefund = await testUtil.prefund(userOp, { gasPrice: actualGasPrice })
-      expect(prefund).to.be.gte(expectedPay)
-      const postBalance = await getBalance(wallet.address)
+      const postBalance = await getBalance(account.address)
       expect(preBalance - postBalance).to.eql(expectedPay)
     })
 
     it('should increment nonce', async () => {
-      expect(await wallet.nonce()).to.equal(1)
+      expect(await account.nonce()).to.equal(1)
     })
+
     it('should reject same TX on nonce error', async () => {
-      await expect(wallet.validateUserOp(userOp, requestId, 0)).to.revertedWith('invalid nonce')
+      await expect(account.validateUserOp(userOp, userOpHash, 0)).to.revertedWith('invalid nonce')
     })
-    it('should reject tx with wrong signature', async () => {
-      // validateUserOp doesn't check the actual UserOp for the signature, but relies on the requestId given by
-      // the entrypoint
-      const wrongRequestId = ethers.constants.HashZero
-      await expect(wallet.validateUserOp(userOp, wrongRequestId, 0)).to.revertedWith('wallet: wrong signature')
+
+    it('should return NO_SIG_VALIDATION on wrong signature', async () => {
+      const userOpHash = HashZero
+      const deadline = await account.callStatic.validateUserOp({ ...userOp, nonce: 1 }, userOpHash, 0)
+      expect(deadline).to.eq(1)
+    })
+  })
+  context('SimpleAccountFactory', () => {
+    it('sanity: check deployer', async () => {
+      const ownerAddr = createAddress()
+      const deployer = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint)
+      const target = await deployer.callStatic.createAccount(ownerAddr, 1234)
+      expect(await isDeployed(target)).to.eq(false)
+      await deployer.createAccount(ownerAddr, 1234)
+      expect(await isDeployed(target)).to.eq(true)
     })
   })
 })
