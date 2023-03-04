@@ -99,7 +99,7 @@ abstract contract BaseAccount is IAccount {
 
     /**
      * Sends to the entrypoint (msg.sender) the missing funds for this transaction.
-     * subClass MAY override this method for better funds management
+     * SubClass MAY override this method for better funds management
      * (e.g. send to the entryPoint more than the minimum required, so that in future transactions
      * it will not be required to send again).
      * @param missingAccountFunds - The minimum value this method should send the entrypoint.

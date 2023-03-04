@@ -141,9 +141,9 @@ interface IEntryPoint is IStakeManager {
     }
 
     /**
-     * Execute a batch of UserOperation.
-     * no signature aggregator is used.
-     * if any account requires an aggregator (that is, it returned an aggregator when
+     * Execute a batch of UserOperations.
+     * No signature aggregator is used.
+     * If any account requires an aggregator (that is, it returned an aggregator when
      * performing simulateValidation), then handleAggregatedOps() must be used instead.
      * @param ops         - The operations to execute.
      * @param beneficiary - The address to receive the fees.
@@ -174,8 +174,9 @@ interface IEntryPoint is IStakeManager {
 
     /**
      * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
-     * @dev this method always revert. Successful result is ValidationResult error. other errors are failures.
-     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.
+     * @dev This method always reverts. Successful result is ValidationResult error. other errors are failures.
+     * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage
+     *      outside the account's data.
      * @param userOp - The user operation to validate.
      */
     function simulateValidation(UserOperation calldata userOp) external;

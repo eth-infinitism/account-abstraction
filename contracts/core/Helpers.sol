@@ -7,7 +7,7 @@ pragma solidity ^0.8.12;
  * parsed by `_parseValidationData`.
  * @param aggregator  - address(0) - The account validated the signature by itself.
  *                      address(1) - The account failed to validate the signature.
- *                      otherwise - this is an address of a signature aggregator that must
+ *                      otherwise - This is an address of a signature aggregator that must
  *                                  be used to validate the signature.
  * @param validAfter  - This UserOp is valid only after this timestamp.
  * @param validaUntil - This UserOp is valid only up to this timestamp.
