@@ -185,7 +185,6 @@ describe('bls account', function () {
       const userOp = await fillUserOp({
         sender: senderAddress,
         initCode,
-        nonce: 2
       }, entrypoint)
       const requestHash = await blsAgg.getUserOpHash(userOp)
       const sigParts = signer3.sign(requestHash)

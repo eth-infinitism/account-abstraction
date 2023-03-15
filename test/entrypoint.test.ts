@@ -20,7 +20,8 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  SimpleAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -233,7 +234,7 @@ describe('EntryPoint', function () {
       // using wrong nonce
       const op = await fillAndSign({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op)).to
-        .revertedWith('AA23 reverted: account: invalid nonce')
+        .revertedWith('AA25 invalid account nonce')
     })
 
     it('should report signature failure without revert', async () => {
@@ -411,7 +412,8 @@ describe('EntryPoint', function () {
 
       const userOp: UserOperation = {
         sender: maliciousAccount.address,
-        nonce: block.baseFeePerGas,
+        nonce: await entryPoint.getNonce(maliciousAccount.address,0),
+        signature: defaultAbiCoder.encode(['uint256'], [block.baseFeePerGas]),
         initCode: '0x',
         callData: '0x',
         callGasLimit: '0x' + 1e5.toString(16),
@@ -421,7 +423,6 @@ describe('EntryPoint', function () {
         maxFeePerGas: block.baseFeePerGas.mul(3),
         maxPriorityFeePerGas: block.baseFeePerGas,
         paymasterAndData: '0x',
-        signature: '0x'
       }
       try {
         await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
@@ -447,13 +448,14 @@ describe('EntryPoint', function () {
         sender: testRevertAccount.address,
         callGasLimit: 1e5,
         maxFeePerGas: 1,
+        nonce: await entryPoint.getNonce(testRevertAccount.address, 0),
         verificationGasLimit: 1e5,
         callData: badData.data!
       }
       const beneficiaryAddress = createAddress()
       await expect(entryPoint.simulateValidation(badOp, { gasLimit: 3e5 }))
         .to.revertedWith('ValidationResult')
-      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 3e5 })
+      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, ) //{ gasLimit: 3e5 })
       const receipt = await tx.wait()
       const userOperationRevertReasonEvent = receipt.events?.find(event => event.event === 'UserOperationRevertReason')
       expect(userOperationRevertReasonEvent?.event).to.equal('UserOperationRevertReason')
@@ -1027,7 +1029,6 @@ describe('EntryPoint', function () {
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
               initCode,
-              nonce: 10
             }, accountOwner, entryPoint)
           })
           it('simulateValidation should return aggregator and its stake', async () => {

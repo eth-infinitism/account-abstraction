@@ -23,9 +23,10 @@ abstract contract BaseAccount is IAccount {
 
     /**
      * return the account nonce.
-     * subclass should return a nonce value that is used both by _validateAndUpdateNonce, and by the external provider (to read the current nonce)
      */
-    function nonce() public view virtual returns (uint256);
+    function nonce() public view virtual returns (uint256) {
+        return entryPoint().getNonce(address(this), 0);
+    }
 
     /**
      * return the entryPoint used by this account.
@@ -41,9 +42,6 @@ abstract contract BaseAccount is IAccount {
     external override virtual returns (uint256 validationData) {
         _requireFromEntryPoint();
         validationData = _validateSignature(userOp, userOpHash);
-        if (userOp.initCode.length == 0) {
-            _validateAndUpdateNonce(userOp);
-        }
         _payPrefund(missingAccountFunds);
     }
 
@@ -69,14 +67,6 @@ abstract contract BaseAccount is IAccount {
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal virtual returns (uint256 validationData);
-
-    /**
-     * validate the current nonce matches the UserOperation nonce.
-     * then it should update the account's state to prevent replay of this UserOperation.
-     * called only if initCode is empty (since "nonce" field is used as "salt" on account creation)
-     * @param userOp the op to validate.
-     */
-    function _validateAndUpdateNonce(UserOperation calldata userOp) internal virtual;
 
     /**
      * sends to the entrypoint (msg.sender) the missing funds for this transaction.
