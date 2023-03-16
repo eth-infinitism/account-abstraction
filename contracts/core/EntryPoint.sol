@@ -259,8 +259,25 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * generate a request Id - unique identifier for this request.
      * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      */
-    function getUserOpHash(UserOperation calldata userOp) public view returns (bytes32) {
-        return keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
+    function getUserOpHash(UserOperation calldata userOp) external view returns (bytes32) {
+        MemoryUserOp memory mUserOp;
+        _copyUserOpToMemory(userOp, mUserOp);
+        return _getUserOpHash(userOp, mUserOp);
+    }
+
+    function _getUserOpHash(UserOperation calldata userOp, MemoryUserOp memory mUserOp) internal view returns (bytes32) {
+        bytes32 hash = keccak256(abi.encode(
+                mUserOp.sender,
+                mUserOp.nonce,
+                calldataKeccak(userOp.initCode),
+                calldataKeccak(userOp.callData),
+                mUserOp.callGasLimit,
+                mUserOp.verificationGasLimit,
+                mUserOp.preVerificationGas,
+                mUserOp.maxFeePerGas,
+                mUserOp.maxPriorityFeePerGas,
+                calldataKeccak(userOp.paymasterAndData)));
+        return keccak256(abi.encode(hash, address(this), block.chainid));
     }
 
     /**
@@ -500,7 +517,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
         _copyUserOpToMemory(userOp, mUserOp);
-        outOpInfo.userOpHash = getUserOpHash(userOp);
+        outOpInfo.userOpHash = _getUserOpHash(userOp, mUserOp);
 
         // validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow
