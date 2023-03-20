@@ -20,8 +20,7 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory,
-  SimpleAccount__factory
+  TestWarmColdAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -412,7 +411,7 @@ describe('EntryPoint', function () {
 
       const userOp: UserOperation = {
         sender: maliciousAccount.address,
-        nonce: await entryPoint.getNonce(maliciousAccount.address,0),
+        nonce: await entryPoint.getNonce(maliciousAccount.address, 0),
         signature: defaultAbiCoder.encode(['uint256'], [block.baseFeePerGas]),
         initCode: '0x',
         callData: '0x',
@@ -422,7 +421,7 @@ describe('EntryPoint', function () {
         // we need maxFeeperGas > block.basefee + maxPriorityFeePerGas so requiredPrefund onchain is basefee + maxPriorityFeePerGas
         maxFeePerGas: block.baseFeePerGas.mul(3),
         maxPriorityFeePerGas: block.baseFeePerGas,
-        paymasterAndData: '0x',
+        paymasterAndData: '0x'
       }
       try {
         await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
@@ -455,7 +454,7 @@ describe('EntryPoint', function () {
       const beneficiaryAddress = createAddress()
       await expect(entryPoint.simulateValidation(badOp, { gasLimit: 3e5 }))
         .to.revertedWith('ValidationResult')
-      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, ) //{ gasLimit: 3e5 })
+      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress) // { gasLimit: 3e5 })
       const receipt = await tx.wait()
       const userOperationRevertReasonEvent = receipt.events?.find(event => event.event === 'UserOperationRevertReason')
       expect(userOperationRevertReasonEvent?.event).to.equal('UserOperationRevertReason')
@@ -1028,7 +1027,7 @@ describe('EntryPoint', function () {
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
-              initCode,
+              initCode
             }, accountOwner, entryPoint)
           })
           it('simulateValidation should return aggregator and its stake', async () => {

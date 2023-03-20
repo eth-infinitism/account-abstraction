@@ -4,16 +4,15 @@ import {
   hexDataSlice,
   keccak256
 } from 'ethers/lib/utils'
-import {BigNumber, Contract, Signer, Wallet} from 'ethers'
-import {AddressZero, callDataCost, rethrow} from './testutils'
-import {ecsign, toRpcSig, keccak256 as keccak256_buffer} from 'ethereumjs-util'
+import { BigNumber, Contract, Signer, Wallet } from 'ethers'
+import { AddressZero, callDataCost, rethrow } from './testutils'
+import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
   EntryPoint
 } from '../typechain'
-import {UserOperation} from './UserOperation'
-import {Create2Factory} from '../src/Create2Factory'
+import { UserOperation } from './UserOperation'
 
-function encode(typevalues: Array<{ type: string, val: any }>, forSignature: boolean): string {
+function encode (typevalues: Array<{ type: string, val: any }>, forSignature: boolean): string {
   const types = typevalues.map(typevalue => typevalue.type === 'bytes' && forSignature ? 'bytes32' : typevalue.type)
   const values = typevalues.map((typevalue) => typevalue.type === 'bytes' && forSignature ? keccak256(typevalue.val) : typevalue.val)
   return defaultAbiCoder.encode(types, values)
@@ -31,51 +30,51 @@ function encode(typevalues: Array<{ type: string, val: any }>, forSignature: boo
 //   return packed
 // }
 
-export function packUserOp(op: UserOperation, forSignature = true): string {
+export function packUserOp (op: UserOperation, forSignature = true): string {
   if (forSignature) {
     // lighter signature scheme (must match UserOperation#pack): do encode a zero-length signature, but strip afterwards the appended zero-length value
     const userOpType = {
       components: [
-        {type: 'address', name: 'sender'},
-        {type: 'uint256', name: 'nonce'},
-        {type: 'bytes', name: 'initCode'},
-        {type: 'bytes', name: 'callData'},
-        {type: 'uint256', name: 'callGasLimit'},
-        {type: 'uint256', name: 'verificationGasLimit'},
-        {type: 'uint256', name: 'preVerificationGas'},
-        {type: 'uint256', name: 'maxFeePerGas'},
-        {type: 'uint256', name: 'maxPriorityFeePerGas'},
-        {type: 'bytes', name: 'paymasterAndData'},
-        {type: 'bytes', name: 'signature'}
+        { type: 'address', name: 'sender' },
+        { type: 'uint256', name: 'nonce' },
+        { type: 'bytes', name: 'initCode' },
+        { type: 'bytes', name: 'callData' },
+        { type: 'uint256', name: 'callGasLimit' },
+        { type: 'uint256', name: 'verificationGasLimit' },
+        { type: 'uint256', name: 'preVerificationGas' },
+        { type: 'uint256', name: 'maxFeePerGas' },
+        { type: 'uint256', name: 'maxPriorityFeePerGas' },
+        { type: 'bytes', name: 'paymasterAndData' },
+        { type: 'bytes', name: 'signature' }
       ],
       name: 'userOp',
       type: 'tuple'
     }
-    let encoded = defaultAbiCoder.encode([userOpType as any], [{...op, signature: '0x'}])
+    let encoded = defaultAbiCoder.encode([userOpType as any], [{ ...op, signature: '0x' }])
     // remove leading word (total length) and trailing word (zero-length signature)
     encoded = '0x' + encoded.slice(66, encoded.length - 64)
     return encoded
   }
   const typevalues = [
-    {type: 'address', val: op.sender},
-    {type: 'uint256', val: op.nonce},
-    {type: 'bytes', val: op.initCode},
-    {type: 'bytes', val: op.callData},
-    {type: 'uint256', val: op.callGasLimit},
-    {type: 'uint256', val: op.verificationGasLimit},
-    {type: 'uint256', val: op.preVerificationGas},
-    {type: 'uint256', val: op.maxFeePerGas},
-    {type: 'uint256', val: op.maxPriorityFeePerGas},
-    {type: 'bytes', val: op.paymasterAndData}
+    { type: 'address', val: op.sender },
+    { type: 'uint256', val: op.nonce },
+    { type: 'bytes', val: op.initCode },
+    { type: 'bytes', val: op.callData },
+    { type: 'uint256', val: op.callGasLimit },
+    { type: 'uint256', val: op.verificationGasLimit },
+    { type: 'uint256', val: op.preVerificationGas },
+    { type: 'uint256', val: op.maxFeePerGas },
+    { type: 'uint256', val: op.maxPriorityFeePerGas },
+    { type: 'bytes', val: op.paymasterAndData }
   ]
   if (!forSignature) {
     // for the purpose of calculating gas cost, also hash signature
-    typevalues.push({type: 'bytes', val: op.signature})
+    typevalues.push({ type: 'bytes', val: op.signature })
   }
   return encode(typevalues, forSignature)
 }
 
-export function packUserOp1(op: UserOperation): string {
+export function packUserOp1 (op: UserOperation): string {
   return defaultAbiCoder.encode([
     'address', // sender
     'uint256', // nonce
@@ -101,7 +100,7 @@ export function packUserOp1(op: UserOperation): string {
   ])
 }
 
-export function getUserOpHash(op: UserOperation, entryPoint: string, chainId: number): string {
+export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number): string {
   const userOpHash = keccak256(packUserOp(op, true))
   const enc = defaultAbiCoder.encode(
     ['bytes32', 'address', 'uint256'],
@@ -123,7 +122,7 @@ export const DefaultsForUserOp: UserOperation = {
   signature: '0x'
 }
 
-export function signUserOp(op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
+export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
   const message = getUserOpHash(op, entryPoint, chainId)
   const msg1 = Buffer.concat([
     Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
@@ -140,8 +139,8 @@ export function signUserOp(op: UserOperation, signer: Wallet, entryPoint: string
   }
 }
 
-export function fillUserOpDefaults(op: Partial<UserOperation>, defaults = DefaultsForUserOp): UserOperation {
-  const partial: any = {...op}
+export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = DefaultsForUserOp): UserOperation {
+  const partial: any = { ...op }
   // we want "item:undefined" to be used from defaults, and not override defaults, so we must explicitly
   // remove those so "merge" will succeed.
   for (const key in partial) {
@@ -150,7 +149,7 @@ export function fillUserOpDefaults(op: Partial<UserOperation>, defaults = Defaul
       delete partial[key]
     }
   }
-  const filled = {...defaults, ...partial}
+  const filled = { ...defaults, ...partial }
   return filled
 }
 
@@ -166,23 +165,22 @@ export function fillUserOpDefaults(op: Partial<UserOperation>, defaults = Defaul
 // sender - only in case of construction: fill sender from initCode.
 // callGasLimit: VERY crude estimation (by estimating call to account, and add rough entryPoint overhead
 // verificationGasLimit: hard-code default at 100k. should add "create2" cost
-export async function fillUserOp(op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'nonce'): Promise<UserOperation> {
-  const op1 = {...op}
+export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'nonce'): Promise<UserOperation> {
+  const op1 = { ...op }
   const provider = entryPoint?.provider
   if (op.initCode != null) {
     const initAddr = hexDataSlice(op1.initCode!, 0, 20)
     const initCallData = hexDataSlice(op1.initCode!, 20)
     if (op1.sender == null || op1.nonce == null) {
-
       if (provider == null) throw new Error('no entrypoint/provider')
       const {
         sender,
         nonce
       } = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs)
-      if (op1.sender == null ) {
+      if (op1.sender == null) {
         op1.sender = sender
       } else {
-        //should check that sender == op1.sender.
+        // should check that sender == op1.sender.
         // but we use this fill method in tests to test explicitly the on-chain handling of broken sender
       }
       op1.nonce = nonce
@@ -234,7 +232,7 @@ export async function fillUserOp(op: Partial<UserOperation>, entryPoint?: EntryP
   return op2
 }
 
-export async function fillAndSign(op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'nonce'): Promise<UserOperation> {
+export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'nonce'): Promise<UserOperation> {
   const provider = entryPoint?.provider
   const op2 = await fillUserOp(op, entryPoint, getNonceFunction)
 
