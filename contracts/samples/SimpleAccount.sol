@@ -149,5 +149,22 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
         (newImplementation);
         _onlyOwner();
     }
+
+    function isValidSignature(bytes32 hash, bytes memory signature) public view returns(bytes4) {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly {
+            r := mload(add(signature, 0x20))
+            s := mload(add(signature, 0x40))
+            v := byte(0, mload(add(signature, 0x60)))
+        }
+        address recovered = ecrecover(hash, v, r, s);
+        require(recovered != address(0));
+        require(owner == recovered, "invalid signer");
+
+        return 0x1626ba7e;
+    }
 }
 
