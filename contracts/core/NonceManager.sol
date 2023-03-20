@@ -10,11 +10,9 @@ contract NonceManager is INonceManager {
 
     mapping(address => mapping(uint192 => uint256)) public nonces;
 
-    uint192 constant KEY_OFFSET = 0;
-
     function getNonce(address sender, uint192 key)
     public view override returns (uint256 nonce) {
-        return nonces[sender][key + KEY_OFFSET] | (uint256(key) << 64);
+        return nonces[sender][key] | (uint256(key) << 64);
     }
 
     // allow an account to manually increment its own nonce.
@@ -22,7 +20,7 @@ contract NonceManager is INonceManager {
     // to "absorb" the gas cost of first nonce increment to 1st transaction (construction),
     // not to 2nd transaction)
     function incrementNonce(uint192 key) public override {
-        nonces[msg.sender][key + KEY_OFFSET]++;
+        nonces[msg.sender][key]++;
     }
 
     /**
@@ -33,7 +31,7 @@ contract NonceManager is INonceManager {
 
         uint192 key = uint192(nonce >> 64);
         uint64 seq = uint64(nonce);
-        return nonces[sender][key + KEY_OFFSET]++ == seq;
+        return nonces[sender][key]++ == seq;
     }
 
 }
