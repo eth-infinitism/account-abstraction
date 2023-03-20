@@ -2,7 +2,6 @@
 pragma solidity ^0.8.12;
 
 import "../interfaces/IEntryPoint.sol";
-import "hardhat/console.sol";
 
 /**
  * nonce management functionality
@@ -19,7 +18,7 @@ contract NonceManager is INonceManager {
     }
 
     // allow an account to manually increment its own nonce.
-    // (mainly so that during construction nonce can be made non-zero, 
+    // (mainly so that during construction nonce can be made non-zero,
     // to "absorb" the gas cost of first nonce increment to 1st transaction (construction),
     // not to 2nd transaction)
     function incrementNonce(uint192 key) public override {

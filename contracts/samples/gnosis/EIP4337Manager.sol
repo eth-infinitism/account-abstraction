@@ -106,7 +106,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
      * as we use the EntryPoint's nonce)
      */
     function getNonce() public view returns (uint256) {
-        return  IEntryPoint(entryPoint).getNonce(address(this), 0);
+        return IEntryPoint(entryPoint).getNonce(address(this), 0);
     }
 
     /**
@@ -161,7 +161,8 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
-        UserOperation memory userOp = UserOperation(address(safe), uint256(getNonce()), "", "", 0, 1000000, 0, 0, 0, "", sig);
+        uint nonce = uint256(IEntryPoint(manager.entryPoint()).getNonce(address(safe), 0));
+        UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));
