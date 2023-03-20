@@ -11,10 +11,19 @@ contract NonceManager is INonceManager {
 
     mapping(address => mapping(uint192 => uint256)) public nonces;
 
+    uint192 constant KEY_OFFSET = 0;
+
     function getNonce(address sender, uint192 key)
-    external view override returns (uint256 nonce) {
-//        console.log('getNonce sender %s key %s seq %s', sender, uint(key), uint(nonces[sender][key + 1]));
-        return nonces[sender][key + 1] | (uint256(key) << 64);
+    public view override returns (uint256 nonce) {
+        return nonces[sender][key + KEY_OFFSET] | (uint256(key) << 64);
+    }
+
+    // allow an account to manually increment its own nonce.
+    // (mainly so that during construction nonce can be made non-zero, 
+    // to "absorb" the gas cost of first nonce increment to 1st transaction (construction),
+    // not to 2nd transaction)
+    function incrementNonce(uint192 key) public override {
+        nonces[msg.sender][key + KEY_OFFSET]++;
     }
 
     /**
@@ -25,9 +34,7 @@ contract NonceManager is INonceManager {
 
         uint192 key = uint192(nonce >> 64);
         uint64 seq = uint64(nonce);
-
-        //        console.log('validateNAndUpdate sender %s nonce %s seq %s', sender, uint(nonce), uint(nonces[sender][key+1]));
-        return nonces[sender][key + 1]++ == seq;
+        return nonces[sender][key + KEY_OFFSET]++ == seq;
     }
 
 }

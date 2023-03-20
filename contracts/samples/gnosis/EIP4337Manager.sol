@@ -55,11 +55,6 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
             validationData = SIG_VALIDATION_FAILED;
         }
 
-        if (userOp.initCode.length == 0) {
-            require(uint256(nonce) == userOp.nonce, "account: invalid nonce");
-            nonce = bytes32(uint256(nonce) + 1);
-        }
-
         if (missingAccountFunds > 0) {
             //Note: MAY pay more than the minimum, to deposit for future transactions
             (bool success,) = payable(msgSender).call{value : missingAccountFunds}("");
@@ -105,6 +100,14 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         }
     }
 
+    /**
+     * Helper for wallet to get the next nonce.
+     * (NOTE: can't be named "nonce()", since it overrides the GnosisSafe internal "nonce" function, which we ignore,
+     * as we use the EntryPoint's nonce)
+     */
+    function getNonce() public view returns (uint256) {
+        return  IEntryPoint(entryPoint).getNonce(address(this), 0);
+    }
 
     /**
      * set up a safe as EIP-4337 enabled.
@@ -158,7 +161,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
-        UserOperation memory userOp = UserOperation(address(safe), uint256(nonce), "", "", 0, 1000000, 0, 0, 0, "", sig);
+        UserOperation memory userOp = UserOperation(address(safe), uint256(getNonce()), "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));

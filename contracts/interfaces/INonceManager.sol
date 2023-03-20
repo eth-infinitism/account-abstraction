@@ -11,5 +11,6 @@ interface INonceManager {
      */
     function getNonce(address sender, uint192 key)
     external view returns (uint256 nonce);
-}
 
+    function incrementNonce(uint192 key) external;
+}

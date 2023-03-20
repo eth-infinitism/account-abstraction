@@ -202,7 +202,6 @@ export async function fillUserOp(op: Partial<UserOperation>, entryPoint?: EntryP
     if (provider == null) throw new Error('must have entryPoint to autofill nonce')
     const c = new Contract(op.sender!, [`function ${getNonceFunction}() view returns(address)`], provider)
     op1.nonce = await c[getNonceFunction]().catch(rethrow())
-    console.log('nonce=', op1.nonce)
   }
   if (op1.callGasLimit == null && op.callData != null) {
     if (provider == null) throw new Error('must have entryPoint for callGasLimit estimate')
