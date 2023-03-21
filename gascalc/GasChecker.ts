@@ -123,7 +123,7 @@ export class GasChecker {
       hexConcat([
         SimpleAccountFactory__factory.bytecode,
         defaultAbiCoder.encode(['address'], [this.entryPoint().address])
-      ]), 0, 2708636)
+      ]), 0, 2885201)
     console.log('factaddr', factoryAddress)
     const fact = SimpleAccountFactory__factory.connect(factoryAddress, ethersSigner)
     // create accounts
