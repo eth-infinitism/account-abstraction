@@ -61,18 +61,24 @@ library UserOperationLib {
     }
 
     function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
+        address sender = getSender(userOp);
+        uint nonce = userOp.nonce;
+        bytes32 hashInitCode = calldataKeccak(userOp.initCode);
+        bytes32 hashCallData = calldataKeccak(userOp.callData);
+        uint callGasLimit = userOp.callGasLimit;
+        uint verificationGasLimit = userOp.verificationGasLimit;
+        uint preVerificationGas = userOp.preVerificationGas;
+        uint maxFeePerGas = userOp.maxFeePerGas;
+        uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
 
         return abi.encode(
-            userOp.sender,
-            userOp.nonce,
-            calldataKeccak(userOp.initCode),
-            calldataKeccak(userOp.callData),
-            userOp.callGasLimit,
-            userOp.verificationGasLimit,
-            userOp.preVerificationGas,
-            userOp.maxFeePerGas,
-            userOp.maxPriorityFeePerGas,
-            calldataKeccak(userOp.paymasterAndData));
+            sender, nonce,
+            hashInitCode, hashCallData,
+            callGasLimit, verificationGasLimit, preVerificationGas,
+            maxFeePerGas, maxPriorityFeePerGas,
+            hashPaymasterAndData
+        );
     }
 
     function hash(UserOperation calldata userOp) internal pure returns (bytes32) {
