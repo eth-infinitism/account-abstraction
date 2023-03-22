@@ -1,12 +1,12 @@
 module.exports = {
-  trailingComma: 'all',
+  trailingComma: "all",
   tabWidth: 2,
-  singleQuote: true,
+  singleQuote: false,
   semi: true,
-  importOrder: ['^[./]', '^@/(.*)$'],
+  importOrder: ["^[./]", "^@/(.*)$"],
   importOrderSeparation: true,
   importOrderSortSpecifiers: true,
   importOrderGroupNamespaceSpecifiers: true,
   importOrderCaseInsensitive: true,
-  plugins: ['@trivago/prettier-plugin-sort-imports'],
+  plugins: ["@trivago/prettier-plugin-sort-imports"],
 };
