@@ -1,14 +1,8 @@
 {
-  "exclude": [
-    ".eslintrc.js"
-  ],
+  "exclude": [".eslintrc.js"],
   "compilerOptions": {
     "target": "es2020",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "strictPropertyInitialization": false,
     "allowJs": false,
     "skipLibCheck": true,
