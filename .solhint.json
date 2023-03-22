@@ -1,8 +1,9 @@
 {
   "extends": "solhint:recommended",
   "rules": {
-  "compiler-version": ["error",">=0.7.5"],
-    "func-visibility": ["off",{"ignoreConstructors":true}],
-    "mark-callable-contracts": ["off"]
+    "compiler-version": ["error", ">=0.7.5"],
+    "func-visibility": ["off", { "ignoreConstructors": true }],
+    "mark-callable-contracts": ["off"],
+    "not-rely-on-time": "off"
   }
 }
