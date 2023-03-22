@@ -2,7 +2,7 @@ name: Build
 on:
   push:
     branches:
-      - '*'
+      - "*"
   pull_request:
     types: [opened, reopened, synchronize]
 
@@ -12,14 +12,13 @@ env:
 
 # todo: extract shared seto/checkout/install/compile, instead of repeat in each job.
 jobs:
-
   test:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '14'
+          node-version: "14"
       - uses: actions/checkout@v1
       - uses: actions/cache@v2
         with:
@@ -39,7 +38,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '14'
+          node-version: "14"
       - uses: actions/checkout@v1
       - uses: actions/cache@v2
         with:
@@ -54,7 +53,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '14'
+          node-version: "14"
       - uses: actions/checkout@v1
       - uses: actions/cache@v2
         with:
@@ -68,7 +67,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v1
         with:
-          node-version: '14'
+          node-version: "14"
       - uses: actions/checkout@v1
       - uses: actions/cache@v2
         with:
@@ -85,4 +84,3 @@ jobs:
           path: |
             coverage/
             coverage.json
-
