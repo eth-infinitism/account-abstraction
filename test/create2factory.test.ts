@@ -2,8 +2,8 @@ import { Provider } from "@ethersproject/providers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
+import { TestToken__factory } from "../contracts/types";
 import { Create2Factory } from "../src/Create2Factory";
-import { TestToken__factory } from "../typechain";
 
 describe("test Create2Factory", () => {
   let factory: Create2Factory;

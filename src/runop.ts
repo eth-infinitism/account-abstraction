@@ -5,9 +5,9 @@ import { providers } from "ethers";
 import { parseEther } from "ethers/lib/utils";
 import hre, { ethers } from "hardhat";
 
+import { EntryPoint__factory, TestCounter__factory } from "../contracts/types";
 import "../test/aa.init";
 import { objdump } from "../test/testutils";
-import { EntryPoint__factory, TestCounter__factory } from "../typechain";
 import { AASigner, localUserOpSender, rpcUserOpSender } from "./AASigner";
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -100,7 +100,7 @@ import { AASigner, localUserOpSender, rpcUserOpSender } from "./AASigner";
     await provider.getBalance(myAddress),
   );
 
-  if (preDeposit.lte(parseEther("0.005"))) {
+  if (preDeposit.lte(parseEther("0.005")) !== undefined) {
     console.log("depositing for account");
     await entryPoint.depositTo(myAddress, { value: parseEther("0.01") });
     preDeposit = await entryPoint.balanceOf(myAddress);
@@ -132,7 +132,10 @@ import { AASigner, localUserOpSender, rpcUserOpSender } from "./AASigner";
     console.log(
       "rcpt",
       rcpt.transactionHash,
-      `https://dashboard.tenderly.co/tx/${netname}/${rcpt.transactionHash}/gas-usage`,
+      `https://dashboard.tenderly.co/tx/${netname}/${
+        // rcpt.transactionHash.toString() ??
+        ``
+      }/gas-usage`,
     );
   }
   const gasPaid = prebalance.sub(await provider.getBalance(myAddress));

@@ -12,7 +12,7 @@ import {
   TestOracle__factory,
   TestToken,
   TestToken__factory,
-} from "../typechain";
+} from "../contracts/types";
 import "./aa.init";
 import {
   AddressZero,

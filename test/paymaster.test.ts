@@ -12,7 +12,7 @@ import {
   TestCounter__factory,
   TokenPaymaster,
   TokenPaymaster__factory,
-} from "../typechain";
+} from "../contracts/types";
 import {
   AddressZero,
   calcGasUsage,

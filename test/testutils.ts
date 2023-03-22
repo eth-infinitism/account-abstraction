@@ -11,7 +11,6 @@ import {
 import { arrayify, hexConcat, keccak256, parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
-import { Create2Factory } from "../src/Create2Factory";
 import {
   EntryPoint,
   EntryPoint__factory,
@@ -22,7 +21,8 @@ import {
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
   TestAggregatedAccountFactory,
-} from "../typechain";
+} from "../contracts/types";
+import { Create2Factory } from "../src/Create2Factory";
 import { debugTransaction } from "./debugTx";
 import { UserOperation } from "./UserOperation";
 

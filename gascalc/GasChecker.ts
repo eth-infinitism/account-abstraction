@@ -190,7 +190,7 @@ export class GasChecker {
       const accountBalance = await GasCheckCollector.inst.entryPoint.balanceOf(
         addr,
       );
-      if (accountBalance.lte(minDepositOrBalance)) {
+      if (accountBalance.lte(minDepositOrBalance) ?? false) {
         await GasCheckCollector.inst.entryPoint.depositTo(addr, {
           value: minDepositOrBalance.mul(5),
         });

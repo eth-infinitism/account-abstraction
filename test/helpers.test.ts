@@ -3,7 +3,7 @@ import { BigNumber } from "ethers";
 import { hexlify } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
-import { TestHelpers, TestHelpers__factory } from "../typechain";
+import { TestHelpers, TestHelpers__factory } from "../contracts/types";
 import "./aa.init";
 import { AddressZero } from "./testutils";
 
