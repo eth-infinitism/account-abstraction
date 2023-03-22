@@ -21,7 +21,7 @@ import {
   BLSSignatureAggregator__factory,
   BrokenBLSAccountFactory__factory,
   EntryPoint,
-} from "../typechain";
+} from "../contracts/types";
 import {
   createAddress,
   deployEntryPoint,

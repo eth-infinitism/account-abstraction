@@ -11,8 +11,8 @@ import {
   keccak256,
 } from "ethers/lib/utils";
 
+import { EntryPoint } from "../contracts/types";
 import { Create2Factory } from "../src/Create2Factory";
-import { EntryPoint } from "../typechain";
 import { AddressZero, callDataCost, rethrow } from "./testutils";
 import { UserOperation } from "./UserOperation";
 

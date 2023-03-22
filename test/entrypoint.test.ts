@@ -32,7 +32,7 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   TestWarmColdAccount__factory,
-} from "../typechain";
+} from "../contracts/types";
 import "./aa.init";
 import { debugTransaction } from "./debugTx";
 import {

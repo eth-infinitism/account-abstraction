@@ -20,14 +20,14 @@ import { clearInterval } from "timers";
 import { HashZero } from "../test/testutils";
 import { fillAndSign, getUserOpHash } from "../test/UserOp";
 import { UserOperation } from "../test/UserOperation";
+import { Create2Factory } from "./Create2Factory";
 import {
   EntryPoint,
   EntryPoint__factory,
   ERC1967Proxy__factory,
   SimpleAccount,
   SimpleAccount__factory,
-} from "../typechain";
-import { Create2Factory } from "./Create2Factory";
+} from "./types";
 
 export type SendUserOp = (
   userOp: UserOperation,
@@ -395,7 +395,12 @@ export class AASigner extends Signer {
             console.log("rejecting with reason");
             reject(
               new Error(
-                `UserOp failed with reason: ${revertReasonEvents[0].args.revertReason}`,
+                `UserOp failed with reason:
+                 ${
+                   // revertReasonEvents[0].args.revertReason.toString() ??
+                   "unknown"
+                 }
+                `,
               ),
             );
             return;

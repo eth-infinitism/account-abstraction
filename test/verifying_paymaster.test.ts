@@ -13,7 +13,7 @@ import {
   SimpleAccount,
   VerifyingPaymaster,
   VerifyingPaymaster__factory,
-} from "../typechain";
+} from "../contracts/types";
 import {
   createAccount,
   createAccountOwner,

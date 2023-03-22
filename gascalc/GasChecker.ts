@@ -11,6 +11,14 @@ import {
 import hre from "hardhat";
 import { table, TableUserConfig } from "table";
 
+import {
+  EntryPoint,
+  EntryPoint__factory,
+  SimpleAccount__factory,
+  SimpleAccountFactory,
+  SimpleAccountFactory__factory,
+} from "../contracts/types";
+import { SimpleAccountInterface } from "../contracts/types/contracts/samples/SimpleAccount";
 import { Create2Factory } from "../src/Create2Factory";
 import "../test/aa.init";
 import {
@@ -21,14 +29,6 @@ import {
   deployEntryPoint,
 } from "../test/testutils";
 import { fillAndSign } from "../test/UserOp";
-import {
-  EntryPoint,
-  EntryPoint__factory,
-  SimpleAccount__factory,
-  SimpleAccountFactory,
-  SimpleAccountFactory__factory,
-} from "../typechain";
-import { SimpleAccountInterface } from "../typechain/contracts/samples/SimpleAccount";
 
 const gasCheckerLogFile = "./reports/gas-checker.txt";
 
@@ -164,7 +164,7 @@ export class GasChecker {
       const accountBalance = await GasCheckCollector.inst.entryPoint.balanceOf(
         addr,
       );
-      if (accountBalance.lte(minDepositOrBalance)) {
+      if (accountBalance.lte(minDepositOrBalance) ?? false) {
         await GasCheckCollector.inst.entryPoint.depositTo(addr, {
           value: minDepositOrBalance.mul(5),
         });

@@ -2,8 +2,8 @@ import { hexValue } from "@ethersproject/bytes";
 import { parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
+import { TestPaymasterAcceptAll__factory } from "../contracts/types";
 import { Create2Factory } from "../src/Create2Factory";
-import { TestPaymasterAcceptAll__factory } from "../typechain";
 import { GasChecker } from "./GasChecker";
 
 const ethersSigner = ethers.provider.getSigner();

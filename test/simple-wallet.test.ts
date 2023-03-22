@@ -8,7 +8,7 @@ import {
   SimpleAccountFactory__factory,
   TestUtil,
   TestUtil__factory,
-} from "../typechain";
+} from "../contracts/types";
 import {
   createAccount,
   createAccountOwner,

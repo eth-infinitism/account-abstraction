@@ -22,7 +22,7 @@ import {
   GnosisSafeProxyFactory__factory,
   TestCounter,
   TestCounter__factory,
-} from "../typechain";
+} from "../contracts/types";
 import "./aa.init";
 import {
   AddressZero,
