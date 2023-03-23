@@ -80,10 +80,6 @@ contract SimpleAccount is BaseAccount, UUPSUpgradeable, Initializable {
      */
     function initialize(address anOwner) public virtual initializer {
         _initialize(anOwner);
-        //increment nonce during construction.
-        // This way, the cost of moving from "0" to "1" is absorbed
-        // by first (construction) transaction, instead of during the 2nd transaction
-        entryPoint().incrementNonce(0);
     }
 
     function _initialize(address anOwner) internal virtual {
