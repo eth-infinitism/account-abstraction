@@ -24,9 +24,10 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
       await hre.run('etherscan-verify')
     }
   }
-  const [entryPointAddress, testCounterAddress] = await Promise.all([
+  const [entryPointAddress, testCounterAddress, accountFactoryAddress] = await Promise.all([
     hre.deployments.get('EntryPoint').then(d => d.address),
-    hre.deployments.get('TestCounter').then(d => d.address)
+    hre.deployments.get('TestCounter').then(d => d.address),
+    hre.deployments.get('SimpleAccountFactory').then(d => d.address)
   ])
 
   console.log('entryPointAddress:', entryPointAddress, 'testCounterAddress:', testCounterAddress)
@@ -51,7 +52,7 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
   // index is unique for an account (so same owner can have multiple accounts, with different index
   const index = parseInt(process.env.AA_INDEX ?? '0')
   console.log('using account index (AA_INDEX)', index)
-  const aasigner = new AASigner(ethersSigner, entryPointAddress, sendUserOp, index)
+  const aasigner = new AASigner(ethersSigner, entryPointAddress, sendUserOp, accountFactoryAddress, index)
   // connect to pre-deployed account
   // await aasigner.connectAccountAddress(accountAddress)
   const myAddress = await aasigner.getAddress()
