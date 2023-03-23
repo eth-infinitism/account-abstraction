@@ -161,9 +161,7 @@ export class GasChecker {
         await GasCheckCollector.inst.entryPoint.depositTo(addr, { value: minDepositOrBalance.mul(5) })
       }
     }
-    console.log('ops=', creationOps)
     await this.entryPoint().handleOps(creationOps, ethersSigner.getAddress())
-    console.log('post-op')
   }
 
   /**

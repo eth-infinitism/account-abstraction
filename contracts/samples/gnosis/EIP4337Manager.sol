@@ -55,6 +55,9 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
             validationData = SIG_VALIDATION_FAILED;
         }
 
+        // mimic normal Safe nonce behaviour: prevent parallel nonces
+        require(userOp.nonce < type(uint64).max, "account: nonsequential nonce");
+
         if (missingAccountFunds > 0) {
             //Note: MAY pay more than the minimum, to deposit for future transactions
             (bool success,) = payable(msgSender).call{value : missingAccountFunds}("");
@@ -161,7 +164,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         sig[64] = bytes1(uint8(27));
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
-        uint nonce = uint256(IEntryPoint(manager.entryPoint()).getNonce(address(safe), 0));
+        uint256 nonce = uint256(IEntryPoint(manager.entryPoint()).getNonce(address(safe), 0));
         UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", 0, 1000000, 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;

@@ -351,8 +351,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
      */
     function getSenderAddress(bytes calldata initCode) public {
         address sender = senderCreator.createSender(initCode);
-        uint256 nonce = getNonce(sender, 0);
-        revert SenderAddressResult(sender, nonce);
+        revert SenderAddressResult(sender);
     }
 
     function _simulationOnlyValidations(UserOperation calldata userOp) internal view {

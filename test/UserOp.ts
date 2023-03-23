@@ -11,6 +11,7 @@ import {
   EntryPoint
 } from '../typechain'
 import { UserOperation } from './UserOperation'
+import { Create2Factory } from '../src/Create2Factory'
 
 function encode (typevalues: Array<{ type: string, val: any }>, forSignature: boolean): string {
   const types = typevalues.map(typevalue => typevalue.type === 'bytes' && forSignature ? 'bytes32' : typevalue.type)
@@ -81,8 +82,8 @@ export function packUserOp1 (op: UserOperation): string {
     'bytes32', // initCode
     'bytes32', // callData
     'uint256', // callGasLimit
-    'uint', // verificationGasLimit
-    'uint', // preVerificationGas
+    'uint256', // verificationGasLimit
+    'uint256', // preVerificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
     'bytes32' // paymasterAndData
@@ -171,19 +172,18 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   if (op.initCode != null) {
     const initAddr = hexDataSlice(op1.initCode!, 0, 20)
     const initCallData = hexDataSlice(op1.initCode!, 20)
-    if (op1.sender == null || op1.nonce == null) {
-      if (provider == null) throw new Error('no entrypoint/provider')
-      const {
-        sender,
-        nonce
-      } = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs)
-      if (op1.sender == null) {
-        op1.sender = sender
+    if (op1.nonce == null) op1.nonce = 0
+    if (op1.sender == null) {
+      // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
+      if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
+        const ctr = hexDataSlice(initCallData, 32)
+        const salt = hexDataSlice(initCallData, 0, 32)
+        op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
       } else {
-        // should check that sender == op1.sender.
-        // but we use this fill method in tests to test explicitly the on-chain handling of broken sender
+        // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
+        if (provider == null) throw new Error('no entrypoint/provider')
+        op1.sender = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs.sender)
       }
-      op1.nonce = nonce
     }
     if (op1.verificationGasLimit == null) {
       if (provider == null) throw new Error('no entrypoint/provider')

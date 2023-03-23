@@ -94,7 +94,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     /**
      * return value of getSenderAddress
      */
-    error SenderAddressResult(address sender, uint nonce);
+    error SenderAddressResult(address sender);
 
     /**
      * return value of simulateHandleOp
