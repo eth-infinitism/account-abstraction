@@ -1,0 +1,194 @@
+{
+  "address": "0x7482aF0Ab015a0da5f0573838202a9325f3199B2",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        }
+      ],
+      "name": "CalledFrom",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "count",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "countFail",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "counters",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "repeat",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "name": "gasWaster",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "justemit",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "offset",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "xxx",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x973b7fdbff928079eab115039d61755b34b665b5e920f8a70b3df3cfac934bf0",
+  "receipt": {
+    "to": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    "from": "0xA52Fd5B03FAb4E4002866A000a4B6dA13439efE7",
+    "contractAddress": null,
+    "transactionIndex": 0,
+    "gasUsed": "254090",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0xa50a51fb89dc8ad5d9b12bc5d1dea7c61c13d73cd02510e52ff7e9744b8b94d3",
+    "transactionHash": "0x973b7fdbff928079eab115039d61755b34b665b5e920f8a70b3df3cfac934bf0",
+    "logs": [],
+    "blockNumber": 83536065,
+    "cumulativeGasUsed": "254090",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "f0201a7fc80f98d4fb8f93fb7e9af2e9",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.15+commit.e14f2714\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"CalledFrom\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"count\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"countFail\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"counters\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"repeat\",\"type\":\"uint256\"},{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"name\":\"gasWaster\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"justemit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"offset\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"xxx\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/test/TestCounter.sol\":\"TestCounter\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":1000000},\"remappings\":[]},\"sources\":{\"contracts/test/TestCounter.sol\":{\"content\":\"// SPDX-License-Identifier: GPL-3.0\\npragma solidity ^0.8.12;\\n\\n//sample \\\"receiver\\\" contract, for testing \\\"exec\\\" from account.\\ncontract TestCounter {\\n    mapping(address => uint256) public counters;\\n\\n    function count() public {\\n        counters[msg.sender] = counters[msg.sender] + 1;\\n    }\\n\\n    function countFail() public pure {\\n        revert(\\\"count failed\\\");\\n    }\\n\\n    function justemit() public {\\n        emit CalledFrom(msg.sender);\\n    }\\n\\n    event CalledFrom(address sender);\\n\\n    //helper method to waste gas\\n    // repeat - waste gas on writing storage in a loop\\n    // junk - dynamic buffer to stress the function size.\\n    mapping(uint256 => uint256) public xxx;\\n    uint256 public offset;\\n\\n    function gasWaster(uint256 repeat, string calldata /*junk*/) external {\\n        for (uint256 i = 1; i <= repeat; i++) {\\n            offset++;\\n            xxx[offset] = i;\\n        }\\n    }\\n}\\n\",\"keccak256\":\"0xf865acf416e281144245cab101a27532b7e549b1f5a17bd052d4668a4b3e10d3\",\"license\":\"GPL-3.0\"}},\"version\":1}",
+  "bytecode": "0x608060405234801561001057600080fd5b506103a4806100206000396000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c8063a5e9585f1161005b578063a5e9585f146100a7578063be65ab8c146100d9578063caece693146100f9578063d55565441461010157600080fd5b806306661abd14610082578063278ddd3c1461008c578063a1b4689014610094575b600080fd5b61008a61010a565b005b61008a610137565b61008a6100a236600461021d565b61016c565b6100c76100b5366004610299565b60016020526000908152604090205481565b60405190815260200160405180910390f35b6100c76100e73660046102b2565b60006020819052908152604090205481565b61008a6101b7565b6100c760025481565b3360009081526020819052604090205461012590600161031e565b33600090815260208190526040902055565b6040513381527ffb3b4d6258432a9a3d78dd9bffbcb6cfb1bd94f58da35fd530d08da7d1d058329060200160405180910390a1565b60015b8381116101b1576002805490600061018683610336565b90915550506002546000908152600160205260409020819055806101a981610336565b91505061016f565b50505050565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600c60248201527f636f756e74206661696c65640000000000000000000000000000000000000000604482015260640160405180910390fd5b60008060006040848603121561023257600080fd5b83359250602084013567ffffffffffffffff8082111561025157600080fd5b818601915086601f83011261026557600080fd5b81358181111561027457600080fd5b87602082850101111561028657600080fd5b6020830194508093505050509250925092565b6000602082840312156102ab57600080fd5b5035919050565b6000602082840312156102c457600080fd5b813573ffffffffffffffffffffffffffffffffffffffff811681146102e857600080fd5b9392505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60008219821115610331576103316102ef565b500190565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610367576103676102ef565b506001019056fea26469706673582212201f234ce027d81b210629be827a3f484a76a4e0b18ac5b58dffa075a93930638464736f6c634300080f0033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b506004361061007d5760003560e01c8063a5e9585f1161005b578063a5e9585f146100a7578063be65ab8c146100d9578063caece693146100f9578063d55565441461010157600080fd5b806306661abd14610082578063278ddd3c1461008c578063a1b4689014610094575b600080fd5b61008a61010a565b005b61008a610137565b61008a6100a236600461021d565b61016c565b6100c76100b5366004610299565b60016020526000908152604090205481565b60405190815260200160405180910390f35b6100c76100e73660046102b2565b60006020819052908152604090205481565b61008a6101b7565b6100c760025481565b3360009081526020819052604090205461012590600161031e565b33600090815260208190526040902055565b6040513381527ffb3b4d6258432a9a3d78dd9bffbcb6cfb1bd94f58da35fd530d08da7d1d058329060200160405180910390a1565b60015b8381116101b1576002805490600061018683610336565b90915550506002546000908152600160205260409020819055806101a981610336565b91505061016f565b50505050565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600c60248201527f636f756e74206661696c65640000000000000000000000000000000000000000604482015260640160405180910390fd5b60008060006040848603121561023257600080fd5b83359250602084013567ffffffffffffffff8082111561025157600080fd5b818601915086601f83011261026557600080fd5b81358181111561027457600080fd5b87602082850101111561028657600080fd5b6020830194508093505050509250925092565b6000602082840312156102ab57600080fd5b5035919050565b6000602082840312156102c457600080fd5b813573ffffffffffffffffffffffffffffffffffffffff811681146102e857600080fd5b9392505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60008219821115610331576103316102ef565b500190565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8203610367576103676102ef565b506001019056fea26469706673582212201f234ce027d81b210629be827a3f484a76a4e0b18ac5b58dffa075a93930638464736f6c634300080f0033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 16596,
+        "contract": "contracts/test/TestCounter.sol:TestCounter",
+        "label": "counters",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_address,t_uint256)"
+      },
+      {
+        "astId": 16637,
+        "contract": "contracts/test/TestCounter.sol:TestCounter",
+        "label": "xxx",
+        "offset": 0,
+        "slot": "1",
+        "type": "t_mapping(t_uint256,t_uint256)"
+      },
+      {
+        "astId": 16639,
+        "contract": "contracts/test/TestCounter.sol:TestCounter",
+        "label": "offset",
+        "offset": 0,
+        "slot": "2",
+        "type": "t_uint256"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_mapping(t_address,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_mapping(t_uint256,t_uint256)": {
+        "encoding": "mapping",
+        "key": "t_uint256",
+        "label": "mapping(uint256 => uint256)",
+        "numberOfBytes": "32",
+        "value": "t_uint256"
+      },
+      "t_uint256": {
+        "encoding": "inplace",
+        "label": "uint256",
+        "numberOfBytes": "32"
+      }
+    }
+  }
+}
