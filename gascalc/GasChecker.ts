@@ -53,7 +53,7 @@ interface GasTestInfo {
 export const DefaultGasTestInfo: Partial<GasTestInfo> = {
   dest: 'self', // destination is the account itself.
   destValue: parseEther('0'),
-  destCallData: '0xaffed0e0', // nonce()
+  destCallData: '0x8da5cb5b', // owner()
   gasPrice: 10e9
 }
 
@@ -363,7 +363,7 @@ export class GasCheckCollector {
     }
 
     write('== gas estimate of direct calling the account\'s "execFromEntryPoint" method')
-    write('   the destination is "account.nonce()", which is known to be "hot" address used by this account')
+    write('   the destination is "account.account()", which is known to be "hot" address used by this account')
     write('   it little higher than EOA call: its an exec from entrypoint (or account owner) into account contract, verifying msg.sender and exec to target)')
     Object.values(gasEstimatePerExec).forEach(({ title, accountEst }) => {
       write(`- gas estimate "${title}" - ${accountEst}`)
