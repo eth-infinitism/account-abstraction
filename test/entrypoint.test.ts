@@ -511,6 +511,55 @@ describe('EntryPoint', function () {
     })
   })
 
+  describe('2d nonces', () => {
+    const beneficiaryAddress = createAddress()
+    let sender: string
+    const key = 1 << 64
+
+    before(async () => {
+      console.log(1)
+      const { proxy } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address)
+      sender = proxy.address
+      await fund(sender)
+      console.log(2)
+    })
+
+    it('should fail nonce with new key and seq!=0', async () => {
+      console.log(3)
+      const op = await fillAndSign({
+        sender,
+        nonce: key + 123
+      }, accountOwner, entryPoint)
+      await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('AA25 invalid account nonce')
+    })
+
+    describe('with key=1, seq=1', () => {
+      before(async () => {
+        const op = await fillAndSign({
+          sender,
+          nonce: key
+        }, accountOwner, entryPoint)
+        await entryPoint.handleOps([op], beneficiaryAddress)
+      })
+
+      it('should allow to increment nonce of different key', async () => {
+        const op = await fillAndSign({
+          sender,
+          nonce: key + 1
+        }, accountOwner, entryPoint)
+        await entryPoint.callStatic.handleOps([op], beneficiaryAddress)
+      })
+
+      it('should fail with nonsequential seq', async () => {
+        const op = await fillAndSign({
+          sender,
+          nonce: key + 3
+        }, accountOwner, entryPoint)
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('nonce1')
+      })
+    })
+  })
+
   describe('without paymaster (account pays in eth)', () => {
     describe('#handleOps', () => {
       let counter: TestCounter
