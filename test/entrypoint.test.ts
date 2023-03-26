@@ -514,21 +514,19 @@ describe('EntryPoint', function () {
   describe('2d nonces', () => {
     const beneficiaryAddress = createAddress()
     let sender: string
-    const key = 1 << 64
+    const key = 1
+    const keyShifted = BigNumber.from(key).shl(64)
 
     before(async () => {
-      console.log(1)
       const { proxy } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address)
       sender = proxy.address
       await fund(sender)
-      console.log(2)
     })
 
     it('should fail nonce with new key and seq!=0', async () => {
-      console.log(3)
       const op = await fillAndSign({
         sender,
-        nonce: key + 123
+        nonce: keyShifted.add(1)
       }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('AA25 invalid account nonce')
     })
@@ -537,25 +535,43 @@ describe('EntryPoint', function () {
       before(async () => {
         const op = await fillAndSign({
           sender,
-          nonce: key
+          nonce: keyShifted
         }, accountOwner, entryPoint)
         await entryPoint.handleOps([op], beneficiaryAddress)
+      })
+
+      it('should get next nonce value by getNonce', async () => {
+        expect(await entryPoint.getNonce(sender, key)).to.eql(keyShifted.add(1))
       })
 
       it('should allow to increment nonce of different key', async () => {
         const op = await fillAndSign({
           sender,
-          nonce: key + 1
+          nonce: await entryPoint.getNonce(sender, key)
         }, accountOwner, entryPoint)
         await entryPoint.callStatic.handleOps([op], beneficiaryAddress)
       })
 
+      it('should allow manual nonce increment', async () => {
+        // must be called from account itself
+        const incNonceKey = 5
+        const incrementCallData = entryPoint.interface.encodeFunctionData('incrementNonce', [incNonceKey])
+        const callData = account.interface.encodeFunctionData('execute', [entryPoint.address, 0, incrementCallData])
+        const op = await fillAndSign({
+          sender,
+          callData,
+          nonce: await entryPoint.getNonce(sender, key)
+        }, accountOwner, entryPoint)
+        await entryPoint.handleOps([op], beneficiaryAddress)
+
+        expect(await entryPoint.getNonce(sender, incNonceKey)).to.equal(BigNumber.from(incNonceKey).shl(64).add(1))
+      })
       it('should fail with nonsequential seq', async () => {
         const op = await fillAndSign({
           sender,
-          nonce: key + 3
+          nonce: keyShifted.add(3)
         }, accountOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('nonce1')
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('AA25 invalid account nonce')
       })
     })
   })
