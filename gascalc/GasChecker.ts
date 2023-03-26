@@ -341,12 +341,14 @@ export class GasCheckCollector {
     write('== gas estimate of direct calling the account\'s "execFromEntryPoint" method')
     write('   the destination is "account.nonce()", which is known to be "hot" address used by this account')
     write('   it little higher than EOA call: its an exec from entrypoint (or account owner) into account contract, verifying msg.sender and exec to target)')
-    Object.values(gasEstimatePerExec).forEach(({ title, accountEst }) => {
-      write(`- gas estimate "${title}" - ${accountEst}`)
-    })
+
+    write(table(Object.values(gasEstimatePerExec).map((row)=>[
+      `gas estimate "${row.title}"`, row.accountEst
+    ]), this.tableConfig))
 
     const tableOutput = table(this.tabRows, this.tableConfig)
     write(tableOutput)
+    process.exit(0)
   }
 
   addRow (res: GasTestResult): void {
