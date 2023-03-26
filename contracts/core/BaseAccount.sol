@@ -22,7 +22,9 @@ abstract contract BaseAccount is IAccount {
     uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     /**
-     * return the account nonce.
+     * Return the account nonce.
+     * This method returns the next sequential nonce.
+     * For a nonce of a specific key, use `entrypoint.getNonce(account, key)`
      */
     function nonce() public view virtual returns (uint256) {
         return entryPoint().getNonce(address(this), 0);
