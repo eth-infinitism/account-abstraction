@@ -26,7 +26,7 @@ abstract contract BaseAccount is IAccount {
      * This method returns the next sequential nonce.
      * For a nonce of a specific key, use `entrypoint.getNonce(account, key)`
      */
-    function nonce() public view virtual returns (uint256) {
+    function getNonce() public view virtual returns (uint256) {
         return entryPoint().getNonce(address(this), 0);
     }
 

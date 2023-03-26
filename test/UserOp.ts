@@ -160,13 +160,13 @@ export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = Defau
 //  - calculate sender by eth_call the deployment code
 //  - default verificationGasLimit estimateGas of deployment code plus default 100000
 // no initCode:
-//  - update nonce from account.nonce()
+//  - update nonce from account.getNonce()
 // entryPoint param is only required to fill in "sender address when specifying "initCode"
-// nonce: assume contract as "nonce()" function, and fill in.
+// nonce: assume contract as "getNonce()" function, and fill in.
 // sender - only in case of construction: fill sender from initCode.
 // callGasLimit: VERY crude estimation (by estimating call to account, and add rough entryPoint overhead
 // verificationGasLimit: hard-code default at 100k. should add "create2" cost
-export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'nonce'): Promise<UserOperation> {
+export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {
   const op1 = { ...op }
   const provider = entryPoint?.provider
   if (op.initCode != null) {
@@ -232,7 +232,7 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   return op2
 }
 
-export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'nonce'): Promise<UserOperation> {
+export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {
   const provider = entryPoint?.provider
   const op2 = await fillUserOp(op, entryPoint, getNonceFunction)
 

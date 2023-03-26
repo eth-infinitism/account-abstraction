@@ -105,8 +105,6 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
 
     /**
      * Helper for wallet to get the next nonce.
-     * (NOTE: can't be named "nonce()", since it overrides the GnosisSafe internal "nonce" function, which we ignore,
-     * as we use the EntryPoint's nonce)
      */
     function getNonce() public view returns (uint256) {
         return IEntryPoint(entryPoint).getNonce(address(this), 0);

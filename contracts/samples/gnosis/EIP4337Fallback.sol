@@ -52,8 +52,6 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
 
     /**
      * Helper for wallet to get the next nonce.
-     * (NOTE: can't be named "nonce()", since it overrides the GnosisSafe internal "nonce" function, which we ignore,
-     * as we use the EntryPoint's nonce)
      */
     function getNonce() public returns (uint256 nonce) {
         bytes memory ret = delegateToManager();
