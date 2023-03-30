@@ -23,10 +23,17 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
 
     mapping(string => string) private _metadata;
 
+    event ResetOwner(
+        address indexed account,
+        address oldOwner,
+        address newOwner
+    );
+
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
     function resetOwner(address newOwner) external {
         _requireFromEntryPointOrOwnerOrGuardian();
+        ResetOwner(address(this), owner, newOwner);
         owner = newOwner;
     }
 
@@ -56,8 +63,10 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
     }
 
     // Save the user's customized data
-    function setMetadata(string memory key, string memory value) public {
-        _requireFromEntryPointOrOwner();
+    function setMetadata(
+        string memory key,
+        string memory value
+    ) public onlyOwner {
         bytes memory bytesStr = bytes(value);
         if (bytesStr.length == 0) {
             delete _metadata[key];
@@ -68,8 +77,7 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
     // Get user custom data
     function getMetadata(
         string memory key
-    ) public view returns (string memory value) {
-        _requireFromEntryPointOrOwner();
+    ) public view onlyOwner returns (string memory value) {
         value = _metadata[key];
         if (bytes(value).length == 0) {
             return "";
@@ -85,4 +93,33 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
         _initialize(anOwner);
     }
 
+    function changeGuardian(address guardian) public onlyOwner {
+        _guardian = guardian;
+    }
+
+    /**
+     * execute a transaction (called directly from owner, or by entryPoint)
+     */
+    function execute(
+        address dest,
+        uint256 value,
+        bytes calldata func
+    ) external override {
+        _requireFromEntryPointOrOwnerOrOperator();
+        _call(dest, value, func);
+    }
+
+    /**
+     * execute a sequence of transactions
+     */
+    function executeBatch(
+        address[] calldata dest,
+        bytes[] calldata func
+    ) external override {
+        _requireFromEntryPointOrOwnerOrOperator();
+        require(dest.length == func.length, "wrong array lengths");
+        for (uint256 i = 0; i < dest.length; i++) {
+            _call(dest[i], 0, func[i]);
+        }
+    }
 }
