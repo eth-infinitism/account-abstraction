@@ -27,6 +27,21 @@ contract Guardian is UUPSUpgradeable, Ownable {
         uint256 delay;
     }
 
+    event Register(address indexed account, address indexed guardian);
+
+    event Approved(
+        address indexed account,
+        address indexed guardian,
+        address newOwner
+    );
+
+    event ChangeGuardianConfig(
+        address indexed account,
+        address[] guardians,
+        uint256 approveThreshold,
+        uint256 delayBlock
+    );
+
     constructor(
         uint256 defaultThreshold,
         uint256 defaultDelayBlock,
@@ -50,6 +65,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
             "the number of delayed verification blocks 0 must be greater than or equal to 1"
         );
         cabinet[account] = config;
+        ChangeGuardianConfig(account, config.guardians, config.approveThreshold, config.delay );
     }
 
     function register(address account) public {
@@ -66,6 +82,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
             _defaultDelayBlock
         );
         cabinet[account] = _config;
+        Register(account, _defaultGuardian);
     }
 
     // function setDefaultConfig(uint256 defaultThreshold, uint256 defaultDelayBlock) public onlyOwner {
@@ -89,6 +106,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
         //     return;
         // }
         approvesProgress[account][msg.sender] = newAddress;
+        Approved(account, msg.sender, newAddress);
     }
 
     function resetAccountOwner(address account) public {
@@ -164,4 +182,5 @@ contract Guardian is UUPSUpgradeable, Ownable {
             "account: not Owner or EntryPoint"
         );
     }
+
 }
