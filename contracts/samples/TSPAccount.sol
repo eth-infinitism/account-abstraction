@@ -85,4 +85,34 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
         _initialize(anOwner);
     }
 
+    function changeGuardian(address guardian) public {
+        _requireFromEntryPointOrOwner();
+        _guardian = guardian;
+    }
+
+    /**
+     * execute a transaction (called directly from owner, or by entryPoint)
+     */
+    function execute(
+        address dest,
+        uint256 value,
+        bytes calldata func
+    ) external override {
+        _requireFromEntryPointOrOwnerOrOperator();
+        _call(dest, value, func);
+    }
+
+    /**
+     * execute a sequence of transactions
+     */
+    function executeBatch(
+        address[] calldata dest,
+        bytes[] calldata func
+    ) external override {
+        _requireFromEntryPointOrOwnerOrOperator();
+        require(dest.length == func.length, "wrong array lengths");
+        for (uint256 i = 0; i < dest.length; i++) {
+            _call(dest[i], 0, func[i]);
+        }
+    }
 }
