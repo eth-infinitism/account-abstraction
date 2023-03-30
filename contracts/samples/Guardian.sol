@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IGuardian.sol";
+import "./TSPAccount.sol";
 import "./TSPAccountFactory.sol";
 
 contract Guardian is UUPSUpgradeable, Initializable, Ownable {
@@ -49,14 +50,17 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     }
 
     function setConfig(address account, GuardianConfig memory config) public {
-        _requireFromEntryPointOrOwner();
+        _requireFromEntryPointOrOwner(account);
         // Check the legality of the configuration
         require(
             config.approveThreshold > 0,
             "the threshold value must be greater than 0"
         );
         require(config.guardians.length > 0, "at least 1 guardian is required");
-        require(config.delay > 0, "the number of delayed verification blocks 0 must be greater than or equal to 1");
+        require(
+            config.delay > 0,
+            "the number of delayed verification blocks 0 must be greater than or equal to 1"
+        );
         cabinet[account] = config;
     }
 
@@ -154,9 +158,10 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     }
 
     // Require the function call went through EntryPoint or owner
-    function _requireFromEntryPointOrOwner() internal view {
+    function _requireFromEntryPointOrOwner(address account) internal view {
         require(
-            msg.sender == address(_entryPoint) || msg.sender == owner,
+            msg.sender == address(_entryPoint) ||
+                msg.sender == TSPAccount(payable(account)).owner(),
             "account: not Owner or EntryPoint"
         );
     }
