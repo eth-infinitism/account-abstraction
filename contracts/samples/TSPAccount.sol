@@ -33,7 +33,7 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
 
     function resetOwner(address newOwner) external {
         _requireFromEntryPointOrOwnerOrGuardian();
-        ResetOwner(address(this), owner, newOwner);
+        emit ResetOwner(address(this), owner, newOwner);
         owner = newOwner;
     }
 
