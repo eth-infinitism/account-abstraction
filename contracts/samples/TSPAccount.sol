@@ -23,10 +23,17 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
 
     mapping(string => string) private _metadata;
 
+    event ResetOwner(
+        address indexed account,
+        address oldOwner,
+        address newOwner
+    );
+
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
     function resetOwner(address newOwner) external {
         _requireFromEntryPointOrOwnerOrGuardian();
+        ResetOwner(address(this), owner, newOwner);
         owner = newOwner;
     }
 
