@@ -11,14 +11,12 @@ import "../interfaces/IGuardian.sol";
 import "./TSPAccount.sol";
 import "./TSPAccountFactory.sol";
 
-contract Guardian is UUPSUpgradeable, Initializable, Ownable {
+contract Guardian is UUPSUpgradeable, Ownable {
     using SafeMath for uint256;
     // address public owner;
     uint256 private _defaultThreshold = 1;
     uint256 private _defaultDelayBlock = 100;
     address private _defaultGuardian;
-    IEntryPoint private immutable _entryPoint;
-    TSPAccountFactory private _factory;
     mapping(address => GuardianConfig) private cabinet;
     mapping(address => mapping(address => address)) private approvesProgress;
 
@@ -29,28 +27,18 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         uint256 delay;
     }
 
-    modifier onlyAccountFactory() {
-        require(msg.sender == address(_factory), "only factory");
-        _;
-    }
-
     constructor(
-        IEntryPoint anEntryPoint,
-        TSPAccountFactory factory,
         uint256 defaultThreshold,
         uint256 defaultDelayBlock,
         address defaultGuardian
     ) {
-        _entryPoint = anEntryPoint;
-        _factory = factory;
         _defaultThreshold = defaultThreshold;
         _defaultDelayBlock = defaultDelayBlock;
         _defaultGuardian = defaultGuardian;
-        _disableInitializers();
     }
 
     function setConfig(address account, GuardianConfig memory config) public {
-        _requireFromEntryPointOrOwner(account);
+        _requireAccountOwner(account);
         // Check the legality of the configuration
         require(
             config.approveThreshold > 0,
@@ -64,7 +52,11 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         cabinet[account] = config;
     }
 
-    function register(address account) public onlyAccountFactory {
+    function register(address account) public {
+        require(
+            cabinet[account].guardians.length == 0,
+            "a TSP account can only be registered once"
+        );
         // Initialized account relationship information
         address[] memory guardians = new address[](1);
         guardians[0] = _defaultGuardian;
@@ -165,15 +157,10 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         _checkOwner();
     }
 
-    function changeAccountFactory(address factory) public onlyOwner {
-        _factory = TSPAccountFactory(factory);
-    }
-
     // Require the function call went through EntryPoint or owner
-    function _requireFromEntryPointOrOwner(address account) internal view {
+    function _requireAccountOwner(address account) internal view {
         require(
-            msg.sender == address(_entryPoint) ||
-                msg.sender == TSPAccount(payable(account)).owner(),
+            msg.sender == TSPAccount(payable(account)).owner(),
             "account: not Owner or EntryPoint"
         );
     }
