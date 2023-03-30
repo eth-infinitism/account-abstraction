@@ -91,12 +91,24 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
             "you're not a guardian"
         );
         // Check the progress of authorization
+        // uint256 progress = _checkApproveProgress(account, newAddress);
+        // if (progress > cabinet[account].approveThreshold) {
+        //     _resetAccountOwner(account, newAddress);
+        //     return;
+        // }
+        approvesProgress[account][msg.sender] = newAddress;
+    }
+
+    function resetAccountOwner(address account) public {
+        require(
+            isAddressInArray(cabinet[account].guardians, msg.sender),
+            "you're not a guardian"
+        );
+        address newAddress = approvesProgress[account][msg.sender];
         uint256 progress = _checkApproveProgress(account, newAddress);
         if (progress > cabinet[account].approveThreshold) {
             _resetAccountOwner(account, newAddress);
-            return;
         }
-        approvesProgress[account][msg.sender] = newAddress;
     }
 
     function _resetAccountOwner(address account, address newAddress) private {
