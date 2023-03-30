@@ -15,11 +15,9 @@ import "./Guardian.sol";
  */
 contract TSPAccountFactory {
     TSPAccount public immutable accountImplementation;
-    Guardian public immutable guardianImplementation;
 
-    constructor(IEntryPoint _entryPoint, Guardian guardian) {
+    constructor(IEntryPoint _entryPoint) {
         accountImplementation = new TSPAccount(_entryPoint);
-        guardianImplementation = guardian;
     }
 
     /**
@@ -38,7 +36,6 @@ contract TSPAccountFactory {
             return TSPAccount(payable(addr));
         }
 
-        guardianImplementation.register(addr);
         ret = TSPAccount(
             payable(
                 new ERC1967Proxy{salt: bytes32(salt)}(
