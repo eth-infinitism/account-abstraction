@@ -65,7 +65,12 @@ contract Guardian is UUPSUpgradeable, Ownable {
             "the number of delayed verification blocks 0 must be greater than or equal to 1"
         );
         cabinet[account] = config;
-        ChangeGuardianConfig(account, config.guardians, config.approveThreshold, config.delay );
+        ChangeGuardianConfig(
+            account,
+            config.guardians,
+            config.approveThreshold,
+            config.delay
+        );
     }
 
     function register(address account) public {
@@ -183,4 +188,9 @@ contract Guardian is UUPSUpgradeable, Ownable {
         );
     }
 
+    function getGuardianConfig(
+        address account
+    ) public returns (GuardianConfig memory config) {
+        return cabinet[account];
+    }
 }
