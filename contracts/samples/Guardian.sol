@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IGuardian.sol";
-import "./SimpleAccountFactory.sol";
+import "./TSPAccountFactory.sol";
 
 contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     using SafeMath for uint256;
@@ -17,7 +17,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     uint256 private _defaultDelayBlock = 100;
     address private _defaultGuardian;
     IEntryPoint private immutable _entryPoint;
-    SimpleAccountFactory private immutable _factory;
+    TSPAccountFactory private _factory;
     mapping(address => GuardianConfig) private cabinet;
     mapping(address => mapping(address => address)) private approvesProgress;
 
@@ -35,7 +35,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
 
     constructor(
         IEntryPoint anEntryPoint,
-        SimpleAccountFactory factory,
+        TSPAccountFactory factory,
         uint256 defaultThreshold,
         uint256 defaultDelayBlock,
         address defaultGuardian
@@ -48,7 +48,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         _disableInitializers();
     }
 
-    function register(IAccount account) public onlyAccountFactory {
+    function register(address account) public onlyAccountFactory {
         // Initialized account relationship information
         address[] memory guardians = new address[](1);
         guardians[0] = _defaultGuardian;
@@ -57,7 +57,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
             _defaultThreshold,
             _defaultDelayBlock
         );
-        cabinet[address(account)] = _config;
+        cabinet[account] = _config;
     }
 
     // function setDefaultConfig(uint256 defaultThreshold, uint256 defaultDelayBlock) public onlyOwner {
@@ -135,6 +135,10 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     ) internal view override {
         (newImplementation);
         _checkOwner();
+    }
+
+    function changeAccountFactory(address factory) public onlyOwner {
+        _factory = TSPAccountFactory(factory);
     }
 
     // function _onlyOwner() internal view {
