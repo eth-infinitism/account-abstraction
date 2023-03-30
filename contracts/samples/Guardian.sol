@@ -48,6 +48,18 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         _disableInitializers();
     }
 
+    function setConfig(address account, GuardianConfig memory config) public {
+        _requireFromEntryPointOrOwner();
+        // Check the legality of the configuration
+        require(
+            config.approveThreshold > 0,
+            "the threshold value must be greater than 0"
+        );
+        require(config.guardians.length > 0, "at least 1 guardian is required");
+        require(config.delay > 0, "the number of delayed verification blocks 0 must be greater than or equal to 1");
+        cabinet[account] = config;
+    }
+
     function register(address account) public onlyAccountFactory {
         // Initialized account relationship information
         address[] memory guardians = new address[](1);
@@ -141,11 +153,11 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         _factory = TSPAccountFactory(factory);
     }
 
-    // function _onlyOwner() internal view {
-    //     //directly from EOA owner, or through the account itself (which gets redirected through execute())
-    //     require(
-    //         msg.sender == owner || msg.sender == address(this),
-    //         "only owner"
-    //     );
-    // }
+    // Require the function call went through EntryPoint or owner
+    function _requireFromEntryPointOrOwner() internal view {
+        require(
+            msg.sender == address(_entryPoint) || msg.sender == owner,
+            "account: not Owner or EntryPoint"
+        );
+    }
 }
