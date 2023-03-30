@@ -8,7 +8,8 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IGuardian.sol";
-import "./SimpleAccountFactory.sol";
+import "./TSPAccount.sol";
+import "./TSPAccountFactory.sol";
 
 contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     using SafeMath for uint256;
@@ -17,7 +18,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
     uint256 private _defaultDelayBlock = 100;
     address private _defaultGuardian;
     IEntryPoint private immutable _entryPoint;
-    SimpleAccountFactory private immutable _factory;
+    TSPAccountFactory private _factory;
     mapping(address => GuardianConfig) private cabinet;
     mapping(address => mapping(address => address)) private approvesProgress;
 
@@ -35,7 +36,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
 
     constructor(
         IEntryPoint anEntryPoint,
-        SimpleAccountFactory factory,
+        TSPAccountFactory factory,
         uint256 defaultThreshold,
         uint256 defaultDelayBlock,
         address defaultGuardian
@@ -48,7 +49,22 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         _disableInitializers();
     }
 
-    function register(IAccount account) public onlyAccountFactory {
+    function setConfig(address account, GuardianConfig memory config) public {
+        _requireFromEntryPointOrOwner(account);
+        // Check the legality of the configuration
+        require(
+            config.approveThreshold > 0,
+            "the threshold value must be greater than 0"
+        );
+        require(config.guardians.length > 0, "at least 1 guardian is required");
+        require(
+            config.delay > 0,
+            "the number of delayed verification blocks 0 must be greater than or equal to 1"
+        );
+        cabinet[account] = config;
+    }
+
+    function register(address account) public onlyAccountFactory {
         // Initialized account relationship information
         address[] memory guardians = new address[](1);
         guardians[0] = _defaultGuardian;
@@ -57,7 +73,7 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
             _defaultThreshold,
             _defaultDelayBlock
         );
-        cabinet[address(account)] = _config;
+        cabinet[account] = _config;
     }
 
     // function setDefaultConfig(uint256 defaultThreshold, uint256 defaultDelayBlock) public onlyOwner {
@@ -75,12 +91,24 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
             "you're not a guardian"
         );
         // Check the progress of authorization
+        // uint256 progress = _checkApproveProgress(account, newAddress);
+        // if (progress > cabinet[account].approveThreshold) {
+        //     _resetAccountOwner(account, newAddress);
+        //     return;
+        // }
+        approvesProgress[account][msg.sender] = newAddress;
+    }
+
+    function resetAccountOwner(address account) public {
+        require(
+            isAddressInArray(cabinet[account].guardians, msg.sender),
+            "you're not a guardian"
+        );
+        address newAddress = approvesProgress[account][msg.sender];
         uint256 progress = _checkApproveProgress(account, newAddress);
         if (progress > cabinet[account].approveThreshold) {
             _resetAccountOwner(account, newAddress);
-            return;
         }
-        approvesProgress[account][msg.sender] = newAddress;
     }
 
     function _resetAccountOwner(address account, address newAddress) private {
@@ -137,11 +165,16 @@ contract Guardian is UUPSUpgradeable, Initializable, Ownable {
         _checkOwner();
     }
 
-    // function _onlyOwner() internal view {
-    //     //directly from EOA owner, or through the account itself (which gets redirected through execute())
-    //     require(
-    //         msg.sender == owner || msg.sender == address(this),
-    //         "only owner"
-    //     );
-    // }
+    function changeAccountFactory(address factory) public onlyOwner {
+        _factory = TSPAccountFactory(factory);
+    }
+
+    // Require the function call went through EntryPoint or owner
+    function _requireFromEntryPointOrOwner(address account) internal view {
+        require(
+            msg.sender == address(_entryPoint) ||
+                msg.sender == TSPAccount(payable(account)).owner(),
+            "account: not Owner or EntryPoint"
+        );
+    }
 }
