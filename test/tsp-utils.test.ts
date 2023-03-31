@@ -28,7 +28,7 @@ export const ONE_ETH = parseEther('1')
 export const TWO_ETH = parseEther('2')
 export const FIVE_ETH = parseEther('5')
 
-export const DefaultPlatformGuardian = ethers.constants.AddressZero;
+export const DefaultPlatformGuardian = ethers.provider.getSigner().getAddress();
 
 export const DefaultThreshold = 1;
 
@@ -315,11 +315,31 @@ export async function createAccount(
   }
 }
 
-export async function deployGuardian(provider = ethers.provider): Promise<Guardian> {
-  const create2factory = new Create2Factory(provider)
-  const epf = new Guardian__factory(provider.getSigner())
-  const addr = await create2factory.deploy(epf.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
-  return Guardian__factory.connect(addr, provider.getSigner())
+// Deploys an implementation and a proxy pointing to this implementation
+export async function createAccountAndRegister(
+  ethersSigner: Signer,
+  accountOwner: string,
+  entryPoint: string,
+  guardian: Guardian,
+  _factory?: TSPAccountFactory,
+):
+  Promise<{
+    proxy: TSPAccount
+    accountFactory: TSPAccountFactory
+    implementation: string
+  }> {
+  const accountFactory = _factory ?? await new TSPAccountFactory__factory(ethersSigner).deploy(entryPoint)
+  const implementation = await accountFactory.accountImplementation()
+  await accountFactory.createAccount(accountOwner, 0)
+  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
+  const proxy = TSPAccount__factory.connect(accountAddress, ethersSigner)
+  await guardian.register(accountAddress);
+
+  return {
+    implementation,
+    accountFactory,
+    proxy
+  }
 }
 
 // export async function registerGuardian(account: string, provider = ethers.provider): Promise<{
