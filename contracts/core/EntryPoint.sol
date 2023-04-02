@@ -178,8 +178,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
     }
 
     /// @inheritdoc IEntryPoint
-    function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData)
-    external nonReentrant override {
+    function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external override {
 
         UserOpInfo memory opInfo;
         _simulationOnlyValidations(op);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v4.8.0) (security/ReentrancyGuard.sol)
 // Modified to use StorageSlot
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/utils/StorageSlot.sol";
 
@@ -36,13 +36,13 @@ abstract contract ReentrancyGuard {
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
 
-    bytes32 private constant slot = bytes32(uint256(keccak256("reentrancy.guard")) - 1);
+    bytes32 private constant SLOT = bytes32(uint256(keccak256("reentrancy.guard")) - 1);
 
     // uint256 private _status;
 
     using StorageSlot for bytes32;
     constructor() {
-        slot.getUint256Slot().value = _NOT_ENTERED;
+        SLOT.getUint256Slot().value = _NOT_ENTERED;
         // _status = _NOT_ENTERED;
     }
 
@@ -61,18 +61,18 @@ abstract contract ReentrancyGuard {
 
     function _nonReentrantBefore() private {
         // On the first call to nonReentrant, _status will be _NOT_ENTERED
-        uint _status = slot.getUint256Slot().value;
+        uint _status = SLOT.getUint256Slot().value;
         require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
 
         // Any calls to nonReentrant after this point will fail
-        slot.getUint256Slot().value = _ENTERED;
+        SLOT.getUint256Slot().value = _ENTERED;
         // _status = _ENTERED;
     }
 
     function _nonReentrantAfter() private {
         // By storing the original value once again, a refund is triggered (see
         // https://eips.ethereum.org/EIPS/eip-2200)
-        slot.getUint256Slot().value = _NOT_ENTERED;
+        SLOT.getUint256Slot().value = _NOT_ENTERED;
         // _status = _NOT_ENTERED;
     }
 }
