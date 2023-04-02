@@ -16,9 +16,10 @@ import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
+import "../utils/ReentrancyGuard.sol";
 import "./NonceManager.sol";
 
-contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
+contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
 
     using UserOperationLib for UserOperation;
 
@@ -88,7 +89,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
-    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public nonReentrant {
 
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
@@ -118,7 +119,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
     function handleAggregatedOps(
         UserOpsPerAggregator[] calldata opsPerAggregator,
         address payable beneficiary
-    ) public {
+    ) public nonReentrant {
 
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
