@@ -98,11 +98,11 @@ contract Guardian is UUPSUpgradeable, Ownable {
     // }
 
     // Owner authorized to modify the wallet
-    function approve(address account, address newAddress) external {
+    function approve(address account, address newAddress) public {
         // Whether the verification is the guardian of the current account
         require(
             isAddressInArray(cabinet[account].guardians, msg.sender),
-            "you're not a guardian"
+            "you are not a guardian"
         );
         GuardianConfig memory config = cabinet[account];
         for (uint256 i = 0; i < config.guardians.length; i++) {
@@ -125,6 +125,8 @@ contract Guardian is UUPSUpgradeable, Ownable {
         (address newAddress, uint256 progress) = _getApproveProgress(account);
         if (progress > cabinet[account].approveThreshold) {
             _resetAccountOwner(account, newAddress);
+        } else {
+            revert("the threshold value has not been reached");
         }
     }
 
@@ -163,7 +165,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
             address addr = approvesProgress[account][guardian];
             // Check the guardian to assist in the designated EOA consistent
             if (first == address(0) && addr != address(0)) {
-                first = address(0);
+                first = addr;
             }
             if (addr != address(0) && addr == first) {
                 n += 1;
@@ -266,7 +268,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
     function _requireAccountOwner(address account) internal view {
         require(
             msg.sender == TSPAccount(payable(account)).owner(),
-            "account: not Owner or EntryPoint"
+            "account: not Owner"
         );
     }
 
