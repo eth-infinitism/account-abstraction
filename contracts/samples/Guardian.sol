@@ -104,6 +104,19 @@ contract Guardian is UUPSUpgradeable, Ownable {
             isAddressInArray(cabinet[account].guardians, msg.sender),
             "you're not a guardian"
         );
+        GuardianConfig memory config = cabinet[account];
+        for (uint256 i = 0; i < config.guardians.length; i++) {
+            address guardian = config.guardians[i];
+            address otherGuardianAddress = approvesProgress[account][guardian];
+            // Check the guardian to assist in the designated EOA consistent
+            if (
+                otherGuardianAddress != address(0) &&
+                otherGuardianAddress != newAddress
+            ) {
+                // Remove other addresses that are inconsistent with the current guardian
+                delete approvesProgress[account][guardian];
+            }
+        }
         approvesProgress[account][msg.sender] = newAddress;
         emit Approved(account, msg.sender, newAddress);
     }
@@ -133,80 +146,102 @@ contract Guardian is UUPSUpgradeable, Ownable {
 
     function getApproveProgress(
         address account
-    ) public view returns (address newOwner, uint256 progress) {
+    ) public view returns (address newAddress, uint256 progress) {
         return _getApproveProgress(account);
     }
 
-    // Authorized inspection
     function _getApproveProgress(
         address account
-    ) private view returns (address newAddress, uint256 progress) {
-        address[] memory addrs = _getApprovedAddrArray(account);
-        return _getVoteResult(addrs);
-    }
-
-    function getApproveAddresses(
-        address account
-    ) public view returns (address[] memory addresses) {
-        return _getApprovedAddrArray(account);
-    }
-
-    function _getApprovedAddrArray(
-        address account
-    ) public view returns (address[] memory addresses) {
+    ) private view returns (address first, uint256 progress) {
         GuardianConfig memory config = cabinet[account];
+        // if (config.guardians.length > 0) {
+        //     return 0;
+        // }
+        uint256 n = 0;
         for (uint256 i = 0; i < config.guardians.length; i++) {
             address guardian = config.guardians[i];
-            address otherGuardianAddress = approvesProgress[account][guardian];
+            address addr = approvesProgress[account][guardian];
             // Check the guardian to assist in the designated EOA consistent
-            addresses[i] = otherGuardianAddress;
-        }
-    }
-
-    struct Vote {
-        address addr;
-        uint256 count;
-    }
-
-    function _getVoteResult(
-        address[] memory votes
-    ) private pure returns (address, uint256) {
-        require(votes.length > 0, "No votes found");
-
-        // Initialize a map, record the number of votes of each address
-        Vote[] memory votesArray = new Vote[](votes.length);
-        uint256 totalVotes = votes.length;
-        for (uint256 i = 0; i < votes.length; i++) {
-            if (votes[i] != address(0)) {
-                bool found = false;
-                for (uint256 j = 0; j < votesArray.length; j++) {
-                    if (votesArray[j].addr == votes[i]) {
-                        votesArray[j].count += 1;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    votesArray[i] = Vote({addr: votes[i], count: 1});
-                }
+            if (first == address(0) && addr != address(0)) {
+                first = address(0);
+            }
+            if (addr != address(0) && addr == first) {
+                n += 1;
             }
         }
-
-        // Find the most votes and the number of tickets and votes
-        address winner;
-        uint256 maxVotes = 0;
-        for (uint256 i = 0; i < votesArray.length; i++) {
-            if (votesArray[i].count > maxVotes) {
-                winner = votesArray[i].addr;
-                maxVotes = votesArray[i].count;
-            }
-        }
-
-        // Calculation percentage
-        uint256 percentage = (maxVotes * 100) / totalVotes;
-
-        return (winner, percentage);
+        return (first, n.mul(100).div(config.guardians.length));
     }
+
+    // Authorized inspection
+    // function _getApproveProgress(
+    //     address account
+    // ) private view returns (address newAddress, uint256 progress) {
+    //     address[] memory addrs = _getApprovedAddrArray(account);
+    //     return _getVoteResult(addrs);
+    // }
+
+    // function getApproveAddresses(
+    //     address account
+    // ) public view returns (address[] memory addresses) {
+    //     return _getApprovedAddrArray(account);
+    // }
+
+    // function _getApprovedAddrArray(
+    //     address account
+    // ) public view returns (address[] memory addresses) {
+    //     GuardianConfig memory config = cabinet[account];
+    //     for (uint256 i = 0; i < config.guardians.length; i++) {
+    //         address guardian = config.guardians[i];
+    //         address otherGuardianAddress = approvesProgress[account][guardian];
+    //         // Check the guardian to assist in the designated EOA consistent
+    //         addresses[i] = otherGuardianAddress;
+    //     }
+    // }
+
+    // struct Vote {
+    //     address addr;
+    //     uint256 count;
+    // }
+
+    // function _getVoteResult(
+    //     address[] memory votes
+    // ) private pure returns (address, uint256) {
+    //     require(votes.length > 0, "No votes found");
+
+    //     // Initialize a map, record the number of votes of each address
+    //     Vote[] memory votesArray = new Vote[](votes.length);
+    //     uint256 totalVotes = votes.length;
+    //     for (uint256 i = 0; i < votes.length; i++) {
+    //         if (votes[i] != address(0)) {
+    //             bool found = false;
+    //             for (uint256 j = 0; j < votesArray.length; j++) {
+    //                 if (votesArray[j].addr == votes[i]) {
+    //                     votesArray[j].count += 1;
+    //                     found = true;
+    //                     break;
+    //                 }
+    //             }
+    //             if (!found) {
+    //                 votesArray[i] = Vote({addr: votes[i], count: 1});
+    //             }
+    //         }
+    //     }
+
+    //     // Find the most votes and the number of tickets and votes
+    //     address winner;
+    //     uint256 maxVotes = 0;
+    //     for (uint256 i = 0; i < votesArray.length; i++) {
+    //         if (votesArray[i].count > maxVotes) {
+    //             winner = votesArray[i].addr;
+    //             maxVotes = votesArray[i].count;
+    //         }
+    //     }
+
+    //     // Calculation percentage
+    //     uint256 percentage = (maxVotes * 100) / totalVotes;
+
+    //     return (winner, percentage);
+    // }
 
     function isAddressInArray(
         address[] memory addresses,
