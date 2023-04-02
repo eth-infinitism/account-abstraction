@@ -1,30 +1,17 @@
-import { Wallet, Signer } from 'ethers'
+import { Signer } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
-  TSPAccount,
-  TSPAccountFactory__factory,
-  TestUtil,
-  TestUtil__factory,
-  TSPAccount__factory
 } from '../typechain'
 import {
-  createAddress,
-  createAccountOwner,
-  getBalance,
-  isDeployed,
   ONE_ETH,
-  createAccount, HashZero
+  createAccount
 } from './tsp-utils.test'
-import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
-import { UserOperation } from './UserOperation'
 
 describe('TSPAccount', function () {
   const entryPoint = '0x'.padEnd(42, '2')
   let accounts: string[]
-  let testUtil: TestUtil
-  let accountOwner: Wallet
   let accountOperator: Signer
   const ethersSigner = ethers.provider.getSigner()
 
@@ -32,10 +19,7 @@ describe('TSPAccount', function () {
     accounts = await ethers.provider.listAccounts()
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()
-    testUtil = await new TestUtil__factory(ethersSigner).deploy()
-    accountOwner = createAccountOwner()
-    accountOperator = (await ethers.getSigners())[1];
-    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    accountOperator = (await ethers.getSigners())[1]
   })
 
   it('owner should be able to call transfer', async () => {
@@ -46,9 +30,9 @@ describe('TSPAccount', function () {
 
   it('account operator should not be able to call transfer', async () => {
     const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
-    let operatorAddress = await accountOperator.getAddress();
-    await account.changeOperator(operatorAddress);
-    console.log(await account.getOperator());
+    const operatorAddress = await accountOperator.getAddress()
+    await account.changeOperator(operatorAddress)
+    console.log(await account.getOperator())
     await account.connect(accountOperator).execute(accounts[2], ONE_ETH, '0x', { gasLimit: 10000000 })
   })
 
@@ -75,7 +59,7 @@ describe('TSPAccount', function () {
 
   //   before(async () => {
   //     // that's the account of ethersSigner
-  //     const entryPoint = accounts[2];
+  //     const entryPoint = accounts[2]
   //     ({ proxy: account } = await createAccount(await ethers.getSigner(entryPoint), accountOwner.address, entryPoint))
   //     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('0.2') })
   //     const callGasLimit = 200000
