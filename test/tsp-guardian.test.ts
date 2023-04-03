@@ -130,6 +130,17 @@ describe('Guardian', function () {
       const { progress: progress2 } = await guardian.getApproveProgress(_account.address)
       expect(progress2).to.equals(0)
     })
+
+    it('the owner cannot be reset for blocks that have not reached the delayed effect', async () => {
+      const act = await createTSPAccountAndRegister(ethersSigner, accounts[9], entryPoint, guardian)
+      const _account = act.proxy
+      await guardian.connect(ethers.provider.getSigner(9)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 100 }, { gasLimit: 10000000 })
+      await guardian.connect(g1).approve(_account.address, accounts[10], { gasLimit: 10000000 })
+      await guardian.connect(g2).approve(_account.address, accounts[10], { gasLimit: 10000000 })
+      const { progress } = await guardian.getApproveProgress(_account.address)
+      expect(progress).to.equals(66)
+      await expect(guardian.resetAccountOwner(_account.address, { gasLimit: 10000000 }).catch(rethrow())).to.revertedWith('the delay reset time has not yet reached')
+    })
   })
 
   it('owner should be able to call transfer owner, and origin owner not be able to call', async () => {
