@@ -9,9 +9,9 @@ import {
 } from '../typechain'
 import {
   createAccountOwner,
-  createAccountAndRegister,
+  createTSPAccountAndRegister,
   rethrow,
-  createAccount,
+  createTSPAccount,
   DefaultDelayBlock, DefaultPlatformGuardian, DefaultThreshold
 } from './tsp-utils.test'
 
@@ -33,7 +33,7 @@ describe('Guardian', function () {
     accountOwner = createAccountOwner()
     const _guardian = await new Guardian__factory(ethersSigner).deploy(DefaultThreshold, DefaultDelayBlock, DefaultPlatformGuardian)
     guardian = await Guardian__factory.connect(_guardian.address, accountOwner)
-    const act = await createAccount(ethers.provider.getSigner(), accountOwner.address, entryPoint)
+    const act = await createTSPAccount(ethers.provider.getSigner(), accountOwner.address, entryPoint)
     tspAccount = act.proxy
     console.log('tsp account', tspAccount.address)
     await ethersSigner.sendTransaction({ from: accounts[0], to: accountOwner.address, value: parseEther('2') })
@@ -42,7 +42,7 @@ describe('Guardian', function () {
 
   it('any address should be able to call register', async () => {
     // accounts[0] is owner, owner makes the platform its guardian
-    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[1], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[1], entryPoint)
     await guardian.register(account.address, { gasLimit: 10000000 })
     const config = await guardian.getGuardianConfig(account.address)
     expect(config.guardians[0]).to.equals(await DefaultPlatformGuardian)
@@ -75,7 +75,7 @@ describe('Guardian', function () {
       g2 = signers[4]
       g3 = signers[5]
       newOwner = signers[6]
-      const act = await createAccountAndRegister(ethersSigner, accounts[2], entryPoint, guardian)
+      const act = await createTSPAccountAndRegister(ethersSigner, accounts[2], entryPoint, guardian)
       newAccount = act.proxy
       await guardian.connect(signers[2]).setConfig(newAccount.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 10, delay: 100 })
     })
@@ -98,7 +98,7 @@ describe('Guardian', function () {
     })
 
     it('the threshold value has not been reached, unable to reset the account', async () => {
-      const act = await createAccountAndRegister(ethersSigner, accounts[6], entryPoint, guardian)
+      const act = await createTSPAccountAndRegister(ethersSigner, accounts[6], entryPoint, guardian)
       const _account = act.proxy
       await guardian.connect(accounts[6]).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 100 }, { gasLimit: 10000000 })
       await guardian.connect(g1).approve(_account.address, accounts[7])

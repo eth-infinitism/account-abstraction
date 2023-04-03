@@ -5,7 +5,7 @@ import {
 } from '../typechain'
 import {
   ONE_ETH,
-  createAccount
+  createTSPAccount
 } from './tsp-utils.test'
 import { parseEther } from 'ethers/lib/utils'
 
@@ -23,13 +23,13 @@ describe('TSPAccount', function () {
   })
 
   it('owner should be able to call transfer', async () => {
-    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
     await account.execute(accounts[2], ONE_ETH, '0x')
   })
 
   it('account operator should not be able to call transfer', async () => {
-    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
     const operatorAddress = await accountOperator.getAddress()
     await account.changeOperator(operatorAddress)
     console.log(await account.getOperator())
@@ -37,7 +37,7 @@ describe('TSPAccount', function () {
   })
 
   it('other account should not be able to call transfer', async () => {
-    const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
     await expect(account.connect(ethers.provider.getSigner(2)).execute(accounts[2], ONE_ETH, '0x'))
       .to.be.revertedWith('account: not Owner or EntryPoint')
   })
