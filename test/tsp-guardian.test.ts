@@ -95,7 +95,7 @@ describe('Guardian', function () {
       const act = await createTSPAccountAndRegister(ethersSigner, accounts[2], entryPoint, guardian)
       const _account = act.proxy
       await _account.connect(ethers.provider.getSigner(2)).changeGuardian(guardian.address, { gasLimit: 10000000 })
-      await guardian.connect(ethers.provider.getSigner(2)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 100 }, { gasLimit: 10000000 })
+      await guardian.connect(ethers.provider.getSigner(2)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 1 }, { gasLimit: 10000000 })
       const _newOwner = await newOwner.getAddress()
       await guardian.connect(g1).approve(_account.address, _newOwner, { gasLimit: 10000000 })
       await guardian.connect(g2).approve(_account.address, _newOwner, { gasLimit: 10000000 })
@@ -109,13 +109,26 @@ describe('Guardian', function () {
       const act = await createTSPAccountAndRegister(ethersSigner, accounts[6], entryPoint, guardian)
       const _account = act.proxy
       await _account.connect(ethers.provider.getSigner(6)).changeGuardian(guardian.address, { gasLimit: 10000000 })
-      await guardian.connect(ethers.provider.getSigner(6)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 100 }, { gasLimit: 10000000 })
+      await guardian.connect(ethers.provider.getSigner(6)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 1 }, { gasLimit: 10000000 })
       await guardian.connect(g1).approve(_account.address, accounts[7], { gasLimit: 10000000 })
       await guardian.connect(g2).approve(_account.address, accounts[7], { gasLimit: 10000000 })
       const { progress } = await guardian.getApproveProgress(_account.address)
       expect(progress).to.equals(66)
       await guardian.connect(g2).resetAccountOwner(_account.address, { gasLimit: 10000000 })
       expect(accounts[7]).to.equals(await _account.owner())
+    })
+
+    it('only the account owner can be clean approves', async () => {
+      const act = await createTSPAccountAndRegister(ethersSigner, accounts[7], entryPoint, guardian)
+      const _account = act.proxy
+      await guardian.connect(ethers.provider.getSigner(7)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 100 }, { gasLimit: 10000000 })
+      await guardian.connect(g1).approve(_account.address, accounts[8], { gasLimit: 10000000 })
+      await guardian.connect(g2).approve(_account.address, accounts[8], { gasLimit: 10000000 })
+      const { progress } = await guardian.getApproveProgress(_account.address)
+      expect(progress).to.equals(66)
+      await guardian.connect(ethers.provider.getSigner(7)).clearApproves(_account.address, { gasLimit: 10000000 })
+      const { progress: progress2 } = await guardian.getApproveProgress(_account.address)
+      expect(progress2).to.equals(0)
     })
   })
 
