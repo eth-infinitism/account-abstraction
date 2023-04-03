@@ -100,6 +100,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
     // Owner authorized to modify the wallet
     function approve(address account, address newAddress) public {
         // Whether the verification is the guardian of the current account
+        require(newAddress != address(0), "new owner is the zero address");
         require(
             isAddressInArray(cabinet[account].guardians, msg.sender),
             "you are not a guardian"

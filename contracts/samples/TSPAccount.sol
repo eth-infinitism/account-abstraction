@@ -32,12 +32,14 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
     function resetOwner(address newOwner) external {
+        require(newOwner != address(0), "new owner is the zero address");
         _requireFromEntryPointOrOwnerOrGuardian();
         emit ResetOwner(address(this), owner, newOwner);
         owner = newOwner;
     }
 
     function changeOperator(address operator) public {
+        require(operator != address(0), "operator is the zero address");
         _requireFromEntryPointOrOwner();
         _operator = operator;
     }
@@ -102,6 +104,7 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
     }
 
     function changeGuardian(address guardian) public onlyOwner {
+        require(guardian != address(0), "guardian is the zero address");
         _guardian = guardian;
     }
 
