@@ -19,6 +19,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
     address private _defaultGuardian;
     mapping(address => GuardianConfig) private cabinet;
     mapping(address => mapping(address => address)) private approvesProgress;
+    mapping(address => uint256) private closestReset;
 
     // The guardian relationship of the storage account
     struct GuardianConfig {
@@ -100,6 +101,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
     // Owner authorized to modify the wallet
     function approve(address account, address newAddress) public {
         // Whether the verification is the guardian of the current account
+        require(newAddress != address(0), "new owner is the zero address");
         require(
             isAddressInArray(cabinet[account].guardians, msg.sender),
             "you are not a guardian"
@@ -118,12 +120,17 @@ contract Guardian is UUPSUpgradeable, Ownable {
             }
         }
         approvesProgress[account][msg.sender] = newAddress;
+        closestReset[account] = block.number + cabinet[account].delay;
         emit Approved(account, msg.sender, newAddress);
     }
 
     function resetAccountOwner(address account) public {
         (address newAddress, uint256 progress) = _getApproveProgress(account);
         if (progress > cabinet[account].approveThreshold) {
+            if (closestReset[account] > block.number) {
+                revert("the delay reset time has not yet reached");
+            }
+            delete closestReset[account];
             _resetAccountOwner(account, newAddress);
         } else {
             revert("the threshold value has not been reached");
@@ -133,6 +140,12 @@ contract Guardian is UUPSUpgradeable, Ownable {
     function _resetAccountOwner(address account, address newAddress) private {
         ITSPAccount(account).resetOwner(newAddress);
         // Clear authorization record
+        _clearApproves(account);
+    }
+
+    function clearApproves(address account) public {
+        delete closestReset[account];
+        _requireAccountOwner(account);
         _clearApproves(account);
     }
 
