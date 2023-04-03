@@ -16,10 +16,10 @@ import "./SimpleAccount.sol";
  */
 contract TSPAccount is SimpleAccount, ITSPAccount {
     // the operator can invoke the contract, but cannot modify the owner
-    address public _operator;
+    address private _operator;
 
     // a guardian contract through which the owner can modify the guardian and multi-signature rules
-    address public _guardian;
+    address private _guardian;
 
     mapping(string => string) private _metadata;
 
@@ -42,6 +42,14 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
         _operator = operator;
     }
 
+    function getGuardian() public view returns (address) {
+        return _guardian;
+    }
+
+    function getOperator() public view returns (address) {
+        return _operator;
+    }
+
     // Require the function call went through EntryPoint or owner or guardian
     function _requireFromEntryPointOrOwnerOrGuardian() internal view {
         require(
@@ -58,7 +66,7 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
             msg.sender == address(entryPoint()) ||
                 msg.sender == owner ||
                 msg.sender == _operator,
-            "account: not Owner or EntryPoint or Guardian"
+            "account: not Owner or EntryPoint or Operator"
         );
     }
 

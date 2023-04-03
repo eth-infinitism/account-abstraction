@@ -14,7 +14,7 @@ import {
   TSPAccount,
   TSPAccountFactory__factory,
   TSPAccount__factory, TSPAccountFactory, TestAggregatedAccountFactory,
-  Guardian__factory, Guardian,
+  Guardian
 } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
@@ -28,15 +28,15 @@ export const ONE_ETH = parseEther('1')
 export const TWO_ETH = parseEther('2')
 export const FIVE_ETH = parseEther('5')
 
-export const DefaultPlatformGuardian = ethers.constants.AddressZero;
+export const DefaultPlatformGuardian = ethers.provider.getSigner().getAddress()
 
-export const DefaultThreshold = 1;
+export const DefaultThreshold = 1
 
-export const DefaultDelayBlock = 100;
+export const DefaultDelayBlock = 100
 
 export const tostr = (x: any): string => x != null ? x.toString() : 'null'
 
-export function tonumber(x: any): number {
+export function tonumber (x: any): number {
   try {
     return parseFloat(x.toString())
   } catch (e: any) {
@@ -46,7 +46,7 @@ export function tonumber(x: any): number {
 }
 
 // just throw 1eth from account[0] to the given address (or contract instance)
-export async function fund(contractOrAddress: string | Contract, amountEth = '1'): Promise<void> {
+export async function fund (contractOrAddress: string | Contract, amountEth = '1'): Promise<void> {
   let address: string
   if (typeof contractOrAddress === 'string') {
     address = contractOrAddress
@@ -56,12 +56,12 @@ export async function fund(contractOrAddress: string | Contract, amountEth = '1'
   await ethers.provider.getSigner().sendTransaction({ to: address, value: parseEther(amountEth) })
 }
 
-export async function getBalance(address: string): Promise<number> {
+export async function getBalance (address: string): Promise<number> {
   const balance = await ethers.provider.getBalance(address)
   return parseInt(balance.toString())
 }
 
-export async function getTokenBalance(token: IERC20, address: string): Promise<number> {
+export async function getTokenBalance (token: IERC20, address: string): Promise<number> {
   const balance = await token.balanceOf(address)
   return parseInt(balance.toString())
 }
@@ -69,23 +69,23 @@ export async function getTokenBalance(token: IERC20, address: string): Promise<n
 let counter = 0
 
 // create non-random account, so gas calculations are deterministic
-export function createAccountOwner(): Wallet {
+export function createAccountOwner (): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
   return new ethers.Wallet(privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
-export function createAddress(): string {
+export function createAddress (): string {
   return createAccountOwner().address
 }
 
-export function callDataCost(data: string): number {
+export function callDataCost (data: string): number {
   return ethers.utils.arrayify(data)
     .map(x => x === 0 ? 4 : 16)
     .reduce((sum, x) => sum + x)
 }
 
-export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
+export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const { actualGasCost, actualGasUsed } = logs[0].args
@@ -100,14 +100,14 @@ export async function calcGasUsage(rcpt: ContractReceipt, entryPoint: EntryPoint
 }
 
 // helper function to create the initCode to deploy the account, using our account factory.
-export function getAccountInitCode(owner: string, factory: TSPAccountFactory, salt = 0): BytesLike {
+export function getAccountInitCode (owner: string, factory: TSPAccountFactory, salt = 0): BytesLike {
   return hexConcat([
     factory.address,
     factory.interface.encodeFunctionData('createAccount', [owner, salt])
   ])
 }
 
-export async function getAggregatedAccountInitCode(entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
+export async function getAggregatedAccountInitCode (entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
   // the test aggregated account doesn't check the owner...
   const owner = AddressZero
   return hexConcat([
@@ -117,7 +117,7 @@ export async function getAggregatedAccountInitCode(entryPoint: string, factory: 
 }
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
-export async function getAccountAddress(owner: string, factory: TSPAccountFactory, salt = 0): Promise<string> {
+export async function getAccountAddress (owner: string, factory: TSPAccountFactory, salt = 0): Promise<string> {
   return await factory.getAddress(owner, salt)
 }
 
@@ -138,7 +138,7 @@ const panicCodes: { [key: number]: string } = {
 // - stack trace goes back to method (or catch) line, not inner provider
 // - attempt to parse revert data (needed for geth)
 // use with ".catch(rethrow())", so that current source file/line is meaningful.
-export function rethrow(): (e: Error) => void {
+export function rethrow (): (e: Error) => void {
   const callerStack = new Error().stack!.replace(/Error.*\n.*at.*\n/, '').replace(/.*at.* \(internal[\s\S]*/, '')
 
   if (arguments[0] != null) {
@@ -162,7 +162,7 @@ export function rethrow(): (e: Error) => void {
   }
 }
 
-export function decodeRevertReason(data: string, nullIfNoMatch = true): string | null {
+export function decodeRevertReason (data: string, nullIfNoMatch = true): string | null {
   const methodSig = data.slice(0, 10)
   const dataParams = '0x' + data.slice(10)
 
@@ -188,7 +188,7 @@ let currentNode: string = ''
 
 // basic geth support
 // - by default, has a single account. our code needs more.
-export async function checkForGeth(): Promise<void> {
+export async function checkForGeth (): Promise<void> {
   // @ts-ignore
   const provider = ethers.provider._hardhatProvider
 
@@ -212,7 +212,7 @@ export async function checkForGeth(): Promise<void> {
 // { '0': "a", '1': 20, first: "a", second: 20 }
 // becomes:
 // { first: "a", second: "20" }
-export function objdump(obj: { [key: string]: any }): any {
+export function objdump (obj: { [key: string]: any }): any {
   return Object.keys(obj)
     .filter(key => key.match(/^[\d_]/) == null)
     .reduce((set, key) => ({
@@ -221,7 +221,7 @@ export function objdump(obj: { [key: string]: any }): any {
     }), {})
 }
 
-export async function checkForBannedOps(txHash: string, checkPaymaster: boolean): Promise<void> {
+export async function checkForBannedOps (txHash: string, checkPaymaster: boolean): Promise<void> {
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
   const blockHash = logs.map((op, index) => ({ op: op.op, index })).filter(op => op.op === 'NUMBER')
@@ -252,7 +252,7 @@ export async function checkForBannedOps(txHash: string, checkPaymaster: boolean)
  * process exception of ValidationResult
  * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
  */
-export function simulationResultCatch(e: any): any {
+export function simulationResultCatch (e: any): any {
   if (e.errorName !== 'ValidationResult') {
     throw e
   }
@@ -263,27 +263,27 @@ export function simulationResultCatch(e: any): any {
  * process exception of ValidationResultWithAggregation
  * usage: entryPoint.simulationResult(..).catch(simulationResultWithAggregation)
  */
-export function simulationResultWithAggregationCatch(e: any): any {
+export function simulationResultWithAggregationCatch (e: any): any {
   if (e.errorName !== 'ValidationResultWithAggregation') {
     throw e
   }
   return e.errorArgs
 }
 
-export async function deployEntryPoint(provider = ethers.provider): Promise<EntryPoint> {
+export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const epf = new EntryPoint__factory(provider.getSigner())
   const addr = await create2factory.deploy(epf.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 
-export async function isDeployed(addr: string): Promise<boolean> {
+export async function isDeployed (addr: string): Promise<boolean> {
   const code = await ethers.provider.getCode(addr)
   return code.length > 2
 }
 
 // internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
-export function userOpsWithoutAgg(userOps: UserOperation[]): IEntryPoint.UserOpsPerAggregatorStruct[] {
+export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOpsPerAggregatorStruct[] {
   return [{
     userOps,
     aggregator: AddressZero,
@@ -292,7 +292,7 @@ export function userOpsWithoutAgg(userOps: UserOperation[]): IEntryPoint.UserOps
 }
 
 // Deploys an implementation and a proxy pointing to this implementation
-export async function createAccount(
+export async function createAccount (
   ethersSigner: Signer,
   accountOwner: string,
   entryPoint: string,
@@ -315,11 +315,31 @@ export async function createAccount(
   }
 }
 
-export async function deployGuardian(provider = ethers.provider): Promise<Guardian> {
-  const create2factory = new Create2Factory(provider)
-  const epf = new Guardian__factory(provider.getSigner())
-  const addr = await create2factory.deploy(epf.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
-  return Guardian__factory.connect(addr, provider.getSigner())
+// Deploys an implementation and a proxy pointing to this implementation
+export async function createAccountAndRegister (
+  ethersSigner: Signer,
+  accountOwner: string,
+  entryPoint: string,
+  guardian: Guardian,
+  _factory?: TSPAccountFactory
+):
+  Promise<{
+    proxy: TSPAccount
+    accountFactory: TSPAccountFactory
+    implementation: string
+  }> {
+  const accountFactory = _factory ?? await new TSPAccountFactory__factory(ethersSigner).deploy(entryPoint)
+  const implementation = await accountFactory.accountImplementation()
+  await accountFactory.createAccount(accountOwner, 0)
+  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
+  const proxy = TSPAccount__factory.connect(accountAddress, ethersSigner)
+  await guardian.register(accountAddress)
+
+  return {
+    implementation,
+    accountFactory,
+    proxy
+  }
 }
 
 // export async function registerGuardian(account: string, provider = ethers.provider): Promise<{
@@ -330,4 +350,4 @@ export async function deployGuardian(provider = ethers.provider): Promise<Guardi
 //   return {
 //     bool,
 //   }
-// } 
+// }
