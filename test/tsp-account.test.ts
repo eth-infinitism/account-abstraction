@@ -136,9 +136,10 @@ describe('TSPAccount', function () {
       expect(await account.getMetadata('abc')).to.be.equals('')
     })
 
-    it('other EOA should be able set metadata', async () => {
+    it('other EOA should be able set and get metadata', async () => {
       const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
       await expect(account.connect(ethers.provider.getSigner(2)).setMetadata('abc', '123', { gasLimit: 10000000 })).to.be.revertedWith('only owner')
+      await expect(account.connect(ethers.provider.getSigner(2)).getMetadata('abc')).to.be.revertedWith('only owner')
     })
 
     it('owner should be able change guardian', async () => {
@@ -149,6 +150,21 @@ describe('TSPAccount', function () {
     it('owner should not be able set zero address', async () => {
       const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
       await expect(account.changeGuardian(AddressZero)).to.be.revertedWith('guardian is the zero address')
+    })
+
+    it('If the contract address already exists, return it directly', async () => {
+      const _factory = await new TSPAccountFactory__factory(ethers.provider.getSigner()).deploy(entryPoint)
+      // const { proxy: _account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      const result1 = await _factory.createAccount(accounts[0], 0)
+      const constract1 = (await result1.wait()).contractAddress
+      const result2 = await _factory.createAccount(accounts[0], 0)
+      const constract2 = (await result2.wait()).contractAddress
+      expect(constract1).to.be.equals(constract2)
+    })
+
+    it('the account contract cannot be initialized multiple times', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await expect(account.initialize(AddressZero)).to.be.revertedWith('Initializable: contract is already initialized')
     })
   })
   context('TSPAccountFactory', () => {
