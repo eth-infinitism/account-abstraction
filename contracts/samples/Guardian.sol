@@ -281,7 +281,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
     function _requireAccountOwner(address account) internal view {
         require(
             msg.sender == TSPAccount(payable(account)).owner(),
-            "account: not Owner"
+            "account: not the account owner"
         );
     }
 
