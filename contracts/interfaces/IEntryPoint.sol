@@ -47,6 +47,12 @@ interface IEntryPoint is IStakeManager, INonceManager {
     event UserOperationRevertReason(bytes32 indexed userOpHash, address indexed sender, uint256 nonce, bytes revertReason);
 
     /**
+     * an event emitted by handleOps(), before starting the execution loop.
+     * any event emitted before this event, is part of the validation.
+     */
+    event BeforeExecution();
+
+    /**
      * signature aggregator used by the following UserOperationEvents within this bundle.
      */
     event SignatureAggregatorChanged(address indexed aggregator);
