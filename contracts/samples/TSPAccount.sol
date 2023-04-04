@@ -39,9 +39,9 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
         owner = newOwner;
     }
 
-    function changeOperator(address operator) public {
-        require(operator != address(0), "operator is the zero address");
-        _requireFromEntryPointOrOwner();
+    function changeOperator(address operator) public onlyOwner {
+        // require(operator != address(0), "operator is the zero address");
+        // _requireFromEntryPointOrOwner();
         _operator = operator;
     }
 
