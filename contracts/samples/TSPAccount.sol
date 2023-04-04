@@ -33,14 +33,14 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
 
     function resetOwner(address newOwner) external {
         require(newOwner != address(0), "new owner is the zero address");
-        _requireFromEntryPointOrOwnerOrGuardian();
+        _requireOwnerOrGuardian();
         emit ResetOwner(address(this), owner, newOwner);
         owner = newOwner;
     }
 
-    function changeOperator(address operator) public {
-        require(operator != address(0), "operator is the zero address");
-        _requireFromEntryPointOrOwner();
+    function changeOperator(address operator) public onlyOwner {
+        // require(operator != address(0), "operator is the zero address");
+        // _requireFromEntryPointOrOwner();
         _operator = operator;
     }
 
@@ -52,13 +52,10 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
         return _operator;
     }
 
-    // Require the function call went through EntryPoint or owner or guardian
-    function _requireFromEntryPointOrOwnerOrGuardian() internal view {
+    function _requireOwnerOrGuardian() internal view {
         require(
-            msg.sender == address(entryPoint()) ||
-                msg.sender == owner ||
-                msg.sender == _guardian,
-            "account: not Owner or EntryPoint or Guardian"
+            msg.sender == owner || msg.sender == _guardian,
+            "account: not Owner or Guardian"
         );
     }
 

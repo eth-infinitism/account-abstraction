@@ -17,9 +17,9 @@ contract Guardian is UUPSUpgradeable, Ownable {
     uint256 private _defaultThreshold = 100;
     uint256 private _defaultDelayBlock = 100;
     address private _defaultGuardian;
-    mapping(address => GuardianConfig) private cabinet;
-    mapping(address => mapping(address => address)) private approvesProgress;
-    mapping(address => uint256) private closestReset;
+    mapping(address => GuardianConfig) private _cabinet;
+    mapping(address => mapping(address => address)) private _approvesProgress;
+    mapping(address => uint256) private _closestReset;
 
     // The guardian relationship of the storage account
     struct GuardianConfig {
@@ -65,7 +65,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
             config.delay > 0,
             "the number of delayed verification blocks 0 must be greater than or equal to 1"
         );
-        cabinet[account] = config;
+        _cabinet[account] = config;
         emit ChangeGuardianConfig(
             account,
             config.guardians,
@@ -76,7 +76,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
 
     function register(address account) public {
         require(
-            cabinet[account].guardians.length == 0,
+            _cabinet[account].guardians.length == 0,
             "a TSP account can only be registered once"
         );
         // Initialized account relationship information
@@ -87,7 +87,7 @@ contract Guardian is UUPSUpgradeable, Ownable {
             _defaultThreshold,
             _defaultDelayBlock
         );
-        cabinet[account] = _config;
+        _cabinet[account] = _config;
         emit Register(account, _defaultGuardian);
     }
 
@@ -103,34 +103,34 @@ contract Guardian is UUPSUpgradeable, Ownable {
         // Whether the verification is the guardian of the current account
         require(newAddress != address(0), "new owner is the zero address");
         require(
-            isAddressInArray(cabinet[account].guardians, msg.sender),
+            isAddressInArray(_cabinet[account].guardians, msg.sender),
             "you are not a guardian"
         );
-        GuardianConfig memory config = cabinet[account];
+        GuardianConfig memory config = _cabinet[account];
         for (uint256 i = 0; i < config.guardians.length; i++) {
             address guardian = config.guardians[i];
-            address otherGuardianAddress = approvesProgress[account][guardian];
+            address otherGuardianAddress = _approvesProgress[account][guardian];
             // Check the guardian to assist in the designated EOA consistent
             if (
                 otherGuardianAddress != address(0) &&
                 otherGuardianAddress != newAddress
             ) {
                 // Remove other addresses that are inconsistent with the current guardian
-                delete approvesProgress[account][guardian];
+                delete _approvesProgress[account][guardian];
             }
         }
-        approvesProgress[account][msg.sender] = newAddress;
-        closestReset[account] = block.number + cabinet[account].delay;
+        _approvesProgress[account][msg.sender] = newAddress;
+        _closestReset[account] = block.number + _cabinet[account].delay;
         emit Approved(account, msg.sender, newAddress);
     }
 
     function resetAccountOwner(address account) public {
         (address newAddress, uint256 progress) = _getApproveProgress(account);
-        if (progress > cabinet[account].approveThreshold) {
-            if (closestReset[account] > block.number) {
+        if (progress > _cabinet[account].approveThreshold) {
+            if (_closestReset[account] > block.number) {
                 revert("the delay reset time has not yet reached");
             }
-            delete closestReset[account];
+            delete _closestReset[account];
             _resetAccountOwner(account, newAddress);
         } else {
             revert("the threshold value has not been reached");
@@ -144,17 +144,17 @@ contract Guardian is UUPSUpgradeable, Ownable {
     }
 
     function clearApproves(address account) public {
-        delete closestReset[account];
         _requireAccountOwner(account);
+        delete _closestReset[account];
         _clearApproves(account);
     }
 
     function _clearApproves(address account) private {
-        GuardianConfig memory config = cabinet[account];
+        GuardianConfig memory config = _cabinet[account];
         for (uint256 i = 0; i < config.guardians.length; i++) {
             address guardian = config.guardians[i];
-            if (approvesProgress[account][guardian] != address(0)) {
-                delete approvesProgress[account][guardian];
+            if (_approvesProgress[account][guardian] != address(0)) {
+                delete _approvesProgress[account][guardian];
             }
         }
     }
@@ -168,14 +168,14 @@ contract Guardian is UUPSUpgradeable, Ownable {
     function _getApproveProgress(
         address account
     ) private view returns (address first, uint256 progress) {
-        GuardianConfig memory config = cabinet[account];
+        GuardianConfig memory config = _cabinet[account];
         // if (config.guardians.length > 0) {
         //     return 0;
         // }
         uint256 n = 0;
         for (uint256 i = 0; i < config.guardians.length; i++) {
             address guardian = config.guardians[i];
-            address addr = approvesProgress[account][guardian];
+            address addr = _approvesProgress[account][guardian];
             // Check the guardian to assist in the designated EOA consistent
             if (first == address(0) && addr != address(0)) {
                 first = addr;
@@ -186,77 +186,6 @@ contract Guardian is UUPSUpgradeable, Ownable {
         }
         return (first, n.mul(100).div(config.guardians.length));
     }
-
-    // Authorized inspection
-    // function _getApproveProgress(
-    //     address account
-    // ) private view returns (address newAddress, uint256 progress) {
-    //     address[] memory addrs = _getApprovedAddrArray(account);
-    //     return _getVoteResult(addrs);
-    // }
-
-    // function getApproveAddresses(
-    //     address account
-    // ) public view returns (address[] memory addresses) {
-    //     return _getApprovedAddrArray(account);
-    // }
-
-    // function _getApprovedAddrArray(
-    //     address account
-    // ) public view returns (address[] memory addresses) {
-    //     GuardianConfig memory config = cabinet[account];
-    //     for (uint256 i = 0; i < config.guardians.length; i++) {
-    //         address guardian = config.guardians[i];
-    //         address otherGuardianAddress = approvesProgress[account][guardian];
-    //         // Check the guardian to assist in the designated EOA consistent
-    //         addresses[i] = otherGuardianAddress;
-    //     }
-    // }
-
-    // struct Vote {
-    //     address addr;
-    //     uint256 count;
-    // }
-
-    // function _getVoteResult(
-    //     address[] memory votes
-    // ) private pure returns (address, uint256) {
-    //     require(votes.length > 0, "No votes found");
-
-    //     // Initialize a map, record the number of votes of each address
-    //     Vote[] memory votesArray = new Vote[](votes.length);
-    //     uint256 totalVotes = votes.length;
-    //     for (uint256 i = 0; i < votes.length; i++) {
-    //         if (votes[i] != address(0)) {
-    //             bool found = false;
-    //             for (uint256 j = 0; j < votesArray.length; j++) {
-    //                 if (votesArray[j].addr == votes[i]) {
-    //                     votesArray[j].count += 1;
-    //                     found = true;
-    //                     break;
-    //                 }
-    //             }
-    //             if (!found) {
-    //                 votesArray[i] = Vote({addr: votes[i], count: 1});
-    //             }
-    //         }
-    //     }
-
-    //     // Find the most votes and the number of tickets and votes
-    //     address winner;
-    //     uint256 maxVotes = 0;
-    //     for (uint256 i = 0; i < votesArray.length; i++) {
-    //         if (votesArray[i].count > maxVotes) {
-    //             winner = votesArray[i].addr;
-    //             maxVotes = votesArray[i].count;
-    //         }
-    //     }
-
-    //     // Calculation percentage
-    //     uint256 percentage = (maxVotes * 100) / totalVotes;
-
-    //     return (winner, percentage);
-    // }
 
     function isAddressInArray(
         address[] memory addresses,
@@ -281,13 +210,13 @@ contract Guardian is UUPSUpgradeable, Ownable {
     function _requireAccountOwner(address account) internal view {
         require(
             msg.sender == TSPAccount(payable(account)).owner(),
-            "account: not Owner"
+            "account: not the account owner"
         );
     }
 
     function getGuardianConfig(
         address account
     ) public view returns (GuardianConfig memory config) {
-        return cabinet[account];
+        return _cabinet[account];
     }
 }
