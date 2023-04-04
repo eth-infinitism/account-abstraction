@@ -16,7 +16,7 @@ import {
   createTSPAccount
 } from './tsp-utils.test'
 import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
-import { parseEther, formatEther } from 'ethers/lib/utils'
+import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
 describe('TSPAccount', function () {
