@@ -134,8 +134,9 @@ describe('TSPAccount', function () {
 
     // 23.Owner2 operates AA account transfer out USDT
     const transToken4 = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('15')).then(tx => tx.data!)
-    await account.connect(newOwner2).execute(token.address, 0, transToken4)
-    expect(await token.balanceOf(account.address)).to.be.equals(parseEther('25'))
+    const transToken5 = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('15')).then(tx => tx.data!)
+    await account.connect(newOwner2).executeBatch([token.address, token.address], [transToken4, transToken5])
+    expect(await token.balanceOf(account.address)).to.be.equals(parseEther('10'))
 
     // 24.Owner2 modification operator
     await account.connect(newOwner2).changeOperator(newOperator2.getAddress(), { gasLimit: 10000000 })
