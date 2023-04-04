@@ -13,7 +13,7 @@ import {
   getBalance,
   isDeployed,
   ONE_ETH, HashZero,
-  createTSPAccount
+  createTSPAccount, AddressZero
 } from './tsp-utils.test'
 import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
@@ -117,6 +117,38 @@ describe('TSPAccount', function () {
       await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
       await account.resetOwner(accounts[1])
       await account.connect((await ethers.getSigners())[1]).execute(accounts[2], ONE_ETH, '0x', { gasLimit: 10000000 })
+    })
+
+    it('can not set zero address', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await expect(account.resetOwner(AddressZero)).to.be.revertedWith('new owner is the zero address')
+    })
+
+    it('owner should be able set metadata', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await account.setMetadata('abc', '123')
+      expect(await account.getMetadata('abc')).to.be.equals('123')
+    })
+
+    it('owner should be able delete metadata', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await account.setMetadata('abc', '')
+      expect(await account.getMetadata('abc')).to.be.equals('')
+    })
+
+    it('other EOA should be able set metadata', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await expect(account.connect(ethers.provider.getSigner(2)).setMetadata('abc', '123', { gasLimit: 10000000 })).to.be.revertedWith('only owner')
+    })
+
+    it('owner should be able change guardian', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await expect(account.connect(ethers.provider.getSigner(3)).changeGuardian(accounts[3])).to.be.revertedWith('only owner')
+    })
+
+    it('owner should not be able set zero address', async () => {
+      const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+      await expect(account.changeGuardian(AddressZero)).to.be.revertedWith('guardian is the zero address')
     })
   })
   context('TSPAccountFactory', () => {
