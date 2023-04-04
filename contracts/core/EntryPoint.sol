@@ -16,8 +16,8 @@ import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
-import "../utils/ReentrancyGuard.sol";
 import "./NonceManager.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
 
