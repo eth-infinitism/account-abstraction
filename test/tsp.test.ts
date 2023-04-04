@@ -1,4 +1,4 @@
-import { Wallet, Signer, SignerWithAddress } from 'ethers'
+import { Wallet, Signer } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import { parseEther } from 'ethers/lib/utils'
@@ -6,27 +6,25 @@ import {
   TSPAccountFactory__factory,
   Guardian__factory,
   TestToken,
-  TestToken__factory,
+  TestToken__factory
   // TestUtil,
   // TestUtil__factory,
-  TSPAccount__factory
 } from '../typechain'
-import { rethrow, DefaultDelayBlock, DefaultPlatformGuardian, DefaultThreshold, createAccountOwner, ONE_ETH, createTSPAccount } from './tsp-utils.test'
-import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
+import { DefaultDelayBlock, DefaultPlatformGuardian, DefaultThreshold, createAccountOwner, ONE_ETH, createTSPAccount } from './tsp-utils.test'
 
 describe('TSPAccount', function () {
   let accounts: string[]
   let token: TestToken
   const signer = ethers.provider.getSigner()
-  let accountOwner: SignerWithAddress
-  let operator: SignerWithAddress
-  let newOperator: SignerWithAddress
-  let newOperator2: SignerWithAddress
-  let g1: SignerWithAddress
-  let g2: SignerWithAddress
-  let g3: SignerWithAddress
-  let newOwner: SignerWithAddress
-  let newOwner2: SignerWithAddress
+  let accountOwner: Wallet
+  let operator: Signer
+  let newOperator: Signer
+  let newOperator2: Signer
+  let g1: Signer
+  let g2: Signer
+  let g3: Signer
+  let newOwner: Wallet
+  let newOwner2: Wallet
   before(async function () {
     accounts = await ethers.provider.listAccounts()
     token = await new TestToken__factory(signer).deploy()
@@ -71,9 +69,9 @@ describe('TSPAccount', function () {
     expect(await ethers.provider.getBalance(newOwner.address)).to.be.equal(parseEther('1').toString())
 
     // 10.Owner operates AA account transfer out USDT
-    const transToken0 = await token.populateTransaction.transfer(operator.address, parseEther('10')).then(tx => tx.data!)
+    const transToken0 = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('10')).then(tx => tx.data!)
     await account.connect(accountOwner).execute(token.address, 0, transToken0)
-    console.log(await token.balanceOf(operator.address))
+    console.log(await token.balanceOf(await operator.getAddress()))
     expect(await token.balanceOf(account.address)).to.equal(parseEther('90'))
 
     // 11.owner operate account operator
@@ -84,9 +82,9 @@ describe('TSPAccount', function () {
     await account.connect(operator).execute(newOwner.address, ONE_ETH, '0x', { gasLimit: 10000000 })
 
     // 13.Operator operates AA account transfer out USDT
-    const transToken = await token.populateTransaction.transfer(operator.address, parseEther('10')).then(tx => tx.data!)
+    const transToken = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('10')).then(tx => tx.data!)
     await account.connect(accountOwner).execute(token.address, 0, transToken)
-    console.log(await token.balanceOf(operator.address))
+    console.log(await token.balanceOf(await operator.getAddress()))
     expect(await token.balanceOf(account.address)).to.equal(parseEther('80'))
 
     // 14.Reset the key of the owner and modify the new owner
@@ -96,19 +94,19 @@ describe('TSPAccount', function () {
     await account.connect(newOwner).execute(newOwner.address, ONE_ETH, '0x', { gasLimit: 10000000 })
 
     // 16.new Owner operates AA account transfer out USDT
-    const transToken2 = await token.populateTransaction.transfer(operator.address, parseEther('20')).then(tx => tx.data!)
+    const transToken2 = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('20')).then(tx => tx.data!)
     await account.connect(newOwner).execute(token.address, 0, transToken2)
     expect(await token.balanceOf(account.address)).to.be.equals(parseEther('60'))
 
     // 17.New owner modification operator
-    await account.connect(newOwner).changeOperator(newOperator.address)
+    await account.connect(newOwner).changeOperator(newOperator.getAddress())
 
     // 18.new operator operates AA account transfer out ETH
     newOwner2 = createAccountOwner()
     await account.connect(newOperator).execute(newOwner2.address, ONE_ETH, '0x', { gasLimit: 10000000 })
 
     // 19.new operator operates AA account transfer out USDT
-    const transToken3 = await token.populateTransaction.transfer(operator.address, parseEther('20')).then(tx => tx.data!)
+    const transToken3 = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('20')).then(tx => tx.data!)
     await account.connect(newOperator).execute(token.address, 0, transToken3)
     expect(await token.balanceOf(account.address)).to.be.equals(parseEther('40'))
 
@@ -135,11 +133,11 @@ describe('TSPAccount', function () {
     console.log('balance', await ethers.provider.getBalance(account.address))
 
     // 23.Owner2 operates AA account transfer out USDT
-    const transToken4 = await token.populateTransaction.transfer(operator.address, parseEther('15')).then(tx => tx.data!)
+    const transToken4 = await token.populateTransaction.transfer(await operator.getAddress(), parseEther('15')).then(tx => tx.data!)
     await account.connect(newOwner2).execute(token.address, 0, transToken4)
     expect(await token.balanceOf(account.address)).to.be.equals(parseEther('25'))
 
     // 24.Owner2 modification operator
-    await account.connect(newOwner2).changeOperator(operator.getAddress(), { gasLimit: 10000000 })
+    await account.connect(newOwner2).changeOperator(newOperator2.getAddress(), { gasLimit: 10000000 })
   })
 })
