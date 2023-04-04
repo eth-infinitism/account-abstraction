@@ -95,6 +95,7 @@ describe('Guardian', function () {
       const act = await createTSPAccountAndRegister(ethersSigner, accounts[2], entryPoint, guardian)
       const _account = act.proxy
       await _account.connect(ethers.provider.getSigner(2)).changeGuardian(guardian.address, { gasLimit: 10000000 })
+      expect(await _account.getGuardian()).to.be.equals(guardian.address)
       await guardian.connect(ethers.provider.getSigner(2)).setConfig(_account.address, { guardians: [g1.getAddress(), g2.getAddress(), g3.getAddress()], approveThreshold: 50, delay: 1 }, { gasLimit: 10000000 })
       const _newOwner = await newOwner.getAddress()
       await guardian.connect(g1).approve(_account.address, _newOwner, { gasLimit: 10000000 })
