@@ -42,7 +42,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param beneficiary the address to receive the fees
      * @param amount amount to transfer.
      */
-    function _compensate(address payable beneficiary, uint256 amount) internal {
+    function _compensate(address payable beneficiary, uint256 amount) internal virtual {
         require(beneficiary != address(0), "AA90 invalid beneficiary");
         (bool success,) = beneficiary.call{value : amount}("");
         require(success, "AA91 failed send to beneficiary");
@@ -87,7 +87,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
-    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public virtual {
 
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
@@ -117,7 +117,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function handleAggregatedOps(
         UserOpsPerAggregator[] calldata opsPerAggregator,
         address payable beneficiary
-    ) public {
+    ) public virtual {
 
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
@@ -176,7 +176,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     /// @inheritdoc IEntryPoint
-    function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external override {
+    function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData) external override virtual {
 
         UserOpInfo memory opInfo;
         _simulationOnlyValidations(op);
@@ -220,7 +220,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * inner function to handle a UserOperation.
      * Must be declared "external" to open a call context, but it can only be called by handleOps.
      */
-    function innerHandleOp(bytes memory callData, UserOpInfo memory opInfo, bytes calldata context) external returns (uint256 actualGasCost) {
+    function innerHandleOp(bytes memory callData, UserOpInfo memory opInfo, bytes calldata context) external virtual returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -259,14 +259,14 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * generate a request Id - unique identifier for this request.
      * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      */
-    function getUserOpHash(UserOperation calldata userOp) public view returns (bytes32) {
+    function getUserOpHash(UserOperation calldata userOp) public view virtual returns (bytes32) {
         return keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
     }
 
     /**
      * copy general fields from userOp into the memory opInfo structure.
      */
-    function _copyUserOpToMemory(UserOperation calldata userOp, MemoryUserOp memory mUserOp) internal pure {
+    function _copyUserOpToMemory(UserOperation calldata userOp, MemoryUserOp memory mUserOp) internal pure virtual {
         mUserOp.sender = userOp.sender;
         mUserOp.nonce = userOp.nonce;
         mUserOp.callGasLimit = userOp.callGasLimit;
@@ -289,7 +289,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage outside the account's data.
      * @param userOp the user operation to validate.
      */
-    function simulateValidation(UserOperation calldata userOp) external {
+    function simulateValidation(UserOperation calldata userOp) external virtual {
         UserOpInfo memory outOpInfo;
 
         _simulationOnlyValidations(userOp);
@@ -317,7 +317,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
 
     }
 
-    function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal pure returns (uint256 requiredPrefund) {
+    function _getRequiredPrefund(MemoryUserOp memory mUserOp) internal pure virtual returns (uint256 requiredPrefund) {
     unchecked {
         //when using a Paymaster, the verificationGasLimit is used also to as a limit for the postOp call.
         // our security model might call postOp eventually twice
@@ -329,7 +329,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
 
     // create the sender's contract if needed.
-    function _createSenderIfNeeded(uint256 opIndex, UserOpInfo memory opInfo, bytes calldata initCode) internal {
+    function _createSenderIfNeeded(uint256 opIndex, UserOpInfo memory opInfo, bytes calldata initCode) internal virtual {
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
             if (sender.code.length != 0) revert FailedOp(opIndex, "AA10 sender already constructed");
@@ -348,11 +348,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * this method always revert, and returns the address in SenderAddressResult error
      * @param initCode the constructor code to be passed into the UserOperation.
      */
-    function getSenderAddress(bytes calldata initCode) public {
+    function getSenderAddress(bytes calldata initCode) public virtual {
         revert SenderAddressResult(senderCreator.createSender(initCode));
     }
 
-    function _simulationOnlyValidations(UserOperation calldata userOp) internal view {
+    function _simulationOnlyValidations(UserOperation calldata userOp) internal view virtual {
         // solhint-disable-next-line no-empty-blocks
         try this._validateSenderAndPaymaster(userOp.initCode, userOp.sender, userOp.paymasterAndData) {}
         catch Error(string memory revertReason) {
@@ -366,7 +366,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     * Called only during simulation.
     * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
     */
-    function _validateSenderAndPaymaster(bytes calldata initCode, address sender, bytes calldata paymasterAndData) external view {
+    function _validateSenderAndPaymaster(bytes calldata initCode, address sender, bytes calldata paymasterAndData) external view virtual {
         if (initCode.length == 0 && sender.code.length == 0) {
             // it would revert anyway. but give a meaningful message
             revert("AA20 account not deployed");
@@ -388,7 +388,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * decrement account's deposit if needed
      */
     function _validateAccountPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPrefund)
-    internal returns (uint256 gasUsedByValidateAccountPrepayment, uint256 validationData) {
+    internal virtual returns (uint256 gasUsedByValidateAccountPrepayment, uint256 validationData) {
     unchecked {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -429,7 +429,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * Decrement paymaster's deposit
      */
     function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateAccountPrepayment)
-    internal returns (bytes memory context, uint256 validationData) {
+    internal virtual returns (bytes memory context, uint256 validationData) {
     unchecked {
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         uint256 verificationGasLimit = mUserOp.verificationGasLimit;
@@ -457,7 +457,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     /**
      * revert if either account validationData or paymaster validationData is expired
      */
-    function _validateAccountAndPaymasterValidationData(uint256 opIndex, uint256 validationData, uint256 paymasterValidationData, address expectedAggregator) internal view {
+    function _validateAccountAndPaymasterValidationData(uint256 opIndex, uint256 validationData, uint256 paymasterValidationData, address expectedAggregator) internal view virtual {
         (address aggregator, bool outOfTimeRange) = _getValidationData(validationData);
         if (expectedAggregator != aggregator) {
             revert FailedOp(opIndex, "AA24 signature error");
@@ -477,7 +477,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
     }
 
-    function _getValidationData(uint256 validationData) internal view returns (address aggregator, bool outOfTimeRange) {
+    function _getValidationData(uint256 validationData) internal view virtual returns (address aggregator, bool outOfTimeRange) {
         if (validationData == 0) {
             return (address(0), false);
         }
@@ -586,7 +586,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * the gas price this UserOp agrees to pay.
      * relayer/block builder might submit the TX with higher priorityFee, but the user should not
      */
-    function getUserOpGasPrice(MemoryUserOp memory mUserOp) internal view returns (uint256) {
+    function getUserOpGasPrice(MemoryUserOp memory mUserOp) internal view virtual returns (uint256) {
     unchecked {
         uint256 maxFeePerGas = mUserOp.maxFeePerGas;
         uint256 maxPriorityFeePerGas = mUserOp.maxPriorityFeePerGas;
@@ -598,22 +598,22 @@ contract EntryPoint is IEntryPoint, StakeManager {
     }
     }
 
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+    function min(uint256 a, uint256 b) internal pure virtual returns (uint256) {
         return a < b ? a : b;
     }
 
-    function getOffsetOfMemoryBytes(bytes memory data) internal pure returns (uint256 offset) {
+    function getOffsetOfMemoryBytes(bytes memory data) internal pure virtual returns (uint256 offset) {
         assembly {offset := data}
     }
 
-    function getMemoryBytesFromOffset(uint256 offset) internal pure returns (bytes memory data) {
+    function getMemoryBytesFromOffset(uint256 offset) internal pure virtual returns (bytes memory data) {
         assembly {data := offset}
     }
 
     //place the NUMBER opcode in the code.
     // this is used as a marker during simulation, as this OP is completely banned from the simulated code of the
     // account and paymaster.
-    function numberMarker() internal view {
+    function numberMarker() internal view virtual {
         assembly {mstore(0, number())}
     }
 }
