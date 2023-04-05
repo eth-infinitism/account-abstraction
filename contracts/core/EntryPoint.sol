@@ -263,21 +263,6 @@ contract EntryPoint is IEntryPoint, StakeManager {
         return keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
     }
 
-    function _getUserOpHash(UserOperation calldata userOp, MemoryUserOp memory mUserOp) internal view returns (bytes32) {
-        bytes32 hash = keccak256(abi.encode(
-                mUserOp.sender,
-                mUserOp.nonce,
-                calldataKeccak(userOp.initCode),
-                calldataKeccak(userOp.callData),
-                mUserOp.callGasLimit,
-                mUserOp.verificationGasLimit,
-                mUserOp.preVerificationGas,
-                mUserOp.maxFeePerGas,
-                mUserOp.maxPriorityFeePerGas,
-                calldataKeccak(userOp.paymasterAndData)));
-        return keccak256(abi.encode(hash, address(this), block.chainid));
-    }
-
     /**
      * copy general fields from userOp into the memory opInfo structure.
      */

@@ -62,14 +62,14 @@ library UserOperationLib {
 
     function pack(UserOperation calldata userOp) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
-        uint nonce = userOp.nonce;
+        uint256 nonce = userOp.nonce;
         bytes32 hashInitCode = calldataKeccak(userOp.initCode);
         bytes32 hashCallData = calldataKeccak(userOp.callData);
-        uint callGasLimit = userOp.callGasLimit;
-        uint verificationGasLimit = userOp.verificationGasLimit;
-        uint preVerificationGas = userOp.preVerificationGas;
-        uint maxFeePerGas = userOp.maxFeePerGas;
-        uint maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        uint256 callGasLimit = userOp.callGasLimit;
+        uint256 verificationGasLimit = userOp.verificationGasLimit;
+        uint256 preVerificationGas = userOp.preVerificationGas;
+        uint256 maxFeePerGas = userOp.maxFeePerGas;
+        uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
         bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
 
         return abi.encode(
