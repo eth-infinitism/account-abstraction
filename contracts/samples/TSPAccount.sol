@@ -131,7 +131,7 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
         }
     }
 
-    function getVersion() external pure returns (uint) {
+    function getVersion() public pure virtual returns (uint) {
         return 1;
     }
 }
