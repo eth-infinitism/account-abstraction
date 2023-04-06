@@ -130,4 +130,8 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
             _call(dest[i], 0, func[i]);
         }
     }
+
+    function getVersion() public pure virtual returns (uint) {
+        return 1;
+    }
 }

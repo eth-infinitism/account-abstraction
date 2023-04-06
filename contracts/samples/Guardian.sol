@@ -7,11 +7,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "../interfaces/IAccount.sol";
+import "../interfaces/ITSPAccount.sol";
 import "../interfaces/IGuardian.sol";
-import "./TSPAccount.sol";
-import "./TSPAccountFactory.sol";
 
-contract Guardian is UUPSUpgradeable, Ownable {
+contract Guardian is Ownable {
     using SafeMath for uint256;
     // address public owner;
     uint256 private _defaultThreshold = 100;
@@ -199,17 +198,10 @@ contract Guardian is UUPSUpgradeable, Ownable {
         return false;
     }
 
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal view override {
-        (newImplementation);
-        _checkOwner();
-    }
-
     // Require the function call went through EntryPoint or owner
     function _requireAccountOwner(address account) internal view {
         require(
-            msg.sender == TSPAccount(payable(account)).owner(),
+            msg.sender == Ownable(payable(account)).owner(),
             "account: not the account owner"
         );
     }
