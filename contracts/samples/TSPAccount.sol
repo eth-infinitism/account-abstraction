@@ -7,6 +7,7 @@ pragma solidity ^0.8.12;
 
 import "../interfaces/ITSPAccount.sol";
 import "./SimpleAccount.sol";
+import "../interfaces/IGuardian.sol";
 
 /**
  * minimal account.
@@ -23,19 +24,13 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
 
     mapping(string => string) private _metadata;
 
-    event ResetOwner(
-        address indexed account,
-        address oldOwner,
-        address newOwner
-    );
-
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
-    function resetOwner(address newOwner) external {
+    function resetOwner(address newOwner) public {
         require(newOwner != address(0), "new owner is the zero address");
         _requireOwnerOrGuardian();
-        emit ResetOwner(address(this), owner, newOwner);
         owner = newOwner;
+        emit ResetOwner(address(this), owner, newOwner);
     }
 
     function changeOperator(address operator) public onlyOwner {
@@ -96,11 +91,26 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
      * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
      * the implementation by calling `upgradeTo()`
      */
-    function initialize(address anOwner) public override initializer {
+    function initialize(
+        address anOwner,
+        address guardian,
+        uint256 threshold,
+        uint256 guardianDelay,
+        address[] memory guardians
+    ) public initializer {
         _initialize(anOwner);
+        _changeGuardian(guardian);
+        IGuardian(_guardian).setConfig(
+            address(this),
+            IGuardian.GuardianConfig(guardians, threshold, guardianDelay)
+        );
     }
 
     function changeGuardian(address guardian) public onlyOwner {
+        _changeGuardian(guardian);
+    }
+
+    function _changeGuardian(address guardian) internal {
         require(guardian != address(0), "guardian is the zero address");
         _guardian = guardian;
     }

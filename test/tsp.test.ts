@@ -10,7 +10,7 @@ import {
   // TestUtil,
   // TestUtil__factory,
 } from '../typechain'
-import { DefaultDelayBlock, DefaultPlatformGuardian, DefaultThreshold, createAccountOwner, ONE_ETH, createTSPAccount } from './tsp-utils.test'
+import { DefaultDelayBlock, createAccountOwner, ONE_ETH, createTSPAccount } from './tsp-utils.test'
 
 describe('TSPAccount', function () {
   let accounts: string[]
@@ -40,7 +40,7 @@ describe('TSPAccount', function () {
   })
   it('normal process', async () => {
     // 1.deploy guardian contract
-    const _guardian = await new Guardian__factory(signer).deploy(DefaultThreshold, DefaultDelayBlock, DefaultPlatformGuardian)
+    const _guardian = await new Guardian__factory(signer).deploy()
     const guardian = Guardian__factory.connect(_guardian.address, signer)
     const entryPoint = '0x'.padEnd(42, '2')
     // 2.deploy tsp_account factory contract
@@ -49,10 +49,10 @@ describe('TSPAccount', function () {
     accountOwner = createAccountOwner()
     await signer.sendTransaction({ from: accounts[0], to: accountOwner.address, value: parseEther('1').toString() })
     // 4.create account
-    const { proxy: account } = await createTSPAccount(signer, accountOwner.address, entryPoint, factory)
+    const { proxy: account } = await createTSPAccount(signer, accountOwner.address, entryPoint, guardian, factory)
     // const account = TSPAccount__factory.connect(accountOwner.address, signer)
     // 5.register this account in the guardian contract
-    await guardian.register(account.address, { gasLimit: 10000000 })
+    // await guardian.register(account.address, { gasLimit: 10000000 })
     await account.connect(accountOwner).changeGuardian(guardian.address, { gasLimit: 10000000 })
     // 6.set guardians and threshold values and block delay in the guardians contract
     // await guardian.setConfig(accountOwner.address, { guardians: accounts.slice(1, 3), approveThreshold: DefaultThreshold, delay: DefaultDelayBlock }, { gasLimit: 10000000 })

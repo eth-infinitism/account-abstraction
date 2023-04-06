@@ -28,9 +28,20 @@ contract TSPAccountFactory {
      */
     function createAccount(
         address owner,
-        uint256 salt
+        uint256 salt,
+        address guardian,
+        uint256 threshold,
+        uint256 guardianDelay,
+        address[] memory guardians
     ) public returns (TSPAccount ret) {
-        address addr = getAddress(owner, salt);
+        address addr = getAddress(
+            owner,
+            salt,
+            guardian,
+            threshold,
+            guardianDelay,
+            guardians
+        );
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
             return TSPAccount(payable(addr));
@@ -40,7 +51,10 @@ contract TSPAccountFactory {
             payable(
                 new ERC1967Proxy{salt: bytes32(salt)}(
                     address(accountImplementation),
-                    abi.encodeCall(TSPAccount.initialize, (owner))
+                    abi.encodeCall(
+                        TSPAccount.initialize,
+                        (owner, guardian, threshold, guardianDelay, guardians)
+                    )
                 )
             )
         );
@@ -51,7 +65,11 @@ contract TSPAccountFactory {
      */
     function getAddress(
         address owner,
-        uint256 salt
+        uint256 salt,
+        address guardian,
+        uint256 threshold,
+        uint256 guardianDelay,
+        address[] memory guardians
     ) public view returns (address) {
         return
             Create2.computeAddress(
@@ -61,7 +79,16 @@ contract TSPAccountFactory {
                         type(ERC1967Proxy).creationCode,
                         abi.encode(
                             address(accountImplementation),
-                            abi.encodeCall(TSPAccount.initialize, (owner))
+                            abi.encodeCall(
+                                TSPAccount.initialize,
+                                (
+                                    owner,
+                                    guardian,
+                                    threshold,
+                                    guardianDelay,
+                                    guardians
+                                )
+                            )
                         )
                     )
                 )

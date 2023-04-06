@@ -1,8 +1,7 @@
 import { Signer } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
-import {
-} from '../typechain'
+import { Guardian, Guardian__factory } from '../typechain'
 import {
   ONE_ETH,
   TWO_ETH,
@@ -15,22 +14,24 @@ describe('TSPAccount', function () {
   let accounts: string[]
   let accountOperator: Signer
   const ethersSigner = ethers.provider.getSigner()
+  let guardian: Guardian
 
   before(async function () {
     accounts = await ethers.provider.listAccounts()
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()
     accountOperator = (await ethers.getSigners())[1]
+    guardian = await new Guardian__factory(ethersSigner).deploy()
   })
 
   it('owner should be able to call transfer', async () => {
-    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[0], entryPoint, guardian)
     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
     await account.execute(accounts[2], ONE_ETH, '0x')
   })
 
   it('account operator should be able to call transfer', async () => {
-    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[5], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[5], entryPoint, guardian)
     TWO_ETH
     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: TWO_ETH })
     const operatorAddress = await accountOperator.getAddress()
@@ -40,7 +41,7 @@ describe('TSPAccount', function () {
   })
 
   it('other account should not be able to call transfer', async () => {
-    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[6], entryPoint)
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[6], entryPoint, guardian)
     await expect(account.connect(ethers.provider.getSigner(2)).execute(accounts[2], ONE_ETH, '0x'))
       .to.be.revertedWith('account: not Owner or EntryPoint')
   })
