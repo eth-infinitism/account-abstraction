@@ -31,28 +31,28 @@ describe('Guardian', function () {
     if (accounts.length < 2) this.skip()
     signers = await ethers.getSigners()
     accountOwner = createAccountOwner()
-    const _guardian = await new Guardian__factory(ethersSigner).deploy(DefaultThreshold, DefaultDelayBlock, DefaultPlatformGuardian)
+    const _guardian = await new Guardian__factory(ethersSigner).deploy()
     guardian = await Guardian__factory.connect(_guardian.address, accountOwner)
-    const act = await createTSPAccount(ethers.provider.getSigner(), accountOwner.address, entryPoint)
+    const act = await createTSPAccount(ethers.provider.getSigner(), accountOwner.address, entryPoint, guardian)
     tspAccount = act.proxy
     // console.log('tsp account', tspAccount.address)
     await ethersSigner.sendTransaction({ from: accounts[0], to: accountOwner.address, value: parseEther('2') })
-    await guardian.register(tspAccount.address, { gasLimit: 10000000 })
+    // await guardian.register(tspAccount.address, { gasLimit: 10000000 })
   })
 
   it('any address should be able to call register', async () => {
     // accounts[0] is owner, owner makes the platform its guardian
-    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[1], entryPoint)
-    await guardian.register(account.address, { gasLimit: 10000000 })
+    const { proxy: account } = await createTSPAccount(ethers.provider.getSigner(), accounts[1], entryPoint, guardian)
+    // await guardian.register(account.address, { gasLimit: 10000000 })
     const config = await guardian.getGuardianConfig(account.address)
     expect(config.guardians[0]).to.equals(await DefaultPlatformGuardian)
   })
 
-  it('an account cannot be registered multiple times', async () => {
-    // stop 3 seconds
-    const g1: Guardian = await Guardian__factory.connect(guardian.address, accountOwner)
-    await expect(g1.register(tspAccount.address).catch(rethrow())).to.revertedWith('a TSP account can only be registered once')
-  })
+  // it('an account cannot be registered multiple times', async () => {
+  //   // stop 3 seconds
+  //   // const g1: Guardian = await Guardian__factory.connect(guardian.address, accountOwner)
+  //   // await expect(g1.register(tspAccount.address).catch(rethrow())).to.revertedWith('a TSP account can only be registered once')
+  // })
 
   it('account owner should be able to config account guardians', async () => {
     const config = await guardian.getGuardianConfig(tspAccount.address)
@@ -61,7 +61,7 @@ describe('Guardian', function () {
     await guardian.setConfig(tspAccount.address, { guardians: guardians, approveThreshold: DefaultThreshold, delay: DefaultDelayBlock })
     const newConfig = await guardian.getGuardianConfig(tspAccount.address)
     // console.log("new config", newConfig, accounts[3]);
-    await expect(newConfig.guardians[1]).to.equals(accounts[3])
+    expect(newConfig.guardians[1]).to.equals(accounts[3])
   })
 
   describe('Guardian Approved', function () {
@@ -142,19 +142,5 @@ describe('Guardian', function () {
       expect(progress).to.equals(66)
       await expect(guardian.resetAccountOwner(_account.address, { gasLimit: 10000000 }).catch(rethrow())).to.revertedWith('the delay reset time has not yet reached')
     })
-  })
-
-  it('owner should be able to call transfer owner, and origin owner not be able to call', async () => {
-    // guardian.transferOwnership();
-    const _guardian = await new Guardian__factory(ethersSigner).deploy(DefaultThreshold, DefaultDelayBlock, DefaultPlatformGuardian)
-    await _guardian.transferOwnership(signers[8].getAddress(), { gasLimit: 10000000 })
-    const _owner = await _guardian.owner()
-    await expect(_owner).to.equal(accounts[8])
-  })
-
-  it('other owner should not be able to call transfer owner', async () => {
-    const _guardian = await new Guardian__factory(ethersSigner).deploy(DefaultThreshold, DefaultDelayBlock, DefaultPlatformGuardian)
-    const _connet = await _guardian.connect(signers[9])
-    await expect(_connet.transferOwnership(signers[8].getAddress(), { gasLimit: 10000000 }).catch(rethrow())).to.revertedWith('Ownable: caller is not the owner')
   })
 })

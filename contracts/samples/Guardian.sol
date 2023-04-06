@@ -10,56 +10,24 @@ import "../interfaces/IAccount.sol";
 import "../interfaces/ITSPAccount.sol";
 import "../interfaces/IGuardian.sol";
 
-contract Guardian is Ownable {
+contract Guardian is IGuardian {
     using SafeMath for uint256;
     // address public owner;
-    uint256 private _defaultThreshold = 100;
-    uint256 private _defaultDelayBlock = 100;
-    address private _defaultGuardian;
-    mapping(address => GuardianConfig) private _cabinet;
+    mapping(address => IGuardian.GuardianConfig) private _cabinet;
     mapping(address => mapping(address => address)) private _approvesProgress;
     mapping(address => uint256) private _closestReset;
 
-    // The guardian relationship of the storage account
-    struct GuardianConfig {
-        address[] guardians;
-        uint256 approveThreshold;
-        uint256 delay;
-    }
-
-    event Register(address indexed account, address indexed guardian);
-
-    event Approved(
-        address indexed account,
-        address indexed guardian,
-        address newOwner
-    );
-
-    event ChangeGuardianConfig(
-        address indexed account,
-        address[] guardians,
-        uint256 approveThreshold,
-        uint256 delayBlock
-    );
-
-    constructor(
-        uint256 defaultThreshold,
-        uint256 defaultDelayBlock,
-        address defaultGuardian
-    ) {
-        _defaultThreshold = defaultThreshold;
-        _defaultDelayBlock = defaultDelayBlock;
-        _defaultGuardian = defaultGuardian;
-    }
-
-    function setConfig(address account, GuardianConfig memory config) public {
+    function setConfig(
+        address account,
+        IGuardian.GuardianConfig memory config
+    ) public {
         _requireAccountOwner(account);
         // Check the legality of the configuration
         require(
             config.approveThreshold > 0 && config.approveThreshold <= 100,
             "The threshold value must be a value greater than 0 and less than or equal to 100"
         );
-        require(config.guardians.length > 0, "at least 1 guardian is required");
+        require(config.guardians.length <= 5, "Up to 5 guardians");
         require(
             config.delay > 0,
             "the number of delayed verification blocks 0 must be greater than or equal to 1"
@@ -67,35 +35,11 @@ contract Guardian is Ownable {
         _cabinet[account] = config;
         emit ChangeGuardianConfig(
             account,
-            config.guardians,
-            config.approveThreshold,
-            config.delay
+            _cabinet[account].guardians,
+            _cabinet[account].approveThreshold,
+            _cabinet[account].delay
         );
     }
-
-    function register(address account) public {
-        require(
-            _cabinet[account].guardians.length == 0,
-            "a TSP account can only be registered once"
-        );
-        // Initialized account relationship information
-        address[] memory guardians = new address[](1);
-        guardians[0] = _defaultGuardian;
-        GuardianConfig memory _config = GuardianConfig(
-            guardians,
-            _defaultThreshold,
-            _defaultDelayBlock
-        );
-        _cabinet[account] = _config;
-        emit Register(account, _defaultGuardian);
-    }
-
-    // function setDefaultConfig(uint256 defaultThreshold, uint256 defaultDelayBlock) public onlyOwner {
-    //     require(defaultThreshold > 0, "the threshold must be greater than 0");
-    //     require(defaultDelayBlock > 0, "the delay block must be greater than 0");
-    //     _defaultThreshold = defaultThreshold;
-    //     _defaultDelayBlock = defaultDelayBlock;
-    // }
 
     // Owner authorized to modify the wallet
     function approve(address account, address newAddress) public {
@@ -105,7 +49,7 @@ contract Guardian is Ownable {
             isAddressInArray(_cabinet[account].guardians, msg.sender),
             "you are not a guardian"
         );
-        GuardianConfig memory config = _cabinet[account];
+        IGuardian.GuardianConfig memory config = _cabinet[account];
         for (uint256 i = 0; i < config.guardians.length; i++) {
             address guardian = config.guardians[i];
             address otherGuardianAddress = _approvesProgress[account][guardian];
@@ -149,7 +93,7 @@ contract Guardian is Ownable {
     }
 
     function _clearApproves(address account) private {
-        GuardianConfig memory config = _cabinet[account];
+        IGuardian.GuardianConfig memory config = _cabinet[account];
         for (uint256 i = 0; i < config.guardians.length; i++) {
             address guardian = config.guardians[i];
             if (_approvesProgress[account][guardian] != address(0)) {
@@ -167,7 +111,7 @@ contract Guardian is Ownable {
     function _getApproveProgress(
         address account
     ) private view returns (address first, uint256 progress) {
-        GuardianConfig memory config = _cabinet[account];
+        IGuardian.GuardianConfig memory config = _cabinet[account];
         // if (config.guardians.length > 0) {
         //     return 0;
         // }
@@ -201,14 +145,15 @@ contract Guardian is Ownable {
     // Require the function call went through EntryPoint or owner
     function _requireAccountOwner(address account) internal view {
         require(
-            msg.sender == Ownable(payable(account)).owner(),
+            msg.sender == account ||
+                msg.sender == Ownable(payable(account)).owner(),
             "account: not the account owner"
         );
     }
 
     function getGuardianConfig(
         address account
-    ) public view returns (GuardianConfig memory config) {
+    ) public view returns (IGuardian.GuardianConfig memory config) {
         return _cabinet[account];
     }
 }
