@@ -17,8 +17,9 @@ import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
 import "./NonceManager.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
+contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
 
     using UserOperationLib for UserOperation;
 
@@ -88,7 +89,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
-    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public nonReentrant {
 
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
@@ -101,6 +102,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
         }
 
         uint256 collected = 0;
+        emit BeforeExecution();
 
         for (uint256 i = 0; i < opslen; i++) {
             collected += _executeUserOp(i, ops[i], opInfos[i]);
@@ -118,7 +120,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
     function handleAggregatedOps(
         UserOpsPerAggregator[] calldata opsPerAggregator,
         address payable beneficiary
-    ) public {
+    ) public nonReentrant {
 
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
@@ -142,6 +144,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager {
         }
 
         UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
+
+        emit BeforeExecution();
 
         uint256 opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
