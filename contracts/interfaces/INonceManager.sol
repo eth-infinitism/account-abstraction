@@ -4,7 +4,10 @@ pragma solidity ^0.8.12;
 interface INonceManager {
 
     /**
-     * return the next nonce for this sender
+     * Return the next nonce for this sender.
+     * Within a given key, the nonce values are sequenced (starting with zero, and incremented by one on each userop)
+     * But UserOp with different keys can come with arbitrary order.
+     *
      * @param sender the account address
      * @param key the high 192 bit of the nonce
      * @return nonce a full nonce to pass for next UserOp with this sender.
@@ -13,7 +16,7 @@ interface INonceManager {
     external view returns (uint256 nonce);
 
     /**
-     * manually increment the nonce of the sender.
+     * Manually increment the nonce of the sender.
      * This method is exposed just for completeness..
      * Account does NOT need to call it, neither during validation, nor elsewhere,
      * as the EntryPoint will update the nonce regardless.

@@ -8,11 +8,14 @@ import "../interfaces/IEntryPoint.sol";
  */
 contract NonceManager is INonceManager {
 
-    mapping(address => mapping(uint192 => uint256)) public nonces;
+    /**
+     * The next valid sequence number for a given nonce key.
+     */
+    mapping(address => mapping(uint192 => uint256)) public nonceSequenceNumber;
 
     function getNonce(address sender, uint192 key)
     public view override returns (uint256 nonce) {
-        return nonces[sender][key] | (uint256(key) << 64);
+        return nonceSequenceNumber[sender][key] | (uint256(key) << 64);
     }
 
     // allow an account to manually increment its own nonce.
@@ -20,7 +23,7 @@ contract NonceManager is INonceManager {
     // to "absorb" the gas cost of first nonce increment to 1st transaction (construction),
     // not to 2nd transaction)
     function incrementNonce(uint192 key) public override {
-        nonces[msg.sender][key]++;
+        nonceSequenceNumber[msg.sender][key]++;
     }
 
     /**
@@ -31,7 +34,7 @@ contract NonceManager is INonceManager {
 
         uint192 key = uint192(nonce >> 64);
         uint64 seq = uint64(nonce);
-        return nonces[sender][key]++ == seq;
+        return nonceSequenceNumber[sender][key]++ == seq;
     }
 
 }
