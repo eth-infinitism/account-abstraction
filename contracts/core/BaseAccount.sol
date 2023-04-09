@@ -2,8 +2,7 @@
 pragma solidity ^0.8.12;
 
 /* solhint-disable avoid-low-level-calls */
-/* solhint-disable no-inline-assembly */
-/* solhint-disable reason-string */
+/* solhint-disable no-empty-blocks */
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
@@ -44,6 +43,7 @@ abstract contract BaseAccount is IAccount {
     external override virtual returns (uint256 validationData) {
         _requireFromEntryPoint();
         validationData = _validateSignature(userOp, userOpHash);
+        _validateNonce(userOp.nonce);
         _payPrefund(missingAccountFunds);
     }
 
@@ -69,6 +69,25 @@ abstract contract BaseAccount is IAccount {
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal virtual returns (uint256 validationData);
+
+    /**
+     * Validate the nonce of the UserOperation.
+     * This method may validate the nonce requirement of this account.
+     * e.g.
+     * To limit the nonce to use sequenced UserOps only (no "out of order" UserOps):
+     *      `require(nonce < type(uint64).max)`
+     * For a hypothetical account that *requires* the nonce to be out-of-order:
+     *      `require(nonce & type(uint64).max == 0)`
+     *
+     * The actual nonce uniqueness is managed by the EntryPoint, and thus no other
+     * action is needed by the account itself.
+     *
+     * @param nonce to validate
+     *
+     * solhint-disable-next-line no-empty-blocks
+     */
+    function _validateNonce(uint256 nonce) internal view virtual {
+    }
 
     /**
      * sends to the entrypoint (msg.sender) the missing funds for this transaction.
