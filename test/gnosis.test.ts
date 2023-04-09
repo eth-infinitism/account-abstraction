@@ -103,7 +103,7 @@ describe('Gnosis Proxy', function () {
   it('should fail from wrong entrypoint', async function () {
     const op = await fillAndSign({
       sender: proxy.address
-    }, owner, entryPoint)
+    }, owner, entryPoint, 'getNonce')
 
     const anotherEntryPoint = await new EntryPoint__factory(ethersSigner).deploy()
 
@@ -116,14 +116,14 @@ describe('Gnosis Proxy', function () {
       nonce: 1234,
       callGasLimit: 1e6,
       callData: safe_execTxCallData
-    }, owner, entryPoint)
-    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('account: invalid nonce')
+    }, owner, entryPoint, 'getNonce')
+    await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('AA25 invalid account nonce')
 
     op = await fillAndSign({
       sender: proxy.address,
       callGasLimit: 1e6,
       callData: safe_execTxCallData
-    }, owner, entryPoint)
+    }, owner, entryPoint, 'getNonce')
     // invalidate the signature
     op.callGasLimit = 1
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('FailedOp(0, "AA24 signature error")')
@@ -134,7 +134,7 @@ describe('Gnosis Proxy', function () {
       sender: proxy.address,
       callGasLimit: 1e6,
       callData: safe_execTxCallData
-    }, owner, entryPoint)
+    }, owner, entryPoint, 'getNonce')
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
 
@@ -151,7 +151,8 @@ describe('Gnosis Proxy', function () {
       sender: proxy.address,
       callGasLimit: 1e6,
       callData: safe_execFailTxCallData
-    }, owner, entryPoint)
+    }, owner, entryPoint, 'getNonce')
+
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
 
@@ -183,7 +184,7 @@ describe('Gnosis Proxy', function () {
       sender: counterfactualAddress,
       initCode,
       verificationGasLimit: 400000
-    }, owner, entryPoint)
+    }, owner, entryPoint, 'getNonce')
 
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)
@@ -200,7 +201,7 @@ describe('Gnosis Proxy', function () {
     const op = await fillAndSign({
       sender: counterfactualAddress,
       callData: safe_execTxCallData
-    }, owner, entryPoint)
+    }, owner, entryPoint, 'getNonce')
 
     const rcpt = await entryPoint.handleOps([op], beneficiary).then(async r => r.wait())
     console.log('gasUsed=', rcpt.gasUsed, rcpt.transactionHash)

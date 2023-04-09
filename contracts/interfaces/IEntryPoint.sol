@@ -12,8 +12,9 @@ pragma solidity ^0.8.12;
 import "./UserOperation.sol";
 import "./IStakeManager.sol";
 import "./IAggregator.sol";
+import "./INonceManager.sol";
 
-interface IEntryPoint is IStakeManager {
+interface IEntryPoint is IStakeManager, INonceManager {
 
     /***
      * An event emitted after each successful request

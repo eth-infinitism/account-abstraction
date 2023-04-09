@@ -41,8 +41,8 @@ export function packUserOp1 (op: UserOperation): string {
     'bytes32', // initCode
     'bytes32', // callData
     'uint256', // callGasLimit
-    'uint', // verificationGasLimit
-    'uint', // preVerificationGas
+    'uint256', // verificationGasLimit
+    'uint256', // preVerificationGas
     'uint256', // maxFeePerGas
     'uint256', // maxPriorityFeePerGas
     'bytes32' // paymasterAndData
@@ -74,7 +74,7 @@ export const DefaultsForUserOp: UserOperation = {
   initCode: '0x',
   callData: '0x',
   callGasLimit: 0,
-  verificationGasLimit: 100000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
+  verificationGasLimit: 150000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
   preVerificationGas: 21000, // should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
@@ -119,13 +119,13 @@ export function fillUserOpDefaults (op: Partial<UserOperation>, defaults = Defau
 //  - calculate sender by eth_call the deployment code
 //  - default verificationGasLimit estimateGas of deployment code plus default 100000
 // no initCode:
-//  - update nonce from account.nonce()
+//  - update nonce from account.getNonce()
 // entryPoint param is only required to fill in "sender address when specifying "initCode"
-// nonce: assume contract as "nonce()" function, and fill in.
+// nonce: assume contract as "getNonce()" function, and fill in.
 // sender - only in case of construction: fill sender from initCode.
 // callGasLimit: VERY crude estimation (by estimating call to account, and add rough entryPoint overhead
 // verificationGasLimit: hard-code default at 100k. should add "create2" cost
-export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint): Promise<UserOperation> {
+export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {
   const op1 = { ...op }
   const provider = entryPoint?.provider
   if (op.initCode != null) {
@@ -157,8 +157,8 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   }
   if (op1.nonce == null) {
     if (provider == null) throw new Error('must have entryPoint to autofill nonce')
-    const c = new Contract(op.sender!, ['function nonce() view returns(uint256)'], provider)
-    op1.nonce = await c.nonce().catch(rethrow())
+    const c = new Contract(op.sender!, [`function ${getNonceFunction}() view returns(uint256)`], provider)
+    op1.nonce = await c[getNonceFunction]().catch(rethrow())
   }
   if (op1.callGasLimit == null && op.callData != null) {
     if (provider == null) throw new Error('must have entryPoint for callGasLimit estimate')
@@ -191,9 +191,9 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   return op2
 }
 
-export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint): Promise<UserOperation> {
+export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {
   const provider = entryPoint?.provider
-  const op2 = await fillUserOp(op, entryPoint)
+  const op2 = await fillUserOp(op, entryPoint, getNonceFunction)
 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
   const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId))
