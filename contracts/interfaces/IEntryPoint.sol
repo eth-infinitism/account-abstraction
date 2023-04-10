@@ -12,8 +12,9 @@ pragma solidity ^0.8.12;
 import "./UserOperation.sol";
 import "./IStakeManager.sol";
 import "./IAggregator.sol";
+import "./INonceManager.sol";
 
-interface IEntryPoint is IStakeManager {
+interface IEntryPoint is IStakeManager, INonceManager {
 
     /***
      * An event emitted after each successful request
@@ -44,6 +45,12 @@ interface IEntryPoint is IStakeManager {
      * @param revertReason - the return bytes from the (reverted) call to "callData".
      */
     event UserOperationRevertReason(bytes32 indexed userOpHash, address indexed sender, uint256 nonce, bytes revertReason);
+
+    /**
+     * an event emitted by handleOps(), before starting the execution loop.
+     * any event emitted before this event, is part of the validation.
+     */
+    event BeforeExecution();
 
     /**
      * signature aggregator used by the following UserOperationEvents within this bundle.

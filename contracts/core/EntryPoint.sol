@@ -16,8 +16,10 @@ import "../utils/Exec.sol";
 import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
+import "./NonceManager.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract EntryPoint is IEntryPoint, StakeManager {
+contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
 
     using UserOperationLib for UserOperation;
 
@@ -87,7 +89,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param ops the operations to execute
      * @param beneficiary the address to receive the fees
      */
-    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public {
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) public nonReentrant {
 
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
@@ -100,6 +102,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
 
         uint256 collected = 0;
+        emit BeforeExecution();
 
         for (uint256 i = 0; i < opslen; i++) {
             collected += _executeUserOp(i, ops[i], opInfos[i]);
@@ -117,7 +120,7 @@ contract EntryPoint is IEntryPoint, StakeManager {
     function handleAggregatedOps(
         UserOpsPerAggregator[] calldata opsPerAggregator,
         address payable beneficiary
-    ) public {
+    ) public nonReentrant {
 
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
@@ -141,6 +144,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
         }
 
         UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
+
+        emit BeforeExecution();
 
         uint256 opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
@@ -349,7 +354,8 @@ contract EntryPoint is IEntryPoint, StakeManager {
      * @param initCode the constructor code to be passed into the UserOperation.
      */
     function getSenderAddress(bytes calldata initCode) public {
-        revert SenderAddressResult(senderCreator.createSender(initCode));
+        address sender = senderCreator.createSender(initCode);
+        revert SenderAddressResult(sender);
     }
 
     function _simulationOnlyValidations(UserOperation calldata userOp) internal view {
@@ -511,6 +517,11 @@ contract EntryPoint is IEntryPoint, StakeManager {
         uint256 gasUsedByValidateAccountPrepayment;
         (uint256 requiredPreFund) = _getRequiredPrefund(mUserOp);
         (gasUsedByValidateAccountPrepayment, validationData) = _validateAccountPrepayment(opIndex, userOp, outOpInfo, requiredPreFund);
+
+        if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
+            revert FailedOp(opIndex, "AA25 invalid account nonce");
+        }
+
         //a "marker" where account opcode validation is done and paymaster opcode validation is about to start
         // (used only by off-chain simulateValidation)
         numberMarker();
