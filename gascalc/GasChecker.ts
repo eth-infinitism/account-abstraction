@@ -199,7 +199,7 @@ export class GasChecker {
     // fill accounts up to this code.
     await this.createAccounts1(info.count);
 
-    let accountEst: number = 0;
+    let accountEst = 0;
     const userOps = await Promise.all(
       range(info.count)
         .map((index) => Object.entries(this.accounts)[index])

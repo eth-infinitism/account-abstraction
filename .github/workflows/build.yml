@@ -1,10 +1,5 @@
 name: Build
-on:
-  push:
-    branches:
-      - "*"
-  pull_request:
-    types: [opened, reopened, synchronize]
+on: push
 
 env:
   TS_NODE_TRANSPILE_ONLY: 1
