@@ -1,1 +1,5 @@
 contracts/samples/bls/lib/
+contracts/types
+node_modules
+artifacts
+cache
