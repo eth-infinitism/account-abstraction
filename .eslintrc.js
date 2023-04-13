@@ -12,7 +12,12 @@ module.exports = {
     contract: false,
     web3: false,
   },
-  extends: ["standard-with-typescript", "prettier"],
+  plugins: ["@typescript-eslint"],
+  extends: [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "prettier",
+  ],
   // This is needed to add configuration to rules with type information
   parser: "@typescript-eslint/parser",
   parserOptions: {
@@ -26,9 +31,12 @@ module.exports = {
   ],
   rules: {
     "no-console": "off",
+    "prefer-const": "warn",
+    "@typescript-eslint/ban-ts-comment": "warn",
+    "@typescript-eslint/no-inferrable-types": "warn",
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
     "@typescript-eslint/no-var-requires": "off",
     "@typescript-eslint/return-await": "off",
-    "@typescript-eslint/no-unnecessary-type-assertion": "off",
     "@typescript-eslint/require-array-sort-compare": [
       "error",
       {

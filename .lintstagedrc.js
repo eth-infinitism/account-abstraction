@@ -1,12 +1,10 @@
 const path = require("path");
 
 const buildLintCommand = (filenames) =>
-  `eslint -f unix ${filenames
-    .map((f) => path.relative(process.cwd(), f))
-    .join(" ")}`;
+  `eslint ${filenames.map((f) => path.relative(process.cwd(), f)).join(" ")}`;
 
 const buildSolhintCommand = (filenames) =>
-  `solhint -f unix --max-warnings 0 ${filenames
+  `solhint --max-warnings 0 ${filenames
     .map((f) => path.relative(process.cwd(), f))
     .join(" ")} `;
 
