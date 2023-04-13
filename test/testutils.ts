@@ -176,6 +176,7 @@ export function rethrow(): (e: Error) => void {
     .stack!.replace(/Error.*\n.*at.*\n/, "")
     .replace(/.*at.* \(internal[\s\S]*/, "");
 
+  // eslint-disable-next-line prefer-rest-params
   if (arguments[0] != null) {
     throw new Error("must use .catch(rethrow()), and NOT .catch(rethrow)");
   }
