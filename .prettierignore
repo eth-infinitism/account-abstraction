@@ -4,7 +4,7 @@ node_modules
 artifacts
 cache
 dist
-contract/types
+contracts/types
 coverage*
 
 .next

@@ -4,7 +4,9 @@ import { parseEther } from "ethers/lib/utils";
 import { ethers } from "hardhat";
 
 import {
+  ERC1967Proxy__factory,
   SimpleAccount,
+  SimpleAccount__factory,
   SimpleAccountFactory__factory,
   TestUtil,
   TestUtil__factory,
@@ -13,6 +15,7 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
+  deployEntryPoint,
   getBalance,
   HashZero,
   isDeployed,
@@ -27,13 +30,14 @@ import {
 import { UserOperation } from "./UserOperation";
 
 describe("SimpleAccount", function () {
-  const entryPoint = "0x".padEnd(42, "2");
+  let entryPoint: string;
   let accounts: string[];
   let testUtil: TestUtil;
   let accountOwner: Wallet;
   const ethersSigner = ethers.provider.getSigner();
 
   before(async function () {
+    entryPoint = await deployEntryPoint().then((e) => e.address);
     accounts = await ethers.provider.listAccounts();
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip();
@@ -81,15 +85,23 @@ describe("SimpleAccount", function () {
     let expectedPay: number;
 
     const actualGasPrice = 1e9;
+    // for testing directly validateUserOp, we initialize the account with EOA as entryPoint.
+    let entryPointEoa: string;
 
     before(async () => {
-      // that's the account of ethersSigner
-      const entryPoint = accounts[2];
-      ({ proxy: account } = await createAccount(
-        await ethers.getSigner(entryPoint),
-        accountOwner.address,
-        entryPoint,
-      ));
+      entryPointEoa = accounts[2];
+      const epAsSigner = await ethers.getSigner(entryPointEoa);
+
+      // cant use "SimpleAccountFactory", since it attempts to increment nonce first
+      const implementation = await new SimpleAccount__factory(
+        ethersSigner,
+      ).deploy(entryPointEoa);
+      const proxy = await new ERC1967Proxy__factory(ethersSigner).deploy(
+        implementation.address,
+        "0x",
+      );
+      account = SimpleAccount__factory.connect(proxy.address, epAsSigner);
+
       await ethersSigner.sendTransaction({
         from: accounts[0],
         to: account.address,
@@ -110,11 +122,11 @@ describe("SimpleAccount", function () {
           maxFeePerGas,
         }),
         accountOwner,
-        entryPoint,
+        entryPointEoa,
         chainId,
       );
 
-      userOpHash = await getUserOpHash(userOp, entryPoint, chainId);
+      userOpHash = await getUserOpHash(userOp, entryPointEoa, chainId);
 
       expectedPay = actualGasPrice * (callGasLimit + verificationGasLimit);
 
@@ -131,16 +143,6 @@ describe("SimpleAccount", function () {
     it("should pay", async () => {
       const postBalance = await getBalance(account.address);
       expect(preBalance - postBalance).to.eql(expectedPay);
-    });
-
-    it("should increment nonce", async () => {
-      expect(await account.nonce()).to.equal(1);
-    });
-
-    it("should reject same TX on nonce error", async () => {
-      await expect(
-        account.validateUserOp(userOp, userOpHash, 0),
-      ).to.revertedWith("invalid nonce");
     });
 
     it("should return NO_SIG_VALIDATION on wrong signature", async () => {

@@ -43,6 +43,7 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
+  decodeRevertReason,
   deployEntryPoint,
   fund,
   getAccountAddress,
@@ -292,7 +293,7 @@ describe("EntryPoint", function () {
       );
       await expect(
         entryPoint.callStatic.simulateValidation(op),
-      ).to.revertedWith("AA23 reverted: account: invalid nonce");
+      ).to.revertedWith("AA25 invalid account nonce");
     });
 
     it("should report signature failure without revert", async () => {
@@ -595,7 +596,8 @@ describe("EntryPoint", function () {
 
       const userOp: UserOperation = {
         sender: maliciousAccount.address,
-        nonce: block.baseFeePerGas,
+        nonce: await entryPoint.getNonce(maliciousAccount.address, 0),
+        signature: defaultAbiCoder.encode(["uint256"], [block.baseFeePerGas]),
         initCode: "0x",
         callData: "0x",
         callGasLimit: "0x" + (1e5).toString(16),
@@ -605,7 +607,6 @@ describe("EntryPoint", function () {
         maxFeePerGas: block.baseFeePerGas.mul(3),
         maxPriorityFeePerGas: block.baseFeePerGas,
         paymasterAndData: "0x",
-        signature: "0x",
       };
       try {
         await expect(
@@ -637,6 +638,7 @@ describe("EntryPoint", function () {
         sender: testRevertAccount.address,
         callGasLimit: 1e5,
         maxFeePerGas: 1,
+        nonce: await entryPoint.getNonce(testRevertAccount.address, 0),
         verificationGasLimit: 1e5,
         callData: badData.data!,
       };
@@ -644,9 +646,7 @@ describe("EntryPoint", function () {
       await expect(
         entryPoint.simulateValidation(badOp, { gasLimit: 3e5 }),
       ).to.revertedWith("ValidationResult");
-      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, {
-        gasLimit: 3e5,
-      });
+      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress); // { gasLimit: 3e5 })
       const receipt = await tx.wait();
       const userOperationRevertReasonEvent = receipt.events?.find(
         (event) => event.event === "UserOperationRevertReason",
@@ -717,6 +717,110 @@ describe("EntryPoint", function () {
             );
           }
         }
+      });
+    });
+  });
+
+  describe("2d nonces", () => {
+    const beneficiaryAddress = createAddress();
+    let sender: string;
+    const key = 1;
+    const keyShifted = BigNumber.from(key).shl(64);
+
+    before(async () => {
+      const { proxy } = await createAccount(
+        ethersSigner,
+        accountOwner.address,
+        entryPoint.address,
+      );
+      sender = proxy.address;
+      await fund(sender);
+    });
+
+    it("should fail nonce with new key and seq!=0", async () => {
+      const op = await fillAndSign(
+        {
+          sender,
+          nonce: keyShifted.add(1),
+        },
+        accountOwner,
+        entryPoint,
+      );
+      await expect(
+        entryPoint.callStatic.handleOps([op], beneficiaryAddress),
+      ).to.revertedWith("AA25 invalid account nonce");
+    });
+
+    describe("with key=1, seq=1", () => {
+      before(async () => {
+        const op = await fillAndSign(
+          {
+            sender,
+            nonce: keyShifted,
+          },
+          accountOwner,
+          entryPoint,
+        );
+        await entryPoint.handleOps([op], beneficiaryAddress);
+      });
+
+      it("should get next nonce value by getNonce", async () => {
+        expect(await entryPoint.getNonce(sender, key)).to.eql(
+          keyShifted.add(1),
+        );
+      });
+
+      it("should allow to increment nonce of different key", async () => {
+        const op = await fillAndSign(
+          {
+            sender,
+            nonce: await entryPoint.getNonce(sender, key),
+          },
+          accountOwner,
+          entryPoint,
+        );
+        await entryPoint.callStatic.handleOps([op], beneficiaryAddress);
+      });
+
+      it("should allow manual nonce increment", async () => {
+        // must be called from account itself
+        const incNonceKey = 5;
+        const incrementCallData = entryPoint.interface.encodeFunctionData(
+          "incrementNonce",
+          [incNonceKey],
+        );
+        const callData = account.interface.encodeFunctionData("execute", [
+          entryPoint.address,
+          0,
+          incrementCallData,
+        ]);
+        const op = await fillAndSign(
+          {
+            sender,
+            callData,
+            nonce: await entryPoint.getNonce(sender, key),
+          },
+          accountOwner,
+          entryPoint,
+        );
+        await entryPoint.handleOps([op], beneficiaryAddress);
+
+        expect(await entryPoint.getNonce(sender, incNonceKey)).to.equal(
+          BigNumber.from(incNonceKey).shl(64).add(1),
+        );
+      });
+      it("should fail with nonsequential seq", async () => {
+        const op = await fillAndSign(
+          {
+            sender,
+            nonce: keyShifted.add(3),
+          },
+          accountOwner,
+          entryPoint,
+        );
+        await expect(
+          entryPoint.callStatic.handleOps([op], beneficiaryAddress),
+        ).to.revertedWith("AA25 invalid account nonce");
       });
     });
   });
@@ -1040,6 +1144,41 @@ describe("EntryPoint", function () {
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress);
       });
 
+      it("should fail to call recursively into handleOps", async () => {
+        const beneficiaryAddress = createAddress();
+
+        const callHandleOps = entryPoint.interface.encodeFunctionData(
+          "handleOps",
+          [[], beneficiaryAddress],
+        );
+        const execHandlePost = account.interface.encodeFunctionData("execute", [
+          entryPoint.address,
+          0,
+          callHandleOps,
+        ]);
+        const op = await fillAndSign(
+          {
+            sender: account.address,
+            callData: execHandlePost,
+          },
+          accountOwner,
+          entryPoint,
+        );
+
+        const rcpt = await entryPoint
+          .handleOps([op], beneficiaryAddress, {
+            gasLimit: 1e7,
+          })
+          .then(async (r) => r.wait());
+
+        const error = rcpt.events?.find(
+          (ev) => ev.event === "UserOperationRevertReason",
+        );
+        expect(decodeRevertReason(error?.args?.revertReason)).to.eql(
+          "Error(ReentrancyGuard: reentrant call)",
+          "execution of handleOps inside a UserOp should revert",
+        );
+      });
       it("should report failure on insufficient verificationGas after creation", async () => {
         const op0 = await fillAndSign(
           {
@@ -1154,9 +1293,10 @@ describe("EntryPoint", function () {
         const hash = await entryPoint.getUserOpHash(createOp);
         await expect(ret)
           .to.emit(entryPoint, "AccountDeployed")
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string
           .withArgs(
             hash,
-            createOp.sender, // eslint-disable-next-line @typescript-eslint/no-base-to-string
+            createOp.sender,
             toChecksumAddress(createOp.initCode.toString().slice(0, 42)),
             AddressZero,
           );
@@ -1537,7 +1677,6 @@ describe("EntryPoint", function () {
             userOp = await fillAndSign(
               {
                 initCode,
-                nonce: 10,
               },
               accountOwner,
               entryPoint,

@@ -130,6 +130,7 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
 
     const anotherEntryPoint = await new EntryPoint__factory(
@@ -151,9 +152,10 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith(
-      "account: invalid nonce",
+      "AA25 invalid account nonce",
     );
 
     op = await fillAndSign(
@@ -164,6 +166,7 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
     // invalidate the signature
     op.callGasLimit = 1;
@@ -181,6 +184,7 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
     const rcpt = await entryPoint
       .handleOps([op], beneficiary)
@@ -208,7 +212,9 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
+
     const rcpt = await entryPoint
       .handleOps([op], beneficiary)
       .then(async (r) => r.wait());
@@ -256,6 +262,7 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
 
     const rcpt = await entryPoint
@@ -279,6 +286,7 @@ describe("Gnosis Proxy", function () {
       },
       owner,
       entryPoint,
+      "getNonce",
     );
 
     const rcpt = await entryPoint

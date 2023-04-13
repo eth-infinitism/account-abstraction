@@ -57,10 +57,8 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
       validationData = SIG_VALIDATION_FAILED;
     }
 
-    if (userOp.initCode.length == 0) {
-      require(uint256(nonce) == userOp.nonce, "account: invalid nonce");
-      nonce = bytes32(uint256(nonce) + 1);
-    }
+    // mimic normal Safe nonce behaviour: prevent parallel nonces
+    require(userOp.nonce < type(uint64).max, "account: nonsequential nonce");
 
     if (missingAccountFunds > 0) {
       //Note: MAY pay more than the minimum, to deposit for future transactions
@@ -101,6 +99,14 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
       }
       revert(abi.decode(returnData, (string)));
     }
+  }
+
+  /**
+
+   * Helper for wallet to get the next nonce.
+   */
+  function getNonce() public view returns (uint256) {
+    return IEntryPoint(entryPoint).getNonce(address(this), 0);
   }
 
   /**
@@ -167,9 +173,12 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
     sig[64] = bytes1(uint8(27));
     sig[2] = bytes1(uint8(1));
     sig[35] = bytes1(uint8(1));
+    uint256 nonce = uint256(
+      IEntryPoint(manager.entryPoint()).getNonce(address(safe), 0)
+    );
     UserOperation memory userOp = UserOperation(
       address(safe),
-      uint256(nonce),
+      nonce,
       "",
       "",
       0,
@@ -202,6 +211,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
   }
 
   /**
+
    * enumerate modules, and find the currently active EIP4337 manager (and previous module)
    * @return prev prev module, needed by replaceEIP4337Manager
    * @return manager the current active EIP4337Manager

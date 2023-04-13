@@ -61,6 +61,17 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
   }
 
   /**
+<<<<<<< HEAD
+=======
+   * Helper for wallet to get the next nonce.
+   */
+  function getNonce() public returns (uint256 nonce) {
+    bytes memory ret = delegateToManager();
+    (nonce) = abi.decode(ret, (uint256));
+  }
+
+  /**
+>>>>>>> eth-infinitism-develop
    * called from the Safe. delegate actual work to EIP4337Manager
    */
   function executeAndRevert(

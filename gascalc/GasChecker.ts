@@ -28,7 +28,8 @@ import {
   createAddress,
   deployEntryPoint,
 } from "../test/testutils";
-import { fillAndSign } from "../test/UserOp";
+import { fillAndSign, fillUserOp, signUserOp } from "../test/UserOp";
+import { UserOperation } from "../test/UserOperation";
 
 const gasCheckerLogFile = "./reports/gas-checker.txt";
 
@@ -63,7 +64,7 @@ interface GasTestInfo {
 export const DefaultGasTestInfo: Partial<GasTestInfo> = {
   dest: "self", // destination is the account itself.
   destValue: parseEther("0"),
-  destCallData: "0xaffed0e0", // nonce()
+  destCallData: "0xb0d691fe", // entryPoint()
   gasPrice: 10e9,
 };
 
@@ -131,6 +132,8 @@ export class GasChecker {
     ]);
   }
 
+  createdAccounts = new Set<string>();
+
   /**
    * create accounts up to this counter.
    * make sure they all have balance.
@@ -153,11 +156,34 @@ export class GasChecker {
       ethersSigner,
     );
     // create accounts
+    const creationOps: UserOperation[] = [];
     for (const n of range(count)) {
       const salt = n;
       // const initCode = this.accountInitCode(fact, salt)
 
       const addr = await fact.getAddress(this.accountOwner.address, salt);
+
+      if (!this.createdAccounts.has(addr)) {
+        // explicit call to fillUseROp with no "entryPoint", to make sure we manually fill everything and
+        // not attempt to fill from blockchain.
+        const op = signUserOp(
+          await fillUserOp({
+            sender: addr,
+            nonce: 0,
+            callGasLimit: 30000,
+            verificationGasLimit: 1000000,
+            // paymasterAndData: paymaster,
+            preVerificationGas: 1,
+            maxFeePerGas: 0,
+          }),
+          this.accountOwner,
+          this.entryPoint().address,
+          await provider.getNetwork().then((net) => net.chainId),
+        );
+        creationOps.push(op);
+        this.createdAccounts.add(addr);
+      }
+
       this.accounts[addr] = this.accountOwner;
       // deploy if not already deployed.
       await fact.createAccount(this.accountOwner.address, salt);
@@ -170,6 +196,7 @@ export class GasChecker {
         });
       }
     }
+    await this.entryPoint().handleOps(creationOps, ethersSigner.getAddress());
   }
 
   /**
@@ -304,6 +331,9 @@ export class GasChecker {
     if (info.diffLastGas) {
       ret1.gasDiff = gasDiff;
     }
+    if (info.diffLastGas) {
+      ret1.gasDiff = gasDiff;
+    }
     console.debug(ret1);
     return ret1;
   }
@@ -406,21 +436,27 @@ export class GasCheckCollector {
       fs.appendFileSync(gasCheckerLogFile, s + "\n");
     };
 
+    write('== gas estimate of direct calling the account\'s "execute" method');
     write(
-      '== gas estimate of direct calling the account\'s "execFromEntryPoint" method',
-    );
-    write(
-      '   the destination is "account.nonce()", which is known to be "hot" address used by this account',
+      '   the destination is "account.entryPoint()", which is known to be "hot" address used by this account',
     );
     write(
       "   it little higher than EOA call: its an exec from entrypoint (or account owner) into account contract, verifying msg.sender and exec to target)",
     );
-    Object.values(gasEstimatePerExec).forEach(({ title, accountEst }) => {
-      write(`- gas estimate "${title}" - ${accountEst}`);
-    });
+
+    write(
+      table(
+        Object.values(gasEstimatePerExec).map((row) => [
+          `gas estimate "${row.title}"`,
+          row.accountEst,
+        ]),
+        this.tableConfig,
+      ),
+    );
 
     const tableOutput = table(this.tabRows, this.tableConfig);
     write(tableOutput);
+    process.exit(0);
   }
 
   addRow(res: GasTestResult): void {
