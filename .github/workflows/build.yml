@@ -82,7 +82,7 @@ jobs:
 
   coverage:
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, gas-checks]
 
     steps:
       - uses: actions/checkout@v3
