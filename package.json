@@ -70,6 +70,7 @@
     "@types/mocha": "^9.0.0",
     "axios": "^1.2.3",
     "commander": "^10.0.0",
+    "dotenv": "^16.0.3",
     "ethereumjs-util": "^7.1.0",
     "ethereumjs-wallet": "^1.0.1",
     "hardhat-deploy": "^0.11.23",
