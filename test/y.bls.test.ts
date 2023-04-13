@@ -268,7 +268,6 @@ describe("bls account", function () {
         {
           sender: senderAddress,
           initCode,
-          nonce: 2,
         },
         entrypoint,
       );

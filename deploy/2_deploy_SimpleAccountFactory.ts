@@ -13,6 +13,7 @@ const deploySimpleAccountFactory: DeployFunction = async function (
     from,
     args: [entrypoint.address],
     gasLimit: 6e6,
+    log: true,
     deterministicDeployment: true,
   });
   console.log("==SimpleAccountFactory addr=", ret.address);
