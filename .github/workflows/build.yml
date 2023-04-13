@@ -20,7 +20,7 @@ jobs:
         id: yarn-cache
         with:
           path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-dependencies${{ hashFiles('yarn.lock') }}
       - name: Install dependencies
         if: steps.yarn-cache.outputs.cache-hit != 'true'
         run: yarn install --immutable
@@ -30,7 +30,7 @@ jobs:
           path: |
             artifacts
             contracts/types
-          key: ${{ runner.os }}-${{ hashFiles('contracts/**/*.sol') }}
+          key: ${{ runner.os }}-artifacts${{ hashFiles('contracts/**/*.sol') }}
       - name: Compile
         if: steps.hardhat-cache.outputs.cache-hit != 'true'
         run: yarn compile
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-dependencies${{ hashFiles('yarn.lock') }}
       - run: yarn lint
 
   test:
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-dependencies${{ hashFiles('**/yarn.lock') }}
       - run: yarn run ci
 
   gas-checks:
@@ -71,13 +71,13 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-dependencies${{ hashFiles('yarn.lock') }}
       - uses: actions/cache@v3
         with:
           path: |
             artifacts
             contracts/types
-          key: ${{ runner.os }}-${{ hashFiles('contracts/**/*.sol') }}
+          key: ${{ runner.os }}-artifacts${{ hashFiles('contracts/**/*.sol') }}
       - run: yarn ci-gas-calc
 
   coverage:
@@ -89,13 +89,13 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-dependencies${{ hashFiles('yarn.lock') }}
       - uses: actions/cache@v3
         with:
           path: |
             artifacts
             contracts/types
-          key: ${{ runner.os }}-${{ hashFiles('contracts/**/*.sol') }}
+          key: ${{ runner.os }}-artifacts${{ hashFiles('contracts/**/*.sol') }}
       - run: FORCE_COLOR=1 yarn coverage
       - uses: actions/upload-artifact@v3
         with:
