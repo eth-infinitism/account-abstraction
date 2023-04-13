@@ -17,17 +17,17 @@ import {
 } from "ethers/lib/utils";
 import { clearInterval } from "timers";
 
-import { HashZero } from "../test/testutils";
-import { fillAndSign, getUserOpHash } from "../test/UserOp";
-import { UserOperation } from "../test/UserOperation";
-import { Create2Factory } from "./Create2Factory";
 import {
   EntryPoint,
   EntryPoint__factory,
   ERC1967Proxy__factory,
   SimpleAccount,
   SimpleAccount__factory,
-} from "./types";
+} from "../contracts/types";
+import { HashZero } from "../test/testutils";
+import { fillAndSign, getUserOpHash } from "../test/UserOp";
+import { UserOperation } from "../test/UserOperation";
+import { Create2Factory } from "./Create2Factory";
 
 export type SendUserOp = (
   userOp: UserOperation,
@@ -348,6 +348,7 @@ export class AASigner extends Signer {
     const waitPromise = new Promise<TransactionReceipt>((resolve, reject) => {
       let listener = async function (this: any, ...param: any): Promise<void> {
         if (resolved) return;
+        // eslint-disable-next-line prefer-rest-params
         const event = arguments[arguments.length - 1] as Event;
         if (event.blockNumber <= (await currentBLock)) {
           // not sure why this callback is called first for previously-mined block..
@@ -505,13 +506,8 @@ export class AASigner extends Signer {
       tx.data!,
     );
 
-    let { gasPrice, maxPriorityFeePerGas, maxFeePerGas } = tx;
-    // gasPrice is legacy, and overrides eip1559 values:
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (gasPrice) {
-      maxPriorityFeePerGas = gasPrice;
-      maxFeePerGas = gasPrice;
-    }
+    const { maxPriorityFeePerGas, maxFeePerGas } = tx;
+
     const userOp = await fillAndSign(
       {
         sender: this._account!.address,
