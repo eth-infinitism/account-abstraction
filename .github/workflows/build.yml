@@ -7,73 +7,97 @@ env:
 
 # todo: extract shared seto/checkout/install/compile, instead of repeat in each job.
 jobs:
-  test:
+  setup:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/setup-node@v1
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
         with:
-          node-version: "14"
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+          node-version: "18"
+          cache: "yarn"
+      - uses: actions/cache@v3
+        id: yarn-cache
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-      - run: yarn install
-      - run: yarn compile
+      - name: Install dependencies
+        if: steps.yarn-cache.outputs.cache-hit != 'true'
+        run: yarn install --immutable
+      - uses: actions/cache@v3
+        id: hardhat-cache
+        with:
+          path: |
+            artifacts
+            contracts/types
+          key: ${{ runner.os }}-${{ hashFiles('contracts/**/*.sol') }}
+      - name: Compile
+        if: steps.hardhat-cache.outputs.cache-hit != 'true'
+        run: yarn compile
 
+  lint:
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: yarn lint
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [setup, lint]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
       - run: yarn run ci
 
   gas-checks:
     runs-on: ubuntu-latest
+    needs: setup
     services:
       localgeth:
         image: dtr22/geth-dev
 
     steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "14"
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-      - run: yarn install
-      - run: yarn compile
+      - uses: actions/cache@v3
+        with:
+          path: |
+            artifacts
+            contracts/types
+          key: ${{ runner.os }}-${{ hashFiles('contracts/**/*.sol') }}
       - run: yarn ci-gas-calc
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "14"
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-      - run: yarn install
-      - run: yarn lint
 
   coverage:
     runs-on: ubuntu-latest
+    needs: setup
+
     steps:
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "14"
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-      - run: yarn install
-
-      - run: yarn compile
-
+      - uses: actions/cache@v3
+        with:
+          path: |
+            artifacts
+            contracts/types
+          key: ${{ runner.os }}-${{ hashFiles('contracts/**/*.sol') }}
       - run: FORCE_COLOR=1 yarn coverage
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: solidity-coverage
           path: |
