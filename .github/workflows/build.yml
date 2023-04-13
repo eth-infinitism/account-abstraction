@@ -49,7 +49,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: [setup, lint]
+    needs: lint
 
     steps:
       - uses: actions/checkout@v3
@@ -82,7 +82,7 @@ jobs:
 
   coverage:
     runs-on: ubuntu-latest
-    needs: [setup, gas-checks]
+    needs: gas-checks
 
     steps:
       - uses: actions/checkout@v3
