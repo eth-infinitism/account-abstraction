@@ -61,7 +61,7 @@ library Exec {
         }
     }
 
-    function callAndRevert(address to, bytes memory data, uint256 maxLen) internal {
+    function callSafe(address to, bytes memory data, uint256 maxLen) internal {
         bool success = call(to,0,data,gasleft());
         if (!success) {
             revertWithData(getReturnData(maxLen));
