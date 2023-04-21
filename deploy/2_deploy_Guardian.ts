@@ -9,11 +9,12 @@ const deployGuardian: DeployFunction = async function (hre: HardhatRuntimeEnviro
   const ret = await hre.deployments.deploy(
     'Guardian', {
       from,
-      args: [1, 100, 0x0],
-      gasLimit: 6e6,
+      args: [],
+      gasLimit: 2e8,
       deterministicDeployment: true
     })
   console.log('==Guardian addr=', ret.address)
+  console.log('gas', ret.receipt?.cumulativeGasUsed)
 }
 
 export default deployGuardian

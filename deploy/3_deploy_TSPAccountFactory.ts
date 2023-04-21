@@ -9,12 +9,13 @@ const deployTSPAccountFactory: DeployFunction = async function (hre: HardhatRunt
   const entrypoint = await hre.deployments.get('EntryPoint')
   const ret = await hre.deployments.deploy(
     'TSPAccountFactory', {
-    from,
-    args: [entrypoint.address],
-    gasLimit: 6e6,
-    deterministicDeployment: true
-  })
+      from,
+      args: [entrypoint.address],
+      gasLimit: 4e8,
+      deterministicDeployment: true
+    })
   console.log('==TSPAccountFactory addr=', ret.address)
+  console.log('gas', ret.receipt?.cumulativeGasUsed)
 }
 
 export default deployTSPAccountFactory
