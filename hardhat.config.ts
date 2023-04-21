@@ -54,6 +54,7 @@ const config: HardhatUserConfig = {
     localgeth: { url: 'http://localgeth:8545' },
     goerli: getNetwork('goerli'),
     sepolia: getNetwork('sepolia'),
+    arbitrum: { url: 'https://arb1.arbitrum.io/rpc', chainId: 42161, accounts: { mnemonic } },
     proxy: getNetwork1('http://localhost:8545')
   },
   mocha: {
