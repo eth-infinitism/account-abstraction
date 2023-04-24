@@ -1,7 +1,7 @@
 {
   "name": "accountabstraction",
-  "version": "0.5.0",
-  "description": "",
+  "version": "0.6.0",
+  "description": "ERC-4337 Account Abstraction Implementation",
   "scripts": {
     "clean": "rm -rf cache artifacts typechain typechain-types",
     "compile": "./scripts/hh-wrapper compile",
