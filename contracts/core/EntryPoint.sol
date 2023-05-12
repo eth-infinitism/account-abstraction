@@ -437,6 +437,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
     function _validatePaymasterPrepayment(uint256 opIndex, UserOperation calldata op, UserOpInfo memory opInfo, uint256 requiredPreFund, uint256 gasUsedByValidateAccountPrepayment)
     internal returns (bytes memory context, uint256 validationData) {
     unchecked {
+        // if the sender account has staked (rare to see), they could potentially grieve the paymaster with an insufficient account balance
+        // because the reverts would attribute the fault to paymaster
+        // only the sender account can stake for itself, so sender account would not get attacked by others
+        // if an account is willing to stake, it can probably pay for the userOp on its own instead of relying on paymaster
+        StakeInfo memory senderInfo = _getStakeInfo(outOpInfo.mUserOp.sender);
+        if (senderInfo.stake > 0 || senderInfo.unstakeDelaySec > 0) {
+            revert FailedOp(opIndex, "AA26 sender account is not allowed to stake");
+        }
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
         uint256 verificationGasLimit = mUserOp.verificationGasLimit;
         require(verificationGasLimit > gasUsedByValidateAccountPrepayment, "AA41 too little verificationGas");
