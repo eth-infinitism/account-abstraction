@@ -55,20 +55,30 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     /**
      * execute a transaction (called directly from owner, or by entryPoint)
      */
-    function execute(uint256 operationType, address target, uint256 value, bytes memory data) external payable returns(bytes memory);
-    function execute(address dest, uint256 value, bytes calldata func) external {
+    function execute(uint256 operationType, address target, uint256 value, bytes memory data) public payable override returns (bytes memory) {
         _requireFromEntryPointOrOwner();
-        _call(dest, value, func);
+
+        return _execute(operationType, target, value, data);
     }
 
     /**
      * execute a sequence of transactions
      */
-    function executeBatch(address[] calldata dest, bytes[] calldata func) external {
+    function execute(uint256[] memory operationsType, address[] memory targets, uint256[] memory values, bytes[] memory datas) public payable override returns (bytes[] memory result) {
         _requireFromEntryPointOrOwner();
-        require(dest.length == func.length, "wrong array lengths");
-        for (uint256 i = 0; i < dest.length; i++) {
-            _call(dest[i], 0, func[i]);
+
+        if (operationsType.length != targets.length || (targets.length != values.length || values.length != datas.length)) {
+            revert ERC725X_ExecuteParametersLengthMismatch();
+        }
+
+        result = new bytes[](operationsType.length);
+        for (uint256 i = 0; i < operationsType.length; i++) {
+            result[i] = _execute(
+                operationsType[i],
+                targets[i],
+                values[i],
+                datas[i]
+            );
         }
     }
 
@@ -98,15 +108,6 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         if (owner != hash.recover(userOp.signature))
             return SIG_VALIDATION_FAILED;
         return 0;
-    }
-
-    function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value : value}(data);
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
     }
 
     /**
