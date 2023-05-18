@@ -1,113 +1,181 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-/* solhint-disable reason-string */
+// Import the required libraries and contracts
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "../core/EntryPoint.sol";
 import "../core/BasePaymaster.sol";
+import "./utils/IOracle.sol";
+import "./utils/SafeTransferLib.sol";
+import "./utils/UniswapHelper.sol";
 
-/**
- * A sample paymaster that defines itself as a token to pay for gas.
- * The paymaster IS the token to use, since a paymaster cannot use an external contract.
- * Also, the exchange rate has to be fixed, since it can't reference an external Uniswap or other exchange contract.
- * subclass should override "getTokenValueOfEth" to provide actual token exchange rate, settable by the owner.
- * Known Limitation: this paymaster is exploitable when put into a batch with multiple ops (of different accounts):
- * - while a single op can't exploit the paymaster (if postOp fails to withdraw the tokens, the user's op is reverted,
- *   and then we know we can withdraw the tokens), multiple ops with different senders (all using this paymaster)
- *   in a batch can withdraw funds from 2nd and further ops, forcing the paymaster itself to pay (from its deposit)
- * - Possible workarounds are either use a more complex paymaster scheme (e.g. the DepositPaymaster) or
- *   to whitelist the account and the called method ids.
- */
-contract TokenPaymaster is BasePaymaster, ERC20 {
+/// @title Sample ERC-20 Token Paymaster for ERC-4337
+/// @notice Based on Pimlico 'PimlicoERC20Paymaster' and OpenGSN 'PermitERC20UniswapV3Paymaster'
+/// This Paymaster covers gas fees in exchange for ERC20 tokens charged using allowance pre-issued by ERC-4337 accounts.
+/// The contract refunds excess tokens if the actual gas cost is lower than the initially provided amount.
+/// The token price cannot be queried in the validation code due to storage access restrictions of ERC-4337.
+/// The price is cached inside the contract and is updated in the 'postOp' stage if the change is >10%.
+/// It is theoretically possible the token has depreciated so much since the last 'postOp' the refund becomes negative.
+/// The contract reverts the inner user transaction in that case but keeps the charge.
+/// The contract also allows honest clients to prepay tokens at a higher price to avoid getting reverted.
+/// It also allows updating price configuration and withdrawing tokens by the contract owner.
+/// The contract uses an Oracle to fetch the latest token prices.
+/// @dev Inherits from BasePaymaster.
+contract TokenPaymaster is BasePaymaster, UniswapHelper {
+    uint256 public constant priceDenominator = 1e6;
+    uint256 public constant REFUND_POSTOP_COST = 40000; // Estimated gas cost for refunding tokens after the transaction is completed
 
-    //calculated cost of the postOp
-    uint256 constant public COST_OF_POST = 15000;
+    // The token, tokenOracle, and nativeAssetOracle are declared as immutable,
+    // meaning their values cannot change after contract creation.
+    IERC20 public immutable token; // The ERC20 token used for transaction fee payments
+    uint256 public immutable tokenDecimals;
+    IOracle public immutable tokenOracle; // The Oracle contract used to fetch the latest token prices
+    IOracle public immutable nativeAssetOracle; // The Oracle contract used to fetch the latest ETH prices
 
-    address public immutable theFactory;
+    uint192 public previousPrice; // The cached token price from the Oracle
+    uint32 public priceMarkup; // The price markup percentage applied to the token price (1e6 = 100%)
+    uint32 public priceUpdateThreshold; // The price update threshold percentage that triggers a price update (1e6 = 100%)
 
-    constructor(address accountFactory, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
-        theFactory = accountFactory;
-        //make it non-empty
-        _mint(address(this), 1);
+    event ConfigUpdated(uint32 priceMarkup, uint32 updateThreshold);
 
-        //owner is allowed to withdraw tokens from the paymaster's balance
-        _approve(address(this), msg.sender, type(uint).max);
+    event UserOperationSponsored(address indexed user, uint256 actualTokenNeeded, uint256 actualGasCost);
+
+    /// @notice Initializes the PimlicoERC20Paymaster contract with the given parameters.
+    /// @param _token The ERC20 token used for transaction fee payments.
+    /// @param _entryPoint The EntryPoint contract used in the Account Abstraction infrastructure.
+    /// @param _tokenOracle The Oracle contract used to fetch the latest token prices.
+    /// @param _nativeAssetOracle The Oracle contract used to fetch the latest native asset (ETH, Matic, Avax, etc.) prices.
+    /// @param _owner The address that will be set as the owner of the contract.
+    constructor(
+        IERC20Metadata _token,
+        IEntryPoint _entryPoint,
+        IOracle _tokenOracle,
+        IOracle _nativeAssetOracle,
+        address _owner
+    ) BasePaymaster(_entryPoint) {
+        token = _token;
+        tokenOracle = _tokenOracle; // oracle for token -> usd
+        nativeAssetOracle = _nativeAssetOracle; // oracle for native asset(eth/matic/avax..) -> usd
+        priceMarkup = 110e4; // 110%  1e6 = 100%
+        priceUpdateThreshold = 25e3; // 2.5%  1e6 = 100%
+        transferOwnership(_owner);
+        tokenDecimals = 10 ** _token.decimals();
+        require(_tokenOracle.decimals() == 8, "PP-ERC20 : token oracle decimals must be 8");
+        require(_nativeAssetOracle.decimals() == 8, "PP-ERC20 : native asset oracle decimals must be 8");
     }
 
-
-    /**
-     * helpers for owner, to mint and withdraw tokens.
-     * @param recipient - the address that will receive the minted tokens.
-     * @param amount - the amount it will receive.
-     */
-    function mintTokens(address recipient, uint256 amount) external onlyOwner {
-        _mint(recipient, amount);
+    /// @notice Updates the price markup and price update threshold configurations.
+    /// @param _priceMarkup The new price markup percentage (1e6 = 100%).
+    /// @param _updateThreshold The new price update threshold percentage (1e6 = 100%).
+    function updateConfig(uint32 _priceMarkup, uint32 _updateThreshold) external onlyOwner {
+        require(_priceMarkup <= 120e4, "PP-ERC20 : price markup too high");
+        require(_priceMarkup >= 1e6, "PP-ERC20 : price markeup too low");
+        require(_updateThreshold <= 1e6, "PP-ERC20 : update threshold too high");
+        priceMarkup = _priceMarkup;
+        priceUpdateThreshold = _updateThreshold;
+        emit ConfigUpdated(_priceMarkup, _updateThreshold);
     }
 
-    /**
-     * transfer paymaster ownership.
-     * owner of this paymaster is allowed to withdraw funds (tokens transferred to this paymaster's balance)
-     * when changing owner, the old owner's withdrawal rights are revoked.
-     */
-    function transferOwnership(address newOwner) public override virtual onlyOwner {
-        // remove allowance of current owner
-        _approve(address(this), owner(), 0);
-        super.transferOwnership(newOwner);
-        // new owner is allowed to withdraw tokens from the paymaster's balance
-        _approve(address(this), newOwner, type(uint).max);
+    /// @notice Allows the contract owner to withdraw a specified amount of tokens from the contract.
+    /// @param to The address to transfer the tokens to.
+    /// @param amount The amount of tokens to transfer.
+    function withdrawToken(address to, uint256 amount) external onlyOwner {
+        SafeTransferLib.safeTransfer(address(token), to, amount);
     }
 
-    //Note: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
-    // or a setter.
-    function getTokenValueOfEth(uint256 valueEth) internal view virtual returns (uint256 valueToken) {
-        return valueEth / 100;
+    /// @notice Updates the token price by fetching the latest price from the Oracle.
+    function updatePrice() external {
+        // This function updates the cached ERC20/ETH price ratio
+        uint192 tokenPrice = fetchPrice(tokenOracle);
+        uint192 nativeAssetPrice = fetchPrice(nativeAssetOracle);
+        previousPrice = nativeAssetPrice * uint192(tokenDecimals) / tokenPrice;
     }
 
-    /**
-      * validate the request:
-      * if this is a constructor call, make sure it is a known account.
-      * verify the sender has enough tokens.
-      * (since the paymaster is also the token, there is no notion of "approval")
-      */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
-    internal view override returns (bytes memory context, uint256 validationData) {
-        uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
-
-        // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
-        // make sure that verificationGasLimit is high enough to handle postOp
-        require(userOp.verificationGasLimit > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
-
-        if (userOp.initCode.length != 0) {
-            _validateConstructor(userOp);
-            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance (pre-create)");
-        } else {
-
-            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
+    /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
+    /// @param userOp The user operation data.
+    /// @param requiredPreFund The amount of tokens required for pre-funding.
+    /// @return context The context containing the token amount and user sender address (if applicable).
+    /// @return validationResult A uint256 value indicating the result of the validation (always 0 in this implementation).
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256 requiredPreFund)
+    internal
+    override
+    returns (bytes memory context, uint256 validationResult)
+    {
+        unchecked {
+            uint256 cachedPrice = previousPrice;
+            require(cachedPrice != 0, "PP-ERC20 : price not set");
+            uint256 length = userOp.paymasterAndData.length - 20;
+        // 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf is the mask for the last 6 bits 011111 which mean length should be 100000(32) || 000000(0)
+            require(
+                length & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf == 0,
+                "PP-ERC20 : invalid data length"
+            );
+        // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
+            uint256 tokenAmount = (requiredPreFund + (REFUND_POSTOP_COST) * userOp.maxFeePerGas) * priceMarkup
+            * cachedPrice / (1e18 * priceDenominator);
+            if (length == 32) {
+                require(
+                    tokenAmount <= uint256(bytes32(userOp.paymasterAndData[20:52])), "PP-ERC20 : token amount too high"
+                );
+            }
+            SafeTransferLib.safeTransferFrom(address(token), userOp.sender, address(this), tokenAmount);
+            context = abi.encodePacked(tokenAmount, userOp.sender);
+        // No return here since validationData == 0 and we have context saved in memory
+            validationResult = 0;
         }
-
-        return (abi.encode(userOp.sender), 0);
     }
 
-    // when constructing an account, validate constructor code and parameters
-    // we trust our factory (and that it doesn't have any other public methods)
-    function _validateConstructor(UserOperation calldata userOp) internal virtual view {
-        address factory = address(bytes20(userOp.initCode[0 : 20]));
-        require(factory == theFactory, "TokenPaymaster: wrong account factory");
-    }
-
-    /**
-     * actual charge of user.
-     * this method will be called just after the user's TX with mode==OpSucceeded|OpReverted (account pays in both cases)
-     * BUT: if the user changed its balance in a way that will cause  postOp to revert, then it gets called again, after reverting
-     * the user's TX , back to the state it was before the transaction started (before the validatePaymasterUserOp),
-     * and the transaction should succeed there.
-     */
+    /// @notice Performs post-operation tasks, such as updating the token price and refunding excess tokens.
+    /// @dev This function is called after a user operation has been executed or reverted.
+    /// @param mode The post-operation mode (either successful or reverted).
+    /// @param context The context containing the token amount and user sender address.
+    /// @param actualGasCost The actual gas cost of the transaction.
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
-        //we don't really care about the mode, we just pay the gas with the user's tokens.
-        (mode);
-        address sender = abi.decode(context, (address));
-        uint256 charge = getTokenValueOfEth(actualGasCost + COST_OF_POST);
-        //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
-        _transfer(sender, address(this), charge);
+        if (mode == PostOpMode.postOpReverted) {
+            return; // Do nothing here to not revert the whole bundle and harm reputation
+        }
+        unchecked {
+            uint192 tokenPrice = fetchPrice(tokenOracle);
+            uint192 nativeAsset = fetchPrice(nativeAssetOracle);
+            uint256 cachedPrice = previousPrice;
+            uint192 price = nativeAsset * uint192(tokenDecimals) / tokenPrice;
+            uint256 cachedUpdateThreshold = priceUpdateThreshold;
+            if (
+                uint256(price) * priceDenominator / cachedPrice > priceDenominator + cachedUpdateThreshold
+                || uint256(price) * priceDenominator / cachedPrice < priceDenominator - cachedUpdateThreshold
+            ) {
+                previousPrice = uint192(int192(price));
+                cachedPrice = uint192(int192(price));
+            }
+        // Refund tokens based on actual gas cost
+        // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
+            uint256 actualTokenNeeded = (actualGasCost + REFUND_POSTOP_COST * tx.gasprice) * priceMarkup * cachedPrice
+            / (1e18 * priceDenominator); // We use tx.gasprice here since we don't know the actual gas price used by the user
+            if (uint256(bytes32(context[0:32])) > actualTokenNeeded) {
+                // If the initially provided token amount is greater than the actual amount needed, refund the difference
+                SafeTransferLib.safeTransfer(
+                    address(token),
+                    address(bytes20(context[32:52])),
+                    uint256(bytes32(context[0:32])) - actualTokenNeeded
+                );
+            } // If the token amount is not greater than the actual amount needed, no refund occurs
+
+            emit UserOperationSponsored(address(bytes20(context[32:52])), actualTokenNeeded, actualGasCost);
+        }
+    }
+
+    /// @notice Fetches the latest price from the given Oracle.
+    /// @dev This function is used to get the latest price from the tokenOracle or nativeAssetOracle.
+    /// @param _oracle The Oracle contract to fetch the price from.
+    /// @return price The latest price fetched from the Oracle.
+    function fetchPrice(IOracle _oracle) internal view returns (uint192 price) {
+        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = _oracle.latestRoundData();
+        require(answer > 0, "PP-ERC20 : Chainlink price <= 0");
+        // 2 days old price is considered stale since the price is updated every 24 hours
+        require(updatedAt >= block.timestamp - 60 * 60 * 24 * 2, "PP-ERC20 : Incomplete round");
+        require(answeredInRound >= roundId, "PP-ERC20 : Stale price");
+        price = uint192(int192(answer));
     }
 }
