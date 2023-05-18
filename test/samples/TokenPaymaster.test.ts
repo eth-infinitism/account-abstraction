@@ -1,4 +1,4 @@
-import { Wallet } from 'ethers'
+import { BigNumber, providers, Signer, utils, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
@@ -23,16 +23,83 @@ import {
 import { hexConcat, parseEther, hexZeroPad } from 'ethers/lib/utils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
+import { TransactionRequest } from '@ethersproject/abstract-provider'
 
 function generatePaymasterAndData (op: any, pm: any): any {
-  return ''
+  const tokenAmount = BigNumber.from(1e18.toString())
+  const paymasterAndData = utils.hexlify(
+    utils.concat([pm, utils.hexZeroPad(utils.hexlify(tokenAmount), 32)])
+  )
+  return paymasterAndData
 }
 
-function deployERC20Paymaster (...args: any[]): any {
-  return ''
+export interface ERC20PaymasterBuildOptions {
+  entrypoint: string
+  nativeAsset: string
+  nativeAssetOracle: string
+  tokenAddress: string
+  tokenOracle: string
+  owner: string
+  deployer: Signer
 }
 
-describe('EntryPoint with paymaster', function () {
+export type SupportedERC20 = 'USDC' | 'USDT' | 'DAI'
+
+export function getPaymasterConstructor (
+  options: Required<Omit<Omit<ERC20PaymasterBuildOptions, 'nativeAsset'>, 'deployer'>>
+): string {
+  const constructorArgs = [
+    options.tokenAddress,
+    options.entrypoint,
+    options.tokenOracle,
+    options.nativeAssetOracle,
+    options.owner
+  ]
+  const paymasterConstructor = new utils.Interface(TokenPaymaster__factory.abi).encodeDeploy(constructorArgs)
+  return utils.hexlify(utils.concat([TokenPaymaster__factory.bytecode, paymasterConstructor]))
+}
+
+export async function deployERC20Paymaster (
+  provider: providers.Provider,
+  erc20: SupportedERC20,
+  options: ERC20PaymasterBuildOptions
+): Promise<string> {
+  if (options?.deployer === undefined) {
+    throw new Error('Deployer must be provided')
+  }
+
+  const constructorBytecode = getPaymasterConstructor(options)
+
+  const tx: TransactionRequest = {
+    to: '0x4e59b44847b379578588920ca78fbf26c0b4956c',
+    data: utils.hexConcat([
+      '0x0000000000000000000000000000000000000000000000000000000000000000',
+      constructorBytecode
+    ])
+  }
+  const txResponse = await options.deployer.sendTransaction(tx)
+  const receipt = await txResponse.wait()
+  if (receipt.status === 0) {
+    throw new Error(`ERC20Paymaster deployment failed: ${receipt.transactionHash}`)
+  }
+
+  return await calculateERC20PaymasterAddress(options)
+}
+
+// TODO: why the fuck?
+export async function calculateERC20PaymasterAddress (
+  options: Required<Omit<Omit<ERC20PaymasterBuildOptions, 'nativeAsset'>, 'deployer'>>
+): Promise<string> {
+  const address = utils.getCreate2Address(
+    '0x4e59b44847b379578588920cA78FbF26c0B4956C',
+    '0x0000000000000000000000000000000000000000000000000000000000000000',
+    utils.keccak256(getPaymasterConstructor(options))
+  )
+
+  return address
+}
+
+describe.only('TokenPaymaster', function () {
   let entryPoint: EntryPoint
   let accountOwner: Wallet
   let nativeAssetOracle: TestOracle2
@@ -61,7 +128,7 @@ describe('EntryPoint with paymaster', function () {
       token = await new TestERC20__factory(ethersSigner).deploy(6)
       nativeAssetOracle = await new TestOracle2__factory(ethersSigner).deploy()
       const tokenOracle = await new TestOracle2__factory(ethersSigner).deploy()
-      paymasterAddress = await deployERC20Paymaster(accountOwner.provider, 'ERC20.DAI', {
+      paymasterAddress = await deployERC20Paymaster(accountOwner.provider, 'DAI', {
         entrypoint: entryPoint.address,
         tokenAddress: token.address,
         tokenOracle: tokenOracle.address,
@@ -88,6 +155,7 @@ describe('EntryPoint with paymaster', function () {
             priceData = hexConcat([paymaster.address])
             await token.sudoTransfer(account.address, await ethersSigner.getAddress())
           })
+
           it('paymaster should reject if account doesn\'t have tokens', async () => {
             let op = await fillUserOp({
               sender: account.address,

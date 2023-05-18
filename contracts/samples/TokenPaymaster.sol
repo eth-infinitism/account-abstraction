@@ -24,7 +24,7 @@ import "./utils/UniswapHelper.sol";
 /// The contract uses an Oracle to fetch the latest token prices.
 /// @dev Inherits from BasePaymaster.
 contract TokenPaymaster is BasePaymaster, UniswapHelper {
-    uint256 public constant priceDenominator = 1e6;
+    uint256 public constant PRICE_DENOMINATOR = 1e6;
     uint256 public constant REFUND_POSTOP_COST = 40000; // Estimated gas cost for refunding tokens after the transaction is completed
 
     // The token, tokenOracle, and nativeAssetOracle are declared as immutable,
@@ -62,17 +62,17 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
         priceUpdateThreshold = 25e3; // 2.5%  1e6 = 100%
         transferOwnership(_owner);
         tokenDecimals = 10 ** _token.decimals();
-        require(_tokenOracle.decimals() == 8, "PP-ERC20 : token oracle decimals must be 8");
-        require(_nativeAssetOracle.decimals() == 8, "PP-ERC20 : native asset oracle decimals must be 8");
+        require(_tokenOracle.decimals() == 8, "TPM:token oracle decimals not 8");
+        require(_nativeAssetOracle.decimals() == 8, "TPM:native oracle decimals not 8");
     }
 
     /// @notice Updates the price markup and price update threshold configurations.
     /// @param _priceMarkup The new price markup percentage (1e6 = 100%).
     /// @param _updateThreshold The new price update threshold percentage (1e6 = 100%).
     function updateConfig(uint32 _priceMarkup, uint32 _updateThreshold) external onlyOwner {
-        require(_priceMarkup <= 120e4, "PP-ERC20 : price markup too high");
-        require(_priceMarkup >= 1e6, "PP-ERC20 : price markeup too low");
-        require(_updateThreshold <= 1e6, "PP-ERC20 : update threshold too high");
+        require(_priceMarkup <= 120e4, "TPM: price markup too high");
+        require(_priceMarkup >= 1e6, "TPM: price markeup too low");
+        require(_updateThreshold <= 1e6, "TPM: update threshold too high");
         priceMarkup = _priceMarkup;
         priceUpdateThreshold = _updateThreshold;
         emit ConfigUpdated(_priceMarkup, _updateThreshold);
@@ -105,19 +105,19 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
     {
         unchecked {
             uint256 cachedPrice = previousPrice;
-            require(cachedPrice != 0, "PP-ERC20 : price not set");
+            require(cachedPrice != 0, "TPM: price not set");
             uint256 length = userOp.paymasterAndData.length - 20;
         // 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf is the mask for the last 6 bits 011111 which mean length should be 100000(32) || 000000(0)
             require(
                 length & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf == 0,
-                "PP-ERC20 : invalid data length"
+                "TPM: invalid data length"
             );
         // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
             uint256 tokenAmount = (requiredPreFund + (REFUND_POSTOP_COST) * userOp.maxFeePerGas) * priceMarkup
-            * cachedPrice / (1e18 * priceDenominator);
+            * cachedPrice / (1e18 * PRICE_DENOMINATOR);
             if (length == 32) {
                 require(
-                    tokenAmount <= uint256(bytes32(userOp.paymasterAndData[20:52])), "PP-ERC20 : token amount too high"
+                    tokenAmount <= uint256(bytes32(userOp.paymasterAndData[20:52])), "TPM: token amount too high"
                 );
             }
             SafeTransferLib.safeTransferFrom(address(token), userOp.sender, address(this), tokenAmount);
@@ -143,8 +143,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
             uint192 price = nativeAsset * uint192(tokenDecimals) / tokenPrice;
             uint256 cachedUpdateThreshold = priceUpdateThreshold;
             if (
-                uint256(price) * priceDenominator / cachedPrice > priceDenominator + cachedUpdateThreshold
-                || uint256(price) * priceDenominator / cachedPrice < priceDenominator - cachedUpdateThreshold
+                uint256(price) * PRICE_DENOMINATOR / cachedPrice > PRICE_DENOMINATOR + cachedUpdateThreshold
+                || uint256(price) * PRICE_DENOMINATOR / cachedPrice < PRICE_DENOMINATOR - cachedUpdateThreshold
             ) {
                 previousPrice = uint192(int192(price));
                 cachedPrice = uint192(int192(price));
@@ -152,7 +152,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
         // Refund tokens based on actual gas cost
         // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
             uint256 actualTokenNeeded = (actualGasCost + REFUND_POSTOP_COST * tx.gasprice) * priceMarkup * cachedPrice
-            / (1e18 * priceDenominator); // We use tx.gasprice here since we don't know the actual gas price used by the user
+            / (1e18 * PRICE_DENOMINATOR); // We use tx.gasprice here since we don't know the actual gas price used by the user
             if (uint256(bytes32(context[0:32])) > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
                 SafeTransferLib.safeTransfer(
@@ -172,10 +172,11 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
     /// @return price The latest price fetched from the Oracle.
     function fetchPrice(IOracle _oracle) internal view returns (uint192 price) {
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = _oracle.latestRoundData();
-        require(answer > 0, "PP-ERC20 : Chainlink price <= 0");
+        require(answer > 0, "TPM: Chainlink price <= 0");
         // 2 days old price is considered stale since the price is updated every 24 hours
-        require(updatedAt >= block.timestamp - 60 * 60 * 24 * 2, "PP-ERC20 : Incomplete round");
-        require(answeredInRound >= roundId, "PP-ERC20 : Stale price");
+        // solhint-disable-next-line not-rely-on-time
+        require(updatedAt >= block.timestamp - 60 * 60 * 24 * 2, "TPM: Incomplete round");
+        require(answeredInRound >= roundId, "TPM: Stale price");
         price = uint192(int192(answer));
     }
 }

@@ -34,6 +34,7 @@
     "@types/node": "^16.4.12",
     "@typescript-eslint/eslint-plugin": "^5.30.5",
     "@typescript-eslint/parser": "^5.30.5",
+    "@uniswap/v3-periphery": "^1.4.3",
     "chai": "^4.3.4",
     "eslint": "^8.19.0",
     "eslint-config-standard": "^17.0.0",
