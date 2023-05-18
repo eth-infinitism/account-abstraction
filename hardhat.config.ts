@@ -20,7 +20,9 @@ function getNetwork1 (url: string): { url: string, accounts: { mnemonic: string 
 }
 
 function getNetwork (name: string): { url: string, accounts: { mnemonic: string } } {
-  return getNetwork1(`https://${name}.infura.io/v3/${process.env.INFURA_ID}`)
+  const url = name === 'fuse' ? 'https://rpc.fuse.io' : name === 'spark' ? 'https://rpc.fusespark.io/' :
+    `https://${name}.infura.io/v3/${process.env.INFURA_ID}`
+  return getNetwork1(url)
   // return getNetwork1(`wss://${name}.infura.io/ws/v3/${process.env.INFURA_ID}`)
 }
 
@@ -54,14 +56,26 @@ const config: HardhatUserConfig = {
     localgeth: { url: 'http://localgeth:8545' },
     goerli: getNetwork('goerli'),
     sepolia: getNetwork('sepolia'),
-    proxy: getNetwork1('http://localhost:8545')
+    proxy: getNetwork1('http://localhost:8545'),
+    fuse: getNetwork('fuse')
   },
   mocha: {
     timeout: 10000
   },
-
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY
+    apiKey: {
+        fuse: 'mykey'
+    },
+    customChains: [
+      {
+        network: "fuse",
+        chainId: 122,
+        urls: {
+          apiURL: "https://explorer.fuse.io/api",
+          browserURL: "https://explorer.fuse.io"
+        }
+      }
+    ]
   }
 
 }
