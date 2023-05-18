@@ -5,8 +5,8 @@ import "../samples/utils/IOracle.sol";
 contract TestOracle2 is IOracle {
     int256 public price;
 
-    constructor() {
-        price = 100000000;
+    constructor(int256 _price) {
+        price = _price;
     }
 
     function setPrice(int256 _price) external {
