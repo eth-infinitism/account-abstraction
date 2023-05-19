@@ -34,11 +34,14 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
     IOracle public immutable tokenOracle; // The Oracle contract used to fetch the latest token prices
     IOracle public immutable nativeAssetOracle; // The Oracle contract used to fetch the latest ETH prices
 
+    // TODO: streamline the naming (current/past/new etc.)
     uint192 public previousPrice; // The cached token price from the Oracle
     uint32 public priceMarkup; // The price markup percentage applied to the token price (1e6 = 100%)
     uint32 public priceUpdateThreshold; // The price update threshold percentage that triggers a price update (1e6 = 100%)
 
     event ConfigUpdated(uint32 priceMarkup, uint32 updateThreshold);
+
+    event TokenPriceUpdated(uint192 currentPrice, uint256 previousPrice);
 
     event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
 
@@ -86,11 +89,24 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.
-    function updatePrice() public {
-        // This function updates the cached ERC20/ETH price ratio
+    function updatePrice(bool force) public returns (uint192 newPrice) {
+        uint192 cachedPrice = previousPrice;
         uint192 tokenPrice = fetchPrice(tokenOracle);
         uint192 nativeAssetPrice = fetchPrice(nativeAssetOracle);
-        previousPrice = nativeAssetPrice * uint192(tokenDecimals) / tokenPrice;
+        uint192 price = nativeAssetPrice * uint192(tokenDecimals) / tokenPrice;
+
+        bool updateRequired = force ||
+            uint256(price) * PRICE_DENOMINATOR / cachedPrice > PRICE_DENOMINATOR + priceUpdateThreshold ||
+            uint256(price) * PRICE_DENOMINATOR / cachedPrice < PRICE_DENOMINATOR - priceUpdateThreshold;
+        if (!updateRequired) {
+            return cachedPrice;
+        }
+        // This function updates the cached ERC20/ETH price ratio
+        uint192 previousPriceTmp = previousPrice;
+        cachedPrice = nativeAssetPrice * uint192(tokenDecimals) / tokenPrice;
+        previousPrice = cachedPrice;
+        emit TokenPriceUpdated(previousPrice, previousPriceTmp);
+        return cachedPrice;
     }
 
     /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
@@ -106,10 +122,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
         unchecked {
             uint256 cachedPrice = previousPrice;
             require(cachedPrice != 0, "TPM: price not set");
-            uint256 length = userOp.paymasterAndData.length - 20;
-        // 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf is the mask for the last 6 bits 011111 which mean length should be 100000(32) || 000000(0)
-            require(
-                length & 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf == 0,
+            uint256 paymasterAndDataLength = userOp.paymasterAndData.length - 20;
+            require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
             );
         // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
@@ -136,19 +150,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
         if (mode == PostOpMode.postOpReverted) {
             return; // Do nothing here to not revert the whole bundle and harm reputation
         }
+        uint256 cachedPrice = updatePrice(false);
         unchecked {
-            uint192 tokenPrice = fetchPrice(tokenOracle);
-            uint192 nativeAsset = fetchPrice(nativeAssetOracle);
-            uint256 cachedPrice = previousPrice;
-            uint192 price = nativeAsset * uint192(tokenDecimals) / tokenPrice;
-            if (
-                uint256(price) * PRICE_DENOMINATOR / cachedPrice > PRICE_DENOMINATOR + priceUpdateThreshold
-                || uint256(price) * PRICE_DENOMINATOR / cachedPrice < PRICE_DENOMINATOR - priceUpdateThreshold
-            ) {
-                // TODO: WTF? CALL 'updatePrice' HERE!
-                previousPrice = uint192(int192(price));
-                cachedPrice = uint192(int192(price));
-            }
         // Refund tokens based on actual gas cost
         // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
             uint256 actualTokenNeeded = (actualGasCost + REFUND_POSTOP_COST * tx.gasprice) * priceMarkup * cachedPrice

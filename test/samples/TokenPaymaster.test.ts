@@ -1,4 +1,4 @@
-import { BigNumberish, providers, Signer, utils, Wallet } from 'ethers'
+import { BigNumberish, ContractReceipt, ContractTransaction, providers, Signer, utils, Wallet } from 'ethers'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
@@ -100,6 +100,7 @@ describe.only('TokenPaymaster', function () {
   let chainId: number
   let entryPoint: EntryPoint
   let accountOwner: Wallet
+  let tokenOracle: TestOracle2
   let nativeAssetOracle: TestOracle2
   let account: SimpleAccount
   let factory: SimpleAccountFactory
@@ -120,7 +121,7 @@ describe.only('TokenPaymaster', function () {
     await checkForGeth()
     token = await new TestERC20__factory(ethersSigner).deploy(6)
     nativeAssetOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceEther)
-    const tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken)
+    tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken)
     const owner = await ethersSigner.getAddress()
     paymasterAddress = await deployERC20Paymaster(accountOwner.provider, {
       entrypoint: entryPoint.address,
@@ -133,7 +134,7 @@ describe.only('TokenPaymaster', function () {
     paymaster = TokenPaymaster__factory.connect(paymasterAddress, ethersSigner)
 
     await token.transfer(paymaster.address, 100)
-    await paymaster.updatePrice()
+    await paymaster.updatePrice(true)
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1000') })
     await paymaster.addStake(1, { value: parseEther('2') })
 
@@ -194,7 +195,38 @@ describe.only('TokenPaymaster', function () {
     assert.closeTo(postOpGasCost.div(tx.effectiveGasPrice).toNumber(), 40000, 20000)
   })
 
-  it('should update cached token price if the change is above configured percentage')
+  it('should update cached token price if the change is above configured percentage', async function () {
+    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
+    await tokenOracle.setPrice(initialPriceToken * 5)
+    await nativeAssetOracle.setPrice(initialPriceEther * 10)
+
+    const paymasterAndData = generatePaymasterAndData(paymasterAddress)
+    let op = await fillUserOp({
+      sender: account.address,
+      paymasterAndData,
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const tx: ContractTransaction = await entryPoint
+      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+    const receipt: ContractReceipt = await tx.wait()
+
+    const decodedLogs = receipt.logs.map(it => {
+      return testInterface.parseLog(it)
+    })
+
+    const oldExpectedPrice = (initialPriceEther / initialPriceToken) * priceDenominator
+    const newExpectedPrice = oldExpectedPrice * 2
+
+    const actualTokenPrice = decodedLogs[3].args.actualTokenPrice
+    assert.equal(actualTokenPrice.toString(), newExpectedPrice.toString())
+
+    await expect(tx).to
+      .emit(paymaster, 'TokenPriceUpdated')
+      .withArgs(newExpectedPrice, oldExpectedPrice)
+  })
+
   it('should use token price supplied by the client if it is higher than cached')
   it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost')
 
