@@ -8,8 +8,8 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 import "../core/EntryPoint.sol";
 import "../core/BasePaymaster.sol";
-import "./utils/IOracle.sol";
 import "./utils/UniswapHelper.sol";
+import "./utils/OracleHelper.sol";
 
 /// @title Sample ERC-20 Token Paymaster for ERC-4337
 /// @notice Based on Pimlico 'PimlicoERC20Paymaster' and OpenGSN 'PermitERC20UniswapV3Paymaster'
@@ -23,28 +23,21 @@ import "./utils/UniswapHelper.sol";
 /// It also allows updating price configuration and withdrawing tokens by the contract owner.
 /// The contract uses an Oracle to fetch the latest token prices.
 /// @dev Inherits from BasePaymaster.
-contract TokenPaymaster is BasePaymaster, UniswapHelper {
-    uint256 public constant PRICE_DENOMINATOR = 1e6;
+contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     uint256 public constant REFUND_POSTOP_COST = 40000; // Estimated gas cost for refunding tokens after the transaction is completed
 
     // The token, tokenOracle, and nativeAssetOracle are declared as immutable,
     // meaning their values cannot change after contract creation.
     IERC20 public immutable token; // The ERC20 token used for transaction fee payments
-    uint256 public immutable tokenDecimals;
-    IOracle public immutable tokenOracle; // The Oracle contract used to fetch the latest token prices
-    IOracle public immutable nativeAssetOracle; // The Oracle contract used to fetch the latest ETH prices
 
     // TODO: streamline the naming (current/past/new etc.)
-    uint192 public previousPrice; // The cached token price from the Oracle
     uint32 public priceMarkup; // The price markup percentage applied to the token price (1e6 = 100%)
-    uint32 public priceUpdateThreshold; // The price update threshold percentage that triggers a price update (1e6 = 100%)
 
-    event ConfigUpdated(uint32 priceMarkup, uint32 updateThreshold);
-
-    event TokenPriceUpdated(uint192 currentPrice, uint256 previousPrice);
+    event ConfigUpdated(uint32 priceMarkup);
 
     event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
 
+    // TODO: I don't like defaults in Solidity - accept ALL parameters of fail!!!
     /// @notice Initializes the PimlicoERC20Paymaster contract with the given parameters.
     /// @param _token The ERC20 token used for transaction fee payments.
     /// @param _entryPoint The EntryPoint contract used in the Account Abstraction infrastructure.
@@ -56,57 +49,49 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
         IEntryPoint _entryPoint,
         IOracle _tokenOracle,
         IOracle _nativeAssetOracle,
+        bool _tokenOracleDirect,
+        bool _tokenOracleNumerator,
+        bool _nativeOracleNumerator,
         address _owner
-    ) BasePaymaster(_entryPoint) {
+    ) BasePaymaster(_entryPoint) OracleHelper(
+    _tokenOracle,
+    _nativeAssetOracle,
+    10 ** _token.decimals(),
+    25e3, // 2.5%  1e6 = 100%
+    10, // TODO: decide on a default; 10 seconds
+    _tokenOracleDirect,
+    _tokenOracleNumerator,
+    _nativeOracleNumerator
+) {
         token = _token;
-        tokenOracle = _tokenOracle; // oracle for token -> usd
-        nativeAssetOracle = _nativeAssetOracle; // oracle for native asset(eth/matic/avax..) -> usd
+//        tokenOracle = _tokenOracle; // oracle for token -> usd
+//        nativeAssetOracle = _nativeAssetOracle;
         priceMarkup = 110e4; // 110%  1e6 = 100%
-        priceUpdateThreshold = 25e3; // 2.5%  1e6 = 100%
         transferOwnership(_owner);
-        tokenDecimals = 10 ** _token.decimals();
-        require(_tokenOracle.decimals() == 8, "TPM:token oracle decimals not 8");
-        require(_nativeAssetOracle.decimals() == 8, "TPM:native oracle decimals not 8");
     }
 
-    /// @notice Updates the price markup and price update threshold configurations.
+    /// @notice Updates the price markup configuration.
     /// @param _priceMarkup The new price markup percentage (1e6 = 100%).
-    /// @param _updateThreshold The new price update threshold percentage (1e6 = 100%).
-    function updateConfig(uint32 _priceMarkup, uint32 _updateThreshold) external onlyOwner {
+    function setPriceMarkup(
+        uint32 _priceMarkup
+    ) public onlyOwner {
         require(_priceMarkup <= 120e4, "TPM: price markup too high");
         require(_priceMarkup >= 1e6, "TPM: price markeup too low");
-        require(_updateThreshold <= 1e6, "TPM: update threshold too high");
         priceMarkup = _priceMarkup;
-        priceUpdateThreshold = _updateThreshold;
-        emit ConfigUpdated(_priceMarkup, _updateThreshold);
+        updatePrice(true);
+        emit ConfigUpdated(_priceMarkup);
     }
+
+//    function asdfasdf() public onlyOwner {
+//        _setOracleConfiguration();
+//    }
+
 
     /// @notice Allows the contract owner to withdraw a specified amount of tokens from the contract.
     /// @param to The address to transfer the tokens to.
     /// @param amount The amount of tokens to transfer.
     function withdrawToken(address to, uint256 amount) external onlyOwner {
         SafeERC20.safeTransfer(token, to, amount);
-    }
-
-    /// @notice Updates the token price by fetching the latest price from the Oracle.
-    function updatePrice(bool force) public returns (uint192 newPrice) {
-        uint192 cachedPrice = previousPrice;
-        uint192 tokenPrice = fetchPrice(tokenOracle);
-        uint192 nativeAssetPrice = fetchPrice(nativeAssetOracle);
-        uint192 price = nativeAssetPrice * uint192(tokenDecimals) / tokenPrice;
-
-        bool updateRequired = force ||
-            uint256(price) * PRICE_DENOMINATOR / cachedPrice > PRICE_DENOMINATOR + priceUpdateThreshold ||
-            uint256(price) * PRICE_DENOMINATOR / cachedPrice < PRICE_DENOMINATOR - priceUpdateThreshold;
-        if (!updateRequired) {
-            return cachedPrice;
-        }
-        // This function updates the cached ERC20/ETH price ratio
-        uint192 previousPriceTmp = previousPrice;
-        cachedPrice = nativeAssetPrice * uint192(tokenDecimals) / tokenPrice;
-        previousPrice = cachedPrice;
-        emit TokenPriceUpdated(previousPrice, previousPriceTmp);
-        return cachedPrice;
     }
 
     /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
@@ -120,8 +105,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
     returns (bytes memory context, uint256 validationResult)
     {
         unchecked {
-            uint256 cachedPrice = previousPrice;
-            require(cachedPrice != 0, "TPM: price not set");
             uint256 paymasterAndDataLength = userOp.paymasterAndData.length - 20;
             require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
@@ -169,19 +152,5 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper {
 
             emit UserOperationSponsored(address(bytes20(context[32:52])), actualTokenNeeded, actualGasCost, cachedPrice);
         }
-    }
-
-    /// @notice Fetches the latest price from the given Oracle.
-    /// @dev This function is used to get the latest price from the tokenOracle or nativeAssetOracle.
-    /// @param _oracle The Oracle contract to fetch the price from.
-    /// @return price The latest price fetched from the Oracle.
-    function fetchPrice(IOracle _oracle) internal view returns (uint192 price) {
-        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = _oracle.latestRoundData();
-        require(answer > 0, "TPM: Chainlink price <= 0");
-        // 2 days old price is considered stale since the price is updated every 24 hours
-        // solhint-disable-next-line not-rely-on-time
-        require(updatedAt >= block.timestamp - 60 * 60 * 24 * 2, "TPM: Incomplete round");
-        require(answeredInRound >= roundId, "TPM: Stale price");
-        price = uint192(int192(answer));
     }
 }
