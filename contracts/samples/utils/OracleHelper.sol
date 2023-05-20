@@ -19,27 +19,29 @@ abstract contract OracleHelper {
     /// @notice Actually equals 10^(token.decimals) value used for the price calculation
     uint256 private immutable tokenDecimals;
 
-    /// @notice The Oracle contract used to fetch the latest token prices
-    IOracle private tokenOracle;
+    struct OracleHelperConfig {
+        /// @notice The Oracle contract used to fetch the latest token prices
+        IOracle tokenOracle;
 
-    /// @notice The Oracle contract used to fetch the latest ETH prices
-    IOracle private nativeOracle;
+        /// @notice The Oracle contract used to fetch the latest ETH prices
+        IOracle nativeOracle;
 
-    /// @notice if 'true' we will fetch price directly from tokenOracle
-    /// @notice if 'false' we will use nativeOracle to establish a token price through a shared third currency
-    bool private tokenToNativeOracle;
+        /// @notice if 'true' we will fetch price directly from tokenOracle
+        /// @notice if 'false' we will use nativeOracle to establish a token price through a shared third currency
+        bool tokenToNativeOracle;
 
-    /// @notice 'true' if price is dollars-per-token, 'false' if price is tokens-per-dollar
-    bool private tokenOracleReverse;
+        /// @notice 'true' if price is dollars-per-token, 'false' if price is tokens-per-dollar
+        bool tokenOracleReverse;
 
-    /// @notice 'true' if price is dollars-per-ether, 'false' if price is ether-per-dollar
-    bool private nativeOracleReverse;
+        /// @notice 'true' if price is dollars-per-ether, 'false' if price is ether-per-dollar
+        bool nativeOracleReverse;
 
-    /// @notice The price update threshold percentage that triggers a price update (1e6 = 100%)
-    uint256 private priceUpdateThreshold;
+        /// @notice The price update threshold percentage that triggers a price update (1e6 = 100%)
+        uint256 priceUpdateThreshold;
 
-    /// @notice The price cache will be returned without even fetching the oracles for this number of seconds
-    uint256 private cacheTimeToLive;
+        /// @notice The price cache will be returned without even fetching the oracles for this number of seconds
+        uint256 cacheTimeToLive;
+    }
 
     /// @notice The cached token price from the Oracle
     uint256 public cachedPrice;
@@ -47,45 +49,40 @@ abstract contract OracleHelper {
     /// @notice The timestamp of a block when the cached price was updated
     uint256 public cachedPriceTimestamp;
 
+    OracleHelperConfig private oracleHelperConfig;
+
     constructor (
-        IOracle _tokenOracle,
-        IOracle _nativeAssetOracle,
-        uint256 _tokenDecimals,
-        uint256 _updateThreshold,
-        uint256 _cacheTimeToLive,
-        bool _tokenToNativeOracle,
-        bool _tokenOracleReverse,
-        bool _nativeOracleReverse
+        OracleHelperConfig memory _oracleHelperConfig,
+        uint256 _tokenDecimals
     ) {
         tokenDecimals = _tokenDecimals;
         _setOracleConfiguration(
-            _tokenOracle,
-            _nativeAssetOracle,
-            _updateThreshold,
-            _cacheTimeToLive,
-            _tokenToNativeOracle,
-            _tokenOracleReverse,
-            _nativeOracleReverse);
+            _oracleHelperConfig
+        );
     }
 
     function _setOracleConfiguration(
-        IOracle _tokenOracle,
-        IOracle _nativeAssetOracle,
-        uint256 _updateThreshold,
-        uint256 _cacheTimeToLive,
-        bool _tokenToNativeOracle,
-        bool _tokenOracleReverse,
-        bool _nativeOracleReverse
+        OracleHelperConfig memory _oracleHelperConfig
     ) internal {
-        require(_updateThreshold <= 1e6, "TPM: update threshold too high");
-        require(_tokenOracle.decimals() == 8, "TPM:token oracle decimals not 8"); // TODO: support arbitrary oracle decimals
-        // TODO: this is only needed if not direct feed
-        //        require(_nativeAssetOracle.decimals() == 8, "TPM:native oracle decimals not 8");
+        oracleHelperConfig = _oracleHelperConfig;
+        require(_oracleHelperConfig.priceUpdateThreshold <= 1e6, "TPM: update threshold too high");
+        require(_oracleHelperConfig.tokenOracle.decimals() == 8, "TPM:token oracle decimals not 8"); // TODO: support arbitrary oracle decimals
+        if (!_oracleHelperConfig.tokenToNativeOracle) {
+            require(_oracleHelperConfig.nativeOracle.decimals() == 8, "TPM:native oracle decimals not 8");
+        }
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.
     function updatePrice(bool force) public returns (uint256 newPrice) {
-        // TODO: if not 'force' also check age of cached price - no need to update every 5 seconds
+        uint256 cacheTimeToLive = oracleHelperConfig.cacheTimeToLive;
+        uint256 priceUpdateThreshold = oracleHelperConfig.priceUpdateThreshold;
+        IOracle tokenOracle = oracleHelperConfig.tokenOracle;
+        IOracle nativeOracle = oracleHelperConfig.nativeOracle;
+
+        uint256 cacheAge = block.timestamp - cachedPriceTimestamp;
+        if (!force && cacheAge <= cacheTimeToLive) {
+            return cachedPrice;
+        }
         uint256 _cachedPrice = cachedPrice;
         uint256 tokenPrice = fetchPrice(tokenOracle);
         uint256 nativeAssetPrice = fetchPrice(nativeOracle);
