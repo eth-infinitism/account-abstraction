@@ -14,8 +14,6 @@ abstract contract UniswapHelper {
     uint256 private constant PRICE_DENOMINATOR = 1e6;
 
     struct UniswapHelperConfig {
-        ISwapRouter uniswap;
-
         /// @notice Minimum eth amount to get from a swap
         uint256 minSwapAmount;
 

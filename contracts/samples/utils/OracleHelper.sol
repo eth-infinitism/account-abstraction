@@ -57,6 +57,7 @@ abstract contract OracleHelper {
         OracleHelperConfig memory _oracleHelperConfig,
         uint256 _tokenDecimalPower
     ) {
+        cachedPrice = type(uint256).max; // initialize the storage slot to invalid value
         tokenDecimalPower = _tokenDecimalPower;
         _setOracleConfiguration(
             _oracleHelperConfig

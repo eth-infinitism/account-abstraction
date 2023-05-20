@@ -1,11 +1,11 @@
-import { BigNumberish, ContractReceipt, ContractTransaction, providers, Signer, utils, Wallet } from 'ethers'
-import { TransactionRequest } from '@ethersproject/abstract-provider'
-import { ethers } from 'hardhat'
-import { assert, expect } from 'chai'
+import { BigNumberish, ContractReceipt, ContractTransaction, Wallet, utils } from 'ethers'
 import { Interface, parseEther } from 'ethers/lib/utils'
+import { assert, expect } from 'chai'
+import { ethers } from 'hardhat'
 
 import {
   EntryPoint, EntryPoint__factory,
+  OracleHelper,
   SimpleAccount,
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
@@ -14,23 +14,16 @@ import {
   TestOracle2,
   TestOracle2__factory,
   TokenPaymaster,
-  TokenPaymaster__factory
+  TokenPaymaster__factory,
+  UniswapHelper
 } from '../../typechain'
-import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
+import {
+  OracleHelper as OracleHelperNamespace,
+  UniswapHelper as UniswapHelperNamespace
+} from '../../typechain/contracts/samples/TokenPaymaster'
+import { AddressZero, checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
-
-export interface ERC20PaymasterBuildOptions {
-  entrypoint: string
-  nativeAssetOracle: string
-  tokenAddress: string
-  tokenOracle: string
-  owner: string
-  deployer: Signer
-}
-
-const CREATE_2_FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C'
-const SALT = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 function generatePaymasterAndData (pm: string, tokenAmount?: BigNumberish): string {
   if (tokenAmount != null) {
@@ -42,45 +35,6 @@ function generatePaymasterAndData (pm: string, tokenAmount?: BigNumberish): stri
       utils.concat([pm])
     )
   }
-}
-
-export function getPaymasterConstructor (
-  options: ERC20PaymasterBuildOptions
-): string {
-  const constructorArgs = [
-    options.tokenAddress,
-    options.entrypoint,
-    options.tokenOracle,
-    options.nativeAssetOracle,
-    options.owner
-  ]
-  const paymasterConstructor = new Interface(TokenPaymaster__factory.abi).encodeDeploy(constructorArgs)
-  return utils.hexlify(utils.concat([TokenPaymaster__factory.bytecode, paymasterConstructor]))
-}
-
-export async function deployERC20Paymaster (
-  provider: providers.Provider,
-  options: ERC20PaymasterBuildOptions
-): Promise<string> {
-  const constructorBytecode = getPaymasterConstructor(options)
-
-  const tx: TransactionRequest = {
-    to: CREATE_2_FACTORY,
-    data: utils.hexConcat([
-      SALT,
-      constructorBytecode
-    ])
-  }
-  const txResponse = await options.deployer.sendTransaction(tx)
-  const receipt = await txResponse.wait()
-  if (receipt.status === 0) {
-    throw new Error(`ERC20Paymaster deployment failed: ${receipt.transactionHash}`)
-  }
-  return utils.getCreate2Address(
-    CREATE_2_FACTORY,
-    SALT,
-    utils.keccak256(constructorBytecode)
-  )
 }
 
 describe.only('TokenPaymaster', function () {
@@ -108,6 +62,7 @@ describe.only('TokenPaymaster', function () {
   let paymaster: TokenPaymaster
   let callData: string
   let token: TestERC20
+  let weth: TestERC20
 
   before(async function () {
     entryPoint = await deployEntryPoint()
@@ -120,28 +75,53 @@ describe.only('TokenPaymaster', function () {
     await fund(account)
     await checkForGeth()
     token = await new TestERC20__factory(ethersSigner).deploy(6)
+    weth = await new TestERC20__factory(ethersSigner).deploy(18)
     nativeAssetOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceEther)
     tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken)
     const owner = await ethersSigner.getAddress()
-    paymasterAddress = await deployERC20Paymaster(accountOwner.provider, {
-      entrypoint: entryPoint.address,
-      tokenAddress: token.address,
+    const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
+      maxTokenBalance: 100e18.toString(),
+      minEntryPointBalance: 1e17.toString(),
+      priceMarkup: 1_500_000 // +50%
+    }
+
+    const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
+      cacheTimeToLive: 10,
+      nativeOracle: nativeAssetOracle.address,
+      nativeOracleReverse: false,
+      priceUpdateThreshold: 200_000, // +20%
       tokenOracle: tokenOracle.address,
-      nativeAssetOracle: nativeAssetOracle.address,
-      owner: owner,
-      deployer: ethersSigner
-    })
-    paymaster = TokenPaymaster__factory.connect(paymasterAddress, ethersSigner)
+      tokenOracleReverse: false,
+      tokenToNativeOracle: false
+    }
+
+    const uniswapHelperConfig: UniswapHelperNamespace.UniswapHelperConfigStruct = {
+      minSwapAmount: 1,
+      slippage: 5,
+      uniswapPoolFee: 3
+    }
+
+    paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
+      token.address,
+      entryPoint.address,
+      weth.address,
+      AddressZero,
+      tokenPaymasterConfig,
+      oracleHelperConfig,
+      uniswapHelperConfig,
+      owner
+    )
+    paymasterAddress = paymaster.address
 
     await token.transfer(paymaster.address, 100)
-    await paymaster.updatePrice(true)
+    await paymaster.updateCachedPrice(true)
     await entryPoint.depositTo(paymaster.address, { value: parseEther('1000') })
     await paymaster.addStake(1, { value: parseEther('2') })
 
     callData = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
   })
 
-  it('paymaster should reject if account does not have enough tokens or allowance', async () => {
+  it.only('paymaster should reject if account does not have enough tokens or allowance', async () => {
     const paymasterAndData = generatePaymasterAndData(paymasterAddress)
     let op = await fillUserOp({
       sender: account.address,
@@ -227,12 +207,17 @@ describe.only('TokenPaymaster', function () {
       .withArgs(newExpectedPrice, oldExpectedPrice)
   })
 
-  it('should use token price supplied by the client if it is higher than cached')
+  it('should use token price supplied by the client if it is higher than cached', async function () {
+    // const paymasterAndData = generatePaymasterAndData(paymasterAddress)
+  })
+
   it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost')
 
   it('should swap tokens for ether if it falls below configured value and deposit it', async function () {
 
   })
+
+  it('TBD: should reject transaction if cached price is way too old')
 })
 
 // describe('#handleOps - refund, max price', () => {

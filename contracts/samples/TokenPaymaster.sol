@@ -93,7 +93,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     function setTokenPaymasterConfig(
         TokenPaymasterConfig memory _tokenPaymasterConfig
     ) public onlyOwner {
-        require(_tokenPaymasterConfig.priceMarkup <= 120e4, "TPM: price markup too high");
+        require(_tokenPaymasterConfig.priceMarkup <= 1900000, "TPM: price markup too high");
         require(_tokenPaymasterConfig.priceMarkup >= 1e6, "TPM: price markup too low");
         tokenPaymasterConfig = _tokenPaymasterConfig;
         emit ConfigUpdated(_tokenPaymasterConfig);
