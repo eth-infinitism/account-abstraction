@@ -24,7 +24,6 @@ import "./utils/OracleHelper.sol";
 /// The contract uses an Oracle to fetch the latest token prices.
 /// @dev Inherits from BasePaymaster.
 contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
-    uint256 public constant REFUND_POSTOP_COST = 40000; // Estimated gas cost for refunding tokens after the transaction is completed
 
     struct TokenPaymasterConfig {
         /// @notice The price markup percentage applied to the token price (1e6 = 100%)
@@ -37,15 +36,22 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         uint256 maxTokenBalance;
     }
 
-    // The token, tokenOracle, and nativeAssetOracle are declared as immutable,
-    // meaning their values cannot change after contract creation.
-    IERC20 public immutable token; // The ERC20 token used for transaction fee payments
-
-    TokenPaymasterConfig private tokenPaymasterConfig;
-
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);
 
     event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
+
+    event PostOpReverted(address indexed user, uint256 preCharge);
+
+    /// @notice all 'price' variables are multiplied by this value to avoid rounding up
+    uint256 private constant PRICE_DENOMINATOR = 1e6;
+
+    /// @notice Estimated gas cost for refunding tokens after the transaction is completed
+    uint256 public constant REFUND_POSTOP_COST = 40000;
+
+    /// @notice The ERC20 token used for transaction fee payments
+    IERC20 public immutable token;
+
+    TokenPaymasterConfig private tokenPaymasterConfig;
 
     // TODO: I don't like defaults in Solidity - accept ALL parameters of fail!!!
     /// @notice Initializes the PimlicoERC20Paymaster contract with the given parameters.
@@ -79,9 +85,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     {
         token = _token;
         setTokenPaymasterConfig(_tokenPaymasterConfig);
-        //        tokenOracle = _tokenOracle; // oracle for token -> usd
-        //        nativeAssetOracle = _nativeAssetOracle;
-        //        priceMarkup = 110e4; // 110%  1e6 = 100%
         transferOwnership(_owner);
     }
 
@@ -91,7 +94,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         TokenPaymasterConfig memory _tokenPaymasterConfig
     ) public onlyOwner {
         require(_tokenPaymasterConfig.priceMarkup <= 120e4, "TPM: price markup too high");
-        require(_tokenPaymasterConfig.priceMarkup >= 1e6, "TPM: price markeup too low");
+        require(_tokenPaymasterConfig.priceMarkup >= 1e6, "TPM: price markup too low");
         tokenPaymasterConfig = _tokenPaymasterConfig;
         emit ConfigUpdated(_tokenPaymasterConfig);
     }
@@ -123,25 +126,17 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256 requiredPreFund)
     internal
     override
-    returns (bytes memory context, uint256 validationResult)
-    {
-        uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
-        unchecked {
+    returns (bytes memory context, uint256 validationResult) {unchecked {
+            uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             uint256 paymasterAndDataLength = userOp.paymasterAndData.length - 20;
             require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
             );
-        // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
-            uint256 tokenAmount = (requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas)) * priceMarkup
-            * cachedPrice / PRICE_DENOMINATOR / PRICE_DENOMINATOR; // 2xPRICE_DENOMINATOR to cancel out 'priceMarkup * cachedPrice' denominators
-        //            if (length == 32) {
-        //                require(
-        //                    tokenAmount <= uint256(bytes32(userOp.paymasterAndData[20:52])), "TPM: token amount too high"
-        //                );
-        //            }
+            uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas);
+            uint256 cachedPriceWithMarkup = cachedPrice * priceMarkup / PRICE_DENOMINATOR;
+            uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup, false);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
-            context = abi.encodePacked(tokenAmount, userOp.sender);
-        // No return here since validationData == 0 and we have context saved in memory
+            context = abi.encodePacked(tokenAmount, userOp.maxFeePerGas, userOp.sender);
             validationResult = 0;
         }
     }
@@ -152,28 +147,32 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
-        if (mode == PostOpMode.postOpReverted) {
-            return; // Do nothing here to not revert the whole bundle and harm reputation
-        }
-        uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
-        uint256 cachedPrice = updatePrice(false);
         unchecked {
+            uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
+            uint256 preCharge = uint256(bytes32(context[0 : 32]));
+            uint256 maxFeePerGas = uint256(bytes32(context[32 : 64]));
+            address userOpSender = address(bytes20(context[64 : 84]));
+            if (mode == PostOpMode.postOpReverted) {
+                emit PostOpReverted(userOpSender, preCharge);
+                // Do nothing here to not revert the whole bundle and harm reputation
+                return;
+            }
+            uint256 _cachedPrice = updateCachedPrice(false);
+            uint256 cachedPriceWithMarkup = _cachedPrice * priceMarkup / PRICE_DENOMINATOR;
         // Refund tokens based on actual gas cost
-        // NOTE: we assumed that nativeAsset's decimals is 18, if there is any nativeAsset with different decimals, need to change the 1e18 to the correct decimals
-            uint256 actualTokenNeeded = (actualGasCost + REFUND_POSTOP_COST * tx.gasprice) * priceMarkup * cachedPrice
-            / PRICE_DENOMINATOR / PRICE_DENOMINATOR; // 2xPRICE_DENOMINATOR to cancel out 'priceMarkup * cachedPrice' denominators
-        // TODO: We use tx.gasprice here since we don't know the actual gas price used by the user
-        // TODO: encode the 'maxFeePerGas' into context - using 'tx.gasprice' breaks this Paymaster as it may be way way above UserOp 'maxFeePerGas' and fail the postOp unnecessarily
-            if (uint256(bytes32(context[0 : 32])) > actualTokenNeeded) {
+            uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * maxFeePerGas;
+            uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup, false);
+            if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
                 SafeERC20.safeTransfer(
                     token,
-                    address(bytes20(context[32 : 52])),
-                    uint256(bytes32(context[0 : 32])) - actualTokenNeeded
+                    userOpSender,
+                    preCharge - actualTokenNeeded
                 );
             } // If the token amount is not greater than the actual amount needed, no refund occurs
 
-            emit UserOperationSponsored(address(bytes20(context[32 : 52])), actualTokenNeeded, actualGasCost, cachedPrice);
+            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPrice);
+            _maybeSwapTokenToWeth(token, _cachedPrice, false);
         }
     }
 }

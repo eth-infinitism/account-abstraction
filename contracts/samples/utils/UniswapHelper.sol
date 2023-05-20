@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable not-rely-on-time */
+
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
@@ -8,6 +10,8 @@ import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryPayments.sol";
 
 abstract contract UniswapHelper {
     event UniswapReverted(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMin);
+
+    uint256 private constant PRICE_DENOMINATOR = 1e6;
 
     struct UniswapHelperConfig {
         ISwapRouter uniswap;
@@ -41,7 +45,6 @@ abstract contract UniswapHelper {
 
     function _maybeSwapTokenToWeth(IERC20 tokenIn, uint256 quote, bool reverseQuote) internal returns (uint256) {
         uint256 tokenBalance = tokenIn.balanceOf(address(this));
-        //        uint256 quote = toActualQuote(uint256(tokenSwapData.priceFeed.latestAnswer()), tokenSwapData.priceDivisor);
         uint256 amountOutMin = addSlippage(tokenToWei(tokenBalance, quote, reverseQuote), uniswapHelperConfig.slippage);
         if (amountOutMin < uniswapHelperConfig.minSwapAmount) {
             return 0;
@@ -51,8 +54,7 @@ abstract contract UniswapHelper {
             address(wrappedNative),
             tokenBalance,
             amountOutMin,
-            uniswapHelperConfig.uniswapPoolFee,
-            uniswap
+            uniswapHelperConfig.uniswapPoolFee
         );
     }
 
@@ -61,18 +63,18 @@ abstract contract UniswapHelper {
     }
 
 
-    function tokenToWei(uint256 amount, uint256 quote, bool reverse) private pure returns (uint256) {
+    function tokenToWei(uint256 amount, uint256 price, bool reverse) internal pure returns (uint256) {
         if (reverse) {
-            return weiToToken(amount, quote, false);
+            return weiToToken(amount, price, false);
         }
-        return amount * quote / 1e36;
+        return amount * price / PRICE_DENOMINATOR;
     }
 
-    function weiToToken(uint256 amount, uint256 quote, bool reverse) private pure returns (uint256) {
+    function weiToToken(uint256 amount, uint256 price, bool reverse) internal pure returns (uint256) {
         if (reverse) {
-            return tokenToWei(amount, quote, false);
+            return tokenToWei(amount, price, false);
         }
-        return amount * 1e36 / quote;
+        return amount * PRICE_DENOMINATOR / price;
     }
 
     // turn ERC-20 tokens into wrapped ETH at market price
@@ -80,15 +82,13 @@ abstract contract UniswapHelper {
         address token,
         address weth,
         uint256 amountOut,
-        uint24 fee,
-        ISwapRouter uniswap
+        uint24 fee
     ) internal returns (uint256 amountIn) {
         ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams(
             token, //tokenIn
             weth, //tokenOut
             fee,
             address(uniswap), //recipient - keep WETH at SwapRouter for withdrawal
-            // solhint-disable-next-line not-rely-on-time
             block.timestamp, //deadline
             amountOut,
             type(uint256).max,
@@ -97,7 +97,7 @@ abstract contract UniswapHelper {
         amountIn = uniswap.exactOutputSingle(params);
     }
 
-    function unwrapWeth(ISwapRouter uniswap, uint256 amount) internal {
+    function unwrapWeth(uint256 amount) internal {
         IPeripheryPayments(address(uniswap)).unwrapWETH9(amount, address(this));
     }
 
@@ -107,15 +107,13 @@ abstract contract UniswapHelper {
         address tokenOut,
         uint256 amountIn,
         uint256 amountOutMin,
-        uint24 fee,
-        ISwapRouter uniswap
+        uint24 fee
     ) internal returns (uint256 amountOut) {
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams(
             tokenIn, //tokenIn
             tokenOut, //tokenOut
             fee,
             address(uniswap),
-            // solhint-disable-next-line not-rely-on-time
             block.timestamp, //deadline
             amountIn,
             amountOutMin,

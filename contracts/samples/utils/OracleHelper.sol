@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable not-rely-on-time */
+
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 import "./IOracle.sol";
@@ -14,10 +16,10 @@ abstract contract OracleHelper {
 
     event TokenPriceUpdated(uint256 currentPrice, uint256 previousPrice);
 
-    uint256 internal constant PRICE_DENOMINATOR = 1e6;
+    uint256 private constant PRICE_DENOMINATOR = 1e6;
 
     /// @notice Actually equals 10^(token.decimals) value used for the price calculation
-    uint256 private immutable tokenDecimals;
+    uint256 private immutable tokenDecimalPower;
 
     struct OracleHelperConfig {
         /// @notice The Oracle contract used to fetch the latest token prices
@@ -53,9 +55,9 @@ abstract contract OracleHelper {
 
     constructor (
         OracleHelperConfig memory _oracleHelperConfig,
-        uint256 _tokenDecimals
+        uint256 _tokenDecimalPower
     ) {
-        tokenDecimals = _tokenDecimals;
+        tokenDecimalPower = _tokenDecimalPower;
         _setOracleConfiguration(
             _oracleHelperConfig
         );
@@ -66,14 +68,10 @@ abstract contract OracleHelper {
     ) internal {
         oracleHelperConfig = _oracleHelperConfig;
         require(_oracleHelperConfig.priceUpdateThreshold <= 1e6, "TPM: update threshold too high");
-        require(_oracleHelperConfig.tokenOracle.decimals() == 8, "TPM:token oracle decimals not 8"); // TODO: support arbitrary oracle decimals
-        if (!_oracleHelperConfig.tokenToNativeOracle) {
-            require(_oracleHelperConfig.nativeOracle.decimals() == 8, "TPM:native oracle decimals not 8");
-        }
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.
-    function updatePrice(bool force) public returns (uint256 newPrice) {
+    function updateCachedPrice(bool force) public returns (uint256 newPrice) {
         uint256 cacheTimeToLive = oracleHelperConfig.cacheTimeToLive;
         uint256 priceUpdateThreshold = oracleHelperConfig.priceUpdateThreshold;
         IOracle tokenOracle = oracleHelperConfig.tokenOracle;
@@ -86,16 +84,17 @@ abstract contract OracleHelper {
         uint256 _cachedPrice = cachedPrice;
         uint256 tokenPrice = fetchPrice(tokenOracle);
         uint256 nativeAssetPrice = fetchPrice(nativeOracle);
-        uint256 price = nativeAssetPrice * uint256(tokenDecimals) / tokenPrice;
+        uint256 price = nativeAssetPrice * tokenDecimalPower / tokenPrice;
+        uint256 priceNewByOld = price * PRICE_DENOMINATOR / _cachedPrice;
 
         bool updateRequired = force ||
-        uint256(price) * PRICE_DENOMINATOR / _cachedPrice > PRICE_DENOMINATOR + priceUpdateThreshold ||
-        uint256(price) * PRICE_DENOMINATOR / _cachedPrice < PRICE_DENOMINATOR - priceUpdateThreshold;
+            priceNewByOld > PRICE_DENOMINATOR + priceUpdateThreshold ||
+            priceNewByOld < PRICE_DENOMINATOR - priceUpdateThreshold;
         if (!updateRequired) {
             return _cachedPrice;
         }
         uint256 previousPrice = _cachedPrice;
-        _cachedPrice = nativeAssetPrice * uint256(tokenDecimals) / tokenPrice;
+        _cachedPrice = nativeAssetPrice * tokenDecimalPower / tokenPrice;
         cachedPrice = _cachedPrice;
         emit TokenPriceUpdated(_cachedPrice, previousPrice);
         return _cachedPrice;
@@ -109,9 +108,8 @@ abstract contract OracleHelper {
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = _oracle.latestRoundData();
         require(answer > 0, "TPM: Chainlink price <= 0");
         // 2 days old price is considered stale since the price is updated every 24 hours
-        // solhint-disable-next-line not-rely-on-time
         require(updatedAt >= block.timestamp - 60 * 60 * 24 * 2, "TPM: Incomplete round");
         require(answeredInRound >= roundId, "TPM: Stale price");
-        price = uint256(uint256(answer));
+        price = uint256(answer);
     }
 }
