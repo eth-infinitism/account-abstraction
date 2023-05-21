@@ -141,6 +141,14 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas);
             // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
+            if (paymasterAndDataLength == 32) {
+                uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[20 : 52]));
+                console.log("clientSuppliedPrice=%s cachedPriceWithMarkup=%", clientSuppliedPrice, cachedPriceWithMarkup);
+                if (clientSuppliedPrice < cachedPriceWithMarkup){
+                    // note: smaller number means 'more ether per token'
+                    cachedPriceWithMarkup = clientSuppliedPrice;
+                }
+            }
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup, false);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
             context = abi.encodePacked(tokenAmount, userOp.maxFeePerGas, userOp.sender);

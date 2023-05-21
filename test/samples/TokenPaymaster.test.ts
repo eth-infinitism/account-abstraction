@@ -25,10 +25,10 @@ import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund
 
 import { fillUserOp, signUserOp } from '../UserOp'
 
-function generatePaymasterAndData (pm: string, tokenAmount?: BigNumberish): string {
-  if (tokenAmount != null) {
+function generatePaymasterAndData (pm: string, tokenPrice?: BigNumberish): string {
+  if (tokenPrice != null) {
     return utils.hexlify(
-      utils.concat([pm, utils.hexZeroPad(utils.hexlify(tokenAmount), 32)])
+      utils.concat([pm, utils.hexZeroPad(utils.hexlify(tokenPrice), 32)])
     )
   } else {
     return utils.hexlify(
@@ -181,6 +181,7 @@ describe.only('TokenPaymaster', function () {
   })
 
   it('should update cached token price if the change is above configured percentage', async function () {
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
     await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
     await tokenOracle.setPrice(initialPriceToken * 5)
@@ -210,10 +211,70 @@ describe.only('TokenPaymaster', function () {
     await expect(tx).to
       .emit(paymaster, 'TokenPriceUpdated')
       .withArgs(newExpectedPrice, oldExpectedPrice)
+
+    await ethers.provider.send('evm_revert', [snapshot])
   })
 
-  it('should use token price supplied by the client if it is higher than cached', async function () {
-    // const paymasterAndData = generatePaymasterAndData(paymasterAddress)
+  it('should use token price supplied by the client if it is better than cached', async function () {
+    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
+
+    const currentCachedPrice = await paymaster.cachedPrice()
+    assert.equal(currentCachedPrice.div(priceDenominator).toString(), '5')
+    const overrideTokenPrice = BigNumber.from(0.271 * priceDenominator)
+    const paymasterAndData = generatePaymasterAndData(paymasterAddress, overrideTokenPrice)
+
+    let op = await fillUserOp({
+      sender: account.address,
+      paymasterAndData,
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const tx = await entryPoint
+      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .then(async tx => await tx.wait())
+
+    const decodedLogs = tx.logs.map(it => {
+      return testInterface.parseLog(it)
+    })
+
+    const preChargeTokens = decodedLogs[0].args.value
+    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(3)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
+    const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
+    const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
+
+    assert.equal(preChargeTokenPrice.toString(), overrideTokenPrice.toString())
+  })
+
+  it('should use cached token price if the one supplied by the client if it is worse', async function () {
+    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
+
+    const currentCachedPrice = await paymaster.cachedPrice()
+    assert.equal(currentCachedPrice.div(priceDenominator).toString(), '5')
+    // note: higher number is lower token price
+    const overrideTokenPrice = BigNumber.from(50 * priceDenominator)
+    const paymasterAndData = generatePaymasterAndData(paymasterAddress, overrideTokenPrice)
+    let op = await fillUserOp({
+      sender: account.address,
+      paymasterAndData,
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const tx = await entryPoint
+      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .then(async tx => await tx.wait())
+
+    const decodedLogs = tx.logs.map(it => {
+      return testInterface.parseLog(it)
+    })
+
+    const preChargeTokens = decodedLogs[0].args.value
+    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(3)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
+    const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
+    const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
+
+    assert.equal(preChargeTokenPrice.toString(), currentCachedPrice.mul(10).div(15).toString())
   })
 
   it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost')
