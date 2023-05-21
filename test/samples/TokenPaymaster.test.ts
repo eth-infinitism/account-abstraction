@@ -121,7 +121,7 @@ describe.only('TokenPaymaster', function () {
     callData = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
   })
 
-  it.only('paymaster should reject if account does not have enough tokens or allowance', async () => {
+  it('paymaster should reject if account does not have enough tokens or allowance', async () => {
     const paymasterAndData = generatePaymasterAndData(paymasterAddress)
     let op = await fillUserOp({
       sender: account.address,
@@ -140,7 +140,7 @@ describe.only('TokenPaymaster', function () {
     ).to.revertedWith('AA33 reverted: ERC20: transfer amount exceeds balance')
   })
 
-  it('should be able to sponsor the UserOp while charging correct amount of ERC-20 tokens', async () => {
+  it.only('should be able to sponsor the UserOp while charging correct amount of ERC-20 tokens', async () => {
     await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
@@ -152,7 +152,7 @@ describe.only('TokenPaymaster', function () {
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
     const tx = await entryPoint
-      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .handleOps([op], beneficiaryAddress, { gasLimit: 3e7 })
       .then(async tx => await tx.wait())
 
     const decodedLogs = tx.logs.map(it => {

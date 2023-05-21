@@ -19,6 +19,9 @@ import "./Helpers.sol";
 import "./NonceManager.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+// STOPSHIP: TODO: remove
+import "hardhat/console.sol";
+
 contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
 
     using UserOperationLib for UserOperation;
@@ -568,14 +571,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
             if (context.length > 0) {
                 actualGasCost = actualGas * gasPrice;
                 if (mode != IPaymaster.PostOpMode.postOpReverted) {
+                    console.log("EP: postOp");
                     IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost);
                 } else {
+                    console.log("EP: postOp postOpReverted");
                     // solhint-disable-next-line no-empty-blocks
                     try IPaymaster(paymaster).postOp{gas : mUserOp.verificationGasLimit}(mode, context, actualGasCost) {}
                     catch Error(string memory reason) {
+                        console.log("EP: AA50 reason");
                         revert FailedOp(opIndex, string.concat("AA50 postOp reverted: ", reason));
                     }
                     catch {
+                        console.log("EP: AA50");
                         revert FailedOp(opIndex, "AA50 postOp revert");
                     }
                 }

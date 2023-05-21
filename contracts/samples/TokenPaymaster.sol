@@ -11,6 +11,12 @@ import "../core/BasePaymaster.sol";
 import "./utils/UniswapHelper.sol";
 import "./utils/OracleHelper.sol";
 
+// STOPSHIP: TODO: remove
+import "hardhat/console.sol";
+
+
+// TODO: note https://github.com/pimlicolabs/erc20-paymaster-contracts/issues/10
+// TODO: set a hard limit on how much gas a single user op may cost (postOp to fix the price)
 /// @title Sample ERC-20 Token Paymaster for ERC-4337
 /// @notice Based on Pimlico 'PimlicoERC20Paymaster' and OpenGSN 'PermitERC20UniswapV3Paymaster'
 /// This Paymaster covers gas fees in exchange for ERC20 tokens charged using allowance pre-issued by ERC-4337 accounts.
@@ -147,12 +153,14 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
+        console.log("reached _postOp");
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             uint256 preCharge = uint256(bytes32(context[0 : 32]));
             uint256 maxFeePerGas = uint256(bytes32(context[32 : 64]));
             address userOpSender = address(bytes20(context[64 : 84]));
             if (mode == PostOpMode.postOpReverted) {
+                console.log("reached _postOp in postOpReverted mode");
                 emit PostOpReverted(userOpSender, preCharge);
                 // Do nothing here to not revert the whole bundle and harm reputation
                 return;
@@ -172,7 +180,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             } // If the token amount is not greater than the actual amount needed, no refund occurs
 
             emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPrice);
+            console.log("reached _postOp _maybeSwapTokenToWeth");
             _maybeSwapTokenToWeth(token, _cachedPrice, false);
+            revert('pre _maybeSwapTokenToWeth revert');
         }
     }
 }
