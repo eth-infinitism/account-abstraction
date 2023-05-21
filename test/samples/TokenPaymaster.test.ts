@@ -1,11 +1,10 @@
-import { BigNumberish, ContractReceipt, ContractTransaction, Wallet, utils } from 'ethers'
+import { BigNumberish, ContractReceipt, ContractTransaction, Wallet, utils, BigNumber } from 'ethers'
 import { Interface, parseEther } from 'ethers/lib/utils'
 import { assert, expect } from 'chai'
 import { ethers } from 'hardhat'
 
 import {
   EntryPoint, EntryPoint__factory,
-  OracleHelper,
   SimpleAccount,
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
@@ -13,15 +12,16 @@ import {
   TestERC20__factory,
   TestOracle2,
   TestOracle2__factory,
+  TestUniswap,
+  TestUniswap__factory,
   TokenPaymaster,
-  TokenPaymaster__factory,
-  UniswapHelper
+  TokenPaymaster__factory
 } from '../../typechain'
 import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
 } from '../../typechain/contracts/samples/TokenPaymaster'
-import { AddressZero, checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
+import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
 
@@ -52,6 +52,7 @@ describe.only('TokenPaymaster', function () {
   )
 
   let chainId: number
+  let testUniswap: TestUniswap
   let entryPoint: EntryPoint
   let accountOwner: Wallet
   let tokenOracle: TestOracle2
@@ -66,6 +67,7 @@ describe.only('TokenPaymaster', function () {
 
   before(async function () {
     entryPoint = await deployEntryPoint()
+    testUniswap = await new TestUniswap__factory(ethersSigner).deploy()
     factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
 
     accountOwner = createAccountOwner()
@@ -105,7 +107,7 @@ describe.only('TokenPaymaster', function () {
       token.address,
       entryPoint.address,
       weth.address,
-      AddressZero,
+      testUniswap.address,
       tokenPaymasterConfig,
       oracleHelperConfig,
       uniswapHelperConfig,
@@ -140,7 +142,7 @@ describe.only('TokenPaymaster', function () {
     ).to.revertedWith('AA33 reverted: ERC20: transfer amount exceeds balance')
   })
 
-  it.only('should be able to sponsor the UserOp while charging correct amount of ERC-20 tokens', async () => {
+  it('should be able to sponsor the UserOp while charging correct amount of ERC-20 tokens', async () => {
     await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
@@ -166,8 +168,11 @@ describe.only('TokenPaymaster', function () {
     const actualGasCostPaymaster = decodedLogs[3].args.actualGasCost
     const actualGasCostEntryPoint = decodedLogs[4].args.actualGasCost
     const expectedTokenPrice = initialPriceEther / initialPriceToken
-    const addedPostOpCost = tx.effectiveGasPrice.mul(40000)
-    const expectedTokenCharge = actualGasCostPaymaster.add(addedPostOpCost).mul(expectedTokenPrice).mul(11).div(10) // added 110% priceMarkup
+    const addedPostOpCost = BigNumber.from(op.maxFeePerGas).mul(40000)
+    // added 150% priceMarkup
+    // note: as price is in ether-per-token, and we want more tokens, increasing it means dividing it by markup
+    const expectedTokenPriceWithMarkup = BigNumber.from(expectedTokenPrice).mul(priceDenominator).mul(10).div(15)
+    const expectedTokenCharge = actualGasCostPaymaster.add(addedPostOpCost).mul(priceDenominator).div(expectedTokenPriceWithMarkup)
     const postOpGasCost = actualGasCostEntryPoint.sub(actualGasCostPaymaster)
     assert.equal(actualTokenChargeEvents.toString(), actualTokenCharge.toString())
     assert.equal(actualTokenChargeEvents.toString(), expectedTokenCharge.toString())
@@ -199,7 +204,7 @@ describe.only('TokenPaymaster', function () {
     const oldExpectedPrice = (initialPriceEther / initialPriceToken) * priceDenominator
     const newExpectedPrice = oldExpectedPrice * 2
 
-    const actualTokenPrice = decodedLogs[3].args.actualTokenPrice
+    const actualTokenPrice = decodedLogs[4].args.actualTokenPrice
     assert.equal(actualTokenPrice.toString(), newExpectedPrice.toString())
 
     await expect(tx).to

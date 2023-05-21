@@ -45,7 +45,7 @@ abstract contract OracleHelper {
         uint256 cacheTimeToLive;
     }
 
-    /// @notice The cached token price from the Oracle
+    /// @notice The cached token price from the Oracle, always in (ether-per-token) * PRICE_DENOMINATOR format
     uint256 public cachedPrice;
 
     /// @notice The timestamp of a block when the cached price was updated

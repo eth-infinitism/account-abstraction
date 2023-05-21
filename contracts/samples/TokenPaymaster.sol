@@ -139,7 +139,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 "TPM: invalid data length"
             );
             uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas);
-            uint256 cachedPriceWithMarkup = cachedPrice * priceMarkup / PRICE_DENOMINATOR;
+            // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+            uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup, false);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
             context = abi.encodePacked(tokenAmount, userOp.maxFeePerGas, userOp.sender);
@@ -154,6 +155,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param actualGasCost The actual gas cost of the transaction.
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
         console.log("reached _postOp");
+            if (mode == PostOpMode.postOpReverted) {
+                return;
+            }
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             uint256 preCharge = uint256(bytes32(context[0 : 32]));
@@ -166,7 +170,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 return;
             }
             uint256 _cachedPrice = updateCachedPrice(false);
-            uint256 cachedPriceWithMarkup = _cachedPrice * priceMarkup / PRICE_DENOMINATOR;
+            // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+            uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
             uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * maxFeePerGas;
             uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup, false);
@@ -182,7 +187,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPrice);
             console.log("reached _postOp _maybeSwapTokenToWeth");
             _maybeSwapTokenToWeth(token, _cachedPrice, false);
-            revert('pre _maybeSwapTokenToWeth revert');
         }
     }
 }
