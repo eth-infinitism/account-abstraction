@@ -73,7 +73,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
             if (innerRevertCode == INNER_OUT_OF_GAS) {
                 //report paymaster, since if it is not deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
-                revert FailedOp(opIndex, "AA95 outtt of ggggas");
+                revert FailedOp(opIndex, "AA95 out of gas");
             }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
