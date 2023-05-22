@@ -35,11 +35,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         /// @notice The price markup percentage applied to the token price (1e6 = 100%)
         uint256 priceMarkup;
 
-        /// @notice exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
+        /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
         uint256 minEntryPointBalance;
-
-        /// @notice exchange tokens to native currency if the token balance of this Paymaster exceeds this value
-        uint256 maxTokenBalance;
     }
 
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);
@@ -48,14 +45,13 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     event PostOpReverted(address indexed user, uint256 preCharge);
 
-    /// @notice all 'price' variables are multiplied by this value to avoid rounding up
+    event Received(address indexed sender, uint256 value);
+
+    /// @notice All 'price' variables are multiplied by this value to avoid rounding up
     uint256 private constant PRICE_DENOMINATOR = 1e6;
 
     /// @notice Estimated gas cost for refunding tokens after the transaction is completed
     uint256 public constant REFUND_POSTOP_COST = 40000;
-
-    /// @notice The ERC20 token used for transaction fee payments
-    IERC20 public immutable token;
 
     TokenPaymasterConfig private tokenPaymasterConfig;
 
@@ -84,12 +80,12 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     10 ** _token.decimals()
     )
     UniswapHelper(
+    _token,
     _wrappedNative,
     _uniswap,
     _uniswapHelperConfig
     )
     {
-        token = _token;
         setTokenPaymasterConfig(_tokenPaymasterConfig);
         transferOwnership(_owner);
     }
@@ -139,12 +135,11 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 "TPM: invalid data length"
             );
             uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas);
-            // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+        // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (paymasterAndDataLength == 32) {
                 uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[20 : 52]));
-                console.log("clientSuppliedPrice=%s cachedPriceWithMarkup=%", clientSuppliedPrice, cachedPriceWithMarkup);
-                if (clientSuppliedPrice < cachedPriceWithMarkup){
+                if (clientSuppliedPrice < cachedPriceWithMarkup) {
                     // note: smaller number means 'more ether per token'
                     cachedPriceWithMarkup = clientSuppliedPrice;
                 }
@@ -162,23 +157,21 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
-        console.log("reached _postOp");
-            if (mode == PostOpMode.postOpReverted) {
-                return;
-            }
+        if (mode == PostOpMode.postOpReverted) {
+            return;
+        }
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             uint256 preCharge = uint256(bytes32(context[0 : 32]));
             uint256 maxFeePerGas = uint256(bytes32(context[32 : 64]));
             address userOpSender = address(bytes20(context[64 : 84]));
             if (mode == PostOpMode.postOpReverted) {
-                console.log("reached _postOp in postOpReverted mode");
                 emit PostOpReverted(userOpSender, preCharge);
                 // Do nothing here to not revert the whole bundle and harm reputation
                 return;
             }
             uint256 _cachedPrice = updateCachedPrice(false);
-            // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+        // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
             uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * maxFeePerGas;
@@ -190,11 +183,32 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                     userOpSender,
                     preCharge - actualTokenNeeded
                 );
-            } // If the token amount is not greater than the actual amount needed, no refund occurs
+            } else {
+                // If the token amount is not greater than the actual amount needed, revert to remove incentive to cheat
+                revert("TPM: preCharge was too low");
+            }
 
             emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPrice);
-            console.log("reached _postOp _maybeSwapTokenToWeth");
-            _maybeSwapTokenToWeth(token, _cachedPrice, false);
+            refillEntryPointDeposit(_cachedPrice);
         }
+    }
+
+    /// @notice If necessary this function uses this Paymaster's token balance to refill the deposit on EntryPoint
+    function refillEntryPointDeposit(uint256 _cachedPrice) private {
+        uint256 currentEntryPointBalance = entryPoint.balanceOf(address(this));
+        if (
+            currentEntryPointBalance < tokenPaymasterConfig.minEntryPointBalance
+        ) {
+            uint256 swappedWeth = _maybeSwapTokenToWeth(token, _cachedPrice, false);
+            console.log("before unwrapWeth");
+            unwrapWeth(swappedWeth);
+            console.log("before entryPoint.depositTo");
+            entryPoint.depositTo{value: address(this).balance}(address(this));
+        }
+    }
+
+    receive() external payable {
+        console.log("inside receive");
+        emit Received(msg.sender, msg.value);
     }
 }

@@ -28,8 +28,8 @@ abstract contract OracleHelper {
         /// @notice The Oracle contract used to fetch the latest ETH prices
         IOracle nativeOracle;
 
-        /// @notice if 'true' we will fetch price directly from tokenOracle
-        /// @notice if 'false' we will use nativeOracle to establish a token price through a shared third currency
+        /// @notice If 'true' we will fetch price directly from tokenOracle
+        /// @notice If 'false' we will use nativeOracle to establish a token price through a shared third currency
         bool tokenToNativeOracle;
 
         /// @notice 'true' if price is dollars-per-token, 'false' if price is tokens-per-dollar

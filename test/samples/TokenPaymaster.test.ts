@@ -14,6 +14,8 @@ import {
   TestOracle2__factory,
   TestUniswap,
   TestUniswap__factory,
+  TestWrappedNativeToken,
+  TestWrappedNativeToken__factory,
   TokenPaymaster,
   TokenPaymaster__factory
 } from '../../typechain'
@@ -38,6 +40,7 @@ function generatePaymasterAndData (pm: string, tokenPrice?: BigNumberish): strin
 }
 
 describe.only('TokenPaymaster', function () {
+  const minEntryPointBalance = 1e17.toString()
   const priceDenominator = 1e6
   const initialPriceToken = 100000000
   const initialPriceEther = 500000000
@@ -45,6 +48,7 @@ describe.only('TokenPaymaster', function () {
   const beneficiaryAddress = '0x'.padEnd(42, '1')
   const testInterface = new Interface(
     [
+      ...TestUniswap__factory.abi,
       ...TestERC20__factory.abi,
       ...TokenPaymaster__factory.abi,
       ...EntryPoint__factory.abi
@@ -63,11 +67,12 @@ describe.only('TokenPaymaster', function () {
   let paymaster: TokenPaymaster
   let callData: string
   let token: TestERC20
-  let weth: TestERC20
+  let weth: TestWrappedNativeToken
 
   before(async function () {
     entryPoint = await deployEntryPoint()
-    testUniswap = await new TestUniswap__factory(ethersSigner).deploy()
+    weth = await new TestWrappedNativeToken__factory(ethersSigner).deploy()
+    testUniswap = await new TestUniswap__factory(ethersSigner).deploy(weth.address)
     factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
 
     accountOwner = createAccountOwner()
@@ -77,13 +82,13 @@ describe.only('TokenPaymaster', function () {
     await fund(account)
     await checkForGeth()
     token = await new TestERC20__factory(ethersSigner).deploy(6)
-    weth = await new TestERC20__factory(ethersSigner).deploy(18)
     nativeAssetOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceEther)
     tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken)
+    await weth.deposit({ value: parseEther('1') })
+    await weth.transfer(testUniswap.address, parseEther('1'))
     const owner = await ethersSigner.getAddress()
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
-      maxTokenBalance: 100e18.toString(),
-      minEntryPointBalance: 1e17.toString(),
+      minEntryPointBalance,
       priceMarkup: 1_500_000 // +50%
     }
 
@@ -174,6 +179,8 @@ describe.only('TokenPaymaster', function () {
     const expectedTokenPriceWithMarkup = BigNumber.from(expectedTokenPrice).mul(priceDenominator).mul(10).div(15)
     const expectedTokenCharge = actualGasCostPaymaster.add(addedPostOpCost).mul(priceDenominator).div(expectedTokenPriceWithMarkup)
     const postOpGasCost = actualGasCostEntryPoint.sub(actualGasCostPaymaster)
+    assert.equal(decodedLogs.length, 5)
+    assert.equal(decodedLogs[4].args.success, true)
     assert.equal(actualTokenChargeEvents.toString(), actualTokenCharge.toString())
     assert.equal(actualTokenChargeEvents.toString(), expectedTokenCharge.toString())
     assert.equal(actualTokenPrice.div(priceDenominator).toNumber(), expectedTokenPrice)
@@ -277,48 +284,67 @@ describe.only('TokenPaymaster', function () {
     assert.equal(preChargeTokenPrice.toString(), currentCachedPrice.mul(10).div(15).toString())
   })
 
-  it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost')
+  it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost', async function () {
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
-  it('should swap tokens for ether if it falls below configured value and deposit it', async function () {
+    // Ether price increased 100 times! (note: assuming nativeAssetOracle is ETH/USD we divide to increase)
+    await tokenOracle.setPrice(initialPriceToken)
+    await nativeAssetOracle.setPrice(initialPriceEther / 100)
+    // Cannot happen too fast though
+    await ethers.provider.send('evm_increaseTime', [200])
 
+    const paymasterAndData = generatePaymasterAndData(paymasterAddress)
+    let op = await fillUserOp({
+      sender: account.address,
+      paymasterAndData,
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const tx = await entryPoint
+      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .then(async tx => await tx.wait())
+
+    const decodedLogs = tx.logs.map(it => {
+      return testInterface.parseLog(it)
+    })
+    const userOpSuccess = decodedLogs[2].args.success
+    assert.equal(userOpSuccess, false)
+    assert.equal(decodedLogs.length, 3)
+    await ethers.provider.send('evm_revert', [snapshot])
   })
 
-  it('TBD: should reject transaction if cached price is way too old')
-})
+  it.only('should swap tokens for ether if it falls below configured value and deposit it', async function () {
+    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
-// describe('#handleOps - refund, max price', () => {
-//   let calldata: string
-//   let priceData: string
-//   before(async () => {
-//     calldata = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
-//     const price = await paymaster.previousPrice()
-//     priceData = hexConcat([paymaster.address, hexZeroPad(price.mul(95).div(100).toHexString(), 32)])
-//     await token.sudoTransfer(account.address, await ethersSigner.getAddress())
-//   })
-// })
-// describe('with price change', () => {
-//   describe('#handleOps - refund, no price', () => {
-//     let calldata: string
-//     let priceData: string
-//     before(async () => {
-//       calldata = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
-//       priceData = hexConcat([paymaster.address])
-//       const priceOld = await paymaster.previousPrice()
-//       await nativeAssetOracle.setPrice(priceOld.mul(103).div(100))
-//       await token.sudoTransfer(account.address, await ethersSigner.getAddress())
-//     })
-//   })
-//
-//   describe('#handleOps - refund, max price', () => {
-//     let calldata: string
-//     let priceData: string
-//     before(async () => {
-//       calldata = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
-//       const price = await paymaster.previousPrice()
-//       priceData = hexConcat([paymaster.address, hexZeroPad(price.mul(95).div(100).toHexString(), 32)])
-//       const priceOld = await paymaster.previousPrice()
-//       await nativeAssetOracle.setPrice(priceOld.mul(103).div(100))
-//       await token.sudoTransfer(account.address, await ethersSigner.getAddress())
-//     })
-//   })
-// })
+    const depositInfo = await entryPoint.deposits(paymaster.address)
+    await paymaster.withdrawTo(account.address, depositInfo.deposit)
+
+    // deposit exactly the minimum amount so the next UserOp makes it go under
+    await entryPoint.depositTo(paymaster.address, { value: minEntryPointBalance })
+
+    const paymasterAndData = generatePaymasterAndData(paymasterAddress)
+    let op = await fillUserOp({
+      sender: account.address,
+      paymasterAndData,
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const tx = await entryPoint
+      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .then(async tx => await tx.wait())
+    const decodedLogs = tx.logs.map(it => {
+      return testInterface.parseLog(it)
+    })
+
+    // note: it is hard to deploy Uniswap on hardhat - so stubbing it for the unit test
+    assert.equal(decodedLogs[4].name, 'StubUniswapExchangeEvent')
+    assert.equal(decodedLogs[8].name, 'Received')
+    assert.equal(decodedLogs[9].name, 'Deposited')
+    const deFactoExchangeRate = decodedLogs[4].args.amountOut.toString() / decodedLogs[4].args.amountIn.toString()
+    const expectedPrice = initialPriceEther / initialPriceToken
+    assert.closeTo(deFactoExchangeRate, expectedPrice, 0.1)
+  })
+})
