@@ -15,7 +15,7 @@ library Exec {
         uint256 txGas
     ) internal returns (bool success) {
         assembly {
-            success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0)
+            success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0x20)
         }
     }
 

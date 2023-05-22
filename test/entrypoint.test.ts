@@ -42,7 +42,7 @@ import {
   simulationResultCatch,
   createAccount,
   getAggregatedAccountInitCode,
-  simulationResultWithAggregationCatch, decodeRevertReason
+  simulationResultWithAggregationCatch, decodeRevertReason, isDeployed
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -616,6 +616,36 @@ describe('EntryPoint', function () {
         }).then(async t => await t.wait())
 
         const countAfter = await counter.counters(account.address)
+        expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
+        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
+
+        await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
+      })
+
+      it('should handleOps for a brand new account', async function () {
+        const salt = 21
+        const newAccountAddress = await getAccountAddress(accountOwner.address, simpleAccountFactory, salt)
+        expect(await isDeployed(newAccountAddress)).false
+        const op = await fillAndSign({
+          sender: newAccountAddress,
+          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory, salt),
+          callData: accountExecFromEntryPoint.data,
+          verificationGasLimit: 1e6,
+          callGasLimit: 1e6
+        }, accountOwner, entryPoint)
+        await entryPoint.depositTo(newAccountAddress, { value: parseEther('1') })
+        const beneficiaryAddress = createAddress()
+        const countBefore = await counter.counters(newAccountAddress)
+        // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
+        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        // must specify at least on of maxFeePerGas, gasLimit
+        // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 1e7
+        }).then(async t => await t.wait())
+
+        const countAfter = await counter.counters(newAccountAddress)
         expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
         console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
