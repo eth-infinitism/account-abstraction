@@ -8,9 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryPayments.sol";
 
-// STOPSHIP: TODO: remove
-import "hardhat/console.sol";
-
 abstract contract UniswapHelper {
     event UniswapReverted(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMin);
 
@@ -54,13 +51,11 @@ abstract contract UniswapHelper {
     }
 
     function _maybeSwapTokenToWeth(IERC20 tokenIn, uint256 quote, bool reverseQuote) internal returns (uint256) {
-        console.log("inside _maybeSwapTokenToWeth");
         uint256 tokenBalance = tokenIn.balanceOf(address(this));
         uint256 amountOutMin = addSlippage(tokenToWei(tokenBalance, quote, reverseQuote), uniswapHelperConfig.slippage);
         if (amountOutMin < uniswapHelperConfig.minSwapAmount) {
             return 0;
         }
-        console.log("inside _maybeSwapTokenToWeth amountOutMin=%s uniswapHelperConfig.minSwapAmount=%s", amountOutMin, uniswapHelperConfig.minSwapAmount);
         // note: calling 'swapToToken' but destination token is Wrapped Ether
         return swapToToken(
             address(tokenIn),
@@ -87,7 +82,6 @@ abstract contract UniswapHelper {
         if (reverse) {
             return tokenToWei(amount, price, false);
         }
-        console.log("weiToToken %s %s %s", amount, price, amount * PRICE_DENOMINATOR / price);
         return amount * PRICE_DENOMINATOR / price;
     }
 
@@ -133,14 +127,11 @@ abstract contract UniswapHelper {
             amountOutMin,
             0
         );
-        console.log("reached uniswap.exactInputSingle");
         try uniswap.exactInputSingle(params) returns (uint256 _amountOut) {
             amountOut = _amountOut;
         } catch {
-            console.log("catch uniswap.exactInputSingle");
             emit UniswapReverted(tokenIn, tokenOut, amountIn, amountOutMin);
             amountOut = 0;
         }
-        console.log("after uniswap.exactInputSingle");
     }
 }

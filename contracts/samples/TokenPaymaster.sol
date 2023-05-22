@@ -11,10 +11,6 @@ import "../core/BasePaymaster.sol";
 import "./utils/UniswapHelper.sol";
 import "./utils/OracleHelper.sol";
 
-// STOPSHIP: TODO: remove
-import "hardhat/console.sol";
-
-
 // TODO: note https://github.com/pimlicolabs/erc20-paymaster-contracts/issues/10
 // TODO: set a hard limit on how much gas a single user op may cost (postOp to fix the price)
 /// @title Sample ERC-20 Token Paymaster for ERC-4337
@@ -200,15 +196,12 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             currentEntryPointBalance < tokenPaymasterConfig.minEntryPointBalance
         ) {
             uint256 swappedWeth = _maybeSwapTokenToWeth(token, _cachedPrice, false);
-            console.log("before unwrapWeth");
             unwrapWeth(swappedWeth);
-            console.log("before entryPoint.depositTo");
             entryPoint.depositTo{value: address(this).balance}(address(this));
         }
     }
 
     receive() external payable {
-        console.log("inside receive");
         emit Received(msg.sender, msg.value);
     }
 }
