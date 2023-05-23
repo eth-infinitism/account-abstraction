@@ -49,12 +49,17 @@ const config: HardhatUserConfig = {
     }
   },
   networks: {
+    hardhat: {
+      blockGasLimit: 8e10,
+      gasPrice: 1e9
+    },
     dev: { url: 'http://localhost:8545' },
     // github action starts localgeth service, for gas calculations
     localgeth: { url: 'http://localgeth:8545' },
     goerli: getNetwork('goerli'),
     sepolia: getNetwork('sepolia'),
     arbitrum: { url: 'https://arb1.arbitrum.io/rpc', chainId: 42161, accounts: { mnemonic } },
+    arbitrum_goerli: { url: 'https://goerli-rollup.arbitrum.io/rpc', chainId: 421613, accounts: { mnemonic } },
     proxy: getNetwork1('http://localhost:8545')
   },
   mocha: {
