@@ -179,9 +179,15 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                     userOpSender,
                     preCharge - actualTokenNeeded
                 );
-            } else {
-                // If the token amount is not greater than the actual amount needed, revert to remove incentive to cheat
-                revert("TPM: preCharge was too low");
+            } else if (preCharge < actualTokenNeeded) {
+                // Attempt to cover Paymaster's gas expenses by withdrawing the 'overdraft' from the client
+                // If the transfer reverts also revert the 'postOp' to remove the incentive to cheat
+                SafeERC20.safeTransferFrom(
+                    token,
+                    userOpSender,
+                    address(this),
+                    actualTokenNeeded - preCharge
+                );
             }
 
             emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPrice);

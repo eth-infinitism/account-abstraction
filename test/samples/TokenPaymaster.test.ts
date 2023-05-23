@@ -4,7 +4,8 @@ import { assert, expect } from 'chai'
 import { ethers } from 'hardhat'
 
 import {
-  EntryPoint, EntryPoint__factory,
+  EntryPoint,
+  EntryPoint__factory,
   SimpleAccount,
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
@@ -129,6 +130,7 @@ describe.only('TokenPaymaster', function () {
   })
 
   it('paymaster should reject if account does not have enough tokens or allowance', async () => {
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
     const paymasterAndData = generatePaymasterAndData(paymasterAddress)
     let op = await fillUserOp({
       sender: account.address,
@@ -145,10 +147,12 @@ describe.only('TokenPaymaster', function () {
     await expect(
       entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
     ).to.revertedWith('AA33 reverted: ERC20: transfer amount exceeds balance')
+    await ethers.provider.send('evm_revert', [snapshot])
   })
 
   it('should be able to sponsor the UserOp while charging correct amount of ERC-20 tokens', async () => {
-    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    await token.transfer(account.address, parseEther('1'))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
     const paymasterAndData = generatePaymasterAndData(paymasterAddress)
@@ -185,11 +189,12 @@ describe.only('TokenPaymaster', function () {
     assert.equal(actualTokenChargeEvents.toString(), expectedTokenCharge.toString())
     assert.equal(actualTokenPrice.div(priceDenominator).toNumber(), expectedTokenPrice)
     assert.closeTo(postOpGasCost.div(tx.effectiveGasPrice).toNumber(), 40000, 20000)
+    await ethers.provider.send('evm_revert', [snapshot])
   })
 
   it('should update cached token price if the change is above configured percentage', async function () {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
-    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    await token.transfer(account.address, parseEther('1'))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
     await tokenOracle.setPrice(initialPriceToken * 5)
     await nativeAssetOracle.setPrice(initialPriceEther * 10)
@@ -223,7 +228,8 @@ describe.only('TokenPaymaster', function () {
   })
 
   it('should use token price supplied by the client if it is better than cached', async function () {
-    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    await token.transfer(account.address, parseEther('1'))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
     const currentCachedPrice = await paymaster.cachedPrice()
@@ -251,10 +257,12 @@ describe.only('TokenPaymaster', function () {
     const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
 
     assert.equal(preChargeTokenPrice.toString(), overrideTokenPrice.toString())
+    await ethers.provider.send('evm_revert', [snapshot])
   })
 
   it('should use cached token price if the one supplied by the client if it is worse', async function () {
-    await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    await token.transfer(account.address, parseEther('1'))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
     const currentCachedPrice = await paymaster.cachedPrice()
@@ -282,9 +290,10 @@ describe.only('TokenPaymaster', function () {
     const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
 
     assert.equal(preChargeTokenPrice.toString(), currentCachedPrice.mul(10).div(15).toString())
+    await ethers.provider.send('evm_revert', [snapshot])
   })
 
-  it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost', async function () {
+  it('should charge the overdraft tokens if the pre-charge ended up lower than the final transaction cost', async function () {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
     await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
@@ -309,13 +318,60 @@ describe.only('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
+
+    const preChargeTokens = decodedLogs[0].args.value
+    const overdraftTokens = decodedLogs[3].args.value
+    const actualTokenCharge = decodedLogs[4].args.actualTokenCharge
+    // Checking that both 'Transfers' are from account to Paymaster
+    assert.equal(decodedLogs[0].args.from, decodedLogs[3].args.from)
+    assert.equal(decodedLogs[0].args.to, decodedLogs[3].args.to)
+
+    assert.equal(preChargeTokens.add(overdraftTokens).toString(), actualTokenCharge.toString())
+
+    const userOpSuccess = decodedLogs[5].args.success
+    assert.equal(userOpSuccess, true)
+    await ethers.provider.send('evm_revert', [snapshot])
+  })
+
+  it('should revert in the first postOp run if the pre-charge ended up lower than the final transaction cost but the client has no tokens to cover the overdraft', async function () {
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    // await ethers.provider.send('hardhat_setNextBlockBaseFeePerGas', ['0x3b9aca00']) // 1 gwei
+
+    // Make sure account has small amount of tokens
+    await token.transfer(account.address, parseEther('0.01'))
+    await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
+
+    // Ether price increased 100 times! (note: assuming nativeAssetOracle is ETH/USD we divide to increase)
+    await tokenOracle.setPrice(initialPriceToken)
+    await nativeAssetOracle.setPrice(initialPriceEther / 100)
+    // Cannot happen too fast though
+    await ethers.provider.send('evm_increaseTime', [200])
+
+    // Withdraw most of the tokens the account hs inside the inner transaction
+    const withdrawTokensCall = await token.populateTransaction.transfer(token.address, parseEther('0.009')).then(tx => tx.data!)
+    const callData = await account.populateTransaction.execute(token.address, 0, withdrawTokensCall).then(tx => tx.data!)
+
+    const paymasterAndData = generatePaymasterAndData(paymasterAddress)
+    let op = await fillUserOp({
+      sender: account.address,
+      paymasterAndData,
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const tx = await entryPoint
+      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .then(async tx => await tx.wait())
+
+    const decodedLogs = tx.logs.map(it => {
+      return testInterface.parseLog(it)
+    })
     const userOpSuccess = decodedLogs[2].args.success
     assert.equal(userOpSuccess, false)
     assert.equal(decodedLogs.length, 3)
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
-  it.only('should swap tokens for ether if it falls below configured value and deposit it', async function () {
+  it('should swap tokens for ether if it falls below configured value and deposit it', async function () {
     await token.transfer(account.address, await token.balanceOf(await ethersSigner.getAddress()))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
