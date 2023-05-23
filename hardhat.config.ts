@@ -60,7 +60,8 @@ const config: HardhatUserConfig = {
     sepolia: getNetwork('sepolia'),
     arbitrum: { url: 'https://arb1.arbitrum.io/rpc', chainId: 42161, accounts: { mnemonic } },
     arbitrum_goerli: { url: 'https://goerli-rollup.arbitrum.io/rpc', chainId: 421613, accounts: { mnemonic } },
-    proxy: getNetwork1('http://localhost:8545')
+    proxy: getNetwork1('http://localhost:8545'),
+    mumbai: { url: 'https://rpc-mumbai.maticvigil.com', chainId: 80001, accounts: { mnemonic } }
   },
   mocha: {
     timeout: 10000
