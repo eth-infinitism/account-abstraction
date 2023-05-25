@@ -44,7 +44,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     event Received(address indexed sender, uint256 value);
 
     /// @notice All 'price' variables are multiplied by this value to avoid rounding up
-    uint256 private constant PRICE_DENOMINATOR = 1e6;
+    uint256 private constant PRICE_DENOMINATOR = 1e26;
 
     /// @notice Estimated gas cost for refunding tokens after the transaction is completed
     uint256 public constant REFUND_POSTOP_COST = 40000;
@@ -72,13 +72,13 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     _entryPoint
     )
     OracleHelper(
-    _oracleHelperConfig,
-    10 ** _token.decimals()
+    _oracleHelperConfig
     )
     UniswapHelper(
     _token,
     _wrappedNative,
     _uniswap,
+    10 ** _token.decimals(),
     _uniswapHelperConfig
     )
     {
@@ -91,8 +91,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     function setTokenPaymasterConfig(
         TokenPaymasterConfig memory _tokenPaymasterConfig
     ) public onlyOwner {
-        require(_tokenPaymasterConfig.priceMarkup <= 1900000, "TPM: price markup too high");
-        require(_tokenPaymasterConfig.priceMarkup >= 1e6, "TPM: price markup too low");
+        require(_tokenPaymasterConfig.priceMarkup <= 2 * PRICE_DENOMINATOR, "TPM: price markup too high");
+        require(_tokenPaymasterConfig.priceMarkup >= PRICE_DENOMINATOR, "TPM: price markup too low");
         tokenPaymasterConfig = _tokenPaymasterConfig;
         emit ConfigUpdated(_tokenPaymasterConfig);
     }
@@ -103,7 +103,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         _setOracleConfiguration(_oracleHelperConfig);
     }
 
-    function setOracleConfiguration(
+    function setUniswapConfiguration(
         UniswapHelperConfig memory _uniswapHelperConfig
     ) external onlyOwner {
         _setUniswapHelperConfiguration(_uniswapHelperConfig);
@@ -140,7 +140,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                     cachedPriceWithMarkup = clientSuppliedPrice;
                 }
             }
-            uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup, false);
+            uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
             context = abi.encodePacked(tokenAmount, userOp.maxFeePerGas, userOp.sender);
             validationResult = 0;
@@ -171,7 +171,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
             uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * maxFeePerGas;
-            uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup, false);
+            uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup);
             if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
                 SafeERC20.safeTransfer(
@@ -201,7 +201,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         if (
             currentEntryPointBalance < tokenPaymasterConfig.minEntryPointBalance
         ) {
-            uint256 swappedWeth = _maybeSwapTokenToWeth(token, _cachedPrice, false);
+            uint256 swappedWeth = _maybeSwapTokenToWeth(token, _cachedPrice);
             unwrapWeth(swappedWeth);
             entryPoint.depositTo{value: address(this).balance}(address(this));
         }

@@ -11,7 +11,7 @@ import "@uniswap/v3-periphery/contracts/interfaces/IPeripheryPayments.sol";
 abstract contract UniswapHelper {
     event UniswapReverted(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOutMin);
 
-    uint256 private constant PRICE_DENOMINATOR = 1e6;
+    uint256 private constant PRICE_DENOMINATOR = 1e26;
 
     struct UniswapHelperConfig {
         /// @notice Minimum native asset amount to receive from a single swap
@@ -33,16 +33,21 @@ abstract contract UniswapHelper {
 
     UniswapHelperConfig private uniswapHelperConfig;
 
+    /// @notice The "10^(token.decimals)" value used for the price calculation
+    uint256 private immutable tokenDecimalPower;
+
     constructor(
         IERC20 _token,
         IERC20 _wrappedNative,
         ISwapRouter _uniswap,
+        uint256 _tokenDecimalPower,
         UniswapHelperConfig memory _uniswapHelperConfig
     ){
         _token.approve(address(_uniswap), type(uint256).max);
         token = _token;
         wrappedNative = _wrappedNative;
         uniswap = _uniswap;
+        tokenDecimalPower = _tokenDecimalPower;
         _setUniswapHelperConfiguration(_uniswapHelperConfig);
     }
 
@@ -50,9 +55,9 @@ abstract contract UniswapHelper {
         uniswapHelperConfig = _uniswapHelperConfig;
     }
 
-    function _maybeSwapTokenToWeth(IERC20 tokenIn, uint256 quote, bool reverseQuote) internal returns (uint256) {
+    function _maybeSwapTokenToWeth(IERC20 tokenIn, uint256 quote) internal returns (uint256) {
         uint256 tokenBalance = tokenIn.balanceOf(address(this));
-        uint256 amountOutMin = addSlippage(tokenToWei(tokenBalance, quote, reverseQuote), uniswapHelperConfig.slippage);
+        uint256 amountOutMin = addSlippage(tokenToWei(tokenBalance, quote), uniswapHelperConfig.slippage);
         if (amountOutMin < uniswapHelperConfig.minSwapAmount) {
             return 0;
         }
@@ -71,17 +76,11 @@ abstract contract UniswapHelper {
     }
 
 
-    function tokenToWei(uint256 amount, uint256 price, bool reverse) internal view returns (uint256) {
-        if (reverse) {
-            return weiToToken(amount, price, false);
-        }
+    function tokenToWei(uint256 amount, uint256 price) public pure returns (uint256) {
         return amount * price / PRICE_DENOMINATOR;
     }
 
-    function weiToToken(uint256 amount, uint256 price, bool reverse) internal view returns (uint256) {
-        if (reverse) {
-            return tokenToWei(amount, price, false);
-        }
+    function weiToToken(uint256 amount, uint256 price) public pure returns (uint256) {
         return amount * PRICE_DENOMINATOR / price;
     }
 

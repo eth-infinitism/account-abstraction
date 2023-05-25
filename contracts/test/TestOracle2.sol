@@ -1,20 +1,27 @@
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
 import "../samples/utils/IOracle.sol";
 
 contract TestOracle2 is IOracle {
     int256 public price;
+    uint8 private _decimals_;
 
-    constructor(int256 _price) {
+    constructor(int256 _price, uint8 _decimals) {
         price = _price;
+        _decimals_ = _decimals;
     }
 
     function setPrice(int256 _price) external {
         price = _price;
     }
 
-    function decimals() external pure override returns (uint8) {
-        return 8;
+    function setDecimals(uint8 _decimals) external {
+        _decimals_ = _decimals;
+    }
+
+    function decimals() external view override returns (uint8) {
+        return _decimals_;
     }
 
     function latestRoundData()
