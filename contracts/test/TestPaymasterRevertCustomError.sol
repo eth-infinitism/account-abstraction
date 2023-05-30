@@ -13,14 +13,14 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
     constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
     {}
 
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256)
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         validationData = 0;
         context = abi.encodePacked(userOp.sender);
     }
 
-    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
+    function _postOp(PostOpMode mode, bytes calldata, uint256) internal override {
         if(mode == PostOpMode.postOpReverted) {
             return;
         }
