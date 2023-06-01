@@ -13,11 +13,18 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
+    struct PermissionParam {
+        address whitelistDestination;
+        bytes4[] whitelistMethods;
+        uint256 tokenAmount;
+    }
+    // PermissionParam과 대응되는 mapping -> validateSignature에서 확인.
     mapping(address => uint48) public ownerAfter;
     mapping(address => uint48) public ownerUntil;
 
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
+
 
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
@@ -28,7 +35,7 @@ contract TestExpiryAccount is SimpleAccount {
     // solhint-disable-next-line no-empty-blocks
     function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint48 _after, uint48 _until) public onlyOwner {
+    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, PermissionParam[] calldata permissions) public onlyOwner {
         require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
         ownerUntil[owner] = _until;
