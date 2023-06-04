@@ -163,8 +163,15 @@ describe.only('TokenPaymaster', function () {
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    // for simpler 'gasPrice()' calculation
+    await ethers.provider.send('hardhat_setNextBlockBaseFeePerGas', [utils.hexlify(op.maxFeePerGas)])
     const tx = await entryPoint
-      .handleOps([op], beneficiaryAddress, { gasLimit: 3e7 })
+      .handleOps([op], beneficiaryAddress, {
+        gasLimit: 3e7,
+        maxFeePerGas: op.maxFeePerGas,
+        maxPriorityFeePerGas: op.maxFeePerGas
+      }
+      )
       .then(async tx => await tx.wait())
 
     const decodedLogs = tx.logs.map(it => {
@@ -246,8 +253,15 @@ describe.only('TokenPaymaster', function () {
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+
+    // for simpler 'gasPrice()' calculation
+    await ethers.provider.send('hardhat_setNextBlockBaseFeePerGas', [utils.hexlify(op.maxFeePerGas)])
     const tx = await entryPoint
-      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .handleOps([op], beneficiaryAddress, {
+        gasLimit: 1e7,
+        maxFeePerGas: op.maxFeePerGas,
+        maxPriorityFeePerGas: op.maxFeePerGas
+      })
       .then(async tx => await tx.wait())
 
     const decodedLogs = tx.logs.map(it => {
@@ -280,8 +294,15 @@ describe.only('TokenPaymaster', function () {
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+
+    // for simpler 'gasPrice()' calculation
+    await ethers.provider.send('hardhat_setNextBlockBaseFeePerGas', [utils.hexlify(op.maxFeePerGas)])
     const tx = await entryPoint
-      .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .handleOps([op], beneficiaryAddress, {
+        gasLimit: 1e7,
+        maxFeePerGas: op.maxFeePerGas,
+        maxPriorityFeePerGas: op.maxFeePerGas
+      })
       .then(async tx => await tx.wait())
 
     const decodedLogs = tx.logs.map(it => {

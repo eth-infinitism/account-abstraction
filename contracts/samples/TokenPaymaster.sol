@@ -26,6 +26,7 @@ import "./utils/OracleHelper.sol";
 /// The contract uses an Oracle to fetch the latest token prices.
 /// @dev Inherits from BasePaymaster.
 contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
+    using UserOperationLib for UserOperation;
 
     struct TokenPaymasterConfig {
         /// @notice The price markup percentage applied to the token price (1e6 = 100%)
@@ -130,7 +131,8 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
             );
-            uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas);
+            uint256 gasPrice = userOp.gasPrice();
+            uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * gasPrice);
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (paymasterAndDataLength == 32) {
@@ -142,7 +144,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             }
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
-            context = abi.encodePacked(tokenAmount, userOp.maxFeePerGas, userOp.sender);
+            context = abi.encodePacked(tokenAmount, gasPrice, userOp.sender);
             validationResult = 0;
         }
     }
@@ -159,7 +161,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             uint256 preCharge = uint256(bytes32(context[0 : 32]));
-            uint256 maxFeePerGas = uint256(bytes32(context[32 : 64]));
+            uint256 gasPrice = uint256(bytes32(context[32 : 64]));
             address userOpSender = address(bytes20(context[64 : 84]));
             if (mode == PostOpMode.postOpReverted) {
                 emit PostOpReverted(userOpSender, preCharge);
@@ -170,7 +172,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
-            uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * maxFeePerGas;
+            uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * gasPrice;
             uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup);
             if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
