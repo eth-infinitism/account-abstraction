@@ -389,9 +389,10 @@ describe.only('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
-    const userOpSuccess = decodedLogs[2].args.success
+    const userOpSuccess = decodedLogs[3].args.success
     assert.equal(userOpSuccess, false)
-    assert.equal(decodedLogs.length, 3)
+    assert.equal(decodedLogs.length, 4)
+    assert.equal(decodedLogs[2].name, 'PostOpReverted')
     await ethers.provider.send('evm_revert', [snapshot])
   })
 

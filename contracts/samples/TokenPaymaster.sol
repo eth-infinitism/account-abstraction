@@ -155,9 +155,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
-        if (mode == PostOpMode.postOpReverted) {
-            return;
-        }
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             uint256 preCharge = uint256(bytes32(context[0 : 32]));
