@@ -158,7 +158,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             uint256 preCharge = uint256(bytes32(context[0 : 32]));
             uint256 maxFeePerGas = uint256(bytes32(context[32 : 64]));
             uint256 maxPriorityFeePerGas = uint256(bytes32(context[64 : 96]));
-            uint256 gasPrice = min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
+            uint256 gasPrice = getGasPrice(maxFeePerGas, maxPriorityFeePerGas);
             address userOpSender = address(bytes20(context[96 : 116]));
             if (mode == PostOpMode.postOpReverted) {
                 emit PostOpReverted(userOpSender, preCharge);
@@ -204,6 +204,14 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             unwrapWeth(swappedWeth);
             entryPoint.depositTo{value: address(this).balance}(address(this));
         }
+    }
+
+    function getGasPrice(uint256 maxFeePerGas, uint256 maxPriorityFeePerGas) internal view returns (uint256) {
+        if (maxFeePerGas == maxPriorityFeePerGas) {
+            //legacy mode (for networks that don't support basefee opcode)
+            return maxFeePerGas;
+        }
+        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
