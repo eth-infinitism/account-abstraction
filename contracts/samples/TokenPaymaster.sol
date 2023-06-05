@@ -4,6 +4,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "../core/BasePaymaster.sol";
 
 /**
@@ -82,7 +83,7 @@ contract TokenPaymaster is BasePaymaster, ERC20 {
             require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance (pre-create)");
         } else {
 
-            require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
+            require(balanceOf(userOp.sender) >= tokenPrefund, string(abi.encodePacked(Strings.toString(tokenPrefund), " ", Strings.toString(balanceOf(userOp.sender)) )));
         }
 
         return (abi.encode(userOp.sender), 0);

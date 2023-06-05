@@ -28,6 +28,7 @@ const deploySimpleAccountFactory: DeployFunction = async function (hre: HardhatR
   const saf = await ethers.getContractAt('SimpleAccountFactory', safAddress.address)
   await saf.createAccount(accountOwner, 0)
   const accountAddress = await saf.getAddress(accountOwner, 0)
+  await money.sendTransaction({to: accountOwner, value: "1000000000000000000"})
 
   console.log("==Created account==", accountAddress)
 
@@ -36,10 +37,30 @@ const deploySimpleAccountFactory: DeployFunction = async function (hre: HardhatR
   const entryPointFullContract = await ethers.getContractAt('EntryPoint', entrypoint.address)
   const paymasterFullContract = await ethers.getContractAt('TokenPaymaster', paymaster.address)
 
-  const updateEntryPoint = await account.populateTransaction.withdrawDepositTo(AddressZero, 0).then(tx => tx.data!)
-  const calldata = await account.populateTransaction.execute(account.address, 0, updateEntryPoint).then(tx => tx.data!)
+  // const updateEntryPoint = await account.populateTransaction.withdrawDepositTo(AddressZero, 0).then(tx => tx.data!)
+  // const updateEntryPoint = await account.populateTransaction.sendViaCall("0x14dc79964da2c08b23698b3d3cc7ca32193d9955").then(tx => tx.data!)
+  const accountOwnerSigner = await provider.getSigner(accountOwner)
+  console.log("before populate transaction");
+  // const updateEntryPoint = await accountOwnerSigner.populateTransaction({from: accountOwner, to: "0x14dc79964da2c08b23698b3d3cc7ca32193d9955", value: "100"})
+  // const updateEntryPoint = await account.populateTransaction.sendViaCall("0x14dc79964da2c08b23698b3d3cc7ca32193d9955")
+  // console.log("aaa", updateEntryPoint);
+  const calldata = await account.populateTransaction.execute("0x14dc79964da2c08b23698b3d3cc7ca32193d9955", "100", []).then(tx => tx.data!)
+  console.log("after populate transaction");
 
-  const accountOwnerSigner = provider.getSigner(accountOwner)
+  const tx2 = await entryPointAccount.connect(money).depositTo(account.address, {value: "1000000000000000000"})
+  await tx2.wait()
+
+  console.log("entryPoint deposit", (await account.getDeposit()).toString())
+
+  const txTransferToAccount = await money.sendTransaction( {to: account.address, value: "1000000000000000000"})
+  const txToSendViaCall = await account.sendViaCall("0x14dc79964da2c08b23698b3d3cc7ca32193d9955")
+  const txSendViaCallReceipt = await txToSendViaCall.wait()
+
+  // const withdraw = await account.withdrawDepositTo("0xf5376F4d1A1e0D2bEbE0302395C41c581e7620C4", "11")
+  // const receipt = await withdraw.wait()
+  console.log("txSendViaCallReceipt logs", txSendViaCallReceipt.logs)
+
+  console.log("after withdraw")
 
 
   console.log("entryPointFullContract", entryPointFullContract.address);

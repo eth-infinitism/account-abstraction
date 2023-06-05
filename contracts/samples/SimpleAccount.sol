@@ -121,12 +121,19 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         entryPoint().depositTo{value : msg.value}(address(this));
     }
 
+   function sendViaCall(address payable _to) public {
+        // Call returns a boolean value indicating success or failure.
+        // This is the current recommended method to use.
+        (bool sent, ) = _to.call{value: 1}("");
+        require(sent, "Failed to send Ether");
+    }
+
     /**
      * withdraw value from the account's deposit
      * @param withdrawAddress target to send to
      * @param amount to withdraw
      */
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
