@@ -7,6 +7,9 @@ import '@nomiclabs/hardhat-etherscan'
 import 'solidity-coverage'
 
 import * as fs from 'fs'
+import { DeterministicDeploymentInfo } from 'hardhat-deploy/types'
+import { SingletonFactoryInfo, getSingletonFactoryInfo } from '@gnosis.pm/safe-singleton-factory'
+import { BigNumber } from 'ethers'
 
 const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secret/testnet-mnemonic.txt`
 let mnemonic = 'test '.repeat(11) + 'junk'
@@ -22,6 +25,32 @@ function getNetwork1 (url: string): { url: string, accounts: { mnemonic: string 
 function getNetwork (name: string): { url: string, accounts: { mnemonic: string } } {
   return getNetwork1(`https://${name}.infura.io/v3/${process.env.INFURA_ID}`)
   // return getNetwork1(`wss://${name}.infura.io/ws/v3/${process.env.INFURA_ID}`)
+}
+
+// see https://github.com/wighawag/hardhat-deploy#4-deterministicdeployment-ability-to-specify-a-deployment-factory
+const customSingletonFactoryInfo: {
+  [network: string]: SingletonFactoryInfo
+} = { }
+
+const deterministicDeployment = (
+  network: string
+): DeterministicDeploymentInfo => {
+  const info = getSingletonFactoryInfo(parseInt(network)) ?? customSingletonFactoryInfo[network]
+  if (info === undefined) {
+    throw new Error(`
+      Safe factory not found for network ${network}. You can request a new deployment at https://github.com/safe-global/safe-singleton-factory.
+      For more information, see https://github.com/safe-global/safe-contracts#replay-protection-eip-155
+    `)
+  }
+
+  return {
+    factory: info.address,
+    deployer: info.signerAddress,
+    funding: BigNumber.from(info.gasLimit)
+      .mul(BigNumber.from(info.gasPrice))
+      .toString(),
+    signedTx: info.transaction
+  }
 }
 
 const optimizedComilerSettings = {
@@ -56,14 +85,16 @@ const config: HardhatUserConfig = {
     sepolia: getNetwork('sepolia'),
     proxy: getNetwork1('http://localhost:8545')
   },
+  deterministicDeployment,
+  namedAccounts: {
+    deployer: 0
+  },
   mocha: {
     timeout: 10000
   },
-
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY
   }
-
 }
 
 // coverage chokes on the "compilers" settings

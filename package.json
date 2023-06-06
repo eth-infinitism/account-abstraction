@@ -27,6 +27,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@gnosis.pm/safe-singleton-factory": "^1.0.14",
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@typechain/ethers-v5": "^10.1.0",
