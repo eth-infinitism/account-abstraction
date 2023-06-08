@@ -42,15 +42,54 @@ contract TestExpiryAccount is SimpleAccount {
     }
 
     /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, PermissionParam[] calldata permissions)
     internal override view returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
         uint48 _until = ownerUntil[signer];
         uint48 _after = ownerAfter[signer];
-
-        //we have "until" value for all valid owners. so zero means "invalid signature"
+        
+        // we have "until" value for all valid owners. so zero means "invalid signature"
         bool sigFailed = _until == 0;
-        return _packValidationData(sigFailed, _until, _after);
+        if (sigFailed) {
+            return _packValidationData(sigFailed, _until, _after);
+        }
+        
+        // All external function call is made through execute(address dest, uint256 value, bytes calldata func) at SimpleAccount.sol 
+        if (getSelector(calldataCopy) != "0xdade6037") {
+            sigFailed = true;
+            // _packValidationData defined at core/Helper.sol
+            return _packValidationData(sigFailed, _until, _after);
+        }
+
+        (address dest, uint256 value, bytes memory func) = decode(userOp.calldata);
+
+        uint256 permissionLength = permissions.length;
+        for(uint i; i < permissionLength; i++) {
+            PermissionParam memory permission = permissions[i];
+            if (permission.whitelistDestination == dest) {
+                uint256 permissionMethodsLength = permission.whitelistMethods.length;
+                if (permissionMethodsLength > 0) {
+                    for(uint j; j < permissionMethodsLength; j++) {
+                        if (permission.whitelistMethods[j] == getSelector(userOp.calldata)) {
+                            sigFailed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            return _packValidationData(sigFailed, _until, _after);
+        }
     }
+
+    
+
+    function getSelector(bytes calldata _data) public pure returns (bytes4 selector) {
+        selector = bytes4(_data[0:4]);
+    }
+
+    function decode(bytes calldata userOpCalldata) public pure returns (address dest, uint256 value, bytes memory func){
+        (dest, value, func) = abi.decode(userOpCalldata[4:], (address, uint256, bytes));
+    }
+
 }
