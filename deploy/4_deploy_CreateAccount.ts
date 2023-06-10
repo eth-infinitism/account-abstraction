@@ -28,7 +28,7 @@ const deploySimpleAccountFactory: DeployFunction = async function (hre: HardhatR
   const saf = await ethers.getContractAt('SimpleAccountFactory', safAddress.address)
   await saf.createAccount(accountOwner, 0)
   const accountAddress = await saf.getAddress(accountOwner, 0)
-  await money.sendTransaction({to: accountOwner, value: "1000000000000000000"})
+  // await money.sendTransaction({to: accountOwner, value: "1000000000000000000"})
 
   console.log("==Created account==", accountAddress)
 

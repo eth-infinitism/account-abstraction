@@ -13,7 +13,7 @@ import {
   IEntryPoint,
   SimpleAccount,
   SimpleAccountFactory__factory,
-  SimpleAccount__factory, SimpleAccountFactory, TestAggregatedAccountFactory
+  SimpleAccount__factory, SimpleAccountFactory, TestAggregatedAccountFactory, SimpleAccountFactoryGA__factory, SimpleAccountGA__factory, SimpleAccountFactoryGA, SimpleAccountGA
 } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
@@ -307,3 +307,27 @@ export async function createAccount (
     proxy
   }
 }
+
+export async function createAccountGA (
+  ethersSigner: Signer,
+  accountOwner: string,
+  entryPoint: string,
+  _factory?: SimpleAccountFactoryGA
+):
+  Promise<{
+    proxy: SimpleAccountGA
+    accountFactory: SimpleAccountFactoryGA
+    implementation: string
+  }> {
+  const accountFactory = _factory ?? await new SimpleAccountFactoryGA__factory(ethersSigner).deploy(entryPoint)
+  const implementation = await accountFactory.accountImplementation()
+  await accountFactory.createAccount(accountOwner, 0)
+  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
+  const proxy = SimpleAccountGA__factory.connect(accountAddress, ethersSigner)
+  return {
+    implementation,
+    accountFactory,
+    proxy
+  }
+}
+

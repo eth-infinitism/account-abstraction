@@ -2,6 +2,8 @@
   "exclude": [
     ".eslintrc.js"
   ],
+  "include": ["./test", "./src", "./scripts"],
+  "files": ["./hardhat.config.ts"],
   "compilerOptions": {
     "target": "es2020",
     "lib": [
