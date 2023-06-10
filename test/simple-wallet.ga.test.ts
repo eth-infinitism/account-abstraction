@@ -23,6 +23,8 @@ import {
 import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
+import { MerkleTree } from 'merkletreejs'
+import { bufferToHex } from 'ethereumjs-util'
 
 describe('SimpleAccountGA', function () {
   let entryPoint: string
@@ -61,9 +63,9 @@ describe('SimpleAccountGA', function () {
     await account.execute(accounts[2], ONE_ETH, wrappedExecute.data!)
   })
 
-  function getTimestamp(addedDays: number) {
+  function getTimestamp(addedSeconds: number) {
     const now = new Date()
-    now.setDate(now.getDate() + addedDays)
+    now.setSeconds(now.getSeconds() + addedSeconds);
     return Math.floor(now.getTime() / 1000)
   }
 
@@ -77,6 +79,108 @@ describe('SimpleAccountGA', function () {
     await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
     const bytes32Empty = ethers.utils.formatBytes32String('')
     await expect(account.execute2FA(bytes32Empty, [], accounts[2], ONE_ETH, '0x')).to.be.revertedWith('invalid leaf validity')
+  })
+
+  it('it should revert when calling execute2FA 2FA is setup but invalid proof is provided', async () => {
+    const { proxy: account } = await createAccountGA(ethers.provider.getSigner(), accounts[0], entryPoint)
+
+    const dummyMerkleRoot = ethers.utils.keccak256(ethers.utils.randomBytes(32))
+    const futureTimestamp = getTimestamp(10)
+    console.log("futureTimestamp", futureTimestamp);
+
+    await account.updateRoot(dummyMerkleRoot, futureTimestamp)
+    await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
+
+    const combined = pairToBytesString({ timestamp: futureTimestamp, code: 123 })
+
+    await expect(account.execute2FA(combined, [], accounts[2], ONE_ETH, '0x')).to.be.revertedWith('invalid merkle tree')
+  })
+
+  const hashFunction = (el: Buffer) => {
+    return Buffer.from(ethers.utils.keccak256(el).slice(2), 'hex');
+};
+
+  interface Pair {
+    code: number,
+    timestamp: number
+  }
+
+  function pairToBytesString(pair: Pair) {
+    const timestampBN = ethers.BigNumber.from(pair.timestamp)
+    const codeBN = ethers.BigNumber.from(pair.code)
+
+    const bytes1 = ethers.utils.zeroPad(timestampBN.toHexString(), 16)
+    const bytes2 = ethers.utils.zeroPad(codeBN.toHexString(), 16)
+    const combined = ethers.utils.hexlify(ethers.utils.concat([bytes1, bytes2]))
+    return combined
+  }
+
+  function generateMerkleTreeRoot(pairs: Pair[]) {
+    const tree = getMerkletree(pairs)
+    const root = bufferToHex(tree.getRoot())
+    return root
+  }
+
+  function getMerkleTreeProof(pairs: Pair[], leaf: Pair) {
+    const tree = getMerkletree(pairs)
+    const leafToSearch = pairToBytesString(leaf)
+
+    // const proof = tree.getProof(leafToSearch)
+    const proof = tree.getProof(leafToSearch).map(p => '0x' + p.data.toString('hex'))
+    return proof
+  }
+
+  function getMerkletree(pairs: Pair[]) {
+    const data = pairs.map((p) => pairToBytesString(p))
+    const tree = new MerkleTree(data, hashFunction)
+    return tree
+  }
+
+  it('it should succeed execute2fa when valid proof is provided', async () => {
+    const { proxy: account } = await createAccountGA(ethers.provider.getSigner(), accounts[0], entryPoint)
+
+    const futureTimestamp = getTimestamp(10)
+    console.log("futureTimestamp", futureTimestamp)
+
+    const leafForProof = { code: 1234, timestamp: futureTimestamp }
+    const secondLeaf = { code: 4567, timestamp: futureTimestamp + 300 * 1000 }
+
+    const data: Pair[] = [leafForProof, secondLeaf]
+    const root = generateMerkleTreeRoot(data)
+    const proof = getMerkleTreeProof(data, leafForProof)
+
+    await account.updateRoot(root, futureTimestamp)
+    await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
+
+    const combined = pairToBytesString(leafForProof)
+    await account.execute2FA(combined, proof, accounts[2], ONE_ETH, '0x')
+  })
+
+  it('it should succeed execute -> execute2fa when valid proof is provided', async () => {
+    const { proxy: account } = await createAccountGA(ethers.provider.getSigner(), accounts[0], entryPoint)
+    console.log("account", account.address)
+
+    const futureTimestamp = getTimestamp(10)
+    console.log("futureTimestamp", futureTimestamp)
+
+    const leafForProof = { code: 1234, timestamp: futureTimestamp }
+    const secondLeaf = { code: 4567, timestamp: futureTimestamp + 300 * 1000 }
+
+    const data: Pair[] = [leafForProof, secondLeaf]
+    const root = generateMerkleTreeRoot(data)
+    const proof = getMerkleTreeProof(data, leafForProof)
+
+    await account.updateRoot(root, futureTimestamp)
+    await ethersSigner.sendTransaction({ from: accounts[0], to: account.address, value: parseEther('2') })
+
+    const combined = pairToBytesString(leafForProof)
+    // await account.execute2FA(combined, proof, accounts[2], ONE_ETH, '0x')
+
+    console.log("orig balance", (await ethers.provider.getBalance(accounts[2])).toString())
+    const wrappedExecute = await account.populateTransaction.execute2FA(combined, proof, accounts[2], ONE_ETH, '0x')
+    console.log("wrappedExecute.data", wrappedExecute.data)
+    await account.execute(account.address, 0, wrappedExecute.data!)
+    console.log("after balance", (await ethers.provider.getBalance(accounts[2])).toString())
   })
 
   it('it should revert when 2FA is setup but no 2FA is provided ', async () => {

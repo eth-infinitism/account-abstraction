@@ -11,7 +11,6 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import "../core/BaseAccount.sol";
 import "./callback/TokenCallbackHandler.sol";
-import "hardhat/console.sol";
 /**
   * minimal account.
   *  this is sample minimal account.
@@ -54,7 +53,7 @@ contract SimpleAccountGA is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, 
         uint128 timestamp = uint128(uint256(leaf) >> 128);
         uint128 low = uint128(uint256(leaf));
 
-        require(timestamp <= block.timestamp && timestamp + 30 * 1000 >= block.timestamp, "invalid leaf validity");
+        require(timestamp >= block.timestamp - 30 * 1000 && timestamp <= block.timestamp + 30 * 1000, "invalid leaf validity");
 
         bytes32 computedHash = leaf;
 
@@ -97,21 +96,17 @@ contract SimpleAccountGA is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, 
      * execute a transaction (called directly from owner, or by entryPoint)
      */
     function execute(address dest, uint256 value, bytes calldata func) external {
-        console.log("execute");
         _requireFromEntryPointOrOwner();
         // we allow to call only execute2FA function
         require(func.length >= 4, "Calldata too short");
         bytes4 functionSelector = bytes4(func[0]) | (bytes4(func[1]) >> 8) | (bytes4(func[2]) >> 16) | (bytes4(func[3]) >> 24);
         require(functionSelector == FUNCTION_SIGNATURE, "Calldata must be for execute2FA");
-        console.log("before call");
         _call(dest, value, func);
-        console.log("after call");
     }
 
     function execute2FA(bytes32 leaf, bytes32[] memory proof, address dest, uint256 value, bytes calldata func) public {
-        console.log("execute2FA");
         verify(leaf, proof);
-        _requireFromEntryPointOrOwner();
+        _requireFromEntryPointOrOwnerOrSelf();
         _call(dest, value, func);
     }
 
@@ -143,6 +138,10 @@ contract SimpleAccountGA is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, 
     // Require the function call went through EntryPoint or owner
     function _requireFromEntryPointOrOwner() internal view {
         require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
+    }
+
+     function _requireFromEntryPointOrOwnerOrSelf() internal view {
+        require(msg.sender == address(entryPoint()) || msg.sender == owner || msg.sender == address(this), "account: not Owner or EntryPoint or self");
     }
 
     /// implement template method of BaseAccount
