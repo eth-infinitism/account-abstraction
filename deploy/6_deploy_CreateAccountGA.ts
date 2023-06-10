@@ -11,12 +11,11 @@ const deploySimpleAccountFactory: DeployFunction = async function (hre: HardhatR
   //   return
   // }
 
+  const safAddress = await hre.deployments.get('SimpleAccountFactoryGA')
  
   const accountOwner = "0x7E71FB21D0B30F5669f8F387D4A1114294F8E418"
-  console.log("hre.ethers", hre.ethers)
-  const saf = await hre.ethers.getContract("SimpleAccountFactoryGA");
-  console.log("saf", saf);
-  saf.createAccount(accountOwner, 0)
+  const saf = await ethers.getContractAt('SimpleAccountFactoryGA', safAddress.address)
+  await saf.createAccount(accountOwner, 0)
   const accountAddress = await saf.getAddress(accountOwner, 0)
   
   console.log("==Created account GA ==", accountAddress);

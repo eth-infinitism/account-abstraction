@@ -53,7 +53,7 @@ contract SimpleAccountGA is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, 
         uint128 timestamp = uint128(uint256(leaf) >> 128);
         uint128 low = uint128(uint256(leaf));
 
-        require(timestamp >= block.timestamp - 30 * 1000 && timestamp <= block.timestamp + 30 * 1000, "invalid leaf validity");
+        require(timestamp >= block.timestamp - 30 && timestamp <= block.timestamp + 30, "invalid leaf validity");
 
         bytes32 computedHash = leaf;
 
