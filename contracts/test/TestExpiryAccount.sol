@@ -13,12 +13,30 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
+    bytes4 FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
+    bytes4 FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
+
+    // struct TokenApproval {
+	//     bool enable;
+	//     uint256 amount;
+    // }
+
     struct PermissionParam {
         address whitelistDestination;
         bytes4[] whitelistMethods;
-        uint256 tokenAmount;
+        // uint256 tokenAmount;
     }
-    // PermissionParam과 대응되는 mapping -> validateSignature에서 확인.
+    
+    struct PermissionStorage {
+	    address[] whitelistDestinations;
+	    mapping(address => bool) whitelistDestinationMap;
+	    mapping(address => bytes4[]) whitelistMethods;
+	    mapping(address => mapping(bytes4 => bool)) whitelistMethodsMap;
+	    // mapping(address => TokenApproval) tokenApprovals; 
+    }
+
+    mapping(address => PermissionStorage) internal permissionMap;
+
     mapping(address => uint48) public ownerAfter;
     mapping(address => uint48) public ownerUntil;
 
@@ -39,10 +57,33 @@ contract TestExpiryAccount is SimpleAccount {
         require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
         ownerUntil[owner] = _until;
+	
+        PermissionStorage storage _permissionStorage = permissionMap[owner];
+        address[] memory whitelistAddresses = new address[] (permissions.length);
+        
+        for (uint256 index = 0; index < permissions.length; index++) {
+            PermissionParam memory permission = permissions[index];
+            address whitelistedDestination = permission.whitelistDestination;
+            whitelistAddresses[index] = whitelistedDestination;
+
+            _permissionStorage.whitelistDestinationMap[whitelistedDestination] = true;
+            _permissionStorage.whitelistMethods[whitelistedDestination] = permission.whitelistedMethods;
+
+            for (uint256 methodIndex = 0; methodIndex < permission.whitelistMethods.length; methodIndex++) {
+            _permissionStorage.whitelistMethodsMap[whitelistedDestination] [
+                    permission.whitelistMethods[methodIndex]
+                ] = true;
+            }
+
+            if (permission.tokenAmount > 0) {
+            _permissionStorage.tokenApprovals[whitelistedDestination] = TokenApproval({enable: true, amount: permission.tokenAmount});
+            }
+        }
+        _permissionStorage.whitelistDestinations = whitelistAddresses;
     }
 
-    /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash, PermissionParam[] calldata permissions)
+    // implement template method of BaseAccount
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
     internal override view returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
@@ -54,42 +95,71 @@ contract TestExpiryAccount is SimpleAccount {
         if (sigFailed) {
             return _packValidationData(sigFailed, _until, _after);
         }
-        
-        // All external function call is made through execute(address dest, uint256 value, bytes calldata func) at SimpleAccount.sol 
-        if (getSelector(calldataCopy) != "0xdade6037") {
-            sigFailed = true;
-            // _packValidationData defined at core/Helper.sol
-            return _packValidationData(sigFailed, _until, _after);
-        }
 
-        (address dest, uint256 value, bytes memory func) = decode(userOp.calldata);
-
-        uint256 permissionLength = permissions.length;
-        for(uint i; i < permissionLength; i++) {
-            PermissionParam memory permission = permissions[i];
-            if (permission.whitelistDestination == dest) {
-                uint256 permissionMethodsLength = permission.whitelistMethods.length;
-                if (permissionMethodsLength > 0) {
-                    for(uint j; j < permissionMethodsLength; j++) {
-                        if (permission.whitelistMethods[j] == getSelector(userOp.calldata)) {
-                            sigFailed = true;
-                            break;
-                        }
-                    }
-                }
-            }
+        if (signer == owner) {
             return _packValidationData(sigFailed, _until, _after);
+        } else {
+            bytes4 userOpSelector = getSelector(userOp.calldata);
+
+            if (userOpSelector != FUNCTION_EXECUTE || userOpSelector != FUNCTION_EXECUTE_BATCH) {
+                return _packValidationData(sigFailed, _until, _after);
+            } 
+
+            userOpSelector == FUNCTION_EXECUTE
+                ? return _validateSessionKeySingle(userOp.calldata, signer, _until, _after);
+                : return _validateSessionKeyBatch(userOp.calldata, signer, _until, _after);
         }
     }
 
-    
+    function _validateSessionKeySingle(bytes calldata userOpCalldata, address signer, uint48 _until, uint48 _after) 
+    internal returns (uint256 validationData) {       
+        (address dest, uint256 value, bytes memory func) = decodeSingle(userOpCalldata);
+        PermissionStorage memory permissionStorage = permissionMap[signer];
+
+        bool sigFailed = true;
+
+        if (permissionStorage.whitelistDestinationMap[dest]) {
+            if (permissionStorage.whitelistMethodsMap[dest][getSelector(func)]) {
+                    sigFailed = false;
+                    return _packValidationData(sigFailed, _until, _after);
+                }
+            } 
+        }
+        return _packValidationData(sigFailed, _until, _after);
+        
+    }
+
+    function _validateSessionKeyBatch(bytes calldata userOpCalldata, address signer, uint48 _until, uint48 _after) 
+    internal returns (uint256 validationData) {
+        (address[] dest, bytes[] func) = decodeBatch(userOpCalldata);
+        PermissionStorage memory permissionStorage = permissionMap[signer];
+
+        bool sigFailed = true;
+
+        uint256 length = dest.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (permissionStorage.whitelistDestinationMap[dest[i]]) {
+                if (permissionStorage.whitelistMethodsMap[dest[i]][getSelector(func[i])]) {
+                    sigFailed = false;
+                    break;
+                    // Token Approval??
+                }
+                sigFailed = true;
+            }
+        }
+        return _packValidationData(sigFailed, _until, _after);
+    }
 
     function getSelector(bytes calldata _data) public pure returns (bytes4 selector) {
         selector = bytes4(_data[0:4]);
     }
 
-    function decode(bytes calldata userOpCalldata) public pure returns (address dest, uint256 value, bytes memory func){
-        (dest, value, func) = abi.decode(userOpCalldata[4:], (address, uint256, bytes));
+    function decodeSingle(bytes calldata _data) public pure returns (address dest, uint256 value, bytes memory func){
+        (dest, value, func) = abi.decode(_data[4:], (address, uint256, bytes));
+    }
+
+    function decodeBatch(bytes calldata _data) public pure returns (address[] memory dest, bytes[] memory func){
+        (dest, func) = abi.decode(_data[4:], (address[], bytes[]));
     }
 
 }
