@@ -101,42 +101,25 @@ contract TestExpiryAccount is SimpleAccount {
             return _packValidationData(sigFailed, _until, _after);
         } else {
             bytes4 userOpSelector = getSelector(userOp.callData);
-
-            if (userOpSelector != FUNCTION_EXECUTE || userOpSelector != FUNCTION_EXECUTE_BATCH) {
-                return _packValidationData(sigFailed, _until, _after);
-            } 
-            uint256 valData;
-            userOpSelector == FUNCTION_EXECUTE
-                ? valData = _validateSessionKeySingle(userOp.callData, signer, _until, _after)
-                : valData = _validateSessionKeyBatch(userOp.callData, signer, _until, _after);
-
-            return valData;
+            return _validateSessionKey(userOp.callData, signer, _until, _after, userOpSelector);
         }
     }
 
-    function _validateSessionKeySingle(bytes calldata userOpCallData, address signer, uint48 _until, uint48 _after) 
-    internal view returns (uint256 validationData) {       
-        (address dest, , bytes memory func) = decodeSingle(userOpCallData);
-        PermissionStorage storage permissionStorage = permissionMap[signer];
-
-        bool sigFailed = true;
-
-        if (permissionStorage.whitelistDestinationMap[dest]) {
-            if (permissionStorage.whitelistMethodsMap[dest][this.getSelector(func)]) {
-                    sigFailed = false;
-                    return _packValidationData(sigFailed, _until, _after);
-            } 
-        }
-        return _packValidationData(sigFailed, _until, _after);
-        
-    }
-
-    function _validateSessionKeyBatch(bytes calldata userOpCallData, address signer, uint48 _until, uint48 _after) 
+    function _validateSessionKey(bytes calldata userOpCallData, address signer, uint48 _until, uint48 _after, bytes4 userOpSelector) 
     internal view returns (uint256 validationData) {
-        (address[] memory dest, bytes[] memory func) = decodeBatch(userOpCallData);
-        PermissionStorage storage permissionStorage = permissionMap[signer];
-
+        address[] memory dest; 
+        bytes[] memory func;
         bool sigFailed = true;
+
+        if (userOpSelector == FUNCTION_EXECUTE) {
+            (dest, , func) = _decodeSingle(userOpCallData); 	
+        } else if (userOpSelector == FUNCTION_EXECUTE_BATCH) {
+            (dest, func) = _decodeBatch(userOpCallData);
+        } else {
+            return _packValidationData(sigFailed, _until, _after);
+        }
+
+        PermissionStorage storage permissionStorage = permissionMap[signer];
 
         uint256 length = dest.length;
         for (uint256 i = 0; i < length; i++) {
@@ -144,7 +127,6 @@ contract TestExpiryAccount is SimpleAccount {
                 if (permissionStorage.whitelistMethodsMap[dest[i]][this.getSelector(func[i])]) {
                     sigFailed = false;
                     break;
-                    // Token Approval??
                 }
             }
         }
@@ -155,11 +137,11 @@ contract TestExpiryAccount is SimpleAccount {
         selector = bytes4(_data[0:4]);
     }
 
-    function decodeSingle(bytes calldata _data) public pure returns (address dest, uint256 value, bytes memory func){
-        (dest, value, func) = abi.decode(_data[4:], (address, uint256, bytes));
+    function _decodeSingle(bytes calldata _data) internal pure returns (address[] memory dest, uint256 value, bytes[] memory func){
+        (dest[0], value, func[0]) = abi.decode(_data[4:], (address, uint256, bytes));
     }
 
-    function decodeBatch(bytes calldata _data) public pure returns (address[] memory dest, bytes[] memory func){
+    function _decodeBatch(bytes calldata _data) internal pure returns (address[] memory dest, bytes[] memory func){
         (dest, func) = abi.decode(_data[4:], (address[], bytes[]));
     }
 
