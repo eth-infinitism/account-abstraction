@@ -146,7 +146,6 @@ contract TestExpiryAccount is SimpleAccount {
                     break;
                     // Token Approval??
                 }
-                sigFailed = true;
             }
         }
         return _packValidationData(sigFailed, _until, _after);
