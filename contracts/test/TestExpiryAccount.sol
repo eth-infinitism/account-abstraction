@@ -46,7 +46,8 @@ contract TestExpiryAccount is SimpleAccount {
 
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
-        addTemporaryOwner(anOwner, 0, type(uint48).max);
+        PermissionParam[] memory permissions = new PermissionParam[](0);
+        this.addTemporaryOwner(anOwner, 0, type(uint48).max, permissions);
     }
 
     // As this is a test contract, no need for proxy, so no need to disable init
@@ -67,7 +68,7 @@ contract TestExpiryAccount is SimpleAccount {
             whitelistAddresses[index] = whitelistedDestination;
 
             _permissionStorage.whitelistDestinationMap[whitelistedDestination] = true;
-            _permissionStorage.whitelistMethods[whitelistedDestination] = permission.whitelistedMethods;
+            _permissionStorage.whitelistMethods[whitelistedDestination] = permission.whitelistMethods;
 
             for (uint256 methodIndex = 0; methodIndex < permission.whitelistMethods.length; methodIndex++) {
             _permissionStorage.whitelistMethodsMap[whitelistedDestination] [
@@ -75,16 +76,16 @@ contract TestExpiryAccount is SimpleAccount {
                 ] = true;
             }
 
-            if (permission.tokenAmount > 0) {
-            _permissionStorage.tokenApprovals[whitelistedDestination] = TokenApproval({enable: true, amount: permission.tokenAmount});
-            }
+            // if (permission.tokenAmount > 0) {
+            // _permissionStorage.tokenApprovals[whitelistedDestination] = TokenApproval({enable: true, amount: permission.tokenAmount});
+            // }
         }
         _permissionStorage.whitelistDestinations = whitelistAddresses;
     }
 
     // implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override view returns (uint256 validationData) {
+    internal view override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
         uint48 _until = ownerUntil[signer];
@@ -104,25 +105,26 @@ contract TestExpiryAccount is SimpleAccount {
             if (userOpSelector != FUNCTION_EXECUTE || userOpSelector != FUNCTION_EXECUTE_BATCH) {
                 return _packValidationData(sigFailed, _until, _after);
             } 
-
+            uint256 valData;
             userOpSelector == FUNCTION_EXECUTE
-                ? return _validateSessionKeySingle(userOp.callData, signer, _until, _after);
-                : return _validateSessionKeyBatch(userOp.callData, signer, _until, _after);
+                ? valData = _validateSessionKeySingle(userOp.callData, signer, _until, _after)
+                : valData = _validateSessionKeyBatch(userOp.callData, signer, _until, _after);
+
+            return valData;
         }
     }
 
     function _validateSessionKeySingle(bytes calldata userOpCallData, address signer, uint48 _until, uint48 _after) 
-    internal returns (uint256 validationData) {       
-        (address dest, uint256 value, bytes memory func) = decodeSingle(userOpCallData);
-        PermissionStorage memory permissionStorage = permissionMap[signer];
+    internal view returns (uint256 validationData) {       
+        (address dest, , bytes memory func) = decodeSingle(userOpCallData);
+        PermissionStorage storage permissionStorage = permissionMap[signer];
 
         bool sigFailed = true;
 
         if (permissionStorage.whitelistDestinationMap[dest]) {
-            if (permissionStorage.whitelistMethodsMap[dest][getSelector(func)]) {
+            if (permissionStorage.whitelistMethodsMap[dest][this.getSelector(func)]) {
                     sigFailed = false;
                     return _packValidationData(sigFailed, _until, _after);
-                }
             } 
         }
         return _packValidationData(sigFailed, _until, _after);
@@ -130,16 +132,16 @@ contract TestExpiryAccount is SimpleAccount {
     }
 
     function _validateSessionKeyBatch(bytes calldata userOpCallData, address signer, uint48 _until, uint48 _after) 
-    internal returns (uint256 validationData) {
-        (address[] dest, bytes[] func) = decodeBatch(userOpCallData);
-        PermissionStorage memory permissionStorage = permissionMap[signer];
+    internal view returns (uint256 validationData) {
+        (address[] memory dest, bytes[] memory func) = decodeBatch(userOpCallData);
+        PermissionStorage storage permissionStorage = permissionMap[signer];
 
         bool sigFailed = true;
 
         uint256 length = dest.length;
         for (uint256 i = 0; i < length; i++) {
             if (permissionStorage.whitelistDestinationMap[dest[i]]) {
-                if (permissionStorage.whitelistMethodsMap[dest[i]][getSelector(func[i])]) {
+                if (permissionStorage.whitelistMethodsMap[dest[i]][this.getSelector(func[i])]) {
                     sigFailed = false;
                     break;
                     // Token Approval??
