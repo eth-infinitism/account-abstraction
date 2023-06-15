@@ -138,6 +138,8 @@ contract TestExpiryAccount is SimpleAccount {
     }
 
     function _decodeSingle(bytes calldata _data) internal pure returns (address[] memory dest, uint256 value, bytes[] memory func){
+        dest = new address[](1);
+        func = new bytes[](1);
         (dest[0], value, func[0]) = abi.decode(_data[4:], (address, uint256, bytes));
     }
 
