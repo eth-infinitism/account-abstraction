@@ -102,6 +102,7 @@ describe.only('OracleHelper', function () {
     const owner = await ethersSigner.getAddress()
 
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
+      refundPostopCost: 40000,
       minEntryPointBalance: 0,
       priceMarkup: priceDenominator.mul(19).div(10) // 190%
     }

@@ -90,6 +90,7 @@ describe.only('TokenPaymaster', function () {
     await weth.transfer(testUniswap.address, parseEther('1'))
     const owner = await ethersSigner.getAddress()
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
+      refundPostopCost: 40000,
       minEntryPointBalance,
       priceMarkup: priceDenominator.mul(15).div(10) // +50%
     }

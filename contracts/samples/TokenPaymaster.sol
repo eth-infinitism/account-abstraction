@@ -33,6 +33,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
         /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
         uint256 minEntryPointBalance;
+
+        /// @notice Estimated gas cost for refunding tokens after the transaction is completed
+        uint256 refundPostopCost;
     }
 
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);
@@ -45,9 +48,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     /// @notice All 'price' variables are multiplied by this value to avoid rounding up
     uint256 private constant PRICE_DENOMINATOR = 1e26;
-
-    /// @notice Estimated gas cost for refunding tokens after the transaction is completed
-    uint256 public constant REFUND_POSTOP_COST = 40000;
 
     TokenPaymasterConfig private tokenPaymasterConfig;
 
@@ -130,7 +130,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
             );
-            uint256 preChargeNative = requiredPreFund + (REFUND_POSTOP_COST * userOp.maxFeePerGas);
+            uint256 preChargeNative = requiredPreFund + (tokenPaymasterConfig.refundPostopCost * userOp.maxFeePerGas);
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (paymasterAndDataLength == 32) {
@@ -171,7 +171,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
-            uint256 actualChargeNative = actualGasCost + REFUND_POSTOP_COST * gasPrice;
+            uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * gasPrice;
             uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup);
             if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
