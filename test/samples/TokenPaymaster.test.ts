@@ -90,13 +90,14 @@ describe.only('TokenPaymaster', function () {
     await weth.transfer(testUniswap.address, parseEther('1'))
     const owner = await ethersSigner.getAddress()
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
+      priceMaxAge: 86400,
       refundPostopCost: 40000,
       minEntryPointBalance,
       priceMarkup: priceDenominator.mul(15).div(10) // +50%
     }
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
-      cacheTimeToLive: 10,
+      cacheTimeToLive: 0,
       nativeOracle: nativeAssetOracle.address,
       nativeOracleReverse: false,
       priceUpdateThreshold: 200_000, // +20%
@@ -220,6 +221,7 @@ describe.only('TokenPaymaster', function () {
     const tx: ContractTransaction = await entryPoint
       .handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
     const receipt: ContractReceipt = await tx.wait()
+    const block = await ethers.provider.getBlock(receipt.blockHash)
 
     const decodedLogs = receipt.logs.map(it => {
       return testInterface.parseLog(it)
@@ -233,7 +235,7 @@ describe.only('TokenPaymaster', function () {
 
     await expect(tx).to
       .emit(paymaster, 'TokenPriceUpdated')
-      .withArgs(newExpectedPrice, oldExpectedPrice)
+      .withArgs(newExpectedPrice, oldExpectedPrice, block.timestamp)
 
     await ethers.provider.send('evm_revert', [snapshot])
   })

@@ -14,7 +14,7 @@ import "./IOracle.sol";
 /// Sometimes oracles provide the price in the opposite direction of what we need in the moment.
 abstract contract OracleHelper {
 
-    event TokenPriceUpdated(uint256 currentPrice, uint256 previousPrice);
+    event TokenPriceUpdated(uint256 currentPrice, uint256 previousPrice, uint256 cachedPriceTimestamp);
 
     uint256 private constant PRICE_DENOMINATOR = 1e26;
 
@@ -109,7 +109,8 @@ abstract contract OracleHelper {
         uint256 previousPrice = _cachedPrice;
         _cachedPrice = price;
         cachedPrice = _cachedPrice;
-        emit TokenPriceUpdated(_cachedPrice, previousPrice);
+        cachedPriceTimestamp = block.timestamp;
+        emit TokenPriceUpdated(_cachedPrice, previousPrice, cachedPriceTimestamp);
         return _cachedPrice;
     }
 

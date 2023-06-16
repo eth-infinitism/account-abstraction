@@ -36,6 +36,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
         /// @notice Estimated gas cost for refunding tokens after the transaction is completed
         uint256 refundPostopCost;
+
+        /// @notice Transactions are only valid as long as the cached price is not older than this value
+        uint256 priceMaxAge;
     }
 
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);
@@ -143,7 +146,11 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
             context = abi.encode(tokenAmount, userOp.maxFeePerGas, userOp.maxPriorityFeePerGas, userOp.sender);
-            validationResult = 0;
+            validationResult = _packValidationData(
+                false,
+                uint48(cachedPriceTimestamp + tokenPaymasterConfig.priceMaxAge),
+                0
+            );
         }
     }
 
