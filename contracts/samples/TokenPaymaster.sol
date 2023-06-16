@@ -142,7 +142,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             }
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
-            context = abi.encodePacked(tokenAmount, userOp.maxFeePerGas, userOp.maxPriorityFeePerGas, userOp.sender);
+            context = abi.encode(tokenAmount, userOp.maxFeePerGas, userOp.maxPriorityFeePerGas, userOp.sender);
             validationResult = 0;
         }
     }
@@ -155,11 +155,13 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
-            uint256 preCharge = uint256(bytes32(context[0 : 32]));
-            uint256 maxFeePerGas = uint256(bytes32(context[32 : 64]));
-            uint256 maxPriorityFeePerGas = uint256(bytes32(context[64 : 96]));
+            (
+                uint256 preCharge,
+                uint256 maxFeePerGas,
+                uint256 maxPriorityFeePerGas,
+                address userOpSender
+            ) = abi.decode(context, (uint256, uint256, uint256, address));
             uint256 gasPrice = getGasPrice(maxFeePerGas, maxPriorityFeePerGas);
-            address userOpSender = address(bytes20(context[96 : 116]));
             if (mode == PostOpMode.postOpReverted) {
                 emit PostOpReverted(userOpSender, preCharge);
                 // Do nothing here to not revert the whole bundle and harm reputation
