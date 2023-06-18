@@ -13,32 +13,21 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
-    bytes4 FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
-    bytes4 FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
-
-    // struct TokenApproval {
-	//     bool enable;
-	//     uint256 amount;
-    // }
+    bytes4 constant FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
+    bytes4 constant FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
 
     struct PermissionParam {
         address whitelistDestination;
         bytes4[] whitelistMethods;
-        // uint256 tokenAmount;
     }
     
     struct PermissionStorage {
-	    address[] whitelistDestinations;
 	    mapping(address => bool) whitelistDestinationMap;
-	    mapping(address => bytes4[]) whitelistMethods;
+	    mapping(address => mapping(bytes4 => bytes)) whitelistMethodPeriods;
 	    mapping(address => mapping(bytes4 => bool)) whitelistMethodsMap;
-	    // mapping(address => TokenApproval) tokenApprovals; 
     }
 
     mapping(address => PermissionStorage) internal permissionMap;
-
-    mapping(address => uint48) public ownerAfter;
-    mapping(address => uint48) public ownerUntil;
 
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
@@ -56,31 +45,25 @@ contract TestExpiryAccount is SimpleAccount {
 
     function addTemporaryOwner(address owner, uint48 _after, uint48 _until, PermissionParam[] calldata permissions) public onlyOwner {
         require(_until > _after, "wrong until/after");
-        ownerAfter[owner] = _after;
-        ownerUntil[owner] = _until;
-	
+
         PermissionStorage storage _permissionStorage = permissionMap[owner];
-        address[] memory whitelistAddresses = new address[] (permissions.length);
         
         for (uint256 index = 0; index < permissions.length; index++) {
             PermissionParam memory permission = permissions[index];
             address whitelistedDestination = permission.whitelistDestination;
-            whitelistAddresses[index] = whitelistedDestination;
 
             _permissionStorage.whitelistDestinationMap[whitelistedDestination] = true;
-            _permissionStorage.whitelistMethods[whitelistedDestination] = permission.whitelistMethods;
 
             for (uint256 methodIndex = 0; methodIndex < permission.whitelistMethods.length; methodIndex++) {
-            _permissionStorage.whitelistMethodsMap[whitelistedDestination] [
+                // total 96 bits : | 48 bits - _after | 48 bits - _until |
+                bytes4 permissionMethod = permission.whitelistMethods[methodIndex];
+                _permissionStorage.whitelistMethodPeriods[whitelistedDestination][
                     permission.whitelistMethods[methodIndex]
-                ] = true;
+                ]
+                = abi.encodePacked(_after, _until);
+                _permissionStorage.whitelistMethodsMap[whitelistedDestination][permissionMethod] = true;
             }
-
-            // if (permission.tokenAmount > 0) {
-            // _permissionStorage.tokenApprovals[whitelistedDestination] = TokenApproval({enable: true, amount: permission.tokenAmount});
-            // }
         }
-        _permissionStorage.whitelistDestinations = whitelistAddresses;
     }
 
     // implement template method of BaseAccount
@@ -88,35 +71,29 @@ contract TestExpiryAccount is SimpleAccount {
     internal view override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
-        uint48 _until = ownerUntil[signer];
-        uint48 _after = ownerAfter[signer];
         
-        // we have "until" value for all valid owners. so zero means "invalid signature"
-        bool sigFailed = _until == 0;
-        if (sigFailed) {
-            return _packValidationData(sigFailed, _until, _after);
-        }
-
         if (signer == owner) {
-            return _packValidationData(sigFailed, _until, _after);
-        } else {
-            bytes4 userOpSelector = getSelector(userOp.callData);
-            return _validateSessionKey(userOp.callData, signer, _until, _after, userOpSelector);
+            return _packValidationData(true, 0, type(uint48).max);
         }
+        bytes4 userOpSelector = getSelector(userOp.callData);
+        return _validateSessionKey(userOp.callData, signer, userOpSelector);
+        
     }
 
-    function _validateSessionKey(bytes calldata userOpCallData, address signer, uint48 _until, uint48 _after, bytes4 userOpSelector) 
+    function _validateSessionKey(bytes calldata userOpCallData, address signer, bytes4 userOpSelector) 
     internal view returns (uint256 validationData) {
         address[] memory dest; 
         bytes[] memory func;
         bool sigFailed = true;
+        uint48 _after;
+        uint48 _until;
 
         if (userOpSelector == FUNCTION_EXECUTE) {
             (dest, func) = _decodeSingle(userOpCallData); 	
         } else if (userOpSelector == FUNCTION_EXECUTE_BATCH) {
             (dest, func) = _decodeBatch(userOpCallData);
         } else {
-            return _packValidationData(sigFailed, _until, _after);
+            return _packValidationData(sigFailed, 0, 0);
         }
 
         PermissionStorage storage permissionStorage = permissionMap[signer];
@@ -124,12 +101,20 @@ contract TestExpiryAccount is SimpleAccount {
         uint256 length = dest.length;
         for (uint256 i = 0; i < length; i++) {
             if (permissionStorage.whitelistDestinationMap[dest[i]]) {
-                if (permissionStorage.whitelistMethodsMap[dest[i]][this.getSelector(func[i])]) {
-                    sigFailed = false;
-                    break;
+                bytes4 selec = this.getSelector(func[i]);
+                if (permissionStorage.whitelistMethodsMap[dest[i]][selec]) {
+                    (_after, _until) = abi.decode(
+                        permissionStorage.whitelistMethodPeriods[dest[i]][selec], 
+                        (uint48, uint48)
+                    );
+                    if(_after <= block.timestamp && _until >= block.timestamp) {
+                        sigFailed = false;
+                        return _packValidationData(sigFailed, _until, _after);
+                    }
                 }
             }
         }
+        // Returning last retrieved until & after information 
         return _packValidationData(sigFailed, _until, _after);
     }
 
