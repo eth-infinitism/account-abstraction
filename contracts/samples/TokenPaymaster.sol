@@ -100,12 +100,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         emit ConfigUpdated(_tokenPaymasterConfig);
     }
 
-    function setOracleConfiguration(
-        OracleHelperConfig memory _oracleHelperConfig
-    ) external onlyOwner {
-        _setOracleConfiguration(_oracleHelperConfig);
-    }
-
     function setUniswapConfiguration(
         UniswapHelperConfig memory _uniswapHelperConfig
     ) external onlyOwner {
@@ -198,7 +192,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 );
             }
 
-            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPrice);
+            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, _cachedPrice);
             refillEntryPointDeposit(_cachedPrice);
         }
     }

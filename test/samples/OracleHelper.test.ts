@@ -4,6 +4,7 @@ import { ethers } from 'hardhat'
 import { AddressZero } from '../testutils'
 
 import {
+  TestERC20,
   TestERC20__factory,
   TestOracle2,
   TestOracle2__factory,
@@ -55,7 +56,7 @@ const sampleResponses = {
 }
 
 // note: direct or reverse designations are quite arbitrary
-describe.only('OracleHelper', function () {
+describe('OracleHelper', function () {
   function testOracleFiguredPriceOut (): void {
     it('should figure out the correct price', async function () {
       await testEnv.paymaster.updateCachedPrice(true)
@@ -87,8 +88,12 @@ describe.only('OracleHelper', function () {
   }
 
   interface TestEnv {
+    owner: string
     expectedPrice: string
     expectedTokensPerEtherCalculated: string
+    tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct
+    uniswapHelperConfig: UniswapHelperNamespace.UniswapHelperConfigStruct
+    token: TestERC20
     paymaster: TokenPaymaster
     tokenOracle: TestOracle2
     nativeAssetOracle: TestOracle2
@@ -99,15 +104,15 @@ describe.only('OracleHelper', function () {
 
   before(async function () {
     const ethersSigner = ethers.provider.getSigner()
-    const owner = await ethersSigner.getAddress()
+    testEnv.owner = await ethersSigner.getAddress()
 
-    const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
+    testEnv.tokenPaymasterConfig = {
       priceMaxAge: 86400,
       refundPostopCost: 40000,
       minEntryPointBalance: 0,
       priceMarkup: priceDenominator.mul(19).div(10) // 190%
     }
-    const uniswapHelperConfig: UniswapHelperNamespace.UniswapHelperConfigStruct = {
+    testEnv.uniswapHelperConfig = {
       minSwapAmount: 1,
       slippage: 5,
       uniswapPoolFee: 3
@@ -117,21 +122,21 @@ describe.only('OracleHelper', function () {
     testEnv.tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(1, 0)
     testEnv.nativeAssetOracle = await new TestOracle2__factory(ethersSigner).deploy(1, 0)
 
-    const token = await new TestERC20__factory(ethersSigner).deploy(18)
+    testEnv.token = await new TestERC20__factory(ethersSigner).deploy(18)
 
     testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
-      token.address,
+      testEnv.token.address,
       AddressZero,
       AddressZero,
-      owner, // cannot approve to AddressZero
-      tokenPaymasterConfig,
+      testEnv.owner, // cannot approve to AddressZero
+      testEnv.tokenPaymasterConfig,
       getOracleConfig({
         nativeOracleReverse: false,
         tokenOracleReverse: false,
         tokenToNativeOracle: false
       }),
-      uniswapHelperConfig,
-      owner
+      testEnv.uniswapHelperConfig,
+      testEnv.owner
     )
   })
 
@@ -156,11 +161,21 @@ describe.only('OracleHelper', function () {
           .div(res.answer)
           .toString()
 
-      await testEnv.paymaster.setOracleConfiguration(getOracleConfig({
-        tokenToNativeOracle: true,
-        tokenOracleReverse: false,
-        nativeOracleReverse: false
-      }))
+      const ethersSigner = ethers.provider.getSigner()
+      testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
+        testEnv.token.address,
+        AddressZero,
+        AddressZero,
+        testEnv.owner, // cannot approve to AddressZero
+        testEnv.tokenPaymasterConfig,
+        getOracleConfig({
+          tokenToNativeOracle: true,
+          tokenOracleReverse: false,
+          nativeOracleReverse: false
+        }),
+        testEnv.uniswapHelperConfig,
+        testEnv.owner
+      )
     })
 
     testOracleFiguredPriceOut()
@@ -197,11 +212,21 @@ describe.only('OracleHelper', function () {
       // sanity check for the price calculation - use direct price and cached-like reverse price
       assert.equal(expectedTokensPerEtherCalculated.toString(), testEnv.expectedTokensPerEtherCalculated.toString())
 
-      await testEnv.paymaster.setOracleConfiguration(getOracleConfig({
-        tokenToNativeOracle: true,
-        tokenOracleReverse: true,
-        nativeOracleReverse: false
-      }))
+      const ethersSigner = ethers.provider.getSigner()
+      testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
+        testEnv.token.address,
+        AddressZero,
+        AddressZero,
+        testEnv.owner, // cannot approve to AddressZero
+        testEnv.tokenPaymasterConfig,
+        getOracleConfig({
+          tokenToNativeOracle: true,
+          tokenOracleReverse: true,
+          nativeOracleReverse: false
+        }),
+        testEnv.uniswapHelperConfig,
+        testEnv.owner
+      )
     })
     testOracleFiguredPriceOut()
   })
@@ -217,12 +242,21 @@ describe.only('OracleHelper', function () {
       await testEnv.nativeAssetOracle.setPrice(resNative.answer) // $1,817.65
       await testEnv.nativeAssetOracle.setDecimals(resNative.decimals)
 
-      await testEnv.paymaster.setOracleConfiguration(getOracleConfig({
-        tokenToNativeOracle: false,
-        tokenOracleReverse: false,
-        nativeOracleReverse: false
-      }))
-
+      const ethersSigner = ethers.provider.getSigner()
+      testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
+        testEnv.token.address,
+        AddressZero,
+        AddressZero,
+        testEnv.owner, // cannot approve to AddressZero
+        testEnv.tokenPaymasterConfig,
+        getOracleConfig({
+          tokenToNativeOracle: false,
+          tokenOracleReverse: false,
+          nativeOracleReverse: false
+        }),
+        testEnv.uniswapHelperConfig,
+        testEnv.owner
+      )
       // note: oracle decimals are same and cancel each other out
       testEnv.expectedPrice =
         priceDenominator

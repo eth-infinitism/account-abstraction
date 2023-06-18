@@ -42,7 +42,7 @@ function generatePaymasterAndData (pm: string, tokenPrice?: BigNumberish): strin
 
 const priceDenominator = BigNumber.from(10).pow(26)
 
-describe.only('TokenPaymaster', function () {
+describe('TokenPaymaster', function () {
   const minEntryPointBalance = 1e17.toString()
   const initialPriceToken = 100000000 // USD per TOK
   const initialPriceEther = 500000000 // USD per ETH
