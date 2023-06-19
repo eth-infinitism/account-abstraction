@@ -17,18 +17,18 @@ contract TestExpiryAccount is SimpleAccount {
     bytes4 constant FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
     uint256 constant DATE_LENGTH = 6;
 
-    struct PermissionParam {
-        address whitelistDestination;
-        bytes4[] whitelistMethods;
+    struct TargetMethods {
+        address delegatedContract;
+        bytes4[] delegatedFunctions;
     }
     
-    struct PermissionStorage {
-	    mapping(address => bool) whitelistDestinationMap;
-	    mapping(address => mapping(bytes4 => bytes)) whitelistMethodPeriods;
-	    mapping(address => mapping(bytes4 => bool)) whitelistMethodsMap;
+    struct TargetInfo {
+	    mapping(address => bool) delegatedContractMap;
+	    mapping(address => mapping(bytes4 => bytes)) delegatedFunctionPeriods;
+	    mapping(address => mapping(bytes4 => bool)) delegatedFunctionMap;
     }
 
-    mapping(address => PermissionStorage) internal permissionMap;
+    mapping(address => TargetInfo) internal delegationMap;
 
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
@@ -36,33 +36,33 @@ contract TestExpiryAccount is SimpleAccount {
 
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
-        PermissionParam[] memory permissions = new PermissionParam[](0);
-        this.addTemporaryOwner(anOwner, 0, type(uint48).max, permissions);
+        TargetMethods[] memory delegations = new TargetMethods[](0);
+        this.addTemporaryOwner(anOwner, 0, type(uint48).max, delegations);
     }
 
     // As this is a test contract, no need for proxy, so no need to disable init
     // solhint-disable-next-line no-empty-blocks
     function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, PermissionParam[] calldata permissions) public onlyOwner {
+    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, TargetMethods[] calldata delegations) public onlyOwner {
         require(_until > _after, "wrong until/after");
 
-        PermissionStorage storage _permissionStorage = permissionMap[owner];
+        TargetInfo storage _targetInfo = delegationMap[owner];
         
-        for (uint256 index = 0; index < permissions.length; index++) {
-            PermissionParam memory permission = permissions[index];
-            address whitelistedDestination = permission.whitelistDestination;
+        for (uint256 index = 0; index < delegations.length; index++) {
+            TargetMethods memory delegation = delegations[index];
+            address delegatedContract = delegation.delegatedContract;
 
-            _permissionStorage.whitelistDestinationMap[whitelistedDestination] = true;
+            _targetInfo.delegatedContractMap[delegatedContract] = true;
 
-            for (uint256 methodIndex = 0; methodIndex < permission.whitelistMethods.length; methodIndex++) {
+            for (uint256 functionIndex = 0; functionIndex < delegation.delegatedFunctions.length; functionIndex++) {
                 // total 96 bits : | 48 bits - _after | 48 bits - _until |
-                bytes4 permissionMethod = permission.whitelistMethods[methodIndex];
-                _permissionStorage.whitelistMethodPeriods[whitelistedDestination][
-                    permission.whitelistMethods[methodIndex]
+                bytes4 delegatedFunction = delegation.delegatedFunctions[functionIndex];
+                _targetInfo.delegatedFunctionPeriods[delegatedContract][
+                    delegation.delegatedFunctions[functionIndex]
                 ]
                 = abi.encodePacked(_after, _until);
-                _permissionStorage.whitelistMethodsMap[whitelistedDestination][permissionMethod] = true;
+                _targetInfo.delegatedFunctionMap[delegatedContract][delegatedFunction] = true;
             }
         }
     }
@@ -97,14 +97,14 @@ contract TestExpiryAccount is SimpleAccount {
             return _packValidationData(sigFailed, 0, 0);
         }
 
-        PermissionStorage storage permissionStorage = permissionMap[signer];
+        TargetInfo storage targetInfo = delegationMap[signer];
 
         uint256 length = dest.length;
         for (uint256 i = 0; i < length; i++) {
-            if (permissionStorage.whitelistDestinationMap[dest[i]]) {
+            if (targetInfo.delegatedContractMap[dest[i]]) {
                 bytes4 selec = this.getSelector(func[i]);
-                if (permissionStorage.whitelistMethodsMap[dest[i]][selec]) {
-                    (_after, _until) = _decode(permissionStorage.whitelistMethodPeriods[dest[i]][selec]);
+                if (targetInfo.delegatedFunctionMap[dest[i]][selec]) {
+                    (_after, _until) = _decode(targetInfo.delegatedFunctionPeriods[dest[i]][selec]);
                     if(_after <= block.timestamp && _until >= block.timestamp) {
                         sigFailed = false;
                         return _packValidationData(sigFailed, _until, _after);

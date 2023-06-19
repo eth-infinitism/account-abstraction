@@ -1223,15 +1223,15 @@ describe('EntryPoint', function () {
         sessionOwner = createAccountOwner()
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = counter.interface.encodeFunctionData('count')
-        const PermissionParam : TestExpiryAccount.PermissionParamStruct[] = [
+        const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
           {
-            whitelistDestination: counter.address,
-            whitelistMethods: [
+            delegatedContract: counter.address,
+            delegatedFunctions: [
               count 
             ]
           }
         ];
-        await account.addTemporaryOwner(sessionOwner.address, 100, now + 60, PermissionParam)
+        await account.addTemporaryOwner(sessionOwner.address, 100, now + 60, TargetMethods)
       })
 
       describe('validateUserOp time-range with calldata validation', function () {
@@ -1252,10 +1252,10 @@ describe('EntryPoint', function () {
           const expiredOwner = createAccountOwner()
           const counter = await new TestCounter__factory(ethersSigner).deploy()
           const count = counter.interface.encodeFunctionData('count')
-          const PermissionParam : TestExpiryAccount.PermissionParamStruct[] = [
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
             {
-              whitelistDestination: counter.address,
-              whitelistMethods: [
+              delegatedContract: counter.address,
+              delegatedFunctions: [
                 count 
               ]
             }
@@ -1265,7 +1265,7 @@ describe('EntryPoint', function () {
             expiredOwner.address, 
             123, 
             now - 60, 
-            PermissionParam
+            TargetMethods
           )
           
           const userOp = await fillAndSign({
@@ -1276,7 +1276,7 @@ describe('EntryPoint', function () {
           expect(ret.returnInfo.validUntil).eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
           // Why no revert despite the expired owner?
-          expect(ret.returnInfo.sigFailed).to.eql(false)
+          expect(ret.returnInfo.sigFailed).to.eql(true)
         })
       })
 
