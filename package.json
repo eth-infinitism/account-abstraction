@@ -29,11 +29,13 @@
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@typechain/ethers-v5": "^10.1.0",
     "@types/chai": "^4.2.21",
     "@types/node": "^16.4.12",
     "@typescript-eslint/eslint-plugin": "^5.30.5",
     "@typescript-eslint/parser": "^5.30.5",
+    "@uniswap/v3-periphery": "^1.4.3",
     "chai": "^4.3.4",
     "eslint": "^8.19.0",
     "eslint-config-standard": "^17.0.0",
