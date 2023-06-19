@@ -15,6 +15,7 @@ contract TestExpiryAccount is SimpleAccount {
 
     bytes4 constant FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
     bytes4 constant FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
+    uint256 constant DATE_LENGTH = 6;
 
     struct PermissionParam {
         address whitelistDestination;
@@ -103,10 +104,7 @@ contract TestExpiryAccount is SimpleAccount {
             if (permissionStorage.whitelistDestinationMap[dest[i]]) {
                 bytes4 selec = this.getSelector(func[i]);
                 if (permissionStorage.whitelistMethodsMap[dest[i]][selec]) {
-                    (_after, _until) = abi.decode(
-                        permissionStorage.whitelistMethodPeriods[dest[i]][selec], 
-                        (uint48, uint48)
-                    );
+                    (_after, _until) = _decode(permissionStorage.whitelistMethodPeriods[dest[i]][selec]);
                     if(_after <= block.timestamp && _until >= block.timestamp) {
                         sigFailed = false;
                         return _packValidationData(sigFailed, _until, _after);
@@ -132,4 +130,10 @@ contract TestExpiryAccount is SimpleAccount {
         (dest, func) = abi.decode(_data[4:], (address[], bytes[]));
     }
 
+    function _decode(bytes memory _data) internal pure returns (uint48 _after, uint48 _until) {
+        assembly {
+            _after := mload(add(_data, DATE_LENGTH))
+            _until := mload(add(_data, mul(DATE_LENGTH, 2)))
+        }
+    }
 }
