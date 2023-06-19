@@ -30,6 +30,7 @@ contract TestExpiryAccount is SimpleAccount {
 
     mapping(address => TargetInfo) internal delegationMap;
 
+
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
@@ -46,7 +47,6 @@ contract TestExpiryAccount is SimpleAccount {
 
     function addTemporaryOwner(address owner, uint48 _after, uint48 _until, TargetMethods[] calldata delegations) public onlyOwner {
         require(_until > _after, "wrong until/after");
-
         TargetInfo storage _targetInfo = delegationMap[owner];
         
         for (uint256 index = 0; index < delegations.length; index++) {
