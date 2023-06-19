@@ -123,7 +123,7 @@ describe('TSPAccount', function () {
     })
 
     it('should increment nonce', async () => {
-      expect(await account.nonce()).to.equal(1)
+      expect(await account.getNonce()).to.equal(1)
     })
 
     it('should reject same TX on nonce error', async () => {
