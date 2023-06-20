@@ -132,12 +132,16 @@ contract TSPAccount is SimpleAccount, ITSPAccount {
      */
     function executeBatch(
         address[] calldata dest,
+        uint256[] calldata value,
         bytes[] calldata func
     ) external override {
         _requireFromEntryPointOrOwnerOrOperator();
-        require(dest.length == func.length, "wrong array lengths");
+        require(
+            dest.length == func.length && dest.length == value.length,
+            "wrong array lengths"
+        );
         for (uint256 i = 0; i < dest.length; i++) {
-            _call(dest[i], 0, func[i]);
+            _call(dest[i], value[i], func[i]);
         }
     }
 
