@@ -69,7 +69,7 @@ contract Guardian is IGuardian {
 
     function resetAccountOwner(address account) public {
         (address newAddress, uint256 progress) = _getApproveProgress(account);
-        if (progress > _cabinet[account].approveThreshold) {
+        if (progress >= _cabinet[account].approveThreshold) {
             if (_closestReset[account] > block.number) {
                 revert("the delay reset time has not yet reached");
             }
