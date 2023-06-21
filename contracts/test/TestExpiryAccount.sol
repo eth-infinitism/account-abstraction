@@ -13,9 +13,9 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
-    bytes4 constant FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
-    bytes4 constant FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
-    uint256 constant DATE_LENGTH = 6;
+    bytes4 private constant FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
+    bytes4 private constant FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
+    uint256 private constant DATE_LENGTH = 6;
 
     struct TargetMethods {
         address delegatedContract;
@@ -74,7 +74,7 @@ contract TestExpiryAccount is SimpleAccount {
         address signer = hash.recover(userOp.signature);
         
         if (signer == owner) {
-            return _packValidationData(true, 0, type(uint48).max);
+            return _packValidationData(false, type(uint48).max, 0);
         }
         bytes4 userOpSelector = getSelector(userOp.callData);
         return _validateSessionKey(userOp.callData, signer, userOpSelector);
@@ -85,7 +85,7 @@ contract TestExpiryAccount is SimpleAccount {
     internal view returns (uint256 validationData) {
         address[] memory dest; 
         bytes[] memory func;
-        bool sigFailed = true;
+        bool sigFailed;
         uint48 _after;
         uint48 _until;
 
@@ -100,15 +100,15 @@ contract TestExpiryAccount is SimpleAccount {
         TargetInfo storage targetInfo = delegationMap[signer];
 
         uint256 length = dest.length;
+        if (length == 0) {
+            sigFailed = true;
+        }
         for (uint256 i = 0; i < length; i++) {
             if (targetInfo.delegatedContractMap[dest[i]]) {
                 bytes4 selec = this.getSelector(func[i]);
                 if (targetInfo.delegatedFunctionMap[dest[i]][selec]) {
                     (_after, _until) = _decode(targetInfo.delegatedFunctionPeriods[dest[i]][selec]);
-                    if(_after <= block.timestamp && _until >= block.timestamp) {
-                        sigFailed = false;
-                        return _packValidationData(sigFailed, _until, _after);
-                    }
+                    return _packValidationData(sigFailed, _until, _after);
                 }
             }
         }
