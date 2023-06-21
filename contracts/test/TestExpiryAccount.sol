@@ -74,7 +74,7 @@ contract TestExpiryAccount is SimpleAccount {
         address signer = hash.recover(userOp.signature);
         
         if (signer == owner) {
-            return _packValidationData(true, 0, type(uint48).max);
+            return _packValidationData(false, 0, type(uint48).max);
         }
         bytes4 userOpSelector = getSelector(userOp.callData);
         return _validateSessionKey(userOp.callData, signer, userOpSelector);
