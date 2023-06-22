@@ -18,3 +18,8 @@ artifacts
 .DS_Store
 /contracts/dist/
 /contracts/types/
+
+# My files
+.env
+mnemonic.txt
+.vscode/settings.json
