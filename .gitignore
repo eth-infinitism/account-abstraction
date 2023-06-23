@@ -19,7 +19,9 @@ artifacts
 /contracts/dist/
 /contracts/types/
 
-# My files
+#Ignore env files
 .env
+.env.local
+.env.development.local
 mnemonic.txt
 .vscode/settings.json

@@ -4,9 +4,12 @@ import { HardhatUserConfig } from 'hardhat/config'
 import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
 
+import dotenv from 'dotenv';
 import 'solidity-coverage'
 
 import * as fs from 'fs'
+
+dotenv.config();
 
 const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secret/testnet-mnemonic.txt`
 let mnemonic = 'test '.repeat(11) + 'junk'
