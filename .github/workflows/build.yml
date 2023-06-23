@@ -12,6 +12,21 @@ env:
 
 # todo: extract shared seto/checkout/install/compile, instead of repeat in each job.
 jobs:
+  check-yarn-lock:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 14
+      - name: Install dependencies with frozen lockfile
+        run: yarn install --frozen-lockfile
+      - name: Check for changes in yarn.lock
+        run: |
+          git diff --exit-code yarn.lock || (echo "yarn.lock must be updated to match package.json changes." && exit 1)
 
   test:
     runs-on: ubuntu-latest
