@@ -5,7 +5,6 @@ import '@typechain/hardhat'
 import { HardhatUserConfig } from 'hardhat/config'
 import 'hardhat-deploy'
 
-
 import 'solidity-coverage'
 
 import * as fs from 'fs'
