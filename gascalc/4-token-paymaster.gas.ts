@@ -6,7 +6,7 @@ import {
   TokenPaymaster__factory
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { GasChecker } from './GasChecker'
+import { GasCheckCollector, GasChecker } from './GasChecker'
 import { Create2Factory } from '../src/Create2Factory'
 import { hexValue } from '@ethersproject/bytes'
 import {
@@ -23,6 +23,8 @@ context('Token Paymaster', function () {
 
   let paymasterAddress: string
   before(async () => {
+    await GasCheckCollector.init()
+
     const minEntryPointBalance = 1e17.toString()
     const initialPriceToken = 100000000 // USD per TOK
     const initialPriceEther = 500000000 // USD per ETH
