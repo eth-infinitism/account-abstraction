@@ -77,7 +77,14 @@ context('Token Paymaster', function () {
     const paymaster = TokenPaymaster__factory.connect(paymasterAddress, ethersSigner)
     await paymaster.addStake(1, { value: 1 })
     await g.entryPoint().depositTo(paymaster.address, { value: parseEther('10') })
+    await paymaster.updateCachedPrice(true)
+    await g.createAccounts1(11)
+    for (const address of g.createdAccounts) {
+      await token.transfer(address, parseEther('1'))
+      await token.sudoApprove(address, paymaster.address, ethers.constants.MaxUint256)
+    }
   })
+
   it('token paymaster', async function () {
     await g.addTestRow({ title: 'token paymaster', count: 1, paymaster: paymasterAddress, diffLastGas: false })
     await g.addTestRow({
