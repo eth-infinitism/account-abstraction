@@ -12,6 +12,7 @@ pragma solidity ^0.8.12;
 import "./UserOperation.sol";
 import "./IStakeManager.sol";
 import "./IAggregator.sol";
+import "./INonceManager.sol";
 
 interface IEntryPoint is IStakeManager {
     /***
@@ -62,6 +63,12 @@ interface IEntryPoint is IStakeManager {
         uint256 nonce,
         bytes revertReason
     );
+
+    /**
+     * An event emitted by handleOps(), before starting the execution loop.
+     * Any event emitted before this event, is part of the validation.
+     */
+    event BeforeExecution();
 
     /**
      * Signature aggregator used by the following UserOperationEvents within this bundle.
