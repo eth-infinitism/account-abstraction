@@ -242,11 +242,11 @@ export class GasChecker {
     console.log('=== encoded data=', txdata.length)
     const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
       userOps, info.beneficiary, {}
-    ).catch(e=>{
-      const data = e.error?.data?.data || e.error?.data
-      if (data) {
+    ).catch(e => {
+      const data = e.error?.data?.data ?? e.error?.data
+      if (data != null) {
         const e1 = GasCheckCollector.inst.entryPoint.interface.parseError(data)
-        throw new Error(`${e1.name}(${e1.args})`)
+        throw new Error(`${e1.name}(${e1.args?.toString()})`)
       }
       throw e
     })
