@@ -72,8 +72,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         } catch {
             bytes32 innerRevertCode;
             assembly {
-                returndatacopy(0, 0, 32)
-                innerRevertCode := mload(0)
+                let len := returndatasize()
+                if eq(32,len) {
+                    returndatacopy(0, 0, 32)
+                    innerRevertCode := mload(0)
+                }
             }
             // handleOps was called with gas limit too low. abort entire bundle.
             if (innerRevertCode == INNER_OUT_OF_GAS) {

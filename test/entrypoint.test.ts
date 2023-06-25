@@ -20,7 +20,8 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  TestPaymasterRevertCustomError__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -1169,6 +1170,24 @@ describe('EntryPoint', function () {
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
         await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"AA31 paymaster deposit too low"')
+      })
+
+      it('should not revert when paymaster reverts with custom error on postOp', async function () {
+        const account3Owner = createAccountOwner()
+        const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
+        await errorPostOp.deposit({ value: ONE_ETH })
+
+        const op = await fillAndSign({
+          paymasterAndData: errorPostOp.address,
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(account3Owner.address, simpleAccountFactory),
+
+          verificationGasLimit: 3e6,
+          callGasLimit: 1e6
+        }, account3Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+        await entryPoint.handleOps([op], beneficiaryAddress)
       })
 
       it('paymaster should pay for tx', async function () {
