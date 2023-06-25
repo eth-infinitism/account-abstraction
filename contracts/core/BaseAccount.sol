@@ -10,15 +10,17 @@ import "./Helpers.sol";
 
 /**
  * Basic account implementation.
- * this contract provides the basic logic for implementing the IAccount interface  - validateUserOp
- * specific account implementation should inherit it and provide the account-specific logic
+ * This contract provides the basic logic for implementing the IAccount interface - validateUserOp
+ * Specific account implementation should inherit it and provide the account-specific logic.
  */
 abstract contract BaseAccount is IAccount {
     using UserOperationLib for UserOperation;
 
-    //return value in case of signature failure, with no time-range.
-    // equivalent to _packValidationData(true,0,0);
-    uint256 constant internal SIG_VALIDATION_FAILED = 1;
+    /**
+     * Return value in case of signature failure, with no time-range.
+     * Equivalent to _packValidationData(true,0,0).
+     */
+    uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
     /**
      * Return the account nonce.
@@ -30,17 +32,25 @@ abstract contract BaseAccount is IAccount {
     }
 
     /**
-     * return the entryPoint used by this account.
-     * subclass should return the current entryPoint used by this account.
+     * Return the entryPoint used by this account.
+     * Subclass should return the current entryPoint used by this account.
      */
     function entryPoint() public view virtual returns (IEntryPoint);
 
     /**
      * Validate user's signature and nonce.
-     * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
+     * Subclass doesn't need to override this method. Instead,
+     * it should override the specific internal validation methods.
+     * @param userOp              - The user operation to validate.
+     * @param userOpHash          - The hash of the user operation.
+     * @param missingAccountFunds - The amount of funds missing from the account
+     *                              to pay for the user operation.
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
-    external override virtual returns (uint256 validationData) {
+    function validateUserOp(
+        UserOperation calldata userOp,
+        bytes32 userOpHash,
+        uint256 missingAccountFunds
+    ) external virtual override returns (uint256 validationData) {
         _requireFromEntryPoint();
         validationData = _validateSignature(userOp, userOpHash);
         _validateNonce(userOp.nonce);
@@ -48,27 +58,33 @@ abstract contract BaseAccount is IAccount {
     }
 
     /**
-     * ensure the request comes from the known entrypoint.
+     * Ensure the request comes from the known entrypoint.
      */
-    function _requireFromEntryPoint() internal virtual view {
-        require(msg.sender == address(entryPoint()), "account: not from EntryPoint");
+    function _requireFromEntryPoint() internal view virtual {
+        require(
+            msg.sender == address(entryPoint()),
+            "account: not from EntryPoint"
+        );
     }
 
     /**
-     * validate the signature is valid for this message.
-     * @param userOp validate the userOp.signature field
-     * @param userOpHash convenient field: the hash of the request, to check the signature against
-     *          (also hashes the entrypoint and chain id)
-     * @return validationData signature and time-range of this operation
-     *      <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
-     *         otherwise, an address of an "authorizer" contract.
-     *      <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
-     *      <6-byte> validAfter - first timestamp this operation is valid
-     *      If the account doesn't use time-range, it is enough to return SIG_VALIDATION_FAILED value (1) for signature failure.
-     *      Note that the validation code cannot use block.timestamp (or block.number) directly.
+     * Validate the signature is valid for this message.
+     * @param userOp          - Validate the userOp.signature field.
+     * @param userOpHash      - Convenient field: the hash of the request, to check the signature against.
+     *                          (also hashes the entrypoint and chain id)
+     * @return validationData - Signature and time-range of this operation.
+     *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
+     *                              otherwise, an address of an "authorizer" contract.
+     *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
+     *                          <6-byte> validAfter - first timestamp this operation is valid
+     *                          If the account doesn't use time-range, it is enough to return
+     *                          SIG_VALIDATION_FAILED value (1) for signature failure.
+     *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal virtual returns (uint256 validationData);
+    function _validateSignature(
+        UserOperation calldata userOp,
+        bytes32 userOpHash
+    ) internal virtual returns (uint256 validationData);
 
     /**
      * Validate the nonce of the UserOperation.
@@ -90,16 +106,20 @@ abstract contract BaseAccount is IAccount {
     }
 
     /**
-     * sends to the entrypoint (msg.sender) the missing funds for this transaction.
-     * subclass MAY override this method for better funds management
+     * Sends to the entrypoint (msg.sender) the missing funds for this transaction.
+     * SubClass MAY override this method for better funds management
      * (e.g. send to the entryPoint more than the minimum required, so that in future transactions
-     * it will not be required to send again)
-     * @param missingAccountFunds the minimum value this method should send the entrypoint.
-     *  this value MAY be zero, in case there is enough deposit, or the userOp has a paymaster.
+     * it will not be required to send again).
+     * @param missingAccountFunds - The minimum value this method should send the entrypoint.
+     *                              This value MAY be zero, in case there is enough deposit,
+     *                              or the userOp has a paymaster.
      */
     function _payPrefund(uint256 missingAccountFunds) internal virtual {
         if (missingAccountFunds != 0) {
-            (bool success,) = payable(msg.sender).call{value : missingAccountFunds, gas : type(uint256).max}("");
+            (bool success, ) = payable(msg.sender).call{
+                value: missingAccountFunds,
+                gas: type(uint256).max
+            }("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }

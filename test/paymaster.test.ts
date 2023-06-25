@@ -4,8 +4,8 @@ import { expect } from 'chai'
 import {
   SimpleAccount,
   EntryPoint,
-  TokenPaymaster,
-  TokenPaymaster__factory,
+  LegacyTokenPaymaster,
+  LegacyTokenPaymaster__factory,
   TestCounter__factory,
   SimpleAccountFactory,
   SimpleAccountFactory__factory
@@ -59,13 +59,13 @@ describe('EntryPoint with paymaster', function () {
   })
 
   describe('#TokenPaymaster', () => {
-    let paymaster: TokenPaymaster
+    let paymaster: LegacyTokenPaymaster
     const otherAddr = createAddress()
     let ownerAddr: string
     let pmAddr: string
 
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(factory.address, 'ttt', entryPoint.address)
+      paymaster = await new LegacyTokenPaymaster__factory(ethersSigner).deploy(factory.address, 'ttt', entryPoint.address)
       pmAddr = paymaster.address
       ownerAddr = await ethersSigner.getAddress()
     })
@@ -83,9 +83,9 @@ describe('EntryPoint with paymaster', function () {
   })
 
   describe('using TokenPaymaster (account pays in paymaster tokens)', () => {
-    let paymaster: TokenPaymaster
+    let paymaster: LegacyTokenPaymaster
     before(async () => {
-      paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(factory.address, 'tst', entryPoint.address)
+      paymaster = await new LegacyTokenPaymaster__factory(ethersSigner).deploy(factory.address, 'tst', entryPoint.address)
       await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
       await paymaster.addStake(1, { value: parseEther('2') })
     })

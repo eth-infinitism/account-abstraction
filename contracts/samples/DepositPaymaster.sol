@@ -60,9 +60,9 @@ contract DepositPaymaster is BasePaymaster {
      * @param amount the amount of token to deposit.
      */
     function addDepositFor(IERC20 token, address account, uint256 amount) external {
+        require(oracles[token] != NULL_ORACLE, "unsupported token");
         //(sender must have approval for the paymaster)
         token.safeTransferFrom(msg.sender, address(this), amount);
-        require(oracles[token] != NULL_ORACLE, "unsupported token");
         balances[token][account] += amount;
         if (msg.sender == account) {
             lockTokenDeposit();
