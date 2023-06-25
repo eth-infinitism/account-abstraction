@@ -469,13 +469,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
     function _simulationOnlyValidations(
         UserOperation calldata userOp
     ) internal view {
-        // solhint-disable-next-line no-empty-blocks
         try
             this._validateSenderAndPaymaster(
                 userOp.initCode,
                 userOp.sender,
                 userOp.paymasterAndData
             )
+        // solhint-disable-next-line no-empty-blocks
         {} catch Error(string memory revertReason) {
             if (bytes(revertReason).length != 0) {
                 revert FailedOp(0, revertReason);
@@ -675,9 +675,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         }
         ValidationData memory data = _parseValidationData(validationData);
         // solhint-disable-next-line not-rely-on-time
-        outOfTimeRange =
-            block.timestamp > data.validUntil ||
-            block.timestamp < data.validAfter;
+        outOfTimeRange = block.timestamp > data.validUntil || block.timestamp < data.validAfter;
         aggregator = data.aggregator;
     }
 
@@ -787,11 +785,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
                             gas: mUserOp.verificationGasLimit
                         }(mode, context, actualGasCost);
                     } else {
-                        // solhint-disable-next-line no-empty-blocks
                         try
                             IPaymaster(paymaster).postOp{
                                 gas: mUserOp.verificationGasLimit
                             }(mode, context, actualGasCost)
+                        // solhint-disable-next-line no-empty-blocks
                         {} catch Error(string memory reason) {
                             revert FailedOp(
                                 opIndex,
