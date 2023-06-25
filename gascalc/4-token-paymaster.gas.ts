@@ -1,6 +1,5 @@
 import { parseEther } from 'ethers/lib/utils'
 import {
-  SimpleAccountFactory__factory,
   TestERC20__factory, TestOracle2__factory,
   TestUniswap__factory,
   TestWrappedNativeToken__factory, TokenPaymaster,
@@ -13,12 +12,12 @@ import { hexValue } from '@ethersproject/bytes'
 import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
-} from "../typechain/contracts/samples/TokenPaymaster";
-import {BigNumber} from "ethers";
+} from '../typechain/contracts/samples/TokenPaymaster'
+import { BigNumber } from 'ethers'
 
 const ethersSigner = ethers.provider.getSigner()
 
-context.only('Token Paymaster', function () {
+context('Token Paymaster', function () {
   this.timeout(60000)
   const g = new GasChecker()
 
@@ -33,7 +32,6 @@ context.only('Token Paymaster', function () {
 
     const weth = await new TestWrappedNativeToken__factory(ethersSigner).deploy()
     const testUniswap = await new TestUniswap__factory(ethersSigner).deploy(weth.address)
-    const factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(g.entryPoint().address)
 
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
       priceMaxAge: 86400,
