@@ -14,7 +14,7 @@ import "./IStakeManager.sol";
 import "./IAggregator.sol";
 import "./INonceManager.sol";
 
-interface IEntryPoint is IStakeManager {
+interface IEntryPoint is IStakeManager, INonceManager {
     /***
      * An event emitted after each successful request.
      * @param userOpHash    - Unique identifier for the request (hash its entire content, except signature).
