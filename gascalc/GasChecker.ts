@@ -242,7 +242,14 @@ export class GasChecker {
     console.log('=== encoded data=', txdata.length)
     const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
       userOps, info.beneficiary, {}
-    )
+    ).catch(e => {
+      const data = e.error?.data?.data ?? e.error?.data
+      if (data != null) {
+        const e1 = GasCheckCollector.inst.entryPoint.interface.parseError(data)
+        throw new Error(`${e1.name}(${e1.args?.toString()})`)
+      }
+      throw e
+    })
     const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, { gasLimit: gasEst.mul(3).div(2) })
     const rcpt = await ret.wait()
     const gasUsed = rcpt.gasUsed.toNumber()
@@ -372,7 +379,7 @@ export class GasCheckCollector {
 
     const tableOutput = table(this.tabRows, this.tableConfig)
     write(tableOutput)
-    process.exit(0)
+    // process.exit(0)
   }
 
   addRow (res: GasTestResult): void {
