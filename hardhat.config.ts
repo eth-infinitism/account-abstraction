@@ -1,3 +1,4 @@
+import '@nomicfoundation/hardhat-chai-matchers'
 import '@typechain/hardhat'
 import { HardhatUserConfig } from 'hardhat/config'
 import 'hardhat-deploy'
@@ -7,7 +8,6 @@ import { EtherscanConfig } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import { TypechainUserConfig } from '@typechain/hardhat/dist/types'
 
 import 'solidity-coverage'
-
 import { existsSync, readFileSync } from 'fs'
 
 const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secret/testnet-mnemonic.txt`

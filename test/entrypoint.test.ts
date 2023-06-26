@@ -30,7 +30,7 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory,
+  TestWarmColdAccount__factory
 } from '../src/types'
 import {
   createAccountOwner,
