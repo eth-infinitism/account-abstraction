@@ -392,7 +392,7 @@ export class AASigner extends AbstractSigner {
 
     let initCode: BytesLike | undefined
     if (this._isPhantom) {
-      initCode = getAccountInitCode(await this.signer.getAddress(), this.accountFactory)
+      initCode = await getAccountInitCode(await this.signer.getAddress(), this.accountFactory)
     }
     const execFromEntryPoint = await this._account!.execute.populateTransaction(tx.to!, tx.value ?? 0, tx.data!)
 

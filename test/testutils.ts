@@ -88,7 +88,7 @@ export async function calcGasUsage (rcpt: ContractTransactionReceipt, entryPoint
 }
 
 // helper function to create the initCode to deploy the account, using our account factory.
-export function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): string {
+export async function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): Promise<string> {
   return concat([
     await resolveAddress(factory.target),
     factory.interface.encodeFunctionData('createAccount', [owner, salt])

@@ -319,7 +319,7 @@ describe('EntryPoint', function () {
 
     it('should fail creation for wrong sender', async () => {
       const op1 = await fillAndSign({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
+        initCode: await getAccountInitCode(accountOwner1.address, simpleAccountFactory),
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 3e6
       }, accountOwner1, entryPoint)
@@ -328,7 +328,7 @@ describe('EntryPoint', function () {
     })
 
     it('should report failure on insufficient verificationGas (OOG) for creation', async () => {
-      const initCode = getAccountInitCode(accountOwner1.address, simpleAccountFactory).toString()
+      const initCode = await getAccountInitCode(accountOwner1.address, simpleAccountFactory)
       const sender = await entryPoint.getSenderAddress.staticCall(initCode).catch(parseGetSenderAddressResult) as AddressLike
       const op0 = await fillAndSign({
         initCode,
@@ -354,7 +354,7 @@ describe('EntryPoint', function () {
       const sender = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       const op1 = await fillAndSign({
         sender,
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory)
+        initCode: await getAccountInitCode(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
 
@@ -378,7 +378,7 @@ describe('EntryPoint', function () {
 
     it('should not use banned ops during simulateValidation', async () => {
       const op1 = await fillAndSign({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
+        initCode: await getAccountInitCode(accountOwner1.address, simpleAccountFactory),
         sender: await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
@@ -850,7 +850,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if sender address is wrong', async () => {
         const op = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory),
+          initCode: await getAccountInitCode(accountOwner.address, simpleAccountFactory),
           verificationGasLimit: 2e6,
           sender: '0x'.padEnd(42, '1')
         }, accountOwner, entryPoint)
@@ -862,7 +862,7 @@ describe('EntryPoint', function () {
 
       it('should reject create if account not funded', async () => {
         const op = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory, 100),
+          initCode: await getAccountInitCode(accountOwner.address, simpleAccountFactory, 100),
           verificationGasLimit: 2e6
         }, accountOwner, entryPoint)
 
@@ -882,7 +882,7 @@ describe('EntryPoint', function () {
         const preAddr = await getAccountAddress(accountOwner.address, simpleAccountFactory, salt)
         await fund(preAddr)
         createOp = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner.address, simpleAccountFactory, salt),
+          initCode: await getAccountInitCode(accountOwner.address, simpleAccountFactory, salt),
           callGasLimit: 1e6,
           verificationGasLimit: 2e6
 
@@ -942,7 +942,7 @@ describe('EntryPoint', function () {
         await fund(account2.target)
         // execute and increment counter
         const op1 = await fillAndSign({
-          initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
+          initCode: await getAccountInitCode(accountOwner1.address, simpleAccountFactory),
           callData: accountExecCounterFromEntryPoint.data,
           callGasLimit: 2e6,
           verificationGasLimit: 2e6
@@ -1177,7 +1177,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: pm,
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
+          initCode: await getAccountInitCode(account2Owner.address, simpleAccountFactory),
           verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
@@ -1188,7 +1188,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: await resolveAddress(paymaster.target),
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
+          initCode: await getAccountInitCode(account2Owner.address, simpleAccountFactory),
 
           verificationGasLimit: 3e6,
           callGasLimit: 1e6
@@ -1202,7 +1202,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: await resolveAddress(paymaster.target),
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory)
+          initCode: await getAccountInitCode(account2Owner.address, simpleAccountFactory)
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
 
@@ -1219,7 +1219,7 @@ describe('EntryPoint', function () {
         const op = await fillAndSign({
           paymasterAndData: await resolveAddress(paymaster.target),
           callData: accountExecFromEntryPoint.data,
-          initCode: getAccountInitCode(anOwner.address, simpleAccountFactory)
+          initCode: await getAccountInitCode(anOwner.address, simpleAccountFactory)
         }, anOwner, entryPoint)
 
         const { paymasterInfo } = await entryPoint.simulateValidation.staticCall(op).catch(simulationResultCatch)

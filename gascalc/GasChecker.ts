@@ -115,7 +115,7 @@ export class GasChecker {
   }
 
   // generate the account "creation code"
-  async accountInitCode (factory: SimpleAccountFactory, salt: BigNumberish): string {
+  async accountInitCode (factory: SimpleAccountFactory, salt: BigNumberish): Promise<string> {
     return concat([
       await resolveAddress(factory.target),
       factory.interface.encodeFunctionData('createAccount', [this.accountOwner.address, salt])
@@ -256,7 +256,7 @@ export class GasChecker {
     ).catch(e => {
       const data = e.error?.data?.data ?? e.error?.data
       if (data != null) {
-        const e1 = GasCheckCollector.inst.entryPoint.interface.parseError(data)
+        const e1 = GasCheckCollector.inst.entryPoint.interface.parseError(data)!
         throw new Error(`${e1.name}(${e1.args?.toString()})`)
       }
       throw e
