@@ -2,7 +2,7 @@ import './aa.init'
 import { expect } from 'chai'
 import { TestHelpers, TestHelpers__factory } from '../src/types'
 import { ethers } from 'hardhat'
-import { getBigInt, Signer, ZeroAddress } from 'ethers'
+import { getBigInt, Signer, toBeHex, ZeroAddress } from 'ethers'
 
 const provider = ethers.provider
 
@@ -11,8 +11,8 @@ describe('#ValidationData helpers', function () {
 
   function pack (addr: string, validUntil: number, validAfter: number): bigint {
     return getBigInt(addr) +
-      getBigInt(validUntil) * 2n << 160n +
-      getBigInt(validAfter) * 2n << (160n + 48n)
+      (getBigInt(validUntil) << 160n) +
+      (getBigInt(validAfter) << (160n + 48n))
   }
 
   let helpers: TestHelpers
@@ -40,8 +40,8 @@ describe('#ValidationData helpers', function () {
   it('#packValidationData', async () => {
     expect(await helpers.packValidationData(false, 0, 0)).to.eql(0)
     expect(await helpers.packValidationData(true, 0, 0)).to.eql(1)
-    expect(await helpers.packValidationData(true, 123, 456))
-      .to.eql(pack(addr1, 123, 456))
+    expect(toBeHex(await helpers.packValidationData(true, 123, 456)))
+      .to.eql(toBeHex(pack(addr1, 123, 456)))
   })
 
   it('#packValidationData with aggregator', async () => {

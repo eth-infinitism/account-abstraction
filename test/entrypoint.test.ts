@@ -8,7 +8,7 @@ import {
   concat,
   parseEther,
   ZeroHash,
-  zeroPadValue, resolveAddress, Block, EventLog, AddressLike, ContractTransaction, ContractTransactionReceipt
+  zeroPadValue, resolveAddress, Block, EventLog, AddressLike, ContractTransaction, ContractTransactionReceipt, toNumber
 } from 'ethers'
 import { expect } from 'chai'
 import {
@@ -30,7 +30,7 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory, EntryPoint__factory
+  TestWarmColdAccount__factory,
 } from '../src/types'
 import {
   createAccountOwner,
@@ -50,29 +50,26 @@ import {
   simulationResultCatch,
   createAccount,
   getAggregatedAccountInitCode,
-  simulationResultWithAggregationCatch, decodeRevertReason, parseGetSenderAddressResult, defaultAbiCoder
+  simulationResultWithAggregationCatch,
+  decodeRevertReason,
+  parseGetSenderAddressResult,
+  defaultAbiCoder,
+  parseEntryPointError
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { ethers } from 'hardhat'
 import { debugTransaction } from './debugTx'
 import { toChecksumAddress } from 'ethereumjs-util'
+import '@nomicfoundation/hardhat-chai-matchers'
 
-// WTF: temporary extract values array instead of object.
+// WTF: temporary extract values array instead of object  .
 // currently ethers return result object as values-only.
 function vals (obj: any): any[] {
   return Object.values(obj)
 }
+// const provider = ethers.provider
 
-// WTF2: why do we need to parse custom errors of entrypoint ourselves?
-const entryPointInterface = EntryPoint__factory.createInterface()
-
-export function parseEntryPointError (error: any): any {
-  const ret = entryPointInterface.parseError(error.data.data ?? error.data)
-  const errName = ret?.name
-  const errArgs = ret?.args?.toString()
-  return `${errName}(${errArgs})`
-}
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
   let simpleAccountFactory: SimpleAccountFactory
@@ -230,13 +227,13 @@ describe('EntryPoint', function () {
       before(async () => {
         ({ proxy: account } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.target, simpleAccountFactory))
         await account.addDeposit({ value: ONE_ETH })
-        expect(await getBalance(account.target)).to.equal(0)
+        expect(await getBalance(account.target)).to.equal(0n)
         expect(await account.getDeposit()).to.eql(ONE_ETH)
       })
       it('should be able to withdraw', async () => {
         const depositBefore = await account.getDeposit()
         await account.withdrawDepositTo(account.target, ONE_ETH)
-        expect(await getBalance(account.target)).to.equal(1e18)
+        expect(await getBalance(account.target)).to.equal(ONE_ETH)
         expect(await account.getDeposit()).to.equal(depositBefore - ONE_ETH)
       })
     })
@@ -253,8 +250,6 @@ describe('EntryPoint', function () {
     it('should fail if validateUserOp fails', async () => {
       // using wrong nonce
       const op = await fillAndSign({ sender: account.target, nonce: 1234 }, accountOwner, entryPoint)
-      // await expect(entryPoint.simulateValidation.staticCall(op).catch(epCatch)).to.revertedWith("asd")
-
       await expect(entryPoint.simulateValidation.staticCall(op)).to
         .revertedWith('AA25 invalid account nonce')
     })
@@ -407,11 +402,11 @@ describe('EntryPoint', function () {
       const ret = await entryPoint.simulateHandleOp.staticCall(userOp,
         counter.target,
         counter.interface.encodeFunctionData('counters', [account.target])
-      ).catch(e => e.errorArgs)
+      ).catch(e => parseEntryPointError(e)?.args)
 
-      const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
+      const [countResult] = counter.interface.decodeFunctionResult('counters', ret?.targetResult)
       expect(countResult).to.eql(1)
-      expect(ret.targetSuccess).to.be.true
+      expect(ret?.targetSuccess).to.be.true
 
       // actual counter is zero
       expect(await counter.counters(account.target)).to.eql(0)
@@ -782,9 +777,9 @@ describe('EntryPoint', function () {
           gasLimit: 1e7
         }).then(async t => await t.wait()) as ContractTransactionReceipt
 
-        const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
+        const [log] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockNumber)
         expect(log.args.success).to.eq(false)
-        expect(await getBalance(beneficiaryAddress)).to.be.gte(1)
+        expect(toNumber(await getBalance(beneficiaryAddress))).to.be.gte(1)
       })
 
       it('#handleOp (single)', async () => {
@@ -866,7 +861,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 2e6
         }, accountOwner, entryPoint)
 
-        expect(await ethers.provider.getBalance(op.sender)).to.eq(0)
+        expect(await ethers.provider.getBalance(op.sender)).to.eq(0n)
 
         const { gasPrice } = await ethers.provider.getFeeData()
         await expect(entryPoint.handleOps.staticCall([op], beneficiaryAddress, {
@@ -889,14 +884,15 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
 
         await expect(await ethers.provider.getCode(preAddr).then(x => x.length)).to.equal(2, 'account exists before creation')
-        const ret = await entryPoint.handleOps([createOp], beneficiaryAddress, {
+        const hash = await entryPoint.getUserOpHash(createOp)
+        const ret = entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
         })
-        const rcpt = await ret.wait()
-        const hash = await entryPoint.getUserOpHash(createOp)
-        await expect(ret).to.emit(entryPoint, 'AccountDeployed')
+        await expect(await ret).to.emit(entryPoint, 'AccountDeployed')
           // eslint-disable-next-line @typescript-eslint/no-base-to-string
           .withArgs(hash, createOp.sender, toChecksumAddress(createOp.initCode.toString().slice(0, 42)), ZeroAddress)
+
+        const rcpt = await (await ret).wait()
 
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
       })
@@ -1012,7 +1008,7 @@ describe('EntryPoint', function () {
 
       it('should reject non-contract (address(1)) aggregator', async () => {
         // this is just sanity check that the compiler indeed reverts on a call to "validateSignatures()" to nonexistent contracts
-        const address1 = zeroPadValue('0x1', 20)
+        const address1 = await resolveAddress('0x01')
         const aggAccount1 = await new TestAggregatedAccount__factory(ethersSigner).deploy(entryPoint.target, address1)
 
         const userOp = await fillAndSign({
@@ -1132,7 +1128,7 @@ describe('EntryPoint', function () {
           before(async () => {
             const factory = await new TestAggregatedAccountFactory__factory(ethersSigner).deploy(entryPoint.target, aggregator.target)
             initCode = await getAggregatedAccountInitCode(entryPoint.target, factory)
-            addr = await entryPoint.getSenderAddress.staticCall(initCode).catch(e => e.errorArgs.sender)
+            addr = await entryPoint.getSenderAddress.staticCall(initCode).catch(parseGetSenderAddressResult)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
               initCode

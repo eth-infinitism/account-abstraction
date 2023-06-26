@@ -1,7 +1,6 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
 import {
-  formatEther,
   concat,
   parseEther,
   Signer,
@@ -37,11 +36,11 @@ const gasCheckerLogFile = './reports/gas-checker.txt'
 const ethers = hre.ethers
 const provider = hre.ethers.provider
 let ethersSigner: Signer
-let lastGasUsed: bigint
+let lastGasUsed = 0n
 
 const minDepositOrBalance = parseEther('0.1')
 
-const getBalance = hre.ethers.provider.getBalance
+const getBalance = hre.ethers.provider.getBalance.bind(hre.ethers.provider)
 
 function range (n: number): number[] {
   return Array(n).fill(0).map((val, index) => index)
@@ -315,12 +314,14 @@ export class GasCheckCollector {
   }
 
   async _init (entryPointAddressOrTest: string = 'test'): Promise<this> {
+    ethersSigner = await ethers.provider.getSigner()
+
     console.log('signer=', await ethersSigner.getAddress())
     DefaultGasTestInfo.beneficiary = createAddress()
 
-    const bal = await getBalance(ethersSigner.getAddress())
-    if (bal > parseEther('100000000')) {
-      console.log('bal=', formatEther(bal))
+    const bal = await getBalance(await ethersSigner.getAddress())
+    if (bal > parseEther('10000000000')) {
+      // console.log('bal=', formatEther(bal))
       console.log('DONT use geth miner.. use account 2 instead')
       await checkForGeth()
       ethersSigner = await ethers.provider.getSigner(2)

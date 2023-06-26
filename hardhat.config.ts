@@ -1,11 +1,12 @@
-import { HardhatUserConfig } from 'hardhat/config'
 import '@typechain/hardhat'
+import { HardhatUserConfig } from 'hardhat/config'
+import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
 import '@nomicfoundation/hardhat-ethers'
 import { EtherscanConfig } from '@nomiclabs/hardhat-etherscan/dist/src/types'
 import { TypechainUserConfig } from '@typechain/hardhat/dist/types'
 
-import 'hardhat-deploy'
+import 'solidity-coverage'
 
 import { existsSync, readFileSync } from 'fs'
 

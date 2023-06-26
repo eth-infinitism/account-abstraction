@@ -45,9 +45,8 @@ export async function fund (contractOrAddress: AddressLike | BaseContract, amoun
   await signer.sendTransaction({ to: address, value: parseEther(amountEth) })
 }
 
-export async function getBalance (address: AddressLike): Promise<number> {
-  const balance = await ethers.provider.getBalance(address)
-  return parseInt(balance.toString())
+export async function getBalance (address: AddressLike): Promise<bigint> {
+  return await ethers.provider.getBalance(address)
 }
 
 export async function getTokenBalance (token: IERC20, address: string): Promise<bigint> {
@@ -250,21 +249,51 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 
 const entryPointInterface = EntryPoint__factory.createInterface()
 
+export function parseEntryPointError (error: any): { name: string, args: { [key: string]: any } } | undefined {
+  const ret = entryPointInterface.parseError(error.data.data ?? error.data)
+  if (ret == null) return undefined
+
+  // unfortunately, returned args is an array, not object.
+  // need to reconstruct the names from the ABI
+  const argsObject = ret!.fragment.inputs.reduce((set, input, currentIndex) => ({
+    [input.name]: ret?.args[currentIndex],
+    ...set
+  }), {})
+  return {
+    name: ret.name,
+    args: argsObject
+  }
+}
+
+export class EntryPointError extends Error {
+  args: { [key: string]: any }
+  name: string
+
+  constructor (error: any) {
+    const ret = parseEntryPointError(error) ?? { name: error.message, args: {} }
+    // eslint-disable-next-line
+    super(`${ret?.name}(${ret?.args})`)
+    this.name = ret.name
+    this.args = ret.args
+  }
+}
+
 /**
  * process exception of ValidationResult
- * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
+ * usage: entryPoint.simulationResult.staticCall(..).catch(simulationResultCatch)
  */
 export function simulationResultCatch (e: any): any {
-  const { name, args } = entryPointInterface.parseError(e.data?.data ?? e.data) ?? {}
-  if (name == null) {
-    throw e
-  }
+  const { name, args } = parseEntryPointError(e) ?? {}
+  if (name !== 'ValidationResult') { throw e }
 
   return args
 }
 
-export function parseGetSenderAddressResult (e: any): string {
-  const { name, args } = entryPointInterface.parseError(e.data?.data ?? e.data) ?? {}
+/**
+ * process exception of getSenderAddress
+ * usage: entryPoint.getSenderAddress.staticCall(..).catch(SenderAddressResult)
+ */export function parseGetSenderAddressResult (e: any): string {
+  const { name, args } = parseEntryPointError(e) ?? {}
   if (name !== 'SenderAddressResult') {
     throw e
   }
@@ -277,10 +306,11 @@ export function parseGetSenderAddressResult (e: any): string {
  * usage: entryPoint.simulationResult(..).catch(simulationResultWithAggregation)
  */
 export function simulationResultWithAggregationCatch (e: any): any {
-  if (e.errorName !== 'ValidationResultWithAggregation') {
+  const { name, args } = parseEntryPointError(e) ?? {}
+  if (name !== 'ValidationResultWithAggregation') {
     throw e
   }
-  return e.errorArgs
+  return args?.errorArgs
 }
 
 export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
