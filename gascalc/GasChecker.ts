@@ -1,33 +1,43 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
-import { defaultAbiCoder, formatEther, hexConcat, parseEther } from 'ethers/lib/utils'
 import {
-  AddressZero,
+  formatEther,
+  concat,
+  parseEther,
+  Signer,
+  TransactionReceipt,
+  BigNumberish,
+  Wallet,
+  ZeroAddress,
+  ContractTransactionReceipt, resolveAddress, Provider
+} from 'ethers'
+import {
   checkForGeth,
   createAddress,
   createAccountOwner,
-  deployEntryPoint
+  deployEntryPoint, defaultAbiCoder
 } from '../test/testutils'
-import {
-  EntryPoint, EntryPoint__factory, SimpleAccountFactory,
-  SimpleAccountFactory__factory, SimpleAccount__factory
-} from '../typechain'
-import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
 import { fillAndSign, fillUserOp, signUserOp } from '../test/UserOp'
-import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import { table, TableUserConfig } from 'table'
 import { Create2Factory } from '../src/Create2Factory'
 import * as fs from 'fs'
-import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
 import { UserOperation } from '../test/UserOperation'
+import { SimpleAccountInterface } from '../src/types/contracts/samples/SimpleAccount'
+import {
+  EntryPoint,
+  EntryPoint__factory,
+  SimpleAccount__factory,
+  SimpleAccountFactory,
+  SimpleAccountFactory__factory
+} from '../src/types'
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
 
 const ethers = hre.ethers
 const provider = hre.ethers.provider
-let ethersSigner = provider.getSigner()
-let lastGasUsed: number
+let ethersSigner: Signer
+let lastGasUsed: bigint
 
 const minDepositOrBalance = parseEther('0.1')
 
@@ -60,9 +70,9 @@ export const DefaultGasTestInfo: Partial<GasTestInfo> = {
 interface GasTestResult {
   title: string
   count: number
-  gasUsed: number // actual gas used
-  accountEst: number // estimateGas of the inner transaction (from EP to account)
-  gasDiff?: number // different from last test's gas used
+  gasUsed: bigint // actual gas used
+  accountEst: bigint // estimateGas of the inner transaction (from EP to account)
+  gasDiff?: bigint // different from last test's gas used
   receipt?: TransactionReceipt
 }
 
@@ -77,7 +87,7 @@ interface GasTestResult {
 // we assume a given call signature has the same gas usage
 // (TODO: the estimate also depends on contract code. for test purposes, assume each contract implementation has different method signature)
 // at the end of the checks, we report the gas usage of all those method calls
-const gasEstimatePerExec: { [key: string]: { title: string, accountEst: number } } = {}
+const gasEstimatePerExec: { [key: string]: { title: string, accountEst: bigint } } = {}
 
 /**
  * helper contract to generate gas test.
@@ -105,9 +115,9 @@ export class GasChecker {
   }
 
   // generate the account "creation code"
-  accountInitCode (factory: SimpleAccountFactory, salt: BigNumberish): string {
-    return hexConcat([
-      factory.address,
+  async accountInitCode (factory: SimpleAccountFactory, salt: BigNumberish): string {
+    return concat([
+      await resolveAddress(factory.target),
       factory.interface.encodeFunctionData('createAccount', [this.accountOwner.address, salt])
     ])
   }
@@ -121,11 +131,11 @@ export class GasChecker {
    * @param count
    */
   async createAccounts1 (count: number): Promise<void> {
-    const create2Factory = new Create2Factory(this.entryPoint().provider)
+    const create2Factory = new Create2Factory(this.entryPoint().runner?.provider as Provider)
     const factoryAddress = await create2Factory.deploy(
-      hexConcat([
+      concat([
         SimpleAccountFactory__factory.bytecode,
-        defaultAbiCoder.encode(['address'], [this.entryPoint().address])
+        defaultAbiCoder.encode(['address'], [this.entryPoint().target])
       ]), 0, 2885201)
     console.log('factaddr', factoryAddress)
     const fact = SimpleAccountFactory__factory.connect(factoryAddress, ethersSigner)
@@ -135,11 +145,12 @@ export class GasChecker {
       const salt = n
       // const initCode = this.accountInitCode(fact, salt)
 
-      const addr = await fact.getAddress(this.accountOwner.address, salt)
+      const addr = await fact.getFunction('getAddress').staticCall(this.accountOwner.address, salt)
 
       if (!this.createdAccounts.has(addr)) {
         // explicit call to fillUseROp with no "entryPoint", to make sure we manually fill everything and
         // not attempt to fill from blockchain.
+        const chainId: bigint = await provider.getNetwork().then(net => net.chainId)
         const op = signUserOp(await fillUserOp({
           sender: addr,
           nonce: 0,
@@ -148,7 +159,7 @@ export class GasChecker {
           // paymasterAndData: paymaster,
           preVerificationGas: 1,
           maxFeePerGas: 0
-        }), this.accountOwner, this.entryPoint().address, await provider.getNetwork().then(net => net.chainId))
+        }), this.accountOwner, await resolveAddress(this.entryPoint().target), chainId)
         creationOps.push(op)
         this.createdAccounts.add(addr)
       }
@@ -157,8 +168,8 @@ export class GasChecker {
       // deploy if not already deployed.
       await fact.createAccount(this.accountOwner.address, salt)
       const accountBalance = await GasCheckCollector.inst.entryPoint.balanceOf(addr)
-      if (accountBalance.lte(minDepositOrBalance)) {
-        await GasCheckCollector.inst.entryPoint.depositTo(addr, { value: minDepositOrBalance.mul(5) })
+      if (accountBalance <= minDepositOrBalance) {
+        await GasCheckCollector.inst.entryPoint.depositTo(addr, { value: minDepositOrBalance * 5n })
       }
     }
     await this.entryPoint().handleOps(creationOps, ethersSigner.getAddress())
@@ -188,7 +199,7 @@ export class GasChecker {
     // fill accounts up to this code.
     await this.createAccounts1(info.count)
 
-    let accountEst: number = 0
+    let accountEst = 0n
     const userOps = await Promise.all(range(info.count)
       .map(index => Object.entries(this.accounts)[index])
       .map(async ([account, accountOwner]) => {
@@ -200,7 +211,7 @@ export class GasChecker {
         } else if (dest === 'random') {
           dest = createAddress()
           const destBalance = await getBalance(dest)
-          if (destBalance.eq(0)) {
+          if (destBalance === 0n) {
             console.log('dest replenish', dest)
             await ethersSigner.sendTransaction({ to: dest, value: 1 })
           }
@@ -209,16 +220,16 @@ export class GasChecker {
 
         // remove the "dest" from the key to the saved estimations
         // so we have a single estimation per method.
-        const estimateGasKey = this.accountExec(AddressZero, destValue, destCallData)
+        const estimateGasKey = this.accountExec(ZeroAddress, destValue, destCallData)
 
         let est = gasEstimatePerExec[estimateGasKey]
         // technically, each UserOp needs estimate - but we know they are all the same for each test.
         if (est == null) {
-          const accountEst = (await ethers.provider.estimateGas({
-            from: GasCheckCollector.inst.entryPoint.address,
+          const accountEst = await ethers.provider.estimateGas({
+            from: GasCheckCollector.inst.entryPoint.target,
             to: account,
             data: accountExecFromEntryPoint
-          })).toNumber()
+          })
           est = gasEstimatePerExec[estimateGasKey] = { accountEst, title: info.title }
         }
         // console.debug('== account est=', accountEst.toString())
@@ -240,7 +251,7 @@ export class GasChecker {
 
     const txdata = GasCheckCollector.inst.entryPoint.interface.encodeFunctionData('handleOps', [userOps, info.beneficiary])
     console.log('=== encoded data=', txdata.length)
-    const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
+    const gasEst = await GasCheckCollector.inst.entryPoint.handleOps.estimateGas(
       userOps, info.beneficiary, {}
     ).catch(e => {
       const data = e.error?.data?.data ?? e.error?.data
@@ -250,16 +261,16 @@ export class GasChecker {
       }
       throw e
     })
-    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, { gasLimit: gasEst.mul(3).div(2) })
-    const rcpt = await ret.wait()
-    const gasUsed = rcpt.gasUsed.toNumber()
+    const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, { gasLimit: gasEst * 3n / 2n })
+    const rcpt = await ret.wait() as ContractTransactionReceipt
+    const gasUsed = rcpt.gasUsed
     console.debug('count', info.count, 'gasUsed', gasUsed)
     const gasDiff = gasUsed - lastGasUsed
     if (info.diffLastGas) {
       console.debug('\tgas diff=', gasDiff)
     }
     lastGasUsed = gasUsed
-    console.debug('handleOps tx.hash=', rcpt.transactionHash)
+    console.debug('handleOps tx.hash=', rcpt.hash)
     const ret1: GasTestResult = {
       count: info.count,
       gasUsed,
@@ -308,11 +319,11 @@ export class GasCheckCollector {
     DefaultGasTestInfo.beneficiary = createAddress()
 
     const bal = await getBalance(ethersSigner.getAddress())
-    if (bal.gt(parseEther('100000000'))) {
+    if (bal > parseEther('100000000')) {
       console.log('bal=', formatEther(bal))
       console.log('DONT use geth miner.. use account 2 instead')
       await checkForGeth()
-      ethersSigner = ethers.provider.getSigner(2)
+      ethersSigner = await ethers.provider.getSigner(2)
     }
 
     if (entryPointAddressOrTest === 'test') {

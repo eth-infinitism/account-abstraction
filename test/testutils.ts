@@ -1,69 +1,64 @@
-import { ethers } from 'hardhat'
 import {
-  arrayify,
-  hexConcat,
   keccak256,
-  parseEther
-} from 'ethers/lib/utils'
-import { BigNumber, BigNumberish, Contract, ContractReceipt, Signer, Wallet } from 'ethers'
-import {
-  EntryPoint,
-  EntryPoint__factory,
-  IERC20,
-  IEntryPoint,
-  SimpleAccount,
-  SimpleAccountFactory__factory,
-  SimpleAccount__factory, SimpleAccountFactory, TestAggregatedAccountFactory
-} from '../typechain'
-import { BytesLike } from '@ethersproject/bytes'
+  parseEther,
+  toBeHex,
+  BigNumberish,
+  Signer,
+  Wallet,
+  BaseContract,
+  getBytes,
+  AbiCoder,
+  concat,
+  ZeroAddress,
+  Provider,
+  AddressLike,
+  getBigInt, ContractTransactionReceipt, resolveAddress
+} from 'ethers'
+
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
+import { ethers } from 'hardhat'
+import {
+  EntryPoint,
+  EntryPoint__factory, IEntryPoint,
+  IERC20,
+  SimpleAccount, SimpleAccount__factory,
+  SimpleAccountFactory, SimpleAccountFactory__factory,
+  TestAggregatedAccountFactory
+} from '../src/types'
 
-export const AddressZero = ethers.constants.AddressZero
-export const HashZero = ethers.constants.HashZero
 export const ONE_ETH = parseEther('1')
 export const TWO_ETH = parseEther('2')
 export const FIVE_ETH = parseEther('5')
 
 export const tostr = (x: any): string => x != null ? x.toString() : 'null'
 
-export function tonumber (x: any): number {
-  try {
-    return parseFloat(x.toString())
-  } catch (e: any) {
-    console.log('=== failed to parseFloat:', x, (e).message)
-    return NaN
-  }
-}
+export const defaultAbiCoder = AbiCoder.defaultAbiCoder()
 
 // just throw 1eth from account[0] to the given address (or contract instance)
-export async function fund (contractOrAddress: string | Contract, amountEth = '1'): Promise<void> {
-  let address: string
-  if (typeof contractOrAddress === 'string') {
-    address = contractOrAddress
-  } else {
-    address = contractOrAddress.address
-  }
-  await ethers.provider.getSigner().sendTransaction({ to: address, value: parseEther(amountEth) })
+export async function fund (contractOrAddress: AddressLike | BaseContract, amountEth = '1'): Promise<void> {
+  const address = await resolveAddress(contractOrAddress)
+  const signer = await ethers.provider.getSigner()
+  console.log('funding', address)
+  await signer.sendTransaction({ to: address, value: parseEther(amountEth) })
 }
 
-export async function getBalance (address: string): Promise<number> {
+export async function getBalance (address: AddressLike): Promise<number> {
   const balance = await ethers.provider.getBalance(address)
   return parseInt(balance.toString())
 }
 
-export async function getTokenBalance (token: IERC20, address: string): Promise<number> {
-  const balance = await token.balanceOf(address)
-  return parseInt(balance.toString())
+export async function getTokenBalance (token: IERC20, address: string): Promise<bigint> {
+  return await token.balanceOf(address)
 }
 
 let counter = 0
 
 // create non-random account, so gas calculations are deterministic
 export function createAccountOwner (): Wallet {
-  const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
+  const privateKey = keccak256(toBeHex(++counter))
   return new ethers.Wallet(privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
@@ -72,46 +67,46 @@ export function createAddress (): string {
   return createAccountOwner().address
 }
 
-export function callDataCost (data: string): number {
-  return ethers.utils.arrayify(data)
+export function callDataCost (data: string): bigint {
+  return getBytes(data)
     .map(x => x === 0 ? 4 : 16)
-    .reduce((sum, x) => sum + x)
+    .reduce((sum, x) => sum + getBigInt(x), 0n)
 }
 
-export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
+export async function calcGasUsage (rcpt: ContractTransactionReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const { actualGasCost, actualGasUsed } = logs[0].args
   console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
   console.log('\t== calculated gasUsed (paid to beneficiary)=', actualGasUsed)
-  const tx = await ethers.provider.getTransaction(rcpt.transactionHash)
-  console.log('\t== gasDiff', actualGas.toNumber() - actualGasUsed.toNumber() - callDataCost(tx.data))
+  const tx = await ethers.provider.getTransaction(rcpt.hash)
+  console.log('\t== gasDiff', actualGas - actualGasUsed - callDataCost(tx!.data))
   if (beneficiaryAddress != null) {
-    expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost.toNumber())
+    expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost)
   }
   return { actualGasCost }
 }
 
 // helper function to create the initCode to deploy the account, using our account factory.
-export function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): BytesLike {
-  return hexConcat([
-    factory.address,
+export function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): string {
+  return concat([
+    await resolveAddress(factory.target),
     factory.interface.encodeFunctionData('createAccount', [owner, salt])
   ])
 }
 
-export async function getAggregatedAccountInitCode (entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
+export async function getAggregatedAccountInitCode (entryPoint: AddressLike, factory: TestAggregatedAccountFactory, salt = 0): Promise<string> {
   // the test aggregated account doesn't check the owner...
-  const owner = AddressZero
-  return hexConcat([
-    factory.address,
+  const owner = ZeroAddress
+  return concat([
+    await resolveAddress(factory.target),
     factory.interface.encodeFunctionData('createAccount', [owner, salt])
   ])
 }
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
 export async function getAccountAddress (owner: string, factory: SimpleAccountFactory, salt = 0): Promise<string> {
-  return await factory.getAddress(owner, salt)
+  return await factory.getFunction('getAddress').staticCall(owner, salt)
 }
 
 const panicCodes: { [key: number]: string } = {
@@ -160,15 +155,15 @@ export function decodeRevertReason (data: string, nullIfNoMatch = true): string 
   const dataParams = '0x' + data.slice(10)
 
   if (methodSig === '0x08c379a0') {
-    const [err] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
+    const [err] = defaultAbiCoder.decode(['string'], dataParams)
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     return `Error(${err})`
   } else if (methodSig === '0x00fa072b') {
-    const [opindex, paymaster, msg] = ethers.utils.defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
+    const [opindex, paymaster, msg] = defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    return `FailedOp(${opindex}, ${paymaster !== AddressZero ? paymaster : 'none'}, ${msg})`
+    return `FailedOp(${opindex}, ${paymaster !== ZeroAddress ? paymaster : 'none'}, ${msg})`
   } else if (methodSig === '0x4e487b71') {
-    const [code] = ethers.utils.defaultAbiCoder.decode(['uint256'], dataParams)
+    const [code] = defaultAbiCoder.decode(['uint256'], dataParams)
     return `Panic(${panicCodes[code] ?? code} + ')`
   }
   if (!nullIfNoMatch) {
@@ -179,13 +174,25 @@ export function decodeRevertReason (data: string, nullIfNoMatch = true): string 
 
 let currentNode: string = ''
 
+export function getProviderSendFunction (provider: Provider): (method: string, params: any[]) => Promise<any> {
+  const p = provider as any
+  return _getProviderSendFunction([p, p.provider, p.provider?._hardhatProvider])
+}
+
+function _getProviderSendFunction (objs: any[]): (method: string, params: any[]) => Promise<any> {
+  for (const obj of objs) {
+    if (obj != null && typeof obj.send === 'function') {
+      return obj.send.bind(obj)
+    }
+  }
+  throw new Error('no "send()" function in provider')
+}
+
 // basic geth support
 // - by default, has a single account. our code needs more.
 export async function checkForGeth (): Promise<void> {
-  // @ts-ignore
-  const provider = ethers.provider._hardhatProvider
-
-  currentNode = await provider.request({ method: 'web3_clientVersion' })
+  const providerSendFunction = getProviderSendFunction(ethers.provider)
+  currentNode = await providerSendFunction('web3_clientVersion', [])
 
   console.log('node version:', currentNode)
   // NOTE: must run geth with params:
@@ -193,8 +200,8 @@ export async function checkForGeth (): Promise<void> {
   // --allow-insecure-unlock
   if (currentNode.match(/geth/i) != null) {
     for (let i = 0; i < 2; i++) {
-      const acc = await provider.request({ method: 'personal_newAccount', params: ['pass'] }).catch(rethrow)
-      await provider.request({ method: 'personal_unlockAccount', params: [acc, 'pass'] }).catch(rethrow)
+      const acc = await providerSendFunction('personal_newAccount', ['pass']).catch(rethrow)
+      await providerSendFunction('personal_unlockAccount', [acc, 'pass']).catch(rethrow)
       await fund(acc, '10')
     }
   }
@@ -241,15 +248,28 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   }
 }
 
+const entryPointInterface = EntryPoint__factory.createInterface()
+
 /**
  * process exception of ValidationResult
  * usage: entryPoint.simulationResult(..).catch(simulationResultCatch)
  */
 export function simulationResultCatch (e: any): any {
-  if (e.errorName !== 'ValidationResult') {
+  const { name, args } = entryPointInterface.parseError(e.data?.data ?? e.data) ?? {}
+  if (name == null) {
     throw e
   }
-  return e.errorArgs
+
+  return args
+}
+
+export function parseGetSenderAddressResult (e: any): string {
+  const { name, args } = entryPointInterface.parseError(e.data?.data ?? e.data) ?? {}
+  if (name !== 'SenderAddressResult') {
+    throw e
+  }
+
+  return args?.sender
 }
 
 /**
@@ -265,9 +285,9 @@ export function simulationResultWithAggregationCatch (e: any): any {
 
 export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
-  const epf = new EntryPoint__factory(provider.getSigner())
-  const addr = await create2factory.deploy(epf.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
-  return EntryPoint__factory.connect(addr, provider.getSigner())
+  const addr = await create2factory.deploy(EntryPoint__factory.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
+  const signer = await provider.getSigner()
+  return EntryPoint__factory.connect(addr, signer)
 }
 
 export async function isDeployed (addr: string): Promise<boolean> {
@@ -279,7 +299,7 @@ export async function isDeployed (addr: string): Promise<boolean> {
 export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOpsPerAggregatorStruct[] {
   return [{
     userOps,
-    aggregator: AddressZero,
+    aggregator: ZeroAddress,
     signature: '0x'
   }]
 }
@@ -288,7 +308,7 @@ export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOp
 export async function createAccount (
   ethersSigner: Signer,
   accountOwner: string,
-  entryPoint: string,
+  entryPoint: AddressLike,
   _factory?: SimpleAccountFactory
 ):
   Promise<{
@@ -299,7 +319,8 @@ export async function createAccount (
   const accountFactory = _factory ?? await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint)
   const implementation = await accountFactory.accountImplementation()
   await accountFactory.createAccount(accountOwner, 0)
-  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
+  const accountAddress = await accountFactory.getFunction('getAddress').staticCall(accountOwner, 0)
+
   const proxy = SimpleAccount__factory.connect(accountAddress, ethersSigner)
   return {
     implementation,

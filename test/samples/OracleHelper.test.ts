@@ -1,8 +1,6 @@
 import { assert } from 'chai'
 import { ethers } from 'hardhat'
 
-import { AddressZero } from '../testutils'
-
 import {
   TestERC20,
   TestERC20__factory,
@@ -10,15 +8,14 @@ import {
   TestOracle2__factory,
   TokenPaymaster,
   TokenPaymaster__factory
-} from '../../typechain'
+} from '../../src/types'
 import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
-} from '../../typechain/contracts/samples/TokenPaymaster'
-import { BigNumber } from 'ethers'
-import { parseEther } from 'ethers/lib/utils'
+} from '../../src/types/contracts/samples/TokenPaymaster'
+import { getBigInt, parseEther, ZeroAddress } from 'ethers'
 
-const priceDenominator = BigNumber.from(10).pow(26)
+const priceDenominator = getBigInt(10) ** 26n
 
 const sampleResponses = {
   'LINK/USD': {
@@ -80,8 +77,8 @@ describe('OracleHelper', function () {
       nativeOracleReverse,
       tokenOracleReverse,
       tokenToNativeOracle,
-      nativeOracle: testEnv.nativeAssetOracle.address,
-      tokenOracle: testEnv.tokenOracle.address,
+      nativeOracle: testEnv.nativeAssetOracle.target,
+      tokenOracle: testEnv.tokenOracle.target,
       cacheTimeToLive: 0,
       priceUpdateThreshold: 0
     }
@@ -103,14 +100,14 @@ describe('OracleHelper', function () {
   const testEnv: TestEnv = {}
 
   before(async function () {
-    const ethersSigner = ethers.provider.getSigner()
+    const ethersSigner = await ethers.provider.getSigner()
     testEnv.owner = await ethersSigner.getAddress()
 
     testEnv.tokenPaymasterConfig = {
       priceMaxAge: 86400,
       refundPostopCost: 40000,
       minEntryPointBalance: 0,
-      priceMarkup: priceDenominator.mul(19).div(10) // 190%
+      priceMarkup: priceDenominator * 19n / 10n // 190%
     }
     testEnv.uniswapHelperConfig = {
       minSwapAmount: 1,
@@ -125,10 +122,10 @@ describe('OracleHelper', function () {
     testEnv.token = await new TestERC20__factory(ethersSigner).deploy(18)
 
     testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
-      testEnv.token.address,
-      AddressZero,
-      AddressZero,
-      testEnv.owner, // cannot approve to AddressZero
+      testEnv.token.target,
+      ZeroAddress,
+      ZeroAddress,
+      testEnv.owner, // cannot approve to ZeroAddress
       testEnv.tokenPaymasterConfig,
       getOracleConfig({
         nativeOracleReverse: false,
@@ -147,26 +144,21 @@ describe('OracleHelper', function () {
       await testEnv.tokenOracle.setDecimals(res.decimals)
       // making sure the native asset oracle is not accessed during the calculation
       await testEnv.nativeAssetOracle.setPrice('0xfffffffffffffffffffff')
-      const tokenOracleDecimalPower = BigNumber.from(10).pow(res.decimals)
+      const tokenOracleDecimalPower = 10n ** getBigInt(res.decimals)
       testEnv.expectedPrice =
-        BigNumber.from(res.answer)
-          .mul(priceDenominator)
-          .div(tokenOracleDecimalPower)
+        (getBigInt(res.answer) * priceDenominator / tokenOracleDecimalPower)
           .toString()
 
       testEnv.expectedTokensPerEtherCalculated =
-        BigNumber
-          .from(parseEther('1'))
-          .mul(tokenOracleDecimalPower)
-          .div(res.answer)
+        (parseEther('1') * tokenOracleDecimalPower / getBigInt(res.answer))
           .toString()
 
-      const ethersSigner = ethers.provider.getSigner()
+      const ethersSigner = await ethers.provider.getSigner()
       testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
-        testEnv.token.address,
-        AddressZero,
-        AddressZero,
-        testEnv.owner, // cannot approve to AddressZero
+        testEnv.token.target,
+        ZeroAddress,
+        ZeroAddress,
+        testEnv.owner, // cannot approve to ZeroAddress
         testEnv.tokenPaymasterConfig,
         getOracleConfig({
           tokenToNativeOracle: true,
@@ -188,36 +180,26 @@ describe('OracleHelper', function () {
       await testEnv.tokenOracle.setDecimals(res.decimals)
       // making sure the native asset oracle is not accessed during the calculation
       await testEnv.nativeAssetOracle.setPrice('0xfffffffffffffffffffff')
-      const tokenOracleDecimalPower = BigNumber.from(10).pow(res.decimals)
+      const tokenOracleDecimalPower = 10n ** getBigInt(res.decimals)
       testEnv.expectedPrice =
-        BigNumber.from(priceDenominator)
-          .mul(tokenOracleDecimalPower)
-          .div(res.answer)
+        (getBigInt(priceDenominator) * tokenOracleDecimalPower / getBigInt(res.answer))
           .toString()
 
       const expectedTokensPerEtherCalculated =
-        BigNumber
-          .from(parseEther('1'))
-          .mul(res.answer)
-          .div(tokenOracleDecimalPower)
-          .toString()
+        (parseEther('1') * getBigInt(res.answer) / tokenOracleDecimalPower).toString()
 
       testEnv.expectedTokensPerEtherCalculated =
-        BigNumber
-          .from(parseEther('1'))
-          .mul(priceDenominator.toString())
-          .div(testEnv.expectedPrice)
-          .toString()
+        (parseEther('1') * priceDenominator / getBigInt(testEnv.expectedPrice)).toString()
 
       // sanity check for the price calculation - use direct price and cached-like reverse price
       assert.equal(expectedTokensPerEtherCalculated.toString(), testEnv.expectedTokensPerEtherCalculated.toString())
 
-      const ethersSigner = ethers.provider.getSigner()
+      const ethersSigner = await ethers.provider.getSigner()
       testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
-        testEnv.token.address,
-        AddressZero,
-        AddressZero,
-        testEnv.owner, // cannot approve to AddressZero
+        testEnv.token.target,
+        ZeroAddress,
+        ZeroAddress,
+        testEnv.owner, // cannot approve to ZeroAddress
         testEnv.tokenPaymasterConfig,
         getOracleConfig({
           tokenToNativeOracle: true,
@@ -242,12 +224,12 @@ describe('OracleHelper', function () {
       await testEnv.nativeAssetOracle.setPrice(resNative.answer) // $1,817.65
       await testEnv.nativeAssetOracle.setDecimals(resNative.decimals)
 
-      const ethersSigner = ethers.provider.getSigner()
+      const ethersSigner = await ethers.provider.getSigner()
       testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
-        testEnv.token.address,
-        AddressZero,
-        AddressZero,
-        testEnv.owner, // cannot approve to AddressZero
+        testEnv.token.target,
+        ZeroAddress,
+        ZeroAddress,
+        testEnv.owner, // cannot approve to ZeroAddress
         testEnv.tokenPaymasterConfig,
         getOracleConfig({
           tokenToNativeOracle: false,
@@ -259,16 +241,11 @@ describe('OracleHelper', function () {
       )
       // note: oracle decimals are same and cancel each other out
       testEnv.expectedPrice =
-        priceDenominator
-          .mul(resToken.answer)
-          .div(resNative.answer)
+        (priceDenominator * getBigInt(resToken.answer) / getBigInt(resNative.answer))
           .toString()
 
       testEnv.expectedTokensPerEtherCalculated =
-        BigNumber
-          .from(parseEther('1'))
-          .mul(priceDenominator.toString())
-          .div(testEnv.expectedPrice)
+        (parseEther('1') * priceDenominator / getBigInt(testEnv.expectedPrice))
           .toString()
     })
 
@@ -276,7 +253,10 @@ describe('OracleHelper', function () {
   })
 
   // TODO: these oracle types are not common but we probably want to support in any case
-  describe.skip('with two-hops price TOK/USD and ETH/USD', () => {})
-  describe.skip('with two-hops price TOK/USD and USD/ETH', () => {})
-  describe.skip('with two-hops price USD/TOK and ETH/USD', () => {})
+  describe.skip('with two-hops price TOK/USD and ETH/USD', () => {
+  })
+  describe.skip('with two-hops price TOK/USD and USD/ETH', () => {
+  })
+  describe.skip('with two-hops price USD/TOK and ETH/USD', () => {
+  })
 })

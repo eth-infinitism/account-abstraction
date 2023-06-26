@@ -15,5 +15,5 @@ rm -rf artifacts types dist
 
 mkdir -p artifacts
 cp `find  ../artifacts/contracts -type f | grep -v -E 'Test|dbg|gnosis|bls|IOracle'` artifacts/
-npx typechain --target ethers-v5 --out-dir types  artifacts/**
+npx typechain --target ethers-v6 --out-dir types  artifacts/**
 npx tsc index.ts -d --outDir dist

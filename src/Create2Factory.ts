@@ -1,8 +1,14 @@
 // from: https://github.com/Arachnid/deterministic-deployment-proxy
-import { BigNumber, BigNumberish, ethers, Signer } from 'ethers'
-import { arrayify, hexConcat, hexlify, hexZeroPad, keccak256 } from 'ethers/lib/utils'
-import { Provider } from '@ethersproject/providers'
-import { TransactionRequest } from '@ethersproject/abstract-provider'
+
+import {
+  BigNumberish, BrowserProvider,
+  concat, getBigInt,
+  getBytes,
+  keccak256,
+  Provider,
+  Signer, toBeHex,
+  TransactionRequest
+} from 'ethers'
 
 export class Create2Factory {
   factoryDeployed = false
@@ -16,14 +22,14 @@ export class Create2Factory {
   static readonly factoryDeploymentFee = (Create2Factory.deploymentGasPrice * Create2Factory.deploymentGasLimit).toString()
 
   constructor (readonly provider: Provider,
-    readonly signer = (provider as ethers.providers.JsonRpcProvider).getSigner()) {
+    readonly signer?: Signer) {
   }
 
   /**
    * deploy a contract using our deterministic deployer.
    * The deployer is deployed (unless it is already deployed)
    * NOTE: this transaction will fail if already deployed. use getDeployedAddress to check it first.
-   * @param initCode delpoyment code. can be a hex string or factory.getDeploymentTransaction(..)
+   * @param initCode deployment code. can be a hex string or factory.getDeploymentTransaction(..)
    * @param salt specific salt for deployment
    * @param gasLimit gas limit or 'estimate' to use estimateGas. by default, calculate gas based on data size.
    */
@@ -39,17 +45,18 @@ export class Create2Factory {
       return addr
     }
 
+    const signer = await this.getSigner()
     const deployTx = {
       to: Create2Factory.contractAddress,
       data: this.getDeployTransactionCallData(initCode, salt)
     }
     if (gasLimit === 'estimate') {
-      gasLimit = await this.signer.estimateGas(deployTx)
+      gasLimit = await signer.estimateGas(deployTx)
     }
 
     // manual estimation (its bit larger: we don't know actual deployed code size)
     if (gasLimit === undefined) {
-      gasLimit = arrayify(initCode)
+      gasLimit = getBytes(initCode)
         .map(x => x === 0 ? 4 : 16)
         .reduce((sum, x) => sum + x) +
         200 * initCode.length / 2 + // actual is usually somewhat smaller (only deposited code, not entire constructor)
@@ -61,7 +68,7 @@ export class Create2Factory {
       gasLimit = Math.floor(gasLimit * 64 / 63)
     }
 
-    const ret = await this.signer.sendTransaction({ ...deployTx, gasLimit })
+    const ret = await signer.sendTransaction({ ...deployTx, gasLimit })
     await ret.wait()
     if (await this.provider.getCode(addr).then(code => code.length) === 2) {
       throw new Error('failed to deploy')
@@ -70,8 +77,8 @@ export class Create2Factory {
   }
 
   getDeployTransactionCallData (initCode: string, salt: BigNumberish = 0): string {
-    const saltBytes32 = hexZeroPad(hexlify(salt), 32)
-    return hexConcat([
+    const saltBytes32 = toBeHex(salt, 32)
+    return concat([
       saltBytes32,
       initCode
     ])
@@ -84,8 +91,8 @@ export class Create2Factory {
    * @param salt
    */
   static getDeployedAddress (initCode: string, salt: BigNumberish): string {
-    const saltBytes32 = hexZeroPad(hexlify(salt), 32)
-    return '0x' + keccak256(hexConcat([
+    const saltBytes32 = toBeHex(salt, 32)
+    return '0x' + keccak256(concat([
       '0xff',
       Create2Factory.contractAddress,
       saltBytes32,
@@ -94,15 +101,17 @@ export class Create2Factory {
   }
 
   // deploy the factory, if not already deployed.
-  async deployFactory (signer?: Signer): Promise<void> {
+  async deployFactory (): Promise<void> {
     if (await this._isFactoryDeployed()) {
       return
     }
-    await (signer ?? this.signer).sendTransaction({
+    const signer = await this.getSigner()
+    await signer.sendTransaction({
       to: Create2Factory.factoryDeployer,
-      value: BigNumber.from(Create2Factory.factoryDeploymentFee)
+      value: getBigInt(Create2Factory.factoryDeploymentFee)
     })
-    await this.provider.sendTransaction(Create2Factory.factoryTx)
+    const ret = await this.provider.broadcastTransaction(Create2Factory.factoryTx)
+    await ret.wait()
     if (!await this._isFactoryDeployed()) {
       throw new Error('fatal: failed to deploy deterministic deployer')
     }
@@ -116,5 +125,9 @@ export class Create2Factory {
       }
     }
     return this.factoryDeployed
+  }
+
+  private async getSigner (): Promise<Signer> {
+    return this.signer ?? await (this.provider as BrowserProvider).getSigner()
   }
 }

@@ -1,14 +1,14 @@
 import { Create2Factory } from '../src/Create2Factory'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
-import { TestToken__factory } from '../typechain'
-import { Provider } from '@ethersproject/providers'
+import { TestToken__factory } from '../src/types'
+import { Provider } from 'ethers'
+
+const provider = ethers.provider as Provider
 
 describe('test Create2Factory', () => {
   let factory: Create2Factory
-  let provider: Provider
   before(async () => {
-    provider = ethers.provider
     factory = new Create2Factory(provider)
   })
   it('should deploy the factory', async () => {

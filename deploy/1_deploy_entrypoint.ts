@@ -1,18 +1,19 @@
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { Create2Factory } from '../src/Create2Factory'
-import { ethers } from 'hardhat'
+import { BrowserProvider } from 'ethers'
 
 const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const provider = ethers.provider
-  const from = await provider.getSigner().getAddress()
-  await new Create2Factory(ethers.provider).deployFactory()
+  const provider = new BrowserProvider(hre.network.provider)
+  const signer = await provider.getSigner()
+  const from = await signer.getAddress()
+  await new Create2Factory(provider, signer).deployFactory()
 
   const ret = await hre.deployments.deploy(
     'EntryPoint', {
       from,
       args: [],
-      gasLimit: 6e6,
+      log: true,
       deterministicDeployment: true
     })
   console.log('==entrypoint addr=', ret.address)

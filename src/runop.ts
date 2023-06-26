@@ -4,11 +4,9 @@
 import hre, { ethers } from 'hardhat'
 import { objdump } from '../test/testutils'
 import { AASigner, localUserOpSender, rpcUserOpSender } from './AASigner'
-import { TestCounter__factory, EntryPoint__factory } from '../typechain'
+import { TestCounter__factory, EntryPoint__factory } from './types'
 import '../test/aa.init'
-import { parseEther } from 'ethers/lib/utils'
-import { providers } from 'ethers'
-import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/index';
+import { formatUnits, JsonRpcProvider, parseEther, TransactionReceipt } from 'ethers';
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
 (async () => {
@@ -32,7 +30,7 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
 
   console.log('entryPointAddress:', entryPointAddress, 'testCounterAddress:', testCounterAddress)
   const provider = ethers.provider
-  const ethersSigner = provider.getSigner(0)
+  const ethersSigner = await provider.getSigner(0)
   const prefundAccountAddress = await ethersSigner.getAddress()
   const prefundAccountBalance = await provider.getBalance(prefundAccountAddress)
   console.log('using prefund account address', prefundAccountAddress, 'with balance', prefundAccountBalance.toString())
@@ -40,14 +38,16 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
   let sendUserOp
 
   if (aa_url != null) {
-    const newprovider = new providers.JsonRpcProvider(aa_url)
+    const newprovider = new JsonRpcProvider(aa_url)
     sendUserOp = rpcUserOpSender(newprovider, entryPointAddress)
-    const supportedEntryPoints: string[] = await newprovider.send('eth_supportedEntryPoints', []).then(ret => ret.map(ethers.utils.getAddress))
+    const supportedEntryPoints: string[] = await newprovider.send('eth_supportedEntryPoints', []).then(ret => ret.map(ethers.getAddress))
     console.log('node supported EntryPoints=', supportedEntryPoints)
     if (!supportedEntryPoints.includes(entryPointAddress)) {
       console.error('ERROR: node', aa_url, 'does not support our EntryPoint')
     }
-  } else { sendUserOp = localUserOpSender(entryPointAddress, ethersSigner) }
+  } else {
+    sendUserOp = localUserOpSender(entryPointAddress, ethersSigner)
+  }
 
   // index is unique for an account (so same owner can have multiple accounts, with different index
   const index = parseInt(process.env.AA_INDEX ?? '0')
@@ -69,7 +69,7 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
   let preDeposit = await entryPoint.balanceOf(myAddress)
   console.log('current deposit=', preDeposit, 'current balance', await provider.getBalance(myAddress))
 
-  if (preDeposit.lte(parseEther('0.005'))) {
+  if (preDeposit <= parseEther('0.005')) {
     console.log('depositing for account')
     await entryPoint.depositTo(myAddress, { value: parseEther('0.01') })
     preDeposit = await entryPoint.balanceOf(myAddress)
@@ -78,24 +78,31 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
   const testCounter = TestCounter__factory.connect(testCounterAddress, aasigner)
 
   const prebalance = await provider.getBalance(myAddress)
-  console.log('balance=', prebalance.div(1e9).toString(), 'deposit=', preDeposit.div(1e9).toString())
-  console.log('estimate direct call', { gasUsed: await testCounter.connect(ethersSigner).estimateGas.justemit().then(t => t.toNumber()) })
+  console.log('balance=', formatUnits(prebalance, 'gwei'), 'deposit=', formatUnits(preDeposit, 'gwei'))
+  console.log('estimate direct call', { gasUsed: await testCounter.connect(ethersSigner).justemit.estimateGas() })
   const ret = await testCounter.justemit()
   console.log('waiting for mine, hash (reqId)=', ret.hash)
   const rcpt = await ret.wait()
+  if (rcpt == null) {
+    throw new Error('receipt not found')
+  }
   const netname = await provider.getNetwork().then(net => net.name)
   if (netname !== 'unknown') {
-    console.log('rcpt', rcpt.transactionHash, `https://dashboard.tenderly.co/tx/${netname}/${rcpt.transactionHash}/gas-usage`)
+    console.log('rcpt', rcpt?.hash, `https://dashboard.tenderly.co/tx/${netname}/${rcpt?.hash}/gas-usage`)
   }
-  const gasPaid = prebalance.sub(await provider.getBalance(myAddress))
-  const depositPaid = preDeposit.sub(await entryPoint.balanceOf(myAddress))
-  console.log('paid (from balance)=', gasPaid.toNumber() / 1e9, 'paid (from deposit)', depositPaid.div(1e9).toString(), 'gasUsed=', rcpt.gasUsed)
+  const gasPaid = prebalance - await provider.getBalance(myAddress)
+  const depositPaid = preDeposit - await entryPoint.balanceOf(myAddress)
+
+  console.log('paid (from balance)=', formatUnits(gasPaid, 'gwei'), 'paid (from deposit)', formatUnits(depositPaid, 'gwei'), 'gasUsed=', rcpt.gasUsed)
   const logs = await entryPoint.queryFilter('*' as any, rcpt.blockNumber)
   console.log(logs.map((e: any) => ({ ev: e.event, ...objdump(e.args!) })))
   console.log('1st run gas used:', await evInfo(rcpt))
 
   const ret1 = await testCounter.justemit()
   const rcpt2 = await ret1.wait()
+  if (rcpt2 == null) {
+    throw new Error('2nd receipt not found')
+  }
   console.log('2nd run:', await evInfo(rcpt2))
 
   async function evInfo (rcpt: TransactionReceipt): Promise<any> {
@@ -105,8 +112,8 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
     // if (ev.length === 0) return {}
     return ev.map(event => {
       const { nonce, actualGasUsed } = event.args
-      const gasUsed = rcpt.gasUsed.toNumber()
-      return { nonce: nonce.toNumber(), gasPaid, gasUsed: gasUsed, diff: gasUsed - actualGasUsed.toNumber() }
+      const gasUsed = rcpt.gasUsed
+      return { nonce: nonce, gasPaid, gasUsed: gasUsed, diff: gasUsed - actualGasUsed }
     })
   }
 })()
