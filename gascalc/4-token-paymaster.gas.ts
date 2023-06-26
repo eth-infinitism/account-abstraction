@@ -30,10 +30,14 @@ context('Token Paymaster', function () {
     const initialPriceEther = 500000000 // USD per ETH
     const priceDenominator = BigNumber.from(10).pow(26)
 
-    const token = await new TestERC20__factory(ethersSigner).deploy(6)
+    const tokenInit = await new TestERC20__factory(ethersSigner).getDeployTransaction(6)
+    const tokenAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(tokenInit, 0)
+    const token = TestERC20__factory.connect(tokenAddress, ethersSigner)
 
-    const weth = await new TestWrappedNativeToken__factory(ethersSigner).deploy()
-    const testUniswap = await new TestUniswap__factory(ethersSigner).deploy(weth.address)
+    const wethInit = await new TestWrappedNativeToken__factory(ethersSigner).getDeployTransaction()
+    const wethAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(wethInit, 0)
+    const testUniswapInit = await new TestUniswap__factory(ethersSigner).getDeployTransaction(wethAddress)
+    const testUniswapAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(testUniswapInit, 0)
 
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
       priceMaxAge: 86400,
@@ -42,15 +46,17 @@ context('Token Paymaster', function () {
       priceMarkup: priceDenominator.mul(15).div(10) // +50%
     }
 
-    const nativeAssetOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceEther, 8)
-    const tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken, 8)
+    const nativeAssetOracleInit = await new TestOracle2__factory(ethersSigner).getDeployTransaction(initialPriceEther, 8)
+    const nativeAssetOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(nativeAssetOracleInit, 0, 20_000_000)
+    const tokenOracleInit = await new TestOracle2__factory(ethersSigner).getDeployTransaction(initialPriceToken, 8)
+    const tokenOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(tokenOracleInit, 0, 20_000_000)
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
       cacheTimeToLive: 0,
-      nativeOracle: nativeAssetOracle.address,
+      nativeOracle: nativeAssetOracleAddress,
       nativeOracleReverse: false,
       priceUpdateThreshold: 200_000, // +20%
-      tokenOracle: tokenOracle.address,
+      tokenOracle: tokenOracleAddress,
       tokenOracleReverse: false,
       tokenToNativeOracle: false
     }
@@ -64,10 +70,10 @@ context('Token Paymaster', function () {
     const owner = await ethersSigner.getAddress()
 
     const paymasterInit = hexValue(new TokenPaymaster__factory(ethersSigner).getDeployTransaction(
-      token.address,
+      tokenAddress,
       g.entryPoint().address,
-      weth.address,
-      testUniswap.address,
+      wethAddress,
+      testUniswapAddress,
       tokenPaymasterConfig,
       oracleHelperConfig,
       uniswapHelperConfig,
@@ -79,6 +85,7 @@ context('Token Paymaster', function () {
     await g.entryPoint().depositTo(paymaster.address, { value: parseEther('10') })
     await paymaster.updateCachedPrice(true)
     await g.createAccounts1(11)
+    await token.sudoMint(await ethersSigner.getAddress(), parseEther('20'))
     for (const address of g.createdAccounts) {
       await token.transfer(address, parseEther('1'))
       await token.sudoApprove(address, paymaster.address, ethers.constants.MaxUint256)
