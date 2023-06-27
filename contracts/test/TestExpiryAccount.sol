@@ -45,17 +45,18 @@ contract TestExpiryAccount is SimpleAccount {
     // solhint-disable-next-line no-empty-blocks
     function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, TargetMethods[] calldata delegations) public onlyOwner {
+    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, TargetMethods[] calldata delegations) external onlyOwner {
         require(_until > _after, "wrong until/after");
         TargetInfo storage _targetInfo = delegationMap[owner];
-        
-        for (uint256 index = 0; index < delegations.length; index++) {
+        uint256 delegationsLength = delegations.length;
+        for (uint256 index; index < delegationsLength; ++index) {
             TargetMethods memory delegation = delegations[index];
             address delegatedContract = delegation.delegatedContract;
 
             _targetInfo.delegatedContractMap[delegatedContract] = true;
 
-            for (uint256 functionIndex = 0; functionIndex < delegation.delegatedFunctions.length; functionIndex++) {
+            uint256 delegatedFunctionsLength = delegation.delegatedFunctions.length;
+            for (uint256 functionIndex; functionIndex < delegatedFunctionsLength; ++functionIndex) {
                 // total 96 bits : | 48 bits - _after | 48 bits - _until |
                 bytes4 delegatedFunction = delegation.delegatedFunctions[functionIndex];
                 _targetInfo.delegatedFunctionPeriods[delegatedContract][
@@ -103,7 +104,7 @@ contract TestExpiryAccount is SimpleAccount {
         if (length == 0) {
             sigFailed = true;
         }
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i; i < length; ++i) {
             if (targetInfo.delegatedContractMap[dest[i]]) {
                 bytes4 selec = this.getSelector(func[i]);
                 if (targetInfo.delegatedFunctionMap[dest[i]][selec]) {

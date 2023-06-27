@@ -20,7 +20,8 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  TestToken__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -1276,6 +1277,38 @@ describe('EntryPoint', function () {
           expect(ret.returnInfo.validAfter).to.eql(123)
           expect(ret.returnInfo.sigFailed).to.eql(false)
         })
+
+        it('should accept executeBatch', async () => {
+          const expiredOwner = createAccountOwner()
+          const counter = await new TestCounter__factory(ethersSigner).deploy()
+          const count = counter.interface.encodeFunctionData('count')
+          const justemit = counter.interface.encodeFunctionData('justemit')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count,
+                justemit
+              ]
+            }
+          ];
+          
+          await account.addTemporaryOwner(
+            expiredOwner.address, 
+            123, 
+            now + 60, 
+            TargetMethods
+          )
+          
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('executeBatch', [[counter.address, counter.address], [count, justemit]])
+          }, expiredOwner, entryPoint)
+          const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+          expect(ret.returnInfo.validUntil).eql(now + 60)
+          expect(ret.returnInfo.validAfter).to.eql(123)
+          expect(ret.returnInfo.sigFailed).to.eql(false)
+        })
       })
 
       describe('validatePaymasterUserOp with deadline', function () {
@@ -1400,6 +1433,32 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: account.address,
             callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count])
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        // Unregisted contract and method makes both _after and _until to be zero, emitting "AA22 expired or not due" error.
+        it('should revert on unregistered contract', async () => {
+          const futureOwner = createAccountOwner()
+          await account.addTemporaryOwner(futureOwner.address, now - 100, now + 200, TargetMethods)
+          const token = await new TestToken__factory(ethersSigner).deploy()
+          const totalSupply = token.interface.encodeFunctionData('totalSupply')
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [token.address, 0, totalSupply])
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        it('should revert on unregistered method', async () => {
+          const futureOwner = createAccountOwner()
+          await account.addTemporaryOwner(futureOwner.address, now - 100, now + 200, TargetMethods)
+          const justemit = counter.interface.encodeFunctionData('justemit')
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, justemit])
           }, futureOwner, entryPoint)
           await expect(entryPoint.handleOps([userOp], beneficiary))
             .to.revertedWith('AA22 expired or not due')
