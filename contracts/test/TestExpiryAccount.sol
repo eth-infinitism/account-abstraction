@@ -88,7 +88,7 @@ contract TestExpiryAccount is SimpleAccount {
         bytes[] memory func;
         bool sigFailed;
         uint48 _after;
-        uint48 _until;
+        uint48 _until = 1;
 
         if (userOpSelector == FUNCTION_EXECUTE) {
             (dest, func) = _decodeSingle(userOpCallData); 	
@@ -113,7 +113,7 @@ contract TestExpiryAccount is SimpleAccount {
                 }
             }
         }
-        // Returning last retrieved until & after information 
+        // Returning _until : 1 & _after : 0 if not found
         return _packValidationData(sigFailed, _until, _after);
     }
 
