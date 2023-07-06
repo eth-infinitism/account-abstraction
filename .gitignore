@@ -18,3 +18,4 @@ artifacts
 .DS_Store
 /contracts/dist/
 /contracts/types/
+.env

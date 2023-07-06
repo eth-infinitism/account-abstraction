@@ -37,8 +37,6 @@ contract TestExpiryAccount is SimpleAccount {
 
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
-        TargetMethods[] memory delegations = new TargetMethods[](0);
-        this.addTemporaryOwner(anOwner, 0, type(uint48).max, delegations);
     }
 
     // As this is a test contract, no need for proxy, so no need to disable init
@@ -95,7 +93,7 @@ contract TestExpiryAccount is SimpleAccount {
         } else if (userOpSelector == FUNCTION_EXECUTE_BATCH) {
             (dest, func) = _decodeBatch(userOpCallData);
         } else {
-            return _packValidationData(sigFailed, 0, 0);
+            return _packValidationData(sigFailed, _until, _after);
         }
 
         TargetInfo storage targetInfo = delegationMap[signer];
