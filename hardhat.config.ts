@@ -6,9 +6,11 @@ import '@nomiclabs/hardhat-etherscan'
 
 import 'solidity-coverage'
 
-require('dotenv').config()
+import * as fs from 'fs'
 
-let mnemonic = `${process.env.MNEMONIC}`
+const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secret/testnet-mnemonic.txt`
+let mnemonic = 'test '.repeat(11) + 'junk'
+if (fs.existsSync(mnemonicFileName)) { mnemonic = fs.readFileSync(mnemonicFileName, 'ascii') }
 
 function getNetwork1 (url: string): { url: string, accounts: { mnemonic: string } } {
   return {
@@ -36,16 +38,14 @@ const optimizedComilerSettings = {
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [{
-      version: '0.8.17',
+      version: '0.8.15',
       settings: {
         optimizer: { enabled: true, runs: 1000000 }
       }
     }],
     overrides: {
       'contracts/core/EntryPoint.sol': optimizedComilerSettings,
-      'contracts/samples/SimpleAccount.sol': optimizedComilerSettings,
-      'contracts/test/TestExpiryAccount.sol': optimizedComilerSettings,
-      'contracts/test/TestExpiryAccountFactory.sol': optimizedComilerSettings
+      'contracts/samples/SimpleAccount.sol': optimizedComilerSettings
     }
   },
   networks: {
