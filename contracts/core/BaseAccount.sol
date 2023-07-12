@@ -18,7 +18,7 @@ abstract contract BaseAccount is IAccount {
 
     //return value in case of signature failure, with no time-range.
     // equivalent to _packValidationData(true,0,0);
-    uint256 internal constant SIG_VALIDATION_FAILED = 1;
+    uint256 constant internal SIG_VALIDATION_FAILED = 1;
 
     /**
      * Return the account nonce.
@@ -40,11 +40,7 @@ abstract contract BaseAccount is IAccount {
      * subclass doesn't need to override this method. Instead, it should override the specific internal validation methods.
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
-        external
-        virtual
-        override
-        returns (uint256 validationData)
-    {
+    external override virtual returns (uint256 validationData) {
         _requireFromEntryPoint();
         validationData = _validateSignature(userOp, userOpHash);
         _validateNonce(userOp.nonce);
@@ -54,7 +50,7 @@ abstract contract BaseAccount is IAccount {
     /**
      * ensure the request comes from the known entrypoint.
      */
-    function _requireFromEntryPoint() internal view virtual {
+    function _requireFromEntryPoint() internal virtual view {
         require(msg.sender == address(entryPoint()), "account: not from EntryPoint");
     }
 
@@ -72,9 +68,7 @@ abstract contract BaseAccount is IAccount {
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-        internal
-        virtual
-        returns (uint256 validationData);
+    internal virtual returns (uint256 validationData);
 
     /**
      * Validate the nonce of the UserOperation.
@@ -92,7 +86,8 @@ abstract contract BaseAccount is IAccount {
      *
      * solhint-disable-next-line no-empty-blocks
      */
-    function _validateNonce(uint256 nonce) internal view virtual {}
+    function _validateNonce(uint256 nonce) internal view virtual {
+    }
 
     /**
      * sends to the entrypoint (msg.sender) the missing funds for this transaction.
