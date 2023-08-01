@@ -1,5 +1,5 @@
 import { TransactionRequest } from '@ethersproject/abstract-provider'
-import { ethers } from 'hardhat'
+import { ethers, network } from 'hardhat'
 import { expect } from 'chai'
 
 import { EntryPoint, EntryPointSimulations__factory } from '../../typechain'
@@ -22,6 +22,9 @@ describe('EntryPointSimulations', function () {
   let entryPointSimulations: EntryPointSimulationsInterface
 
   before(async function () {
+    if (network.name !== 'anvil') {
+      this.skip()
+    }
     entryPoint = await deployEntryPoint()
     entryPointSimulations = EntryPointSimulations__factory.createInterface()
   })
