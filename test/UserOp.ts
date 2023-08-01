@@ -8,10 +8,14 @@ import { BigNumber, Contract, Signer, Wallet } from 'ethers'
 import { AddressZero, callDataCost, rethrow } from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
-  EntryPoint
+  EntryPoint, EntryPointSimulations__factory
 } from '../typechain'
 import { UserOperation } from './UserOperation'
 import { Create2Factory } from '../src/Create2Factory'
+import { TransactionRequest } from '@ethersproject/abstract-provider'
+
+import EntryPointSimulations from '../artifacts/contracts/core/EntryPointSimulations.sol/EntryPointSimulations.json'
+import { ethers } from 'hardhat'
 
 export function packUserOp (op: UserOperation, forSignature = true): string {
   if (forSignature) {
@@ -198,8 +202,53 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
   const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId))
 
+  let signature
+  try {
+    signature = await signer.signMessage(message)
+  } catch (err: any) {
+    // attempt to use 'eth_sign' instead of 'personal_sign' which is not supported by Foundry Anvil
+    signature = await (signer as any)._legacySignMessage(message)
+  }
   return {
     ...op2,
-    signature: await signer.signMessage(message)
+    signature
+  }
+}
+
+/**
+ * This function relies on a "state override" functionality of the 'eth_call' RPC method
+ * in order to provide the details of a simulated validation call to the bundler
+ * @param userOp
+ * @param entryPointAddress
+ * @param txOverrides
+ */
+export async function simulateValidation (
+  userOp: UserOperation,
+  entryPointAddress: string,
+  txOverrides?: any): Promise<any> {
+  const entryPointSimulations = EntryPointSimulations__factory.createInterface()
+  const data = entryPointSimulations.encodeFunctionData('simulateValidation', [userOp])
+  const tx: TransactionRequest = {
+    to: entryPointAddress,
+    data,
+    ...txOverrides
+  }
+  const stateOverride = {
+    [entryPointAddress]: {
+      code: EntryPointSimulations.deployedBytecode
+    }
+  }
+  try {
+    const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
+    const res = entryPointSimulations.decodeFunctionResult('simulateValidation', simulationResult)
+    // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
+    return res[0]
+  } catch (error: any) {
+    const revertData = error?.data
+    if (revertData == null) {
+      throw error
+    }
+    // note: this line throws the revert reason instead of returning it
+    entryPointSimulations.decodeFunctionResult('simulateValidation', revertData)
   }
 }
