@@ -31,6 +31,25 @@ jobs:
 
       - run: yarn run ci
 
+  test-anvil:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '14'
+      - uses: actions/checkout@v1
+      - uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - run: yarn install
+      - run: yarn compile
+      - run: yarn tsc
+      - run: yarn run-anvil & yarn test-anvil
+
   gas-checks:
     runs-on: ubuntu-latest
     services:
