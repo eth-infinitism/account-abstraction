@@ -4,34 +4,24 @@ import { expect } from 'chai'
 
 import {
   EntryPoint,
-  EntryPointSimulations__factory,
   SimpleAccount,
   SimpleAccountFactory
 } from '../../typechain'
-import { EntryPointSimulationsInterface } from '../../typechain/contracts/core/EntryPointSimulations'
 import {
-  checkForBannedOps,
+  ONE_ETH,
   createAccount,
   createAccountOwner,
   createAddress,
   deployEntryPoint,
-  fund, getAccountAddress, getAccountInitCode, getBalance, ONE_ETH,
-  simulationResultCatch
+  fund,
+  getAccountAddress,
+  getAccountInitCode,
+  getBalance
 } from '../testutils'
 
-import EntryPointSimulations from '../../artifacts/contracts/core/EntryPointSimulations.sol/EntryPointSimulations.json'
 import { fillAndSign, simulateValidation } from '../UserOp'
 import { BigNumber, Wallet } from 'ethers'
 import { hexConcat } from 'ethers/lib/utils'
-
-// note: to check that the "code override" is properly supported by a node, see if this code returns '0xaa'
-// { code: '0x60aa60005260206000f3' }
-// 0000    60  PUSH1 0xaa
-// 0002    60  PUSH1 0x00
-// 0004    52  MSTORE
-// 0005    60  PUSH1 0x20
-// 0007    60  PUSH1 0x00
-// 0009    F3  *RETURN
 
 describe('EntryPointSimulations', function () {
   const ethersSigner = ethers.provider.getSigner()
@@ -41,14 +31,12 @@ describe('EntryPointSimulations', function () {
   let simpleAccountFactory: SimpleAccountFactory
 
   let entryPoint: EntryPoint
-  let entryPointSimulations: EntryPointSimulationsInterface
 
   before(async function () {
     if (network.name !== 'anvil') {
       this.skip()
     }
     entryPoint = await deployEntryPoint()
-    entryPointSimulations = EntryPointSimulations__factory.createInterface()
 
     accountOwner = createAccountOwner();
     ({
@@ -58,14 +46,19 @@ describe('EntryPointSimulations', function () {
   })
 
   it('should use state diff when running the simulation', async function () {
-    const data = entryPointSimulations.encodeFunctionData('return777')
     const tx: TransactionRequest = {
       to: entryPoint.address,
-      data
+      data: '0x'
     }
     const stateOverride = {
       [entryPoint.address]: {
-        code: EntryPointSimulations.deployedBytecode
+        code: '0x61030960005260206000f3'
+        // 0000  61  PUSH2 0x0309  | value  777
+        // 0003  60  PUSH1 0x00    | offset   0
+        // 0005  52  MSTORE        |
+        // 0006  60  PUSH1 0x20    | size    32
+        // 0008  60  PUSH1 0x00    | offset   0
+        // 000A  F3  RETURN        |
       }
     }
     const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
@@ -95,7 +88,7 @@ describe('EntryPointSimulations', function () {
       // using wrong owner for account1
       // (zero gas price so it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
-      const { returnInfo } = await simulateValidation(op, entryPoint.address).catch(simulationResultCatch)
+      const { returnInfo } = await simulateValidation(op, entryPoint.address)
       expect(returnInfo.sigFailed).to.be.true
     })
 
@@ -205,19 +198,6 @@ describe('EntryPointSimulations', function () {
       }, accountOwner, entryPoint)
       const error = await simulateValidation(op1, entryPoint.address).catch(e => e)
       expect(error.message).to.match(/initCode failed or OOG/, error)
-    })
-
-    // TODO: this test is impossible to do with the "state override" approach
-    it.skip('should not use banned ops during simulateValidation', async () => {
-      const op1 = await fillAndSign({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
-        sender: await getAccountAddress(accountOwner1.address, simpleAccountFactory)
-      }, accountOwner1, entryPoint)
-      await fund(op1.sender)
-      await simulateValidation(op1, entryPoint.address, { gas: 10e6 }).catch(e => e)
-      const block = await ethers.provider.getBlock('latest')
-      const hash = block.transactions[0]
-      await checkForBannedOps(hash, false)
     })
   })
 

@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  EntryPoint,
+  EntryPointSimulations,
   LegacyTokenPaymaster,
   LegacyTokenPaymaster__factory,
   TestCounter__factory,
@@ -19,7 +19,7 @@ import {
   rethrow,
   checkForGeth,
   calcGasUsage,
-  deployEntryPoint,
+  deployEntryPointSimulations,
   checkForBannedOps,
   createAddress,
   ONE_ETH,
@@ -32,7 +32,7 @@ import { UserOperation } from './UserOperation'
 import { hexValue } from '@ethersproject/bytes'
 
 describe('EntryPoint with paymaster', function () {
-  let entryPoint: EntryPoint
+  let entryPoint: EntryPointSimulations
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount
@@ -50,7 +50,7 @@ describe('EntryPoint with paymaster', function () {
     this.timeout(20000)
     await checkForGeth()
 
-    entryPoint = await deployEntryPoint()
+    entryPoint = await deployEntryPointSimulations()
     factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
 
     accountOwner = createAccountOwner();
@@ -139,9 +139,11 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.mintTokens(preAddr, parseEther('1'))
         // paymaster is the token, so no need for "approve" or any init function...
 
+        const snapshot = await ethers.provider.send('evm_snapshot', [])
         await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
+        await ethers.provider.send('evm_revert', [snapshot])
 
         const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7

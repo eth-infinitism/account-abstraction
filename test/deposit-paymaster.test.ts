@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  EntryPoint,
+  EntryPointSimulations,
   DepositPaymaster,
   DepositPaymaster__factory,
   TestOracle__factory,
@@ -15,19 +15,19 @@ import {
 import {
   AddressZero, createAddress,
   createAccountOwner,
-  deployEntryPoint, FIVE_ETH, ONE_ETH, simulationResultCatch, userOpsWithoutAgg, createAccount
+  deployEntryPointSimulations, FIVE_ETH, ONE_ETH, userOpsWithoutAgg, createAccount
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 
 // TODO: fails after unrelated change in the repo
 describe.skip('DepositPaymaster', () => {
-  let entryPoint: EntryPoint
+  let entryPoint: EntryPointSimulations
   const ethersSigner = ethers.provider.getSigner()
   let token: TestToken
   let paymaster: DepositPaymaster
   before(async function () {
-    entryPoint = await deployEntryPoint()
+    entryPoint = await deployEntryPointSimulations()
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
     await paymaster.addStake(1, { value: parseEther('2') })
@@ -130,7 +130,7 @@ describe.skip('DepositPaymaster', () => {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      await entryPoint.callStatic.simulateValidation(userOp)
     })
   })
   describe('#handleOps', () => {

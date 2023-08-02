@@ -15,14 +15,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
     AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
-    function return777() external pure returns (uint256) {
-        return 777;
-    }
-
-    constructor() {
-        revert("Deploying is not allowed");
-    }
-
     /// @inheritdoc IEntryPointSimulations
     function simulateValidation(
         UserOperation calldata userOp

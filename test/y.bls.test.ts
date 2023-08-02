@@ -9,10 +9,10 @@ import {
   BLSAccountFactory,
   BLSAccountFactory__factory,
   BrokenBLSAccountFactory__factory,
-  EntryPoint
+  EntryPointSimulations
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { createAddress, deployEntryPoint, fund, ONE_ETH, simulationResultWithAggregationCatch } from './testutils'
+import { createAddress, deployEntryPointSimulations, fund, ONE_ETH } from './testutils'
 import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
@@ -35,12 +35,12 @@ describe('bls account', function () {
   let signer1: any
   let signer2: any
   let blsAgg: BLSSignatureAggregator
-  let entrypoint: EntryPoint
+  let entrypoint: EntryPointSimulations
   let account1: BLSAccount
   let account2: BLSAccount
   let accountDeployer: BLSAccountFactory
   before(async () => {
-    entrypoint = await deployEntryPoint()
+    entrypoint = await deployEntryPointSimulations()
     const BLSOpenLib = await new BLSOpen__factory(ethers.provider.getSigner()).deploy()
     blsAgg = await new BLSSignatureAggregator__factory({
       'contracts/samples/bls/lib/BLSOpen.sol:BLSOpen': BLSOpenLib.address
@@ -190,7 +190,7 @@ describe('bls account', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp).catch(simulationResultWithAggregationCatch)
+      const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp)
       expect(aggregatorInfo.aggregator).to.eq(blsAgg.address)
       expect(aggregatorInfo.stakeInfo.stake).to.eq(ONE_ETH)
       expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.eq(2)

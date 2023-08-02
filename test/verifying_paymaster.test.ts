@@ -3,14 +3,13 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  EntryPoint,
   VerifyingPaymaster,
-  VerifyingPaymaster__factory
+  VerifyingPaymaster__factory, EntryPointSimulations
 } from '../typechain'
 import {
   createAccount,
   createAccountOwner, createAddress,
-  deployEntryPoint, simulationResultCatch
+  deployEntryPointSimulations
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
@@ -21,7 +20,7 @@ const MOCK_VALID_AFTER = '0x0000000000001234'
 const MOCK_SIG = '0x1234'
 
 describe('EntryPoint with VerifyingPaymaster', function () {
-  let entryPoint: EntryPoint
+  let entryPoint: EntryPointSimulations
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount
@@ -30,7 +29,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
   let paymaster: VerifyingPaymaster
   before(async function () {
     this.timeout(20000)
-    entryPoint = await deployEntryPoint()
+    entryPoint = await deployEntryPointSimulations()
 
     offchainSigner = createAccountOwner()
     accountOwner = createAccountOwner()
@@ -81,7 +80,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       })
 
       it('should return signature error (no revert) on wrong signer signature', async () => {
-        const ret = await entryPoint.callStatic.simulateValidation(wrongSigUserOp).catch(simulationResultCatch)
+        const ret = await entryPoint.callStatic.simulateValidation(wrongSigUserOp)
         expect(ret.returnInfo.sigFailed).to.be.true
       })
 
@@ -101,7 +100,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         ...userOp1,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
       }, accountOwner, entryPoint)
-      const res = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+      const res = await entryPoint.callStatic.simulateValidation(userOp)
       expect(res.returnInfo.sigFailed).to.be.false
       expect(res.returnInfo.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
       expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
