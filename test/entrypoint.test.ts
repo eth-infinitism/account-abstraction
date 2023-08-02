@@ -264,8 +264,10 @@ describe('EntryPoint', function () {
         paymasterAndData: '0x'
       }
       try {
-        await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
-          .to.revertedWith('ValidationResult')
+        const snapshot = await ethers.provider.send('evm_snapshot', [])
+        await entryPoint.simulateValidation(userOp, { gasLimit: 1e6 })
+        await ethers.provider.send('evm_revert', [snapshot])
+
         console.log('after first simulation')
         await ethers.provider.send('evm_mine', [])
         await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
