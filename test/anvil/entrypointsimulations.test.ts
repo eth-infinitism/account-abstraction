@@ -5,7 +5,8 @@ import { expect } from 'chai'
 import {
   EntryPoint,
   SimpleAccount,
-  SimpleAccountFactory
+  SimpleAccountFactory,
+  TestCounter__factory
 } from '../../typechain'
 import {
   ONE_ETH,
@@ -19,7 +20,7 @@ import {
   getBalance
 } from '../testutils'
 
-import { fillAndSign, simulateValidation } from '../UserOp'
+import { fillAndSign, simulateHandleOp, simulateValidation } from '../UserOp'
 import { BigNumber, Wallet } from 'ethers'
 import { hexConcat } from 'ethers/lib/utils'
 
@@ -86,13 +87,13 @@ describe('EntryPointSimulations', function () {
     it('should report signature failure without revert', async () => {
       // (this is actually a feature of the wallet, not the entrypoint)
       // using wrong owner for account1
-      // (zero gas price so it doesn't fail on prefund)
+      // (zero gas price so that it doesn't fail on prefund)
       const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
       const { returnInfo } = await simulateValidation(op, entryPoint.address)
       expect(returnInfo.sigFailed).to.be.true
     })
 
-    it('should revert if wallet not deployed (and no initcode)', async () => {
+    it('should revert if wallet not deployed (and no initCode)', async () => {
       const op = await fillAndSign({
         sender: createAddress(),
         nonce: 0,
@@ -201,32 +202,33 @@ describe('EntryPointSimulations', function () {
     })
   })
 
-  // describe('#simulateHandleOp', () => {
-  //   it('should simulate execution', async () => {
-  //     const accountOwner1 = createAccountOwner()
-  //     const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
-  //     await fund(account)
-  //     const counter = await new TestCounter__factory(ethersSigner).deploy()
-  //
-  //     const count = counter.interface.encodeFunctionData('count')
-  //     const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, count])
-  //     // deliberately broken signature.. simulate should work with it too.
-  //     const userOp = await fillAndSign({
-  //       sender: account.address,
-  //       callData
-  //     }, accountOwner1, entryPoint)
-  //
-  //     const ret = await entryPoint.callStatic.simulateHandleOp(userOp,
-  //       counter.address,
-  //       counter.interface.encodeFunctionData('counters', [account.address])
-  //     ).catch(e => e.errorArgs)
-  //
-  //     const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
-  //     expect(countResult).to.eql(1)
-  //     expect(ret.targetSuccess).to.be.true
-  //
-  //     // actual counter is zero
-  //     expect(await counter.counters(account.address)).to.eql(0)
-  //   })
-  // })
+  describe('#simulateHandleOp', () => {
+    it('should simulate execution', async () => {
+      const accountOwner1 = createAccountOwner()
+      const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
+      await fund(account)
+      const counter = await new TestCounter__factory(ethersSigner).deploy()
+
+      const count = counter.interface.encodeFunctionData('count')
+      const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, count])
+      // deliberately broken signature. simulate should work with it too.
+      const userOp = await fillAndSign({
+        sender: account.address,
+        callData
+      }, accountOwner1, entryPoint)
+
+      const ret = await simulateHandleOp(userOp,
+        counter.address,
+        counter.interface.encodeFunctionData('counters', [account.address]),
+        entryPoint.address
+      )
+
+      const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
+      expect(countResult).to.equal(1)
+      expect(ret.targetSuccess).to.be.true
+
+      // actual counter is zero
+      expect(await counter.counters(account.address)).to.equal(0)
+    })
+  })
 })
