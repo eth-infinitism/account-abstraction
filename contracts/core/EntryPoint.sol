@@ -375,50 +375,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         revert SenderAddressResult(sender);
     }
 
-    function _simulationOnlyValidations(
-        UserOperation calldata userOp
-    ) internal view {
-        try
-            this._validateSenderAndPaymaster(
-                userOp.initCode,
-                userOp.sender,
-                userOp.paymasterAndData
-            )
-        // solhint-disable-next-line no-empty-blocks
-        {} catch Error(string memory revertReason) {
-            if (bytes(revertReason).length != 0) {
-                revert FailedOp(0, revertReason);
-            }
-        }
-    }
-
-    /**
-     * Called only during simulation.
-     * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
-     * @param initCode         - The smart account constructor code.
-     * @param sender           - The sender address.
-     * @param paymasterAndData - The paymaster address followed by the token address to use.
-     */
-    function _validateSenderAndPaymaster(
-        bytes calldata initCode,
-        address sender,
-        bytes calldata paymasterAndData
-    ) external view {
-        if (initCode.length == 0 && sender.code.length == 0) {
-            // it would revert anyway. but give a meaningful message
-            revert("AA20 account not deployed");
-        }
-        if (paymasterAndData.length >= 20) {
-            address paymaster = address(bytes20(paymasterAndData[0:20]));
-            if (paymaster.code.length == 0) {
-                // It would revert anyway. but give a meaningful message.
-                revert("AA30 paymaster not deployed");
-            }
-        }
-        // always revert
-        revert("");
-    }
-
     /**
      * Call account.validateUserOp.
      * Revert (with FailedOp) in case validateUserOp reverts, or account didn't send required prefund.
