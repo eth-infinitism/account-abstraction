@@ -87,7 +87,6 @@ interface IEntryPoint is IStakeManager, INonceManager {
      *                  so a failure can be attributed to the correct entity.
      */
     error FailedOp(uint256 opIndex, string reason);
-    error FailedOp2(address opIndex, string reason);
 
     /**
      * Error case when a signature aggregator fails to verify the aggregated signature it had created.

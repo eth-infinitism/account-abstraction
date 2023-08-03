@@ -44,9 +44,11 @@ describe('EntryPointSimulations', function () {
       proxy: account,
       accountFactory: simpleAccountFactory
     } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
+
+    await checkStateDiffSupported()
   })
 
-  it('should use state diff when running the simulation', async function () {
+  async function checkStateDiffSupported (): Promise<void> {
     const tx: TransactionRequest = {
       to: entryPoint.address,
       data: '0x'
@@ -64,7 +66,7 @@ describe('EntryPointSimulations', function () {
     }
     const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
     expect(parseInt(simulationResult, 16)).to.equal(777)
-  })
+  }
 
   describe('#simulateValidation', () => {
     const accountOwner1 = createAccountOwner()

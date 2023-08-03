@@ -222,6 +222,7 @@ describe('EntryPoint', function () {
   describe('#simulateValidation', () => {
     const accountOwner1 = createAccountOwner()
 
+    // note: for the actual opcode and storage rule restrictions see the reference bundler ValidationManager
     it('should not use banned ops during simulateValidation', async () => {
       const op1 = await fillAndSign({
         initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
