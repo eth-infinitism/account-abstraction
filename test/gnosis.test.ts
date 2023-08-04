@@ -173,7 +173,7 @@ describe('Gnosis Proxy', function () {
       accountFactory.interface.encodeFunctionData('createAccount', [ownerAddress, 123])
     ])
 
-    counterfactualAddress = await accountFactory.callStatic.getAddress(ownerAddress, 123)
+    counterfactualAddress = await accountFactory.callStatic.getAccountAddress(ownerAddress, 123)
     expect(!await isDeployed(counterfactualAddress))
 
     await ethersSigner.sendTransaction({

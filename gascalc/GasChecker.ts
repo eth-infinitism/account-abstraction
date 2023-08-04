@@ -135,7 +135,7 @@ export class GasChecker {
       const salt = n
       // const initCode = this.accountInitCode(fact, salt)
 
-      const addr = await fact.getAddress(this.accountOwner.address, salt)
+      const addr = await fact.getAccountAddress(this.accountOwner.address, salt)
 
       if (!this.createdAccounts.has(addr)) {
         // explicit call to fillUseROp with no "entryPoint", to make sure we manually fill everything and

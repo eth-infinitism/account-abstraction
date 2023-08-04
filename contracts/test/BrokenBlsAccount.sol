@@ -60,7 +60,7 @@ contract BrokenBLSAccountFactory {
      */
     function createAccount(uint salt, uint256[4] memory aPublicKey) public returns (BrokenBLSAccount) {
 
-        address addr = getAddress(salt, aPublicKey);
+        address addr = getAccountAddress(salt, aPublicKey);
         uint codeSize = addr.code.length;
         if (codeSize > 0) {
             return BrokenBLSAccount(payable(addr));
@@ -74,7 +74,7 @@ contract BrokenBLSAccountFactory {
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(uint salt, uint256[4] memory aPublicKey) public view returns (address) {
+    function getAccountAddress(uint salt, uint256[4] memory aPublicKey) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
                 type(ERC1967Proxy).creationCode,
                 abi.encode(

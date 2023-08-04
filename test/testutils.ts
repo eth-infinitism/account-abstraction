@@ -111,7 +111,7 @@ export async function getAggregatedAccountInitCode (entryPoint: string, factory:
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
 export async function getAccountAddress (owner: string, factory: SimpleAccountFactory, salt = 0): Promise<string> {
-  return await factory.getAddress(owner, salt)
+  return await factory.getAccountAddress(owner, salt)
 }
 
 const panicCodes: { [key: number]: string } = {
@@ -299,7 +299,7 @@ export async function createAccount (
   const accountFactory = _factory ?? await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint)
   const implementation = await accountFactory.accountImplementation()
   await accountFactory.createAccount(accountOwner, 0)
-  const accountAddress = await accountFactory.getAddress(accountOwner, 0)
+  const accountAddress = await accountFactory.getAccountAddress(accountOwner, 0)
   const proxy = SimpleAccount__factory.connect(accountAddress, ethersSigner)
   return {
     implementation,
