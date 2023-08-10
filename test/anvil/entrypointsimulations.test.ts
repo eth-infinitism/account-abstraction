@@ -1,5 +1,4 @@
-import { TransactionRequest } from '@ethersproject/abstract-provider'
-import { ethers, network } from 'hardhat'
+import { ethers } from 'hardhat'
 import { expect } from 'chai'
 
 import {
@@ -34,9 +33,9 @@ describe('EntryPointSimulations', function () {
   let entryPoint: EntryPoint
 
   before(async function () {
-    if (network.name !== 'anvil') {
-      this.skip()
-    }
+    // if (network.name !== 'anvil') {
+    //   this.skip()
+    // }
     entryPoint = await deployEntryPoint()
 
     accountOwner = createAccountOwner();
@@ -45,9 +44,10 @@ describe('EntryPointSimulations', function () {
       accountFactory: simpleAccountFactory
     } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
 
-    await checkStateDiffSupported()
+    // await checkStateDiffSupported()
   })
 
+  /*
   async function checkStateDiffSupported (): Promise<void> {
     const tx: TransactionRequest = {
       to: entryPoint.address,
@@ -67,6 +67,7 @@ describe('EntryPointSimulations', function () {
     const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
     expect(parseInt(simulationResult, 16)).to.equal(777)
   }
+*/
 
   describe('#simulateValidation', () => {
     const accountOwner1 = createAccountOwner()

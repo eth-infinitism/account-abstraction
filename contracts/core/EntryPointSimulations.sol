@@ -86,7 +86,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         address target,
         bytes calldata targetCallData
     )
-    external
+    external nonReentrant
     returns (
         ExecutionResult memory
     ){

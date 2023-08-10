@@ -237,7 +237,13 @@ describe('EntryPoint', function () {
   })
 
   describe('flickering account validation', () => {
-    it('should prevent leakage of basefee', async () => {
+    it('should prevent leakage of basefee', async function () {
+      if (process.env.COVERAGE != null) {
+        // coverage disables block.baseFee, which breaks this test...
+        // it also doesn't add to EntryPoint's coverage
+        this.skip()
+      }
+
       const maliciousAccount = await new MaliciousAccount__factory(ethersSigner).deploy(entryPoint.address,
         { value: parseEther('1') })
 
