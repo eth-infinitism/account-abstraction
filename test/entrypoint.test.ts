@@ -2,6 +2,7 @@ import './aa.init'
 import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
+  EntryPointSimulations,
   SimpleAccount,
   SimpleAccountFactory,
   TestAggregatedAccount__factory,
@@ -20,7 +21,7 @@ import {
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
   TestWarmColdAccount__factory,
-  TestPaymasterRevertCustomError__factory, EntryPointSimulations
+  TestPaymasterRevertCustomError__factory
 } from '../typechain'
 import {
   AddressZero,

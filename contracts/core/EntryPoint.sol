@@ -203,6 +203,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
 
         _compensate(beneficiary, collected);
     }
+
     /**
      * A memory copy of UserOp static fields only.
      * Excluding: callData, initCode and signature. Replacing paymasterAndData with paymaster.
