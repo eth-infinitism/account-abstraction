@@ -35,7 +35,7 @@ import {
   checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
-  deployEntryPointSimulations,
+  deployEntryPoint,
   getBalance,
   createAddress,
   getAccountAddress,
@@ -70,7 +70,7 @@ describe('EntryPoint', function () {
 
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-    entryPoint = await deployEntryPointSimulations()
+    entryPoint = await deployEntryPoint()
 
     accountOwner = createAccountOwner();
     ({
@@ -272,9 +272,7 @@ describe('EntryPoint', function () {
         paymasterAndData: '0x'
       }
       try {
-        const snapshot = await ethers.provider.send('evm_snapshot', [])
-        await entryPoint.simulateValidation(userOp, { gasLimit: 1e6 })
-        await ethers.provider.send('evm_revert', [snapshot])
+        await entryPoint.callStatic.simulateValidation(userOp, { gasLimit: 1e6 })
 
         console.log('after first simulation')
         await ethers.provider.send('evm_mine', [])
@@ -302,9 +300,7 @@ describe('EntryPoint', function () {
         callData: badData.data!
       }
       const beneficiaryAddress = createAddress()
-      const snapshot = await ethers.provider.send('evm_snapshot', [])
-      await entryPoint.simulateValidation(badOp, { gasLimit: 3e5 })
-      await ethers.provider.send('evm_revert', [snapshot])
+      await entryPoint.callStatic.simulateValidation(badOp, { gasLimit: 3e5 })
 
       const tx = await entryPoint.handleOps([badOp], beneficiaryAddress) // { gasLimit: 3e5 })
       const receipt = await tx.wait()

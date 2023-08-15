@@ -15,7 +15,7 @@ import {
   createAccount,
   createAddress,
   createAccountOwner,
-  deployEntryPoint,
+  deployActualEntryPoint,
   getBalance,
   isDeployed,
   ONE_ETH,
@@ -33,7 +33,7 @@ describe('SimpleAccount', function () {
   const ethersSigner = ethers.provider.getSigner()
 
   before(async function () {
-    entryPoint = await deployEntryPoint().then(e => e.address)
+    entryPoint = await deployActualEntryPoint().then(e => e.address)
     accounts = await ethers.provider.listAccounts()
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()

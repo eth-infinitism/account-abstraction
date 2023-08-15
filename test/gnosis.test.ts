@@ -20,7 +20,7 @@ import {
   AddressZero,
   createAddress,
   createAccountOwner,
-  deployEntryPointSimulations,
+  deployEntryPoint,
   getBalance,
   HashZero,
   isDeployed
@@ -58,7 +58,7 @@ describe('Gnosis Proxy', function () {
     safeSingleton = await new GnosisSafe__factory(ethersSigner).deploy()
     // standard safe proxy factory
     const proxyFactory = await new GnosisSafeProxyFactory__factory(ethersSigner).deploy()
-    entryPoint = await deployEntryPointSimulations()
+    entryPoint = await deployEntryPoint()
     manager = await new EIP4337Manager__factory(ethersSigner).deploy(entryPoint.address)
     owner = createAccountOwner()
     ownerAddress = await owner.getAddress()

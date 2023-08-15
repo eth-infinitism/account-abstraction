@@ -15,7 +15,7 @@ import {
 import {
   AddressZero, createAddress,
   createAccountOwner,
-  deployEntryPointSimulations, FIVE_ETH, ONE_ETH, userOpsWithoutAgg, createAccount
+  deployEntryPoint, FIVE_ETH, ONE_ETH, userOpsWithoutAgg, createAccount
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
@@ -27,7 +27,7 @@ describe.skip('DepositPaymaster', () => {
   let token: TestToken
   let paymaster: DepositPaymaster
   before(async function () {
-    entryPoint = await deployEntryPointSimulations()
+    entryPoint = await deployEntryPoint()
 
     paymaster = await new DepositPaymaster__factory(ethersSigner).deploy(entryPoint.address)
     await paymaster.addStake(1, { value: parseEther('2') })

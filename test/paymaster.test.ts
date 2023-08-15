@@ -19,7 +19,7 @@ import {
   rethrow,
   checkForGeth,
   calcGasUsage,
-  deployEntryPointSimulations,
+  deployEntryPoint,
   checkForBannedOps,
   createAddress,
   ONE_ETH,
@@ -50,7 +50,7 @@ describe('EntryPoint with paymaster', function () {
     this.timeout(20000)
     await checkForGeth()
 
-    entryPoint = await deployEntryPointSimulations()
+    entryPoint = await deployEntryPoint()
     factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
 
     accountOwner = createAccountOwner();

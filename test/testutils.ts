@@ -245,7 +245,10 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   }
 }
 
-export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
+/**
+ * This deploys the EntryPoint that does not contain the simulation functions, as will be deployed to real networks.
+ */
+export async function deployActualEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const addr = await create2factory.deploy(EntryPoint__factory.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
   return EntryPoint__factory.connect(addr, provider.getSigner())
@@ -255,7 +258,7 @@ export async function deployEntryPoint (provider = ethers.provider): Promise<Ent
  * Deploying the entry point with simulation code is required for testing as hardhat does not support state overrides.
  * TODO: remove this once hardhat fixes the issue: https://github.com/NomicFoundation/hardhat/issues/2513
  */
-export async function deployEntryPointSimulations (provider = ethers.provider): Promise<EntryPointSimulations> {
+export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPointSimulations> {
   const create2factory = new Create2Factory(provider)
   const addr = await create2factory.deploy(EntryPointSimulations__factory.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
   return EntryPointSimulations__factory.connect(addr, provider.getSigner())

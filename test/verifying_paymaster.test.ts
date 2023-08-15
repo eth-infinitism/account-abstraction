@@ -9,7 +9,7 @@ import {
 import {
   createAccount,
   createAccountOwner, createAddress,
-  deployEntryPointSimulations
+  deployEntryPoint
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
@@ -29,7 +29,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
   let paymaster: VerifyingPaymaster
   before(async function () {
     this.timeout(20000)
-    entryPoint = await deployEntryPointSimulations()
+    entryPoint = await deployEntryPoint()
 
     offchainSigner = createAccountOwner()
     accountOwner = createAccountOwner()

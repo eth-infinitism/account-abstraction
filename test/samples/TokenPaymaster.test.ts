@@ -24,7 +24,7 @@ import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
 } from '../../typechain/contracts/samples/TokenPaymaster'
-import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
+import { checkForGeth, createAccount, createAccountOwner, deployActualEntryPoint, fund } from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
 
@@ -72,7 +72,7 @@ describe('TokenPaymaster', function () {
   let weth: TestWrappedNativeToken
 
   before(async function () {
-    entryPoint = await deployEntryPoint()
+    entryPoint = await deployActualEntryPoint()
     weth = await new TestWrappedNativeToken__factory(ethersSigner).deploy()
     testUniswap = await new TestUniswap__factory(ethersSigner).deploy(weth.address)
     factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)

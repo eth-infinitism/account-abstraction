@@ -58,17 +58,11 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             getMemoryBytesFromOffset(outOpInfo.contextOffset)
         );
 
+        AggregatorStakeInfo memory aggregatorInfo = NOT_AGGREGATED;
         if (aggregator != address(0) && aggregator != address(1)) {
-            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(
+            aggregatorInfo = AggregatorStakeInfo(
                 aggregator,
                 _getStakeInfo(aggregator)
-            );
-            return ValidationResult(
-                returnInfo,
-                senderInfo,
-                factoryInfo,
-                paymasterInfo,
-                aggregatorInfo
             );
         }
         return ValidationResult(
@@ -76,7 +70,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             senderInfo,
             factoryInfo,
             paymasterInfo,
-            NOT_AGGREGATED
+            aggregatorInfo
         );
     }
 
@@ -121,7 +115,10 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     function _simulationOnlyValidations(
         UserOperation calldata userOp
-    ) private view {
+    )
+    internal
+    view
+    {
         try
         this._validateSenderAndPaymaster(
             userOp.initCode,
@@ -153,7 +150,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             revert("AA20 account not deployed");
         }
         if (paymasterAndData.length >= 20) {
-            address paymaster = address(bytes20(paymasterAndData[0:20]));
+            address paymaster = address(bytes20(paymasterAndData[0 : 20]));
             if (paymaster.code.length == 0) {
                 // It would revert anyway. but give a meaningful message.
                 revert("AA30 paymaster not deployed");

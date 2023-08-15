@@ -12,7 +12,7 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
-  deployEntryPoint,
+  deployActualEntryPoint,
   fund,
   getAccountAddress,
   getAccountInitCode,
@@ -36,7 +36,7 @@ describe('EntryPointSimulations', function () {
     // if (network.name !== 'anvil') {
     //   this.skip()
     // }
-    entryPoint = await deployEntryPoint()
+    entryPoint = await deployActualEntryPoint()
 
     accountOwner = createAccountOwner();
     ({
