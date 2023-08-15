@@ -12,7 +12,7 @@ import {
   EntryPointSimulations
 } from '../typechain'
 import { ethers } from 'hardhat'
-import { createAddress, deployEntryPointSimulations, fund, ONE_ETH } from './testutils'
+import { createAddress, deployEntryPoint, fund, ONE_ETH } from './testutils'
 import { DefaultsForUserOp, fillUserOp } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
@@ -40,7 +40,7 @@ describe('bls account', function () {
   let account2: BLSAccount
   let accountDeployer: BLSAccountFactory
   before(async () => {
-    entrypoint = await deployEntryPointSimulations()
+    entrypoint = await deployEntryPoint()
     const BLSOpenLib = await new BLSOpen__factory(ethers.provider.getSigner()).deploy()
     blsAgg = await new BLSSignatureAggregator__factory({
       'contracts/samples/bls/lib/BLSOpen.sol:BLSOpen': BLSOpenLib.address
