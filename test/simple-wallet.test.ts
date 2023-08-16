@@ -160,6 +160,8 @@ describe('SimpleAccount', function () {
       expect(await isDeployed(target)).to.eq(false)
       await deployer.createAccount(ownerAddr, 1234)
       expect(await isDeployed(target)).to.eq(true)
+
+      expect(await deployer.callStatic.createAccount(ownerAddr, 1234)).to.eq(target, 'must return same address if already created')
     })
   })
 })

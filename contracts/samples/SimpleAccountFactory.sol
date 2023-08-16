@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import "./SimpleAccount.sol";
+import "hardhat/console.sol";
 
 /**
  * A sample factory contract for SimpleAccount
@@ -26,27 +27,35 @@ contract SimpleAccountFactory {
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      */
     function createAccount(address owner,uint256 salt) public returns (SimpleAccount ret) {
-        address addr = getAddress(owner, salt);
-        uint codeSize = addr.code.length;
-        if (codeSize > 0) {
+
+        bytes memory proxyConstructor = getProxyConstructor(owner);
+        // must use assembly and not "new{salt}()", so it doesn't revert on failure.
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            ret := create2(0, add(proxyConstructor, 0x20), mload(proxyConstructor), salt)
+        }
+
+        // creation failed, must be that the account is already created, so just return its address
+        if (address(ret) == address(0)) {
+            address addr = getAddress(owner, salt);
             return SimpleAccount(payable(addr));
         }
-        ret = SimpleAccount(payable(new ERC1967Proxy{salt : bytes32(salt)}(
-                address(accountImplementation),
-                abi.encodeCall(SimpleAccount.initialize, (owner))
-            )));
     }
 
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
     function getAddress(address owner,uint256 salt) public view returns (address) {
-        return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
-                type(ERC1967Proxy).creationCode,
-                abi.encode(
-                    address(accountImplementation),
-                    abi.encodeCall(SimpleAccount.initialize, (owner))
-                )
-            )));
+        return Create2.computeAddress(bytes32(salt), keccak256(getProxyConstructor(owner)));
+    }
+
+    function getProxyConstructor(address owner) public view returns (bytes memory) {
+        return abi.encodePacked(
+            type(ERC1967Proxy).creationCode,
+            abi.encode(
+                address(accountImplementation),
+                abi.encodeCall(SimpleAccount.initialize, (owner))
+            )
+        );
     }
 }
