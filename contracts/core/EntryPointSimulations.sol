@@ -159,4 +159,10 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         // always revert
         revert("");
     }
+
+    //make sure depositTo cost is more than normal EntryPoint's cost.
+    // empiric test showed that without this wrapper, simulation depositTo costs less..
+    function depositTo(address account) public override(IStakeManager, StakeManager) payable {
+        StakeManager.depositTo(account);
+    }
 }
