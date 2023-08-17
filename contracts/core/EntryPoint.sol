@@ -598,11 +598,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             outOpInfo,
             requiredPreFund
         );
-        
+
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
         }
-        
+
         // A "marker" where account opcode validation is done and paymaster opcode validation
         // is about to start (used only by off-chain simulateValidation).
         numberMarker();
@@ -688,16 +688,31 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             uint256 refund = opInfo.prefund - actualGasCost;
             _incrementDeposit(refundAddress, refund);
             bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-            emit UserOperationEvent(
-                opInfo.userOpHash,
-                mUserOp.sender,
-                mUserOp.paymaster,
-                mUserOp.nonce,
+            _emitUserOperationEvent(
+                opInfo,
                 success,
                 actualGasCost,
                 actualGas
             );
         } // unchecked
+    }
+
+    function _emitUserOperationEvent(
+        UserOpInfo memory opInfo,
+        bool success,
+        uint256 actualGasCost,
+        uint256 actualGas
+    ) internal virtual {
+        MemoryUserOp memory mUserOp = opInfo.mUserOp;
+        emit UserOperationEvent(
+            opInfo.userOpHash,
+            mUserOp.sender,
+            mUserOp.paymaster,
+            mUserOp.nonce,
+            success,
+            actualGasCost,
+            actualGas
+        );
     }
 
     /**
