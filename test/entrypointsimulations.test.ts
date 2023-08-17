@@ -2,11 +2,11 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 
 import {
-  EntryPoint,
+  EntryPoint, EntryPointSimulations, EntryPointSimulations__factory,
   SimpleAccount,
   SimpleAccountFactory,
   TestCounter__factory
-} from '../../typechain'
+} from '../typechain'
 import {
   ONE_ETH,
   createAccount,
@@ -17,12 +17,13 @@ import {
   getAccountAddress,
   getAccountInitCode,
   getBalance
-} from '../testutils'
+} from './testutils'
 
-import { fillAndSign, simulateHandleOp, simulateValidation } from '../UserOp'
+import { fillAndSign, simulateHandleOp, simulateValidation } from './UserOp'
 import { BigNumber, Wallet } from 'ethers'
 import { hexConcat } from 'ethers/lib/utils'
 
+const provider = ethers.provider
 describe('EntryPointSimulations', function () {
   const ethersSigner = ethers.provider.getSigner()
 
@@ -31,12 +32,11 @@ describe('EntryPointSimulations', function () {
   let simpleAccountFactory: SimpleAccountFactory
 
   let entryPoint: EntryPoint
+  let epSimulation: EntryPointSimulations
 
   before(async function () {
-    // if (network.name !== 'anvil') {
-    //   this.skip()
-    // }
     entryPoint = await deployActualEntryPoint()
+    epSimulation = await new EntryPointSimulations__factory(provider.getSigner()).deploy()
 
     accountOwner = createAccountOwner();
     ({
@@ -47,6 +47,26 @@ describe('EntryPointSimulations', function () {
     // await checkStateDiffSupported()
   })
 
+  describe('Simulation Contract Sannity checks', () => {
+    const addr = createAddress()
+
+    it('deposit on simulation must be >= real entrypoint', async () => {
+      expect(await epSimulation.estimateGas.depositTo(addr, { value: 1 }))
+        .to.be.gte(await entryPoint.estimateGas.depositTo(addr, { value: 1 }), 'sim depositTo must be higher')
+    })
+    it('deposit without value on simulation must be >= real entrypoint', async () => {
+      expect(await epSimulation.estimateGas.depositTo(addr, { value: 0 }))
+        .to.be.gte(await entryPoint.estimateGas.depositTo(addr, { value: 0 }), 'sim depositTo (even without value) must be higher')
+    })
+    it('eth transfer on simulation must be >= real entrypoint', async () => {
+      expect(await provider.estimateGas({ to: epSimulation.address, value: 1 }))
+        .to.be.gte(await provider.estimateGas({ to: entryPoint.address, value: 1 }))
+    })
+    it('eth transfer (even without value) on simulation must be >= real entrypoint', async () => {
+      expect(await provider.estimateGas({ to: epSimulation.address, value: 0 }))
+        .to.be.gte(await provider.estimateGas({ to: entryPoint.address, value: 0 }))
+    })
+  })
   /*
   async function checkStateDiffSupported (): Promise<void> {
     const tx: TransactionRequest = {
