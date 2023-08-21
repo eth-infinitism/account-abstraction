@@ -44,6 +44,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /// @inheritdoc OpenZeppelin.IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
         return interfaceId == (type(IEntryPoint).interfaceId ^ type(IStakeManager).interfaceId ^ type(INonceManager).interfaceId) ||
             interfaceId == type(IEntryPoint).interfaceId ||
             interfaceId == type(IStakeManager).interfaceId ||
