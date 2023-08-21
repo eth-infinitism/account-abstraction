@@ -13,13 +13,16 @@ import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
 import "./NonceManager.sol";
+
+// we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  * Only one instance required on each chain.
  */
-contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
+contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard, OpenZeppelin.ERC165 {
 
     using UserOperationLib for UserOperation;
 
@@ -38,6 +41,16 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
      * must return this value in case of signature failure, instead of revert.
      */
     uint256 public constant SIG_VALIDATION_FAILED = 1;
+
+    /// @inheritdoc OpenZeppelin.IERC165
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
+        return interfaceId == (type(IEntryPoint).interfaceId ^ type(IStakeManager).interfaceId ^ type(INonceManager).interfaceId) ||
+            interfaceId == type(IEntryPoint).interfaceId ||
+            interfaceId == type(IStakeManager).interfaceId ||
+            interfaceId == type(INonceManager).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
 
     /**
      * Compensate the caller's beneficiary address with the collected fees of all UserOperations.
