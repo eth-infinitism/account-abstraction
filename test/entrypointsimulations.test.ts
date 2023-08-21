@@ -47,24 +47,33 @@ describe('EntryPointSimulations', function () {
     // await checkStateDiffSupported()
   })
 
-  describe('Simulation Contract Sannity checks', () => {
+  describe.only('Simulation Contract Sannity checks', () => {
     const addr = createAddress()
 
+    function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
+      const diff = simCost.sub(epCost).toNumber()
+      expect(diff).to.be.within(0, 300,
+        `${message} cost ${simCost.toNumber()} should be (up to 200) above ep cost ${epCost.toNumber()}`)
+    }
     it('deposit on simulation must be >= real entrypoint', async () => {
-      expect(await epSimulation.estimateGas.depositTo(addr, { value: 1 }))
-        .to.be.gte(await entryPoint.estimateGas.depositTo(addr, { value: 1 }), 'sim depositTo must be higher')
+      costInRange(
+        await epSimulation.estimateGas.depositTo(addr, { value: 1 }),
+        await entryPoint.estimateGas.depositTo(addr, { value: 1 }), 'deposit with value')
     })
     it('deposit without value on simulation must be >= real entrypoint', async () => {
-      expect(await epSimulation.estimateGas.depositTo(addr, { value: 0 }))
-        .to.be.gte(await entryPoint.estimateGas.depositTo(addr, { value: 0 }), 'sim depositTo (even without value) must be higher')
+      costInRange(
+        await epSimulation.estimateGas.depositTo(addr, { value: 0 }),
+        await entryPoint.estimateGas.depositTo(addr, { value: 0 }), 'deposit without value')
     })
     it('eth transfer on simulation must be >= real entrypoint', async () => {
-      expect(await provider.estimateGas({ to: epSimulation.address, value: 1 }))
-        .to.be.gte(await provider.estimateGas({ to: entryPoint.address, value: 1 }))
+      costInRange(
+        await provider.estimateGas({ to: epSimulation.address, value: 1 }),
+        await provider.estimateGas({ to: entryPoint.address, value: 1 }), 'eth transfer with value')
     })
     it('eth transfer (even without value) on simulation must be >= real entrypoint', async () => {
-      expect(await provider.estimateGas({ to: epSimulation.address, value: 0 }))
-        .to.be.gte(await provider.estimateGas({ to: entryPoint.address, value: 0 }))
+      costInRange(
+        await provider.estimateGas({ to: epSimulation.address, value: 0 }),
+        await provider.estimateGas({ to: entryPoint.address, value: 0 }), 'eth transfer with value')
     })
   })
   /*

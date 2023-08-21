@@ -164,6 +164,14 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     //make sure depositTo cost is more than normal EntryPoint's cost.
     // empiric test showed that without this wrapper, simulation depositTo costs less..
     function depositTo(address account) public override(IStakeManager, StakeManager) payable {
+        uint x;
+        assembly {
+            //some silly code to waste ~200 gas
+            x := exp(mload(0),100)
+        }
+        if (x == 123) {
+            return;
+        }
         StakeManager.depositTo(account);
     }
 }
