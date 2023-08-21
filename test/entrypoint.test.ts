@@ -25,6 +25,7 @@ import {
   SimpleAccountFactory__factory,
   IStakeManager__factory,
   INonceManager__factory,
+  EntryPoint__factory,
   TestPaymasterRevertCustomError__factory
 } from '../typechain'
 import {
@@ -1369,12 +1370,18 @@ describe('EntryPoint', function () {
   })
 
   describe('ERC-165', function () {
-    it('should return true for EntryPoint interface IDs', async function () {
-      const epInterface = IEntryPoint__factory.createInterface()
+    it('should return true for IEntryPoint interface ID', async function () {
+      const iepInterface = IEntryPoint__factory.createInterface()
+      const iepInterfaceID = getERC165InterfaceID([...iepInterface.fragments])
+      expect(await entryPoint.supportsInterface(iepInterfaceID)).to.equal(true)
+    })
+
+    it('should return true for pure EntryPoint, IStakeManager and INonceManager interface IDs', async function () {
+      const epInterface = EntryPoint__factory.createInterface()
       const smInterface = IStakeManager__factory.createInterface()
       const nmInterface = INonceManager__factory.createInterface()
       // note: manually generating "pure", solidity-like "type(IEntryPoint).interfaceId" without inherited methods
-      const epPureInterfaceID = getERC165InterfaceID([
+      const epPureInterfaceFunctions = [
         ...epInterface.fragments.filter(it => [
           'handleOps',
           'handleAggregatedOps',
@@ -1383,26 +1390,19 @@ describe('EntryPoint', function () {
           'simulateValidation',
           'simulateHandleOp'
         ].includes(it.name))
-      ])
-      const epInterfaceID = getERC165InterfaceID([...epInterface.fragments])
+      ]
+      const epPureInterfaceID = getERC165InterfaceID(epPureInterfaceFunctions)
       const smInterfaceID = getERC165InterfaceID([...smInterface.fragments])
       const nmInterfaceID = getERC165InterfaceID([...nmInterface.fragments])
-      const res1 = await entryPoint.supportsInterface(epInterfaceID)
-      const res2 = await entryPoint.supportsInterface(smInterfaceID)
-      const res3 = await entryPoint.supportsInterface(nmInterfaceID)
-      const res4 = await entryPoint.supportsInterface(epPureInterfaceID)
-      expect(res1).to.equal(true)
-      expect(res2).to.equal(true)
-      expect(res3).to.equal(true)
-      expect(res4).to.equal(true)
+      expect(await entryPoint.supportsInterface(smInterfaceID)).to.equal(true)
+      expect(await entryPoint.supportsInterface(nmInterfaceID)).to.equal(true)
+      expect(await entryPoint.supportsInterface(epPureInterfaceID)).to.equal(true)
     })
 
     it('should return false for a wrong interface', async function () {
       const saInterface = SimpleAccountFactory__factory.createInterface()
       const entryPointInterfaceID = getERC165InterfaceID([...saInterface.fragments])
-      const res = await entryPoint.supportsInterface(entryPointInterfaceID)
-      expect(res)
-        .to.equal(false)
+      expect(await entryPoint.supportsInterface(entryPointInterfaceID)).to.equal(false)
     })
   })
 })
