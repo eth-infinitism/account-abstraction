@@ -9,15 +9,12 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-// we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
-
 import "./UserOperation.sol";
 import "./IStakeManager.sol";
 import "./IAggregator.sol";
 import "./INonceManager.sol";
 
-interface IEntryPoint is IStakeManager, INonceManager, OpenZeppelin.IERC165 {
+interface IEntryPoint is IStakeManager, INonceManager {
     /***
      * An event emitted after each successful request.
      * @param userOpHash    - Unique identifier for the request (hash its entire content, except signature).

@@ -13,6 +13,9 @@ import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
 import "./NonceManager.sol";
+
+// we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /*
@@ -40,7 +43,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     uint256 public constant SIG_VALIDATION_FAILED = 1;
 
     /// @inheritdoc OpenZeppelin.IERC165
-    function supportsInterface(bytes4 interfaceId) public view virtual override(OpenZeppelin.ERC165, OpenZeppelin.IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == (type(IEntryPoint).interfaceId ^ type(IStakeManager).interfaceId ^ type(INonceManager).interfaceId) ||
             interfaceId == type(IEntryPoint).interfaceId ||
             interfaceId == type(IStakeManager).interfaceId ||

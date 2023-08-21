@@ -9,7 +9,6 @@ export function getERC165InterfaceID (abi: JsonFragment[]): string {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         return iface.getSighash(it.name!)
       })
-      .filter(it => it !== '0x01ffc9a7') // remove the IERC165 method itself
       .map((x) => parseInt(x, 16))
       .reduce((x, y) => x ^ y)
   interfaceId = interfaceId > 0 ? interfaceId : 0xFFFFFFFF + interfaceId + 1
