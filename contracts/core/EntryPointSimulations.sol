@@ -10,6 +10,7 @@ import "../interfaces/IEntryPointSimulations.sol";
 /*
  * This contract inherits the EntryPoint and extends it with the view-only methods that are executed by
  * the bundler in order to check UserOperation validity and estimate its gas consumption.
+ * This contract should never be deployed on-chain and is only used as a parameter for the "eth_call" request.
  */
 contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
