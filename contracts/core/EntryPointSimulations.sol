@@ -16,6 +16,10 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
     AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
+    bool internal  userOpSuccess;
+    uint256 internal userOpActualGasUsed;
+    uint256 internal userOpPostOpGas;
+
     /// @inheritdoc IEntryPointSimulations
     function simulateValidation(
         UserOperation calldata userOp
@@ -104,13 +108,48 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         if (target != address(0)) {
             (targetSuccess, targetResult) = target.call(targetCallData);
         }
+        uint userOpTotalValidationGasUsed = opInfo.preOpGas - op.preVerificationGas;
+        //userOpActualGasUsed, userOpSuccess are saved by _emitUserOperationEvent, below..
         return ExecutionResult(
             opInfo.preOpGas,
+            userOpSuccess,
+            userOpActualGasUsed,
+            userOpPostOpGas,
+            userOpTotalValidationGasUsed,
             paid,
             data.validAfter,
             data.validUntil,
             targetSuccess,
             targetResult
+        );
+    }
+
+    function _postOpGas(uint256 postOpGas) internal override {
+        userOpPostOpGas = postOpGas;
+    }
+
+    // internally called by simulateHandleOp. instead of emit event
+    // (which we can't see - its a static call),
+    // we save into global storage
+    function _emitUserOperationEvent(
+        UserOpInfo memory opInfo,
+        bool success,
+        uint256 actualGasCost,
+        uint256 actualGas
+    ) internal override {
+
+        userOpActualGasUsed = actualGas;
+        userOpSuccess = success;
+
+        MemoryUserOp memory mUserOp = opInfo.mUserOp;
+        emit UserOperationEvent(
+            opInfo.userOpHash,
+            mUserOp.sender,
+            mUserOp.paymaster,
+            mUserOp.nonce,
+            success,
+            actualGasCost,
+            actualGas
         );
     }
 

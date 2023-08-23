@@ -680,7 +680,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     }
                 }
             }
-            actualGas += preGas - gasleft();
+            uint postOpGas = preGas - gasleft();
+            _postOpGas(postOpGas);
+            actualGas += postOpGas;
             actualGasCost = actualGas * gasPrice;
             if (opInfo.prefund < actualGasCost) {
                 revert FailedOp(opIndex, "AA51 prefund below actualGasCost");
@@ -695,6 +697,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 actualGas
             );
         } // unchecked
+    }
+
+    //solhint-disable-next-line no-empty-blocks
+    function _postOpGas(uint256 postOpGas) internal virtual {
+        // this method is a placeholder for EntryPointSimulations.
     }
 
     function _emitUserOperationEvent(

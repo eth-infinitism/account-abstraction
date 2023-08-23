@@ -8,6 +8,10 @@ interface IEntryPointSimulations is IEntryPoint {
     // Return value of simulateHandleOp.
     struct ExecutionResult {
         uint256 preOpGas;
+        bool execSuccess;
+        uint256 actualGasUsed;
+        uint256 postOpGas;
+        uint256 totalValidationGasUsed;
         uint256 paid;
         uint48 validAfter;
         uint48 validUntil;
