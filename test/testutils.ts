@@ -5,7 +5,7 @@ import {
   keccak256,
   parseEther
 } from 'ethers/lib/utils'
-import { BigNumber, BigNumberish, Contract, ContractReceipt, Signer, Wallet } from 'ethers'
+import { BigNumber, BigNumberish, Contract, ContractReceipt, Event, Signer, Wallet } from 'ethers'
 import {
   EntryPoint,
   EntryPoint__factory,
@@ -218,6 +218,11 @@ export function objdump (obj: { [key: string]: any }): any {
     }), {})
 }
 
+// pack events for display:
+export function packEvents (events: Event[]): any {
+  return events.reduce((set, ev) => ({ ...set, [ev.event!]: objdump(ev.args!) }), {})
+}
+
 export async function checkForBannedOps (txHash: string, checkPaymaster: boolean): Promise<void> {
   const tx = await debugTransaction(txHash)
   const logs = tx.structLogs
@@ -300,4 +305,34 @@ export async function createAccount (
     accountFactory,
     proxy
   }
+}
+
+/**
+ * Do a binary search for the lowest value the given function doesn't revert
+ * @param func function to test
+ * @param min range minimum value
+ * @param max range maxmimum value
+ * @param delta stop when found value is close enough.
+ */
+export async function binarySearchLowestValue<T> (
+  func: (n: number) => Promise<T>,
+  min: number,
+  max: number,
+  delta = 2
+): Promise<[number, T]> {
+  let ret = await func(max) // assume the function succeeds on the max value
+
+  // console.log('checkmax=', ret)
+  while (max - min > delta) {
+    const mid = Math.floor((max + min) / 2)
+    // console.log(min, '..', max)
+    try {
+      ret = await func(mid)
+      max = mid
+    } catch (e) {
+      min = mid
+    }
+  }
+  // console.log('done ret=', ret)
+  return [max, ret]
 }

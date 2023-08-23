@@ -2,7 +2,6 @@ import './aa.init'
 import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
-  EntryPointSimulations,
   SimpleAccount,
   SimpleAccountFactory,
   TestAggregatedAccount__factory,
@@ -26,7 +25,7 @@ import {
   IStakeManager__factory,
   INonceManager__factory,
   EntryPoint__factory,
-  TestPaymasterRevertCustomError__factory
+  TestPaymasterRevertCustomError__factory, EntryPoint
 } from '../typechain'
 import {
   AddressZero,
@@ -60,7 +59,7 @@ import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
 
 describe('EntryPoint', function () {
-  let entryPoint: EntryPointSimulations
+  let entryPoint: EntryPoint
   let simpleAccountFactory: SimpleAccountFactory
 
   let accountOwner: Wallet
@@ -76,7 +75,7 @@ describe('EntryPoint', function () {
 
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-    entryPoint = await deployEntryPoint()
+    entryPoint = await deployEntryPoint() as any as EntryPoint
 
     accountOwner = createAccountOwner();
     ({

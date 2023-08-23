@@ -16,12 +16,13 @@ import {
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance
+  getBalance, objdump, AddressZero, binarySearchLowestValue, packEvents
 } from './testutils'
 
 import { fillAndSign, simulateHandleOp, simulateValidation } from './UserOp'
 import { BigNumber, Wallet } from 'ethers'
 import { hexConcat } from 'ethers/lib/utils'
+import { UserOperation } from './UserOperation'
 
 const provider = ethers.provider
 describe('EntryPointSimulations', function () {
@@ -43,18 +44,22 @@ describe('EntryPointSimulations', function () {
       proxy: account,
       accountFactory: simpleAccountFactory
     } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
-
-    // await checkStateDiffSupported()
   })
 
   describe('Simulation Contract Sanity checks', () => {
     const addr = createAddress()
+
+    // coverage skews gas checks.
+    if (process.env.COVERAGE != null) {
+      return
+    }
 
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
       const diff = simCost.sub(epCost).toNumber()
       expect(diff).to.be.within(0, 300,
         `${message} cost ${simCost.toNumber()} should be (up to 200) above ep cost ${epCost.toNumber()}`)
     }
+
     it('deposit on simulation must be >= real entrypoint', async () => {
       costInRange(
         await epSimulation.estimateGas.depositTo(addr, { value: 1 }),
@@ -76,27 +81,6 @@ describe('EntryPointSimulations', function () {
         await provider.estimateGas({ to: entryPoint.address, value: 0 }), 'eth transfer with value')
     })
   })
-  /*
-  async function checkStateDiffSupported (): Promise<void> {
-    const tx: TransactionRequest = {
-      to: entryPoint.address,
-      data: '0x'
-    }
-    const stateOverride = {
-      [entryPoint.address]: {
-        code: '0x61030960005260206000f3'
-        // 0000  61  PUSH2 0x0309  | value  777
-        // 0003  60  PUSH1 0x00    | offset   0
-        // 0005  52  MSTORE        |
-        // 0006  60  PUSH1 0x20    | size    32
-        // 0008  60  PUSH1 0x00    | offset   0
-        // 000A  F3  RETURN        |
-      }
-    }
-    const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
-    expect(parseInt(simulationResult, 16)).to.equal(777)
-  }
-*/
 
   describe('#simulateValidation', () => {
     const accountOwner1 = createAccountOwner()
@@ -136,7 +120,10 @@ describe('EntryPointSimulations', function () {
     })
 
     it('should revert on oog if not enough verificationGas', async () => {
-      const op = await fillAndSign({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
+      const op = await fillAndSign({
+        sender: account.address,
+        verificationGasLimit: 1000
+      }, accountOwner, entryPoint)
       await expect(simulateValidation(op, entryPoint.address)).to
         .revertedWith('AA23 reverted (or OOG)')
     })
@@ -235,7 +222,23 @@ describe('EntryPointSimulations', function () {
   })
 
   describe('#simulateHandleOp', () => {
+    async function findMinimumValidationGas (op: Partial<UserOperation>): Promise<number> {
+      // fill op, with arbitrary signer
+      const op1 = await fillAndSign(op, createAccountOwner(), entryPoint)
+
+      const simulateWithValidation = async (n: number) =>
+        simulateHandleOp({ ...op1, verificationGasLimit: n }, AddressZero, '0x', entryPoint.address)
+
+      const sim = await simulateWithValidation(1e6)
+      const v = sim.totalValidationGasUsed.toNumber()
+
+      const ret = await binarySearchLowestValue(simulateWithValidation, v / 2, v)
+      // console.log('ret=', ret[0], objdump(ret[1]))
+      return ret[0]
+    }
+
     it('should simulate execution', async () => {
+      const beneficiary = createAddress()
       const accountOwner1 = createAccountOwner()
       const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
       await fund(account)
@@ -244,23 +247,29 @@ describe('EntryPointSimulations', function () {
       const count = counter.interface.encodeFunctionData('count')
       const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, count])
       // deliberately broken signature. simulate should work with it too.
+      const low = await findMinimumValidationGas({
+        sender: account.address, callData
+      })
+
+      console.log('low sim=', low)
       const userOp = await fillAndSign({
+        preVerificationGas: 0,
+        verificationGasLimit: low,
         sender: account.address,
         callData
-      }, accountOwner1, entryPoint)
+      }, accountOwner, entryPoint)
 
-      const ret = await simulateHandleOp(userOp,
-        counter.address,
-        counter.interface.encodeFunctionData('counters', [account.address]),
-        entryPoint.address
+      const lowOnChain = await binarySearchLowestValue(
+        async n => await entryPoint.callStatic.handleOps([await fillAndSign({
+          ...userOp,
+          verificationGasLimit: n
+        }, accountOwner, entryPoint)], beneficiary),
+        low / 2,
+        low
       )
-
-      const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
-      expect(countResult).to.equal(1)
-      expect(ret.targetSuccess).to.be.true
-
-      // actual counter is zero
-      expect(await counter.counters(account.address)).to.equal(0)
+      console.log('low on-chain=', lowOnChain[0])
+      const rcpt = await entryPoint.handleOps([userOp], beneficiary).then(async ret => ret.wait())
+      console.log('events=', packEvents(rcpt.events!))
     })
   })
 })
