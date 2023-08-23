@@ -3,6 +3,7 @@ import { expect } from 'chai'
 
 import {
   EntryPoint, EntryPointSimulations, EntryPointSimulations__factory,
+  IEntryPointSimulations,
   SimpleAccount,
   SimpleAccountFactory,
   TestCounter__factory
@@ -16,7 +17,7 @@ import {
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance, objdump, AddressZero, binarySearchLowestValue, packEvents
+  getBalance, AddressZero, binarySearchLowestValue, packEvents
 } from './testutils'
 
 import { fillAndSign, simulateHandleOp, simulateValidation } from './UserOp'
@@ -226,7 +227,7 @@ describe('EntryPointSimulations', function () {
       // fill op, with arbitrary signer
       const op1 = await fillAndSign(op, createAccountOwner(), entryPoint)
 
-      const simulateWithValidation = async (n: number) =>
+      const simulateWithValidation = async (n: number): Promise<IEntryPointSimulations.ExecutionResultStructOutput> =>
         simulateHandleOp({ ...op1, verificationGasLimit: n }, AddressZero, '0x', entryPoint.address)
 
       const sim = await simulateWithValidation(1e6)
@@ -239,7 +240,6 @@ describe('EntryPointSimulations', function () {
 
     it('should simulate execution', async () => {
       const beneficiary = createAddress()
-      const accountOwner1 = createAccountOwner()
       const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
       await fund(account)
       const counter = await new TestCounter__factory(ethersSigner).deploy()
