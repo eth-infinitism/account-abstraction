@@ -87,7 +87,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     )
     external nonReentrant
     returns (
-        ExecutionResult memory
+        SimulateHandleOpResult memory
     ){
         UserOpInfo memory opInfo;
         _simulationOnlyValidations(op);
@@ -110,15 +110,15 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         }
         uint userOpTotalValidationGasUsed = opInfo.preOpGas - op.preVerificationGas;
         //userOpActualGasUsed, userOpSuccess are saved by _emitUserOperationEvent, below..
-        return ExecutionResult(
-            opInfo.preOpGas,
+        return SimulateHandleOpResult(
+            data.validAfter,
+            data.validUntil,
+            data.aggregator,
+            userOpTotalValidationGasUsed,
             userOpSuccess,
             userOpActualGasUsed,
             userOpPostOpGas,
-            userOpTotalValidationGasUsed,
             paid,
-            data.validAfter,
-            data.validUntil,
             targetSuccess,
             targetResult
         );

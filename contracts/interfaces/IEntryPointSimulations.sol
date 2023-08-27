@@ -5,16 +5,31 @@ import "./UserOperation.sol";
 import "./IEntryPoint.sol";
 
 interface IEntryPointSimulations is IEntryPoint {
+
     // Return value of simulateHandleOp.
-    struct ExecutionResult {
-        uint256 preOpGas;
+    /**
+     * returned structure from simulateHandleOps
+     * @param validAfter - when executed, this UserOperation is only valid after this time.
+     * @param validUntil - if nonzero, then when executed, this UserOperation is valid only up to this time
+     * @param validationAggregator - the aggregator returned by validateUserOp. "1" to mark signature failure
+     *               (normally an OK condition, as simulation is done on unsigned UserOperation)
+     * @param totalValidationGasUsed - total value used by account creation (if any) and validation
+     * @param execSuccess true of the callData's execution succeeded, false if it reverted.
+     * @param actualGasUsed total gas the account (or paymaster) paid for, including validation, execution, and postOp
+     * @param postOpGasUsed gas used just by postOp
+     * @param paid price paid by account (or paymaster) based on actualGasUsed, maxFeePerGas and maxPrioirityPerGas
+     * @param targetSuccess if targetCallData was executed successfully or reverted
+     * @param targetResult result (or revert) returned by executing targetCallData
+     */
+    struct SimulateHandleOpResult {
+        uint48 validAfter;
+        uint48 validUntil;
+        address validationAggregator;
+        uint256 totalValidationGasUsed;
         bool execSuccess;
         uint256 actualGasUsed;
         uint256 postOpGas;
-        uint256 totalValidationGasUsed;
         uint256 paid;
-        uint48 validAfter;
-        uint48 validUntil;
         bool targetSuccess;
         bytes targetResult;
     }
@@ -54,16 +69,14 @@ interface IEntryPointSimulations is IEntryPoint {
 
     /**
      * Simulate full execution of a UserOperation (including both validation and target execution)
-     * This method will always revert with "ExecutionResult".
      * It performs full validation of the UserOperation, but ignores signature error.
      * An optional target address is called after the userop succeeds,
      * and its value is returned (before the entire call is reverted).
-     * Note that in order to collect the the success/failure of the target call, it must be executed
-     * with trace enabled to track the emitted events.
      * @param op The UserOperation to simulate.
      * @param target         - If nonzero, a target address to call after userop simulation. If called,
      *                         the targetSuccess and targetResult are set to the return from that call.
      * @param targetCallData - CallData to pass to target address.
+     * @return SimulateHandleOpResult the result data from the simulation
      */
     function simulateHandleOp(
         UserOperation calldata op,
@@ -72,6 +85,6 @@ interface IEntryPointSimulations is IEntryPoint {
     )
     external
     returns (
-        ExecutionResult memory
+        SimulateHandleOpResult memory
     );
 }
