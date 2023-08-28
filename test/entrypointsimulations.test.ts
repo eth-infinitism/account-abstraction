@@ -50,6 +50,11 @@ describe('EntryPointSimulations', function () {
   describe('Simulation Contract Sannity checks', () => {
     const addr = createAddress()
 
+    // coverage skews gas checks.
+    if (process.env.COVERAGE != null) {
+      return
+    }
+
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
       const diff = simCost.sub(epCost).toNumber()
       expect(diff).to.be.within(0, 300,

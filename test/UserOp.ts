@@ -12,10 +12,9 @@ import {
 } from '../typechain'
 import { UserOperation } from './UserOperation'
 import { Create2Factory } from '../src/Create2Factory'
-import { TransactionRequest, BlockTag } from '@ethersproject/abstract-provider'
+import { TransactionRequest } from '@ethersproject/abstract-provider'
 
 import EntryPointSimulationsJson from '../artifacts/contracts/core/EntryPointSimulations.sol/EntryPointSimulations.json'
-import EntryPointJson from '../artifacts/contracts/core/EntryPoint.sol/EntryPoint.json'
 import { ethers } from 'hardhat'
 import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSimulations'
 
