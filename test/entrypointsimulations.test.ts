@@ -47,7 +47,7 @@ describe('EntryPointSimulations', function () {
     // await checkStateDiffSupported()
   })
 
-  describe.only('Simulation Contract Sannity checks', () => {
+  describe('Simulation Contract Sannity checks', () => {
     const addr = createAddress()
 
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {

@@ -218,22 +218,6 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
 }
 
 // temporary helper method: hardhat currently doesn't support "stateOverride"
-async function provider_eth_call (tx: TransactionRequest, blockTag: BlockTag, stateOverride: any): Promise<string> {
-  try {
-    return await ethers.provider.send('eth_call', [tx, blockTag, stateOverride])
-  } catch (e) {
-    // minimal "stateOverride" support: assuming a single [entryPointAddress]: { code: deployedBytedCode } entry
-    const entryPointAddress = Object.keys(stateOverride)[0]
-    const deployedByteCode = stateOverride[entryPointAddress].code
-    await ethers.provider.send('hardhat_setCode', [entryPointAddress, deployedByteCode])
-    try {
-      return await ethers.provider.send('eth_call', [tx, blockTag])
-    } finally {
-      await ethers.provider.send('hardhat_setCode', [entryPointAddress, EntryPointJson.deployedBytecode])
-    }
-  }
-}
-
 /**
  * This function relies on a "state override" functionality of the 'eth_call' RPC method
  * in order to provide the details of a simulated validation call to the bundler
@@ -258,8 +242,7 @@ export async function simulateValidation (
     }
   }
   try {
-    // const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
-    const simulationResult = await provider_eth_call(tx, 'latest', stateOverride)
+    const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
     const res = entryPointSimulations.decodeFunctionResult('simulateValidation', simulationResult)
     // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
     return res[0]
@@ -294,8 +277,7 @@ export async function simulateHandleOp (
     }
   }
   try {
-    // const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
-    const simulationResult = await provider_eth_call(tx, 'latest', stateOverride)
+    const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
     const res = entryPointSimulations.decodeFunctionResult('simulateHandleOp', simulationResult)
     // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
     return res[0]
