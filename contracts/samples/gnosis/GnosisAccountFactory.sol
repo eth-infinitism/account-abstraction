@@ -4,6 +4,7 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "./EIP4337Manager.sol";
+import "hardhat/console.sol";
 
 /**
  * A wrapper factory contract to deploy GnosisSafe as an ERC-4337 account contract.
@@ -20,14 +21,15 @@ contract GnosisSafeAccountFactory {
         eip4337Manager = _eip4337Manager;
     }
 
-    function createAccount(address owner,uint256 salt) public returns (address) {
-        address addr = getAddress(owner, salt);
-        uint codeSize = addr.code.length;
-        if (codeSize > 0) {
-            return addr;
+    function createAccount(address owner, uint256 salt) public returns (address ret) {
+        try proxyFactory.createProxyWithNonce(
+            safeSingleton, getInitializer(owner), salt)
+        returns (GnosisSafeProxy proxy) {
+            return address(proxy);
+        } catch {
+            ret = getAddress(owner, salt);
+            require(ret.code.length > 0, "factory failed without deploy");
         }
-        return address(proxyFactory.createProxyWithNonce(
-                safeSingleton, getInitializer(owner), salt));
     }
 
     function getInitializer(address owner) internal view returns (bytes memory) {
@@ -41,21 +43,21 @@ contract GnosisSafeAccountFactory {
 
         return abi.encodeCall(GnosisSafe.setup, (
             owners, threshold,
-            address (eip4337Manager), setup4337Modules,
+            address(eip4337Manager), setup4337Modules,
             eip4337fallback,
             address(0), 0, payable(0) //no payment receiver
-            ));
+        ));
     }
 
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      * (uses the same "create2 signature" used by GnosisSafeProxyFactory.createProxyWithNonce)
      */
-    function getAddress(address owner,uint256 salt) public view returns (address) {
+    function getAddress(address owner, uint256 salt) public view returns (address) {
         bytes memory initializer = getInitializer(owner);
         //copied from deployProxyWithNonce
         bytes32 salt2 = keccak256(abi.encodePacked(keccak256(initializer), salt));
         bytes memory deploymentData = abi.encodePacked(proxyFactory.proxyCreationCode(), uint256(uint160(safeSingleton)));
-        return Create2.computeAddress(bytes32(salt2), keccak256(deploymentData), address (proxyFactory));
+        return Create2.computeAddress(bytes32(salt2), keccak256(deploymentData), address(proxyFactory));
     }
 }

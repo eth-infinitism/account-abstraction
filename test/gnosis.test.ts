@@ -67,11 +67,17 @@ describe('Gnosis Proxy', function () {
     accountFactory = await new GnosisSafeAccountFactory__factory(ethersSigner)
       .deploy(proxyFactory.address, safeSingleton.address, manager.address)
 
+    const counterFactualAddress = await accountFactory.callStatic.createAccount(ownerAddress, 0)
+
     await accountFactory.createAccount(ownerAddress, 0)
     // we use our accountFactory to create and configure the proxy.
     // but the actual deployment is done internally by the gnosis factory
     const ev = await proxyFactory.queryFilter(proxyFactory.filters.ProxyCreation())
     const addr = ev[0].args.proxy
+
+    expect(counterFactualAddress).to.eql(addr, 'factory returned different address from the underlying safe factory')
+    expect(await accountFactory.callStatic.createAccount(ownerAddress, 0))
+      .to.eql(counterFactualAddress, 'factory must return the same address even after account is created')
 
     proxy =
       proxySafe = GnosisSafe__factory.connect(addr, owner)
