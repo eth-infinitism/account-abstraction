@@ -24,6 +24,9 @@ async function deployBlsAccount (ethersSigner: Signer, factoryAddr: string, blsS
   const factory = BLSAccountFactory__factory.connect(factoryAddr, ethersSigner)
   const addr = await factory.callStatic.createAccount(0, blsSigner.pubkey)
   await factory.createAccount(0, blsSigner.pubkey)
+  expect((await ethers.provider.getCode(addr)).length).to.be.gte(2, 'must create contract on counterfactual address')
+  expect(await factory.callStatic.createAccount(0, blsSigner.pubkey))
+    .to.eql(addr, 'must return same address even if already created')
   return BLSAccount__factory.connect(addr, ethersSigner)
 }
 
