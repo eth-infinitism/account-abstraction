@@ -21,6 +21,11 @@ import {
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
   TestWarmColdAccount__factory,
+  IEntryPoint__factory,
+  SimpleAccountFactory__factory,
+  IStakeManager__factory,
+  INonceManager__factory,
+  EntryPoint__factory,
   TestPaymasterRevertCustomError__factory
 } from '../typechain'
 import {
@@ -53,6 +58,7 @@ import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'et
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
+import { getERC165InterfaceID } from '../src/Utils'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -1360,6 +1366,43 @@ describe('EntryPoint', function () {
             .to.revertedWith('AA22 expired or not due')
         })
       })
+    })
+  })
+
+  describe('ERC-165', function () {
+    it('should return true for IEntryPoint interface ID', async function () {
+      const iepInterface = IEntryPoint__factory.createInterface()
+      const iepInterfaceID = getERC165InterfaceID([...iepInterface.fragments])
+      expect(await entryPoint.supportsInterface(iepInterfaceID)).to.equal(true)
+    })
+
+    it('should return true for pure EntryPoint, IStakeManager and INonceManager interface IDs', async function () {
+      const epInterface = EntryPoint__factory.createInterface()
+      const smInterface = IStakeManager__factory.createInterface()
+      const nmInterface = INonceManager__factory.createInterface()
+      // note: manually generating "pure", solidity-like "type(IEntryPoint).interfaceId" without inherited methods
+      const epPureInterfaceFunctions = [
+        ...epInterface.fragments.filter(it => [
+          'handleOps',
+          'handleAggregatedOps',
+          'getUserOpHash',
+          'getSenderAddress',
+          'simulateValidation',
+          'simulateHandleOp'
+        ].includes(it.name))
+      ]
+      const epPureInterfaceID = getERC165InterfaceID(epPureInterfaceFunctions)
+      const smInterfaceID = getERC165InterfaceID([...smInterface.fragments])
+      const nmInterfaceID = getERC165InterfaceID([...nmInterface.fragments])
+      expect(await entryPoint.supportsInterface(smInterfaceID)).to.equal(true)
+      expect(await entryPoint.supportsInterface(nmInterfaceID)).to.equal(true)
+      expect(await entryPoint.supportsInterface(epPureInterfaceID)).to.equal(true)
+    })
+
+    it('should return false for a wrong interface', async function () {
+      const saInterface = SimpleAccountFactory__factory.createInterface()
+      const entryPointInterfaceID = getERC165InterfaceID([...saInterface.fragments])
+      expect(await entryPoint.supportsInterface(entryPointInterfaceID)).to.equal(false)
     })
   })
 })
