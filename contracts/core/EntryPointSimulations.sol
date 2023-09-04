@@ -16,6 +16,14 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
     AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
+    /**
+     * simulation contract should not be deployed, and specifically, accounts should not trust
+     * it as entrypoint, since the simulation functions don't check the signatures
+     */
+    constructor() {
+        require(block.number < 100, "should not be deployed");
+    }
+
     /// @inheritdoc IEntryPointSimulations
     function simulateValidation(
         UserOperation calldata userOp

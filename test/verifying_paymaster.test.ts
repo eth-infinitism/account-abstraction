@@ -11,7 +11,7 @@ import {
   createAccountOwner, createAddress,
   deployEntryPoint
 } from './testutils'
-import { fillAndSign } from './UserOp'
+import { fillAndSign, simulateValidation } from './UserOp'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
@@ -57,7 +57,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x1234'])
       }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('invalid signature length in paymasterAndData')
+      await expect(simulateValidation(userOp, entryPoint.address)).to.be.revertedWith('invalid signature length in paymasterAndData')
     })
 
     it('should reject on invalid signature', async () => {
@@ -65,7 +65,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('ECDSA: invalid signature')
+      await expect(simulateValidation(userOp, entryPoint.address)).to.be.revertedWith('ECDSA: invalid signature')
     })
 
     describe('with wrong signature', () => {
@@ -80,7 +80,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       })
 
       it('should return signature error (no revert) on wrong signer signature', async () => {
-        const ret = await entryPoint.callStatic.simulateValidation(wrongSigUserOp)
+        const ret = await simulateValidation(wrongSigUserOp, entryPoint.address)
         expect(ret.returnInfo.sigFailed).to.be.true
       })
 
@@ -100,7 +100,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         ...userOp1,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
       }, accountOwner, entryPoint)
-      const res = await entryPoint.callStatic.simulateValidation(userOp)
+      const res = await simulateValidation(userOp, entryPoint.address)
       expect(res.returnInfo.sigFailed).to.be.false
       expect(res.returnInfo.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
       expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))

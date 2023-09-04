@@ -26,7 +26,7 @@ import {
   createAccount,
   getAccountAddress
 } from './testutils'
-import { fillAndSign } from './UserOp'
+import { fillAndSign, simulateValidation } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 import { hexValue } from '@ethersproject/bytes'
@@ -140,7 +140,7 @@ describe('EntryPoint with paymaster', function () {
         // paymaster is the token, so no need for "approve" or any init function...
 
         const snapshot = await ethers.provider.send('evm_snapshot', [])
-        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
+        await simulateValidation(createOp, entryPoint.address, { gasLimit: 5e6 }).catch(e => e.message)
         const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
         await checkForBannedOps(tx, true)
         await ethers.provider.send('evm_revert', [snapshot])

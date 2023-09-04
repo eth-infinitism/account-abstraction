@@ -15,11 +15,10 @@ import {
   createAccount,
   createAddress,
   createAccountOwner,
-  deployActualEntryPoint,
   getBalance,
   isDeployed,
   ONE_ETH,
-  HashZero
+  HashZero, deployEntryPoint
 } from './testutils'
 import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
@@ -33,7 +32,7 @@ describe('SimpleAccount', function () {
   const ethersSigner = ethers.provider.getSigner()
 
   before(async function () {
-    entryPoint = await deployActualEntryPoint().then(e => e.address)
+    entryPoint = await deployEntryPoint().then(e => e.address)
     accounts = await ethers.provider.listAccounts()
     // ignore in geth.. this is just a sanity test. should be refactored to use a single-account mode..
     if (accounts.length < 2) this.skip()

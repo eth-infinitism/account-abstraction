@@ -6,7 +6,7 @@ import {
   checkForGeth,
   createAddress,
   createAccountOwner,
-  deployActualEntryPoint
+  deployEntryPoint
 } from '../test/testutils'
 import {
   EntryPoint, EntryPoint__factory, SimpleAccountFactory,
@@ -316,7 +316,7 @@ export class GasCheckCollector {
     }
 
     if (entryPointAddressOrTest === 'test') {
-      this.entryPoint = await deployActualEntryPoint(provider)
+      this.entryPoint = await deployEntryPoint(provider)
     } else {
       this.entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
     }

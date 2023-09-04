@@ -12,11 +12,10 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
-  deployActualEntryPoint,
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance
+  getBalance, deployEntryPoint
 } from './testutils'
 
 import { fillAndSign, simulateHandleOp, simulateValidation } from './UserOp'
@@ -35,7 +34,7 @@ describe('EntryPointSimulations', function () {
   let epSimulation: EntryPointSimulations
 
   before(async function () {
-    entryPoint = await deployActualEntryPoint()
+    entryPoint = await deployEntryPoint()
     epSimulation = await new EntryPointSimulations__factory(provider.getSigner()).deploy()
 
     accountOwner = createAccountOwner();
@@ -47,7 +46,7 @@ describe('EntryPointSimulations', function () {
     // await checkStateDiffSupported()
   })
 
-  describe('Simulation Contract Sannity checks', () => {
+  describe('Simulation Contract Sanity checks', () => {
     const addr = createAddress()
 
     // coverage skews gas checks.

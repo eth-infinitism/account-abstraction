@@ -13,7 +13,7 @@ import {
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { createAddress, deployEntryPoint, fund, ONE_ETH } from './testutils'
-import { DefaultsForUserOp, fillUserOp } from './UserOp'
+import { DefaultsForUserOp, fillUserOp, simulateValidation } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
@@ -190,7 +190,7 @@ describe('bls account', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp)
+      const { aggregatorInfo } = await simulateValidation(userOp, entrypoint.address)
       expect(aggregatorInfo.aggregator).to.eq(blsAgg.address)
       expect(aggregatorInfo.stakeInfo.stake).to.eq(ONE_ETH)
       expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.eq(2)
