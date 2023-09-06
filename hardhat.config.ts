@@ -50,7 +50,6 @@ const config: HardhatUserConfig = {
   },
   networks: {
     dev: { url: 'http://localhost:8545' },
-    anvil: { url: 'http://localhost:8544' },
     // github action starts localgeth service, for gas calculations
     localgeth: { url: 'http://localgeth:8545' },
     goerli: getNetwork('goerli'),

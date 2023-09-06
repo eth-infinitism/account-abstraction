@@ -2,9 +2,10 @@ import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
+  EntryPoint,
   SimpleAccount,
   VerifyingPaymaster,
-  VerifyingPaymaster__factory, EntryPointSimulations
+  VerifyingPaymaster__factory
 } from '../typechain'
 import {
   createAccount,
@@ -20,7 +21,7 @@ const MOCK_VALID_AFTER = '0x0000000000001234'
 const MOCK_SIG = '0x1234'
 
 describe('EntryPoint with VerifyingPaymaster', function () {
-  let entryPoint: EntryPointSimulations
+  let entryPoint: EntryPoint
   let accountOwner: Wallet
   const ethersSigner = ethers.provider.getSigner()
   let account: SimpleAccount

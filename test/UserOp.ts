@@ -216,7 +216,6 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
   }
 }
 
-// temporary helper method: hardhat currently doesn't support "stateOverride"
 /**
  * This function relies on a "state override" functionality of the 'eth_call' RPC method
  * in order to provide the details of a simulated validation call to the bundler

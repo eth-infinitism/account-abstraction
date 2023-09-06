@@ -9,7 +9,7 @@ import {
   BLSAccountFactory,
   BLSAccountFactory__factory,
   BrokenBLSAccountFactory__factory,
-  EntryPointSimulations
+  EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { createAddress, deployEntryPoint, fund, ONE_ETH } from './testutils'
@@ -35,7 +35,7 @@ describe('bls account', function () {
   let signer1: any
   let signer2: any
   let blsAgg: BLSSignatureAggregator
-  let entrypoint: EntryPointSimulations
+  let entrypoint: EntryPoint
   let account1: BLSAccount
   let account2: BLSAccount
   let accountDeployer: BLSAccountFactory

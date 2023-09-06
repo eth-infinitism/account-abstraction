@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  EntryPointSimulations,
+  EntryPoint,
   DepositPaymaster,
   DepositPaymaster__factory,
   TestOracle__factory,
@@ -17,12 +17,12 @@ import {
   createAccountOwner,
   deployEntryPoint, FIVE_ETH, ONE_ETH, userOpsWithoutAgg, createAccount
 } from './testutils'
-import { fillAndSign } from './UserOp'
+import { fillAndSign, simulateValidation } from './UserOp'
 import { hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 
 // TODO: fails after unrelated change in the repo
 describe.skip('DepositPaymaster', () => {
-  let entryPoint: EntryPointSimulations
+  let entryPoint: EntryPoint
   const ethersSigner = ethers.provider.getSigner()
   let token: TestToken
   let paymaster: DepositPaymaster
@@ -89,7 +89,7 @@ describe.skip('DepositPaymaster', () => {
         sender: account.address,
         paymasterAndData: paymaster.address
       }, ethersSigner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp)).to.be.revertedWith('paymasterAndData must specify token')
+      await expect(simulateValidation(userOp, entryPoint.address)).to.be.revertedWith('paymasterAndData must specify token')
     })
 
     it('should fail with wrong token', async () => {
@@ -97,7 +97,7 @@ describe.skip('DepositPaymaster', () => {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad('0x1234', 20)])
       }, ethersSigner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
+      await expect(simulateValidation(userOp, entryPoint.address, { gasPrice })).to.be.revertedWith('DepositPaymaster: unsupported token')
     })
 
     it('should reject if no deposit', async () => {
@@ -105,7 +105,7 @@ describe.skip('DepositPaymaster', () => {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
+      await expect(simulateValidation(userOp, entryPoint.address, { gasPrice })).to.be.revertedWith('DepositPaymaster: deposit too low')
     })
 
     it('should reject if deposit is not locked', async () => {
@@ -118,7 +118,7 @@ describe.skip('DepositPaymaster', () => {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await expect(entryPoint.callStatic.simulateValidation(userOp, { gasPrice })).to.be.revertedWith('not locked')
+      await expect(simulateValidation(userOp, entryPoint.address, { gasPrice })).to.be.revertedWith('not locked')
     })
 
     it('succeed with valid deposit', async () => {
@@ -130,7 +130,7 @@ describe.skip('DepositPaymaster', () => {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, hexZeroPad(token.address, 20)])
       }, ethersSigner, entryPoint)
-      await entryPoint.callStatic.simulateValidation(userOp)
+      await simulateValidation(userOp, entryPoint.address)
     })
   })
   describe('#handleOps', () => {

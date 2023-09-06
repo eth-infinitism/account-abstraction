@@ -2,7 +2,6 @@ import './aa.init'
 import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
-  EntryPointSimulations,
   SimpleAccount,
   SimpleAccountFactory,
   TestAggregatedAccount__factory,
@@ -26,7 +25,7 @@ import {
   IStakeManager__factory,
   INonceManager__factory,
   EntryPoint__factory,
-  TestPaymasterRevertCustomError__factory
+  TestPaymasterRevertCustomError__factory, EntryPoint
 } from '../typechain'
 import {
   AddressZero,
@@ -37,7 +36,6 @@ import {
   tostr,
   getAccountInitCode,
   calcGasUsage,
-  checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
@@ -60,7 +58,7 @@ import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
 
 describe('EntryPoint', function () {
-  let entryPoint: EntryPointSimulations
+  let entryPoint: EntryPoint
   let simpleAccountFactory: SimpleAccountFactory
 
   let accountOwner: Wallet
@@ -236,10 +234,11 @@ describe('EntryPoint', function () {
         sender: await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
-      await simulateValidation(op1, entryPoint.address, { gasLimit: 10e6 }).catch(e => e)
-      const block = await ethers.provider.getBlock('latest')
-      const hash = block.transactions[0]
-      await checkForBannedOps(hash, false)
+      await simulateValidation(op1, entryPoint.address, { gasLimit: 10e6 })
+      // TODO: can't do opcode banning with EntryPointSimulations (since its not on-chain) add when we can debug_traceCall
+      // const block = await ethers.provider.getBlock('latest')
+      // const hash = block.transactions[0]
+      // await checkForBannedOps(hash, false)
     })
   })
 

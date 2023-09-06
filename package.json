@@ -13,8 +13,6 @@
     "gas-calc": "./scripts/gascalc",
     "mocha-gascalc": "TS_NODE_TRANSPILE_ONLY=1 npx ts-mocha --bail gascalc/*",
     "test": "./scripts/hh-wrapper test",
-    "run-anvil": "anvil --port 8544",
-    "test-anvil": "./scripts/hh-wrapper test --network anvil ./test/anvil/*",
     "coverage": "COVERAGE=1 hardhat coverage",
     "deploy": "./scripts/hh-wrapper deploy",
     "test-dev": "hardhat test --network dev",
