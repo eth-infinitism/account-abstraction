@@ -4,7 +4,7 @@ export LC_CTYPE=
 #js error (recognized)
 #      at SimpleWallet._validateSignature (contracts/samples/SimpleWallet.sol:76)
 
-perl -pe 's/--> (\S+):(\d+):(\d+):/at ($1:$2)/;' \
+perl -pe 's/-->.*? (\S+):(\d+):(\d+):/at ($1:$2)/;' \
     -e  "s/.*(Solidity 0.8.\d+ is not fully supported yet|Learn.more at.*solidity-support).*\s*//;" \
     -e "s/^\s*$//;" \
     -e "s/\s*at .*node_modules.*\s*//;" \
