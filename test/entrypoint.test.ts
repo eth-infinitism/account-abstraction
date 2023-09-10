@@ -36,7 +36,6 @@ import {
   tostr,
   getAccountInitCode,
   calcGasUsage,
-  checkForBannedOps,
   ONE_ETH,
   TWO_ETH,
   deployEntryPoint,
@@ -48,7 +47,7 @@ import {
   getAggregatedAccountInitCode,
   decodeRevertReason
 } from './testutils'
-import { DefaultsForUserOp, fillAndSign, getUserOpHash } from './UserOp'
+import { DefaultsForUserOp, fillAndSign, getUserOpHash, simulateValidation } from './UserOp'
 import { UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
@@ -235,10 +234,11 @@ describe('EntryPoint', function () {
         sender: await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
-      await entryPoint.simulateValidation(op1, { gasLimit: 10e6 }).catch(e => e)
-      const block = await ethers.provider.getBlock('latest')
-      const hash = block.transactions[0]
-      await checkForBannedOps(hash, false)
+      await simulateValidation(op1, entryPoint.address, { gasLimit: 10e6 })
+      // TODO: can't do opcode banning with EntryPointSimulations (since its not on-chain) add when we can debug_traceCall
+      // const block = await ethers.provider.getBlock('latest')
+      // const hash = block.transactions[0]
+      // await checkForBannedOps(hash, false)
     })
   })
 
@@ -277,11 +277,11 @@ describe('EntryPoint', function () {
         paymasterAndData: '0x'
       }
       try {
-        await entryPoint.callStatic.simulateValidation(userOp, { gasLimit: 1e6 })
+        await simulateValidation(userOp, entryPoint.address, { gasLimit: 1e6 })
 
         console.log('after first simulation')
         await ethers.provider.send('evm_mine', [])
-        await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
+        await expect(simulateValidation(userOp, entryPoint.address, { gasLimit: 1e6 }))
           .to.revertedWith('Revert after first validation')
         // if we get here, it means the userOp passed first sim and reverted second
         expect.fail(null, null, 'should fail on first simulation')
@@ -305,7 +305,7 @@ describe('EntryPoint', function () {
         callData: badData.data!
       }
       const beneficiaryAddress = createAddress()
-      await entryPoint.callStatic.simulateValidation(badOp, { gasLimit: 3e5 })
+      await simulateValidation(badOp, entryPoint.address, { gasLimit: 3e5 })
 
       const tx = await entryPoint.handleOps([badOp], beneficiaryAddress) // { gasLimit: 3e5 })
       const receipt = await tx.wait()
@@ -327,13 +327,14 @@ describe('EntryPoint', function () {
         }
         const beneficiaryAddress = createAddress()
         try {
-          await entryPoint.simulateValidation(badOp, { gasLimit: 1e6 })
+          await simulateValidation(badOp, entryPoint.address, { gasLimit: 1e6 })
+          throw new Error('should revert')
         } catch (e: any) {
           if ((e as Error).message.includes('ValidationResult')) {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('FailedOp(0, "AA23 reverted (or OOG)")')
+            expect(e.message).to.include('AA23 reverted (or OOG)')
           }
         }
       })
@@ -351,13 +352,14 @@ describe('EntryPoint', function () {
         }
         const beneficiaryAddress = createAddress()
         try {
-          await entryPoint.simulateValidation(badOp, { gasLimit: 1e6 })
+          await simulateValidation(badOp, entryPoint.address, { gasLimit: 1e6 })
+          throw new Error('should revert')
         } catch (e: any) {
           if ((e as Error).message.includes('ValidationResult')) {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('FailedOp(0, "AA23 reverted (or OOG)")')
+            expect(e.message).to.include('AA23 reverted (or OOG)')
           }
         }
       })
@@ -659,13 +661,13 @@ describe('EntryPoint', function () {
           verificationGasLimit: 5e5
         }, accountOwner, entryPoint)
         // must succeed with enough verification gas
-        await entryPoint.callStatic.simulateValidation(op0)
+        await simulateValidation(op0, entryPoint.address)
 
         const op1 = await fillAndSign({
           sender: account.address,
           verificationGasLimit: 10000
         }, accountOwner, entryPoint)
-        await expect(entryPoint.callStatic.simulateValidation(op1))
+        await expect(simulateValidation(op1, entryPoint.address))
           .to.revertedWith('AA23 reverted (or OOG)')
       })
     })
@@ -783,7 +785,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 76000
         }, accountOwner2, entryPoint)
 
-        await entryPoint.callStatic.simulateValidation(op2, { gasPrice: 1e9 })
+        await simulateValidation(op2, entryPoint.address)
 
         await fund(op1.sender)
         await fund(account2.address)
@@ -966,7 +968,7 @@ describe('EntryPoint', function () {
           })
           it('simulateValidation should return aggregator and its stake', async () => {
             await aggregator.addStake(entryPoint.address, 3, { value: TWO_ETH })
-            const { aggregatorInfo } = await entryPoint.callStatic.simulateValidation(userOp)
+            const { aggregatorInfo } = await simulateValidation(userOp, entryPoint.address)
             expect(aggregatorInfo.aggregator).to.equal(aggregator.address)
             expect(aggregatorInfo.stakeInfo.stake).to.equal(TWO_ETH)
             expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.equal(3)
@@ -1007,7 +1009,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
-        await expect(entryPoint.simulateValidation(op)).to.revertedWith('"AA30 paymaster not deployed"')
+        await expect(simulateValidation(op, entryPoint.address)).to.revertedWith('"AA30 paymaster not deployed"')
       })
 
       it('should fail if paymaster has no deposit', async function () {
@@ -1066,7 +1068,7 @@ describe('EntryPoint', function () {
           initCode: getAccountInitCode(anOwner.address, simpleAccountFactory)
         }, anOwner, entryPoint)
 
-        const { paymasterInfo } = await entryPoint.callStatic.simulateValidation(op)
+        const { paymasterInfo } = await simulateValidation(op, entryPoint.address)
         const {
           stake: simRetStake,
           unstakeDelaySec: simRetDelay
@@ -1097,7 +1099,7 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: account.address
           }, sessionOwner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp)
+          const ret = await simulateValidation(userOp, entryPoint.address)
           expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(100)
         })
@@ -1108,7 +1110,7 @@ describe('EntryPoint', function () {
           const userOp = await fillAndSign({
             sender: account.address
           }, expiredOwner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp)
+          const ret = await simulateValidation(userOp, entryPoint.address)
           expect(ret.returnInfo.validUntil).eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
@@ -1131,7 +1133,7 @@ describe('EntryPoint', function () {
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp)
+          const ret = await simulateValidation(userOp, entryPoint.address)
           expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
         })
@@ -1142,7 +1144,7 @@ describe('EntryPoint', function () {
             sender: account.address,
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
-          const ret = await entryPoint.callStatic.simulateValidation(userOp)
+          const ret = await simulateValidation(userOp, entryPoint.address)
           expect(ret.returnInfo.validUntil).to.eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(321)
         })
@@ -1165,7 +1167,7 @@ describe('EntryPoint', function () {
 
           async function simulateWithPaymasterParams (after: number, until: number): Promise<any> {
             const userOp = await createOpWithPaymasterParams(owner, after, until)
-            const ret = await entryPoint.callStatic.simulateValidation(userOp)
+            const ret = await simulateValidation(userOp, entryPoint.address)
             return ret.returnInfo
           }
 

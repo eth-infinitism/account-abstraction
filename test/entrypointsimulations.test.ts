@@ -13,11 +13,10 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
-  deployActualEntryPoint,
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance, AddressZero, binarySearchLowestValue, packEvents
+  getBalance, AddressZero, binarySearchLowestValue, packEvents, deployEntryPoint
 } from './testutils'
 
 import { fillAndSign, simulateHandleOp, simulateValidation } from './UserOp'
@@ -37,7 +36,7 @@ describe('EntryPointSimulations', function () {
   let epSimulation: EntryPointSimulations
 
   before(async function () {
-    entryPoint = await deployActualEntryPoint()
+    entryPoint = await deployEntryPoint()
     epSimulation = await new EntryPointSimulations__factory(provider.getSigner()).deploy()
 
     accountOwner = createAccountOwner();
@@ -227,7 +226,7 @@ describe('EntryPointSimulations', function () {
       // fill op, with arbitrary signer
       const op1 = await fillAndSign(op, createAccountOwner(), entryPoint)
 
-      const simulateWithValidation = async (n: number): Promise<IEntryPointSimulations.ExecutionResultStructOutput> =>
+      const simulateWithValidation = async (n: number): Promise<IEntryPointSimulations.SimulateHandleOpResultStructOutput> =>
         simulateHandleOp({ ...op1, verificationGasLimit: n }, AddressZero, '0x', entryPoint.address)
 
       const sim = await simulateWithValidation(1e6)

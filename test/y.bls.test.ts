@@ -9,11 +9,11 @@ import {
   BLSAccountFactory,
   BLSAccountFactory__factory,
   BrokenBLSAccountFactory__factory,
-  EntryPointSimulations
+  EntryPoint
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { createAddress, deployEntryPoint, fund, ONE_ETH } from './testutils'
-import { DefaultsForUserOp, fillUserOp } from './UserOp'
+import { DefaultsForUserOp, fillUserOp, simulateValidation } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
@@ -35,7 +35,7 @@ describe('bls account', function () {
   let signer1: any
   let signer2: any
   let blsAgg: BLSSignatureAggregator
-  let entrypoint: EntryPointSimulations
+  let entrypoint: EntryPoint
   let account1: BLSAccount
   let account2: BLSAccount
   let accountDeployer: BLSAccountFactory
@@ -190,7 +190,7 @@ describe('bls account', function () {
       const sigParts = signer3.sign(requestHash)
       userOp.signature = hexConcat(sigParts)
 
-      const { aggregatorInfo } = await entrypoint.callStatic.simulateValidation(userOp)
+      const { aggregatorInfo } = await simulateValidation(userOp, entrypoint.address)
       expect(aggregatorInfo.aggregator).to.eq(blsAgg.address)
       expect(aggregatorInfo.stakeInfo.stake).to.eq(ONE_ETH)
       expect(aggregatorInfo.stakeInfo.unstakeDelaySec).to.eq(2)

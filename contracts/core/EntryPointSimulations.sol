@@ -20,6 +20,14 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     uint256 internal userOpActualGasUsed;
     uint256 internal userOpPostOpGas;
 
+    /**
+     * simulation contract should not be deployed, and specifically, accounts should not trust
+     * it as entrypoint, since the simulation functions don't check the signatures
+     */
+    constructor() {
+        require(block.number < 100, "should not be deployed");
+    }
+
     /// @inheritdoc IEntryPointSimulations
     function simulateValidation(
         UserOperation calldata userOp
