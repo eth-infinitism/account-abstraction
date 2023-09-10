@@ -20,7 +20,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
         context = abi.encodePacked(userOp.sender);
     }
 
-    function _postOp(PostOpMode mode, bytes calldata, uint256) internal override {
+    function _postOp(PostOpMode mode, bytes calldata, uint256) internal pure override {
         if(mode == PostOpMode.postOpReverted) {
             return;
         }
