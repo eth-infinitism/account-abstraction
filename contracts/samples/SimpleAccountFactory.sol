@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import "./SimpleAccount.sol";
-import "hardhat/console.sol";
 
 /**
  * A sample factory contract for SimpleAccount
