@@ -6,7 +6,6 @@ import "./IEntryPoint.sol";
 
 interface IEntryPointSimulations is IEntryPoint {
 
-    // Return value of simulateHandleOp.
     /**
      * returned structure from simulateHandleOps
      * @param validAfter - when executed, this UserOperation is only valid after this time.

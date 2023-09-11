@@ -74,7 +74,7 @@ describe('EntryPoint', function () {
 
     const chainId = await ethers.provider.getNetwork().then(net => net.chainId)
 
-    entryPoint = await deployEntryPoint() as any as EntryPoint
+    entryPoint = await deployEntryPoint()
 
     accountOwner = createAccountOwner();
     ({
