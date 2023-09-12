@@ -15,11 +15,10 @@ import {
   createAccount,
   createAddress,
   createAccountOwner,
-  deployEntryPoint,
   getBalance,
   isDeployed,
   ONE_ETH,
-  HashZero
+  HashZero, deployEntryPoint
 } from './testutils'
 import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
