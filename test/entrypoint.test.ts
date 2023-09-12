@@ -20,7 +20,13 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  IEntryPoint__factory,
+  SimpleAccountFactory__factory,
+  IStakeManager__factory,
+  INonceManager__factory,
+  EntryPoint__factory,
+  TestPaymasterRevertCustomError__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -42,7 +48,7 @@ import {
   simulationResultCatch,
   createAccount,
   getAggregatedAccountInitCode,
-  simulationResultWithAggregationCatch
+  simulationResultWithAggregationCatch, decodeRevertReason
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, getUserOpHash } from './UserOp'
 import { UserOperation } from './UserOperation'
@@ -52,6 +58,7 @@ import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'et
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
+import { getERC165InterfaceID } from '../src/Utils'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -233,7 +240,7 @@ describe('EntryPoint', function () {
       // using wrong nonce
       const op = await fillAndSign({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
       await expect(entryPoint.callStatic.simulateValidation(op)).to
-        .revertedWith('AA23 reverted: account: invalid nonce')
+        .revertedWith('AA25 invalid account nonce')
     })
 
     it('should report signature failure without revert', async () => {
@@ -411,7 +418,8 @@ describe('EntryPoint', function () {
 
       const userOp: UserOperation = {
         sender: maliciousAccount.address,
-        nonce: block.baseFeePerGas,
+        nonce: await entryPoint.getNonce(maliciousAccount.address, 0),
+        signature: defaultAbiCoder.encode(['uint256'], [block.baseFeePerGas]),
         initCode: '0x',
         callData: '0x',
         callGasLimit: '0x' + 1e5.toString(16),
@@ -420,8 +428,7 @@ describe('EntryPoint', function () {
         // we need maxFeeperGas > block.basefee + maxPriorityFeePerGas so requiredPrefund onchain is basefee + maxPriorityFeePerGas
         maxFeePerGas: block.baseFeePerGas.mul(3),
         maxPriorityFeePerGas: block.baseFeePerGas,
-        paymasterAndData: '0x',
-        signature: '0x'
+        paymasterAndData: '0x'
       }
       try {
         await expect(entryPoint.simulateValidation(userOp, { gasLimit: 1e6 }))
@@ -447,13 +454,14 @@ describe('EntryPoint', function () {
         sender: testRevertAccount.address,
         callGasLimit: 1e5,
         maxFeePerGas: 1,
+        nonce: await entryPoint.getNonce(testRevertAccount.address, 0),
         verificationGasLimit: 1e5,
         callData: badData.data!
       }
       const beneficiaryAddress = createAddress()
       await expect(entryPoint.simulateValidation(badOp, { gasLimit: 3e5 }))
         .to.revertedWith('ValidationResult')
-      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 3e5 })
+      const tx = await entryPoint.handleOps([badOp], beneficiaryAddress) // { gasLimit: 3e5 })
       const receipt = await tx.wait()
       const userOperationRevertReasonEvent = receipt.events?.find(event => event.event === 'UserOperationRevertReason')
       expect(userOperationRevertReasonEvent?.event).to.equal('UserOperationRevertReason')
@@ -506,6 +514,71 @@ describe('EntryPoint', function () {
             expect(e.message).to.include('FailedOp(0, "AA23 reverted (or OOG)")')
           }
         }
+      })
+    })
+  })
+
+  describe('2d nonces', () => {
+    const beneficiaryAddress = createAddress()
+    let sender: string
+    const key = 1
+    const keyShifted = BigNumber.from(key).shl(64)
+
+    before(async () => {
+      const { proxy } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address)
+      sender = proxy.address
+      await fund(sender)
+    })
+
+    it('should fail nonce with new key and seq!=0', async () => {
+      const op = await fillAndSign({
+        sender,
+        nonce: keyShifted.add(1)
+      }, accountOwner, entryPoint)
+      await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('AA25 invalid account nonce')
+    })
+
+    describe('with key=1, seq=1', () => {
+      before(async () => {
+        const op = await fillAndSign({
+          sender,
+          nonce: keyShifted
+        }, accountOwner, entryPoint)
+        await entryPoint.handleOps([op], beneficiaryAddress)
+      })
+
+      it('should get next nonce value by getNonce', async () => {
+        expect(await entryPoint.getNonce(sender, key)).to.eql(keyShifted.add(1))
+      })
+
+      it('should allow to increment nonce of different key', async () => {
+        const op = await fillAndSign({
+          sender,
+          nonce: await entryPoint.getNonce(sender, key)
+        }, accountOwner, entryPoint)
+        await entryPoint.callStatic.handleOps([op], beneficiaryAddress)
+      })
+
+      it('should allow manual nonce increment', async () => {
+        // must be called from account itself
+        const incNonceKey = 5
+        const incrementCallData = entryPoint.interface.encodeFunctionData('incrementNonce', [incNonceKey])
+        const callData = account.interface.encodeFunctionData('execute', [entryPoint.address, 0, incrementCallData])
+        const op = await fillAndSign({
+          sender,
+          callData,
+          nonce: await entryPoint.getNonce(sender, key)
+        }, accountOwner, entryPoint)
+        await entryPoint.handleOps([op], beneficiaryAddress)
+
+        expect(await entryPoint.getNonce(sender, incNonceKey)).to.equal(BigNumber.from(incNonceKey).shl(64).add(1))
+      })
+      it('should fail with nonsequential seq', async () => {
+        const op = await fillAndSign({
+          sender,
+          nonce: keyShifted.add(3)
+        }, accountOwner, entryPoint)
+        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress)).to.revertedWith('AA25 invalid account nonce')
       })
     })
   })
@@ -717,6 +790,23 @@ describe('EntryPoint', function () {
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
       })
 
+      it('should fail to call recursively into handleOps', async () => {
+        const beneficiaryAddress = createAddress()
+
+        const callHandleOps = entryPoint.interface.encodeFunctionData('handleOps', [[], beneficiaryAddress])
+        const execHandlePost = account.interface.encodeFunctionData('execute', [entryPoint.address, 0, callHandleOps])
+        const op = await fillAndSign({
+          sender: account.address,
+          callData: execHandlePost
+        }, accountOwner, entryPoint)
+
+        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
+          gasLimit: 1e7
+        }).then(async r => r.wait())
+
+        const error = rcpt.events?.find(ev => ev.event === 'UserOperationRevertReason')
+        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('Error(ReentrancyGuard: reentrant call)', 'execution of handleOps inside a UserOp should revert')
+      })
       it('should report failure on insufficient verificationGas after creation', async () => {
         const op0 = await fillAndSign({
           sender: account.address,
@@ -1026,8 +1116,7 @@ describe('EntryPoint', function () {
             addr = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
             await ethersSigner.sendTransaction({ to: addr, value: parseEther('0.1') })
             userOp = await fillAndSign({
-              initCode,
-              nonce: 10
+              initCode
             }, accountOwner, entryPoint)
           })
           it('simulateValidation should return aggregator and its stake', async () => {
@@ -1087,6 +1176,24 @@ describe('EntryPoint', function () {
         }, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
         await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"AA31 paymaster deposit too low"')
+      })
+
+      it('should not revert when paymaster reverts with custom error on postOp', async function () {
+        const account3Owner = createAccountOwner()
+        const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
+        await errorPostOp.deposit({ value: ONE_ETH })
+
+        const op = await fillAndSign({
+          paymasterAndData: errorPostOp.address,
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(account3Owner.address, simpleAccountFactory),
+
+          verificationGasLimit: 3e6,
+          callGasLimit: 1e6
+        }, account3Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+        await entryPoint.handleOps([op], beneficiaryAddress)
       })
 
       it('paymaster should pay for tx', async function () {
@@ -1259,6 +1366,43 @@ describe('EntryPoint', function () {
             .to.revertedWith('AA22 expired or not due')
         })
       })
+    })
+  })
+
+  describe('ERC-165', function () {
+    it('should return true for IEntryPoint interface ID', async function () {
+      const iepInterface = IEntryPoint__factory.createInterface()
+      const iepInterfaceID = getERC165InterfaceID([...iepInterface.fragments])
+      expect(await entryPoint.supportsInterface(iepInterfaceID)).to.equal(true)
+    })
+
+    it('should return true for pure EntryPoint, IStakeManager and INonceManager interface IDs', async function () {
+      const epInterface = EntryPoint__factory.createInterface()
+      const smInterface = IStakeManager__factory.createInterface()
+      const nmInterface = INonceManager__factory.createInterface()
+      // note: manually generating "pure", solidity-like "type(IEntryPoint).interfaceId" without inherited methods
+      const epPureInterfaceFunctions = [
+        ...epInterface.fragments.filter(it => [
+          'handleOps',
+          'handleAggregatedOps',
+          'getUserOpHash',
+          'getSenderAddress',
+          'simulateValidation',
+          'simulateHandleOp'
+        ].includes(it.name))
+      ]
+      const epPureInterfaceID = getERC165InterfaceID(epPureInterfaceFunctions)
+      const smInterfaceID = getERC165InterfaceID([...smInterface.fragments])
+      const nmInterfaceID = getERC165InterfaceID([...nmInterface.fragments])
+      expect(await entryPoint.supportsInterface(smInterfaceID)).to.equal(true)
+      expect(await entryPoint.supportsInterface(nmInterfaceID)).to.equal(true)
+      expect(await entryPoint.supportsInterface(epPureInterfaceID)).to.equal(true)
+    })
+
+    it('should return false for a wrong interface', async function () {
+      const saInterface = SimpleAccountFactory__factory.createInterface()
+      const entryPointInterfaceID = getERC165InterfaceID([...saInterface.fragments])
+      expect(await entryPoint.supportsInterface(entryPointInterfaceID)).to.equal(false)
     })
   })
 })
