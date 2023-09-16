@@ -118,7 +118,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
         unchecked {
-            for (uint256 i = 0; i < opslen; i++) {
+            for (uint256 i; i < opslen; ++i) {
                 UserOpInfo memory opInfo = opInfos[i];
                 (
                     uint256 validationData,
@@ -132,10 +132,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 );
             }
 
-            uint256 collected = 0;
+            uint256 collected;
             emit BeforeExecution();
 
-            for (uint256 i = 0; i < opslen; i++) {
+            for (uint256 i; i < opslen; ++i) {
                 collected += _executeUserOp(i, ops[i], opInfos[i]);
             }
 
@@ -150,8 +150,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     ) public nonReentrant {
 
         uint256 opasLen = opsPerAggregator.length;
-        uint256 totalOps = 0;
-        for (uint256 i = 0; i < opasLen; i++) {
+        uint256 totalOps;
+        for (uint256 i; i < opasLen; ++i) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[i];
             UserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
@@ -176,14 +176,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         emit BeforeExecution();
 
-        uint256 opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
+        uint256 opIndex;
+        for (uint256 a; a < opasLen; ++a) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
             UserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
             uint256 opslen = ops.length;
-            for (uint256 i = 0; i < opslen; i++) {
+            for (uint256 i; i < opslen; ++i) {
                 UserOpInfo memory opInfo = opInfos[opIndex];
                 (
                     uint256 validationData,
@@ -199,15 +199,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
         }
 
-        uint256 collected = 0;
+        uint256 collected;
         opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
+        for (uint256 a; a < opasLen; ++a) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
             emit SignatureAggregatorChanged(address(opa.aggregator));
             UserOperation[] calldata ops = opa.userOps;
             uint256 opslen = ops.length;
 
-            for (uint256 i = 0; i < opslen; i++) {
+            for (uint256 i; i < opslen; ++i) {
                 collected += _executeUserOp(opIndex, ops[i], opInfos[opIndex]);
                 opIndex++;
             }
@@ -417,7 +417,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             _createSenderIfNeeded(opIndex, opInfo, op.initCode);
             address paymaster = mUserOp.paymaster;
             numberMarker();
-            uint256 missingAccountFunds = 0;
+            uint256 missingAccountFunds;
             if (paymaster == address(0)) {
                 uint256 bal = balanceOf(sender);
                 missingAccountFunds = bal > requiredPrefund
