@@ -54,7 +54,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     TokenPaymasterConfig private tokenPaymasterConfig;
 
-    // TODO: I don't like defaults in Solidity - accept ALL parameters of fail!!!
+    // TODO: I don't like defaults in Solidity - accept ALL parameters or fail!!!
     /// @notice Initializes the PimlicoERC20Paymaster contract with the given parameters.
     /// @param _token The ERC20 token used for transaction fee payments.
     /// @param _entryPoint The EntryPoint contract used in the Account Abstraction infrastructure.
