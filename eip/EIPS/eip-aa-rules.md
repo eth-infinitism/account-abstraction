@@ -19,9 +19,9 @@ block builder or a standalone bundler, and the rationale behind each one of them
 
 ## Motivation
 
-All transactions initiated by EOAs initiated have an implicit validation phase where balance, nonce, and signature are
+All transactions initiated by EOAs have an implicit validation phase where balance, nonce, and signature are
 checked to be valid for the current state of the Ethereum blockchain.
-Once the transaction is checked to be valid by a node, only another transaction by the same EOA can modify the Ethereum
+Once the transaction is checked to be valid by a node, only then another transaction by the same EOA can modify the Ethereum
 state in a way that makes the first transaction invalid.
 
 With Account Abstraction, however, the validation can also include an arbitrary EVM code and rely on storage as well,
@@ -30,8 +30,8 @@ which means that unrelated `UserOperations` or transactions may invalidate each 
 If not addressed, this would make the job of maintaining a mempool of valid `UserOperations` and producing valid
 bundles computationally infeasible and susceptible to DoS attacks.
 
-This document describes set of validation rules that, if applied by a block builder prior including a `UserOperation`,
-can prevent such attacks.
+This document describes a set of validation rules that, if applied by a bundler before accepting a `UserOperation`
+into the mempool can prevent such attacks.
 
 ## Specification
 
@@ -43,10 +43,10 @@ mempool to all bundlers in the network, becomes invalid and not eligible for inc
 
 There are 3 ways to perform such an attack:
 
-1. Create a code that passes the initial validation, but later fails the re-validation
+1. Create a `UserOperation` that passes the initial validation, but later fails the re-validation
    that is performed during the bundle creation.
-2. Submit `UserOperations` that are valid in isolation during validation, but when bundled together become invalid.
-3. Submit valid `UserOperations` but "front-run" them by executing a state change on the
+2. Submit `UserOperation`s that are valid in isolation during validation, but when bundled together become invalid.
+3. Submit valid `UserOperation`s but "front-run" them by executing a state change on the
    network that causes them to become invalid. The "front-run" in question must be economically viable.
 
 To prevent such attacks, we attempt to "sandbox" the validation code.
@@ -215,7 +215,7 @@ it is throttled down and gains reputation as long as it does not change.
 The permanent storage access with `SLOAD` and `SSTORE` instructions within each phase are limited as follows:
 
 * **[STO-010]** Access to the "account" storage is always allowed.
-* Access to associated storage of the account in an external (non-entity contract) is allowed if:
+* Access to associated storage of the account in an external (non-entity contract) is allowed if either:
     * **[STO-021]**  The account already exists
     * **[STO-022]**  There is an `initCode` and the `factory` contract is staked.
 * If the entity (`paymaster`, `factory`) is staked, then it is also allowed:
@@ -309,7 +309,7 @@ These attacks are examples provided to describe and rationalise the reason for t
     * Note that the above costs ignore the gas-price increase because the underlying network is also overloaded.
 * Mitigations
     * A **staked factory:** 
-        * Can attempt such an attack once, since after invalidating a single bundle creation its reputation drops and another staked bundler has to be used.
+        * Can attempt such an attack once, since after invalidating a single bundle creation its reputation drops and another staked factory has to be used.
         * So a successful attack needs to deploy and stake a new paymaster on every block. The old paymaster's stake is locked and can be re-used only after 24 hours.
     * For **unstaked factory**:
         * As per **[UREP-020]**, it is initially allowed only 10 `UserOperations` in the mempool.
