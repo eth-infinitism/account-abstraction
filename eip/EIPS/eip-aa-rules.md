@@ -51,9 +51,9 @@ There are 3 ways to perform such an attack:
 
 To prevent such attacks, we attempt to "sandbox" the validation code.
 We isolate the validation code from other `UserOperations`, from external changes to the storage, and
-from information about environment such as a current block timestamp.
+from information about the environment such as a current block timestamp.
 
-### What is not considered a `mass invalidation attacl`
+### What is not considered a `mass invalidation attack`
 
 A `UserOperation` that fails the initial validation by a receiving node without entering its mempool is not
 considered an attack. The node is expected to apply web2 security measures and throttle requests based on API key,
@@ -65,7 +65,7 @@ RPC nodes already do that to prevent being spammed with invalid transactions whi
 
 | Title                                | Value                       | Comment                                                                         |
 |--------------------------------------|-----------------------------|---------------------------------------------------------------------------------|
-| `MIN_UNSTAKE_DELAY`                  | 84600                       | 1 day                                                                           |
+| `MIN_UNSTAKE_DELAY`                  | 86400                       | 1 day                                                                           |
 | `MIN_STAKE_VALUE`                    | Adjustable per chain value  | Equivalent to ~$1000 in native tokens                                           |
 | `SAME_SENDER_MEMPOOL_COUNT`          | 4                           |                                                                                 |
 | `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT` | 10                          |                                                                                 |
@@ -85,7 +85,7 @@ RPC nodes already do that to prevent being spammed with invalid transactions whi
    2. smart account validation 
    3. paymaster validation.
 2. **Entity**: a contract that is explicitly used by the `UserOperation`.
-   Includes the `deployer`, `paymaster`, `aggregator` and staked `account`, as discussed below. \
+   Includes the `factory`, `paymaster`, `aggregator` and staked `account`, as discussed below. \
    Each "validation phase" is attributed to a single entity. \
    Entity contracts must have non-empty code on-chain.
 3. **Canonical Mempool**: The rules defined in this document apply to the main mempool shared by all bundlers on the network.
