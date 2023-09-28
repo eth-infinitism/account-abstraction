@@ -195,20 +195,7 @@ To help make sense of these params, note that a malicious paymaster can at most 
 
 * **[COD-010]** Between the first and the second validations, the `EXTCODEHASH` value of any visited address,
 entity or referenced library, may not be changed.\
-If the code is modified, that entity is throttled down. \
-If the code of a library was modified, then the entity that used that library is throttled.
-* **[COD-020]**: Code Modification Throttling: \
-In order to prevent "mass invalidation" by a self-modifying code, if the contract code is modified,
-it is throttled down and gains reputation as long as it does not change.
-    * Maintain a list of `{address, codehash, last modified}`
-    * Every contract accessed by `*CALL` or `EXTCODE*` during validation is saved into this list.
-    * If during any validation we find that a code was changed, the entity using it is marked as "throttled".
-        * Allow only `THROTTLED_ENTITY_MEMPOOL_COUNT` transactions in the mempool.
-    * If the `UserOperation` is included on-chain, drop entry from the list.
-* **[COD-030]** Once `SETCODE` opcode ([EIP-6913](https://eips.ethereum.org/EIPS/eip-6913)) or a similar feature is added:
-    * Any entity code except the account itself  (`paymaster`, `factory`, and any referenced library) may include it only if that entity is staked.
-    * This rule applies to the entire executed code section - including external contract code called by
-      `*CALL` during validation -  not just the code that was actually visited during validation.
+If the code is modified, the UserOperation is considered invalid.
 
 ### Storage rules.
 
@@ -224,8 +211,6 @@ The permanent storage access with `SLOAD` and `SSTORE` instructions within each 
 * **[STO-040]** `UserOperation` may not use an entity address (`factory`/`paymaster`/`aggregator`) that is used as an "account" in another `UserOperation` in the mempool. \
 This means that a `Paymaster` and `Factory` contracts cannot practically be an "account" contract as well.
 * **[STO-041]** A contract whose Associated Storage slot is accessed during a `UserOperation` may not be an address of a "sender" in another `UserOperation` in the mempool.
-* **[STO-050]** `UserOperations` that are using the same unstaked entity are only allowed up to appear `SAME_SENDER_MEMPOOL_COUNT` times in the mempool.
-    * Staked Entities, including the sender, are allowed to appear in the mempool without a limit.
 
 ### Staked Entities Reputation Rules
 
@@ -260,6 +245,7 @@ That is, if the `validateUserOp()` is rejected for any reason, it is treated as 
     * **`opsSeen`, `opsIncluded`, and reputation calculation** are defined above.
     * `UnstakedReputation` of an entity is a maximum number of entries using this entity allowed in the mempool.
     * `opsAllowed` is a reputation based calculation for an unstaked entity, representing how many `UserOperations` it is allowed to have in the mempool.
+* **[UREP-010]** `UserOperation` with unstaked sender are only allowed up to `SAME_SENDER_MEMPOOL_COUNT` times in the mempool.
 * **[UREP-020]** `opsAllowed = SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT + (inclusionRate * INCLUSION_RATE_FACTOR) + (min(opsIncluded, 10000)`.
     * This is a default of `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT` for new entity
 * **[UREP-030]** If an unstaked entity causes an invalidation of a bundle, its `opsSeen` is set to `1000`, effectively blocking it from inclusion for 24 hours.
