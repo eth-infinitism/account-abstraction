@@ -101,6 +101,8 @@ RPC nodes already do that to prevent being spammed with invalid transactions whi
 1. **opsSeen**: a per-entity counter of how many times a unique valid `UserOperation` referencing this entity
    was received by this bundler.
    This includes `UserOperation` received via an incoming RPC calls or through a P2P mempool protocol.
+   * For a `paymaster`, this value is not incremented if factory or account validation fails.    
+
 2. **opsIncluded**: a per-entity counter of how many times a unique valid `UserOperation` referencing this entity
    appeared in an actual included `UserOperation`. \
    Calculation of this value is based on UserOperationEvents and is only counted for `UserOperations` that were
