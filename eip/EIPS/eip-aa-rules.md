@@ -176,7 +176,6 @@ To help make sense of these params, note that a malicious paymaster can at most 
 * **[OP-020]** Revert on "out of gas" is forbidden as it can "leak" the gas limit or the current call stack depth.
 * Contract creation:
     * **[OP-031]** `CREATE2` is allowed exactly once in the deployment phase and must deploy code for the "sender" address.
-    * **[OP-032]** `CREATE` is blocked.
 * Access to an address without a deployed code is forbidden:
     * **[OP-041]** For `EXTCODE*` and `*CALL` opcodes
     * **[OP-042]** Exception: access to "sender" address is allowed.
