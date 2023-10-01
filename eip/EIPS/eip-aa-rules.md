@@ -169,10 +169,12 @@ To help make sense of these params, note that a malicious paymaster can at most 
         * `BASEFEE` (`0x48`)
         * `GAS` (`0x5A`)
         * `CREATE` (`0xF0`)
+        * `INVALID` (`0xFE`)
         * `SELFDESTRUCT` (`0xFF`)
     * **[OP-012]** `GAS `opcode is allowed, but only if followed immediately by `*CALL` instructions.\
       This is a common way to pass all remaining gas to an external call, and it means that the actual value is
       consumed from the stack immediately and cannot be accessed by any other opcode.
+    * **[OP-13]** any "unassigned" opcode.
 * **[OP-020]** Revert on "out of gas" is forbidden as it can "leak" the gas limit or the current call stack depth.
 * Contract creation:
     * **[OP-031]** `CREATE2` is allowed exactly once in the deployment phase and must deploy code for the "sender" address.
@@ -247,7 +249,8 @@ That is, if the `validateUserOp()` is rejected for any reason, it is treated as 
     * `UnstakedReputation` of an entity is a maximum number of entries using this entity allowed in the mempool.
     * `opsAllowed` is a reputation based calculation for an unstaked entity, representing how many `UserOperations` it is allowed to have in the mempool.
 * **[UREP-010]** `UserOperation` with unstaked sender are only allowed up to `SAME_SENDER_MEMPOOL_COUNT` times in the mempool.
-* **[UREP-020]** `opsAllowed = SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT + (inclusionRate * INCLUSION_RATE_FACTOR) + (min(opsIncluded, 10000)`.
+* **[UREP-020]** For other entities: \
+    `opsAllowed = SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT + (inclusionRate * INCLUSION_RATE_FACTOR) + (min(opsIncluded, 10000)`.
     * This is a default of `SAME_UNSTAKED_ENTITY_MEMPOOL_COUNT` for new entity
 * **[UREP-030]** If an unstaked entity causes an invalidation of a bundle, its `opsSeen` is set to `1000`, effectively blocking it from inclusion for 24 hours.
 
@@ -271,7 +274,7 @@ Below is a list of possible attacks that were considered and a reference to the 
 This list does not attempt to be an exhaustive list of attacks.
 These attacks are examples provided to describe and rationalise the reason for the above rules.
 
-### Sample Known (expensive) attack:
+#### Sample Known (expensive) attack:
 
 * This attack can't be fully mitigated by the above validation rules.
   But the rules made sure it is expensive to maintain.
@@ -305,7 +308,7 @@ These attacks are examples provided to describe and rationalise the reason for t
         * After a single "attack", its reputation is dropped, and it gets banned for a day, so another factory needs to be deployed.
         * So the cost of the attack is 10 actual deployments for 1000 failures.
 
-List of attacks:
+#### List of attacks:
 
 1. **Use volatile data**\
 Send a large number of `UserOperations` with `initCode` to deploy an account with a validation that contains `require((block.number&1)==0)` into the mempool.\
@@ -321,7 +324,7 @@ will revert since the target is already created, and revert on this calldata.\
 The validation function includes the code: `require(new {salt:0}SomeContract() !=0)`\
 When submitting multiple such `UserOperations`, all pass the validation and enter the mempool, and even pass the second validation.\
 But when creating a bundle, the first one will succeed and the rest will revert. \
-**Blocked by: **[OP-032]** "`CREATE`/`CREATE2` is blocked"**
+**Blocked by: **[OP-031]** "`CREATE`/`CREATE2` is blocked"**
 4. **Censorship attack**\
 `UserOperation` sender can access associated storage in another `UserOperation` sender that is
 supposed to be in the bundle (e.g. `anotherSender.balanceOf(this)`), provide a higher gas price than the other sender,
