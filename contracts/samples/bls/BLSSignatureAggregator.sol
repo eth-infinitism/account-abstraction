@@ -20,6 +20,12 @@ contract BLSSignatureAggregator is IAggregator {
      //copied from BLS.sol
     uint256 public  constant N = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
+    address public immutable entryPoint;
+
+    constructor(address _entryPoint) {
+        entryPoint = _entryPoint;
+    }
+
     /**
      * @return publicKey - the public key from a BLS keypair the Aggregator will use to verify this UserOp;
      *         normally public key will be queried from the deployed BLSAccount itself;
@@ -105,14 +111,13 @@ contract BLSSignatureAggregator is IAggregator {
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
 
-    // helper for test
     function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
         bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _getUserOpHash(userOp, publicKeyHash);
     }
 
     function _getUserOpHash(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (bytes32) {
-        return keccak256(abi.encode(internalUserOpHash(userOp), publicKeyHash, address(this), block.chainid));
+        return keccak256(abi.encode(internalUserOpHash(userOp), publicKeyHash, address(this), block.chainid, entryPoint));
     }
 
     function _getPublicKeyHash(uint256[4] memory publicKey) internal pure returns(bytes32) {
@@ -159,7 +164,7 @@ contract BLSSignatureAggregator is IAggregator {
      * there is no limit on stake or delay, but it is not a problem, since it is a permissionless
      * signature aggregator, which doesn't support unstaking.
      */
-    function addStake(IEntryPoint entryPoint, uint32 delay) external payable {
-        entryPoint.addStake{value : msg.value}(delay);
+    function addStake(uint32 delay) external payable {
+        IEntryPoint(entryPoint).addStake{value : msg.value}(delay);
     }
 }
