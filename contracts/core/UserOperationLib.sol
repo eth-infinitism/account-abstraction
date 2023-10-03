@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+/* solhint-disable no-inline-assembly */
+
 import "../interfaces/UserOperation.sol";
 import {calldataKeccak} from "./Helpers.sol";
 
