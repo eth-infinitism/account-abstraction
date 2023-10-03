@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../core/BasePaymaster.sol";
+import "../core/UserOperationLib.sol";
 import "./IOracle.sol";
 
 /**
