@@ -13,6 +13,7 @@ import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
 import "./NonceManager.sol";
+import "./UserOperationLib.sol";
 
 // we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
@@ -598,11 +599,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             outOpInfo,
             requiredPreFund
         );
-        
+
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
         }
-        
+
         // A "marker" where account opcode validation is done and paymaster opcode validation
         // is about to start (used only by off-chain simulateValidation).
         numberMarker();

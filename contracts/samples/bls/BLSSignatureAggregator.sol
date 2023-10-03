@@ -4,6 +4,7 @@ pragma abicoder v2;
 
 import "../../interfaces/IAggregator.sol";
 import "../../interfaces/IEntryPoint.sol";
+import "../../core/UserOperationLib.sol";
 import {BLSOpen} from  "./lib/BLSOpen.sol";
 import "./IBLSAccount.sol";
 import "./BLSHelper.sol";
