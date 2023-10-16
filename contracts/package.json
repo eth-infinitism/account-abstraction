@@ -16,8 +16,8 @@
     "ethereum",
     "smart",
     "contracts",
-    "accipt-abstraction",
-    "eip-4337"
+    "account-abstraction",
+    "erc-4337"
   ],
   "license": "MIT",
   "bugs": {

@@ -44,9 +44,9 @@ describe('bls account', function () {
     const BLSOpenLib = await new BLSOpen__factory(ethers.provider.getSigner()).deploy()
     blsAgg = await new BLSSignatureAggregator__factory({
       'contracts/samples/bls/lib/BLSOpen.sol:BLSOpen': BLSOpenLib.address
-    }, ethers.provider.getSigner()).deploy()
+    }, ethers.provider.getSigner()).deploy(entrypoint.address)
 
-    await blsAgg.addStake(entrypoint.address, 2, { value: ONE_ETH })
+    await blsAgg.addStake(2, { value: ONE_ETH })
     fact = await BlsSignerFactory.new()
     signer1 = fact.getSigner(arrayify(BLS_DOMAIN), '0x01')
     signer2 = fact.getSigner(arrayify(BLS_DOMAIN), '0x02')
