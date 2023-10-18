@@ -272,7 +272,7 @@ describe('TokenPaymaster', function () {
     })
 
     const preChargeTokens = decodedLogs[0].args.value
-    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(3)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
+    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(2)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
     const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
     const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
 
@@ -313,7 +313,7 @@ describe('TokenPaymaster', function () {
     })
 
     const preChargeTokens = decodedLogs[0].args.value
-    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(3)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
+    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(2)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
     const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
     const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
 

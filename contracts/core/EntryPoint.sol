@@ -340,7 +340,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             // When using a Paymaster, the verificationGasLimit is used also to as a limit for the postOp call.
             // Our security model might call postOp eventually twice.
-            uint256 mul = mUserOp.paymaster != address(0) ? 3 : 1;
+            uint256 mul = mUserOp.paymaster != address(0) ? 2 : 1;
             uint256 requiredGas = mUserOp.callGasLimit +
                 mUserOp.verificationGasLimit *
                 mul +
@@ -599,11 +599,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             outOpInfo,
             requiredPreFund
         );
-        
+
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
         }
-        
+
         // A "marker" where account opcode validation is done and paymaster opcode validation
         // is about to start (used only by off-chain simulateValidation).
         numberMarker();
