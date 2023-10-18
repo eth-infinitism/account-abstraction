@@ -62,7 +62,7 @@ abstract contract StakeManager is IStakeManager {
      * Add to the deposit of the given account.
      * @param account - The account to add to.
      */
-    function depositTo(address account) public payable {
+    function depositTo(address account) public virtual payable {
         _incrementDeposit(account, msg.value);
         DepositInfo storage info = deposits[account];
         emit Deposited(account, info.deposit);

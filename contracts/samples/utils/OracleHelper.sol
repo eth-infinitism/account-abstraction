@@ -29,7 +29,7 @@ abstract contract OracleHelper {
         /// @notice If 'false' we will use nativeOracle to establish a token price through a shared third currency
         bool tokenToNativeOracle;
 
-        /// @notice 'true' if price is dollars-per-token (or ether-per-token), 'false' if price is tokens-per-dollar
+        /// @notice 'false' if price is dollars-per-token (or ether-per-token), 'true' if price is tokens-per-dollar
         bool tokenOracleReverse;
 
         /// @notice 'false' if price is dollars-per-ether, 'true' if price is ether-per-dollar
@@ -114,21 +114,37 @@ abstract contract OracleHelper {
         return _cachedPrice;
     }
 
+    /**
+     * Calculate the effective price of the selected token denominated in native asset.
+     *
+     * @param tokenPrice - the price of the token relative to a native asset or a bridging asset like the U.S. dollar.
+     * @param nativeAssetPrice - the price of the native asset relative to a bridging asset or 1 if no bridging needed.
+     * @param tokenOracleReverse - flag indicating direction of the "tokenPrice".
+     * @param nativeOracleReverse - flag indicating direction of the "nativeAssetPrice".
+     * @return the ether-per-token price multiplied by the PRICE_DENOMINATOR constant.
+     */
     function calculatePrice(
         uint256 tokenPrice,
         uint256 nativeAssetPrice,
         bool tokenOracleReverse,
         bool nativeOracleReverse
     ) private view returns (uint256){
+        // tokenPrice is normalized as dollars-per-token
         if (tokenOracleReverse) {
+            // inverting tokenPrice that was tokens-per-dollar (or tokens-per-ether)
             tokenPrice = PRICE_DENOMINATOR * tokenOracleDecimalPower / tokenPrice;
         } else {
+            // tokenPrice already dollars-per-token (or ethers-per-token)
             tokenPrice = PRICE_DENOMINATOR * tokenPrice / tokenOracleDecimalPower;
         }
 
         if (nativeOracleReverse) {
+            // multiplying by nativeAssetPrice that is  ethers-per-dollar
+            // => result = (dollar / token) * (ether / dollar) = ether / token
             return nativeAssetPrice * tokenPrice / nativeOracleDecimalPower;
         } else {
+            // dividing by nativeAssetPrice that is dollars-per-ether
+            // => result = (dollar / token) / (dollar / ether) = ether / token
             return tokenPrice * nativeOracleDecimalPower / nativeAssetPrice;
         }
     }

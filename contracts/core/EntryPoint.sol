@@ -13,20 +13,21 @@ import "./StakeManager.sol";
 import "./SenderCreator.sol";
 import "./Helpers.sol";
 import "./NonceManager.sol";
+import "./UserOperationLib.sol";
+
+// we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  * Only one instance required on each chain.
  */
-contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard {
+contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard, OpenZeppelin.ERC165 {
 
     using UserOperationLib for UserOperation;
 
-    SenderCreator private immutable senderCreator = new SenderCreator();
-
-    // Internal value used during simulation: need to query aggregator.
-    address private constant SIMULATE_FIND_AGGREGATOR = address(1);
+    SenderCreator private senderCreator = new SenderCreator();
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
@@ -38,6 +39,16 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
      * must return this value in case of signature failure, instead of revert.
      */
     uint256 public constant SIG_VALIDATION_FAILED = 1;
+
+    /// @inheritdoc OpenZeppelin.IERC165
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
+        return interfaceId == (type(IEntryPoint).interfaceId ^ type(IStakeManager).interfaceId ^ type(INonceManager).interfaceId) ||
+            interfaceId == type(IEntryPoint).interfaceId ||
+            interfaceId == type(IStakeManager).interfaceId ||
+            interfaceId == type(INonceManager).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
 
     /**
      * Compensate the caller's beneficiary address with the collected fees of all UserOperations.
@@ -61,7 +72,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         uint256 opIndex,
         UserOperation calldata userOp,
         UserOpInfo memory opInfo
-    ) private returns (uint256 collected) {
+    )
+    internal
+    returns
+    (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
 
@@ -204,41 +218,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         _compensate(beneficiary, collected);
     }
 
-    /// @inheritdoc IEntryPoint
-    function simulateHandleOp(
-        UserOperation calldata op,
-        address target,
-        bytes calldata targetCallData
-    ) external override {
-        UserOpInfo memory opInfo;
-        _simulationOnlyValidations(op);
-        (
-            uint256 validationData,
-            uint256 paymasterValidationData
-        ) = _validatePrepayment(0, op, opInfo);
-        ValidationData memory data = _intersectTimeRange(
-            validationData,
-            paymasterValidationData
-        );
-
-        numberMarker();
-        uint256 paid = _executeUserOp(0, op, opInfo);
-        numberMarker();
-        bool targetSuccess;
-        bytes memory targetResult;
-        if (target != address(0)) {
-            (targetSuccess, targetResult) = target.call(targetCallData);
-        }
-        revert ExecutionResult(
-            opInfo.preOpGas,
-            paid,
-            data.validAfter,
-            data.validUntil,
-            targetSuccess,
-            targetResult
-        );
-    }
-
     /**
      * A memory copy of UserOp static fields only.
      * Excluding: callData, initCode and signature. Replacing paymasterAndData with paymaster.
@@ -351,64 +330,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         }
     }
 
-    /// @inheritdoc IEntryPoint
-    function simulateValidation(UserOperation calldata userOp) external {
-        UserOpInfo memory outOpInfo;
-
-        _simulationOnlyValidations(userOp);
-        (
-            uint256 validationData,
-            uint256 paymasterValidationData
-        ) = _validatePrepayment(0, userOp, outOpInfo);
-        StakeInfo memory paymasterInfo = _getStakeInfo(
-            outOpInfo.mUserOp.paymaster
-        );
-        StakeInfo memory senderInfo = _getStakeInfo(outOpInfo.mUserOp.sender);
-        StakeInfo memory factoryInfo;
-        {
-            bytes calldata initCode = userOp.initCode;
-            address factory = initCode.length >= 20
-                ? address(bytes20(initCode[0:20]))
-                : address(0);
-            factoryInfo = _getStakeInfo(factory);
-        }
-
-        ValidationData memory data = _intersectTimeRange(
-            validationData,
-            paymasterValidationData
-        );
-        address aggregator = data.aggregator;
-        bool sigFailed = aggregator == address(1);
-        ReturnInfo memory returnInfo = ReturnInfo(
-            outOpInfo.preOpGas,
-            outOpInfo.prefund,
-            sigFailed,
-            data.validAfter,
-            data.validUntil,
-            getMemoryBytesFromOffset(outOpInfo.contextOffset)
-        );
-
-        if (aggregator != address(0) && aggregator != address(1)) {
-            AggregatorStakeInfo memory aggregatorInfo = AggregatorStakeInfo(
-                aggregator,
-                _getStakeInfo(aggregator)
-            );
-            revert ValidationResultWithAggregation(
-                returnInfo,
-                senderInfo,
-                factoryInfo,
-                paymasterInfo,
-                aggregatorInfo
-            );
-        }
-        revert ValidationResult(
-            returnInfo,
-            senderInfo,
-            factoryInfo,
-            paymasterInfo
-        );
-    }
-
     /**
      * Get the required prefunded gas fee amount for an operation.
      * @param mUserOp - The user operation in memory.
@@ -467,50 +388,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
     function getSenderAddress(bytes calldata initCode) public {
         address sender = senderCreator.createSender(initCode);
         revert SenderAddressResult(sender);
-    }
-
-    function _simulationOnlyValidations(
-        UserOperation calldata userOp
-    ) internal view {
-        try
-            this._validateSenderAndPaymaster(
-                userOp.initCode,
-                userOp.sender,
-                userOp.paymasterAndData
-            )
-        // solhint-disable-next-line no-empty-blocks
-        {} catch Error(string memory revertReason) {
-            if (bytes(revertReason).length != 0) {
-                revert FailedOp(0, revertReason);
-            }
-        }
-    }
-
-    /**
-     * Called only during simulation.
-     * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
-     * @param initCode         - The smart account constructor code.
-     * @param sender           - The sender address.
-     * @param paymasterAndData - The paymaster address followed by the token address to use.
-     */
-    function _validateSenderAndPaymaster(
-        bytes calldata initCode,
-        address sender,
-        bytes calldata paymasterAndData
-    ) external view {
-        if (initCode.length == 0 && sender.code.length == 0) {
-            // it would revert anyway. but give a meaningful message
-            revert("AA20 account not deployed");
-        }
-        if (paymasterAndData.length >= 20) {
-            address paymaster = address(bytes20(paymasterAndData[0:20]));
-            if (paymaster.code.length == 0) {
-                // It would revert anyway. but give a meaningful message.
-                revert("AA30 paymaster not deployed");
-            }
-        }
-        // always revert
-        revert("");
     }
 
     /**
@@ -694,7 +571,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard 
         UserOperation calldata userOp,
         UserOpInfo memory outOpInfo
     )
-        private
+        internal
         returns (uint256 validationData, uint256 paymasterValidationData)
     {
         uint256 preGas = gasleft();

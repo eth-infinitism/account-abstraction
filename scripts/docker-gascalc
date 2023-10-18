@@ -1,5 +1,7 @@
 # run "yarn gas-calc" using geth with docker.
 # (if you have geth running on localhost:8545, its faster with "HARDHAT_NETWORK=dev yarn gas-calc")
 docker-compose -f `dirname $0`/docker-gascalc.yml up --abort-on-container-exit
+exit=$?
 docker-compose -f `dirname $0`/docker-gascalc.yml down
+exit $exit
 
