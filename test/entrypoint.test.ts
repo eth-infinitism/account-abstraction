@@ -543,6 +543,47 @@ describe('EntryPoint', function () {
         expect(await getBalance(account.address)).to.eq(inititalAccountBalance)
       })
 
+      it('account should pay a penalty for requiring too much gas and leaving it unused', async function () {
+        if (process.env.COVERAGE != null) {
+          return
+        }
+        const iterations = 10
+        const count = await counter.populateTransaction.gasWaster(iterations, '')
+        const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)
+        const op1 = await fillAndSign({
+          sender: account.address,
+          callData: accountExec.data,
+          verificationGasLimit: 1e5,
+          callGasLimit: 265000
+        }, accountOwner, entryPoint)
+
+        const beneficiaryAddress = createAddress()
+        const rcpt1 = await entryPoint.handleOps([op1], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 20000000
+        }).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        assert.equal(logs1[0].args.success, true)
+
+        const veryBigCallGasLimit = 10000000
+        const op2 = await fillAndSign({
+          sender: account.address,
+          callData: accountExec.data,
+          verificationGasLimit: 1e5,
+          callGasLimit: veryBigCallGasLimit
+        }, accountOwner, entryPoint)
+        const rcpt2 = await entryPoint.handleOps([op2], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 20000000
+        }).then(async t => await t.wait())
+        const logs2 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt2.blockHash)
+        // we cannot access internal transaction state, so we have to rely on two separate transactions for estimation
+        const approximateUnusedGas = veryBigCallGasLimit - logs1[0].args.actualGasUsed.toNumber()
+        const approximatePenalty = logs2[0].args.actualGasUsed.sub(logs1[0].args.actualGasUsed)
+        // assuming 10% penalty is charged
+        expect(approximatePenalty.toNumber()).to.be.closeTo(approximateUnusedGas / 10, 40000)
+      })
+
       it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
         const op = await fillAndSign({
           sender: account.address,

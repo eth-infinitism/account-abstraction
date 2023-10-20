@@ -19,8 +19,6 @@ import "./UserOperationLib.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "hardhat/console.sol";
-
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  * Only one instance required on each chain.
@@ -680,9 +678,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     executionGasLimit += mUserOp.verificationGasLimit;
                 }
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
-                uint256 unusedGas = executionGasLimit - executionGasUsed;
-                uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
-                actualGas += unusedGasPenalty;
+                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
+                if (executionGasLimit > executionGasUsed) {
+                    uint256 unusedGas = executionGasLimit - executionGasUsed;
+                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+                    actualGas += unusedGasPenalty;
+                }
             }
 
             actualGasCost = actualGas * gasPrice;
