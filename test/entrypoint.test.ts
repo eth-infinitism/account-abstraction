@@ -563,7 +563,7 @@ describe('EntryPoint', function () {
           gasLimit: 20000000
         }).then(async t => await t.wait())
         const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
-        assert.equal(logs1[0].args.success, true)
+        expect(logs1[0].args.success).to.be.true
 
         const veryBigCallGasLimit = 10000000
         const op2 = await fillAndSign({
