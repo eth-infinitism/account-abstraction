@@ -100,7 +100,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-            collected = _handlePostOp(
+            collected = _postExecution(
                 opIndex,
                 IPaymaster.PostOpMode.postOpReverted,
                 opInfo,
@@ -290,7 +290,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             // Note: opIndex is ignored (relevant only if mode==postOpReverted, which is only possible outside of innerHandleOp)
-            return _handlePostOp(0, mode, opInfo, context, actualGas);
+            return _postExecution(0, mode, opInfo, context, actualGas);
         }
     }
 
@@ -340,7 +340,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             // When using a Paymaster, the verificationGasLimit is used also to as a limit for the postOp call.
             // Our security model might call postOp eventually twice.
-            uint256 mul = mUserOp.paymaster != address(0) ? 3 : 1;
+            uint256 mul = mUserOp.paymaster != address(0) ? 2 : 1;
             uint256 requiredGas = mUserOp.callGasLimit +
                 mUserOp.verificationGasLimit *
                 mul +
@@ -640,7 +640,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param context   - The context returned in validatePaymasterUserOp.
      * @param actualGas - The gas used so far by this user operation.
      */
-    function _handlePostOp(
+    function _postExecution(
         uint256 opIndex,
         IPaymaster.PostOpMode mode,
         UserOpInfo memory opInfo,
@@ -664,20 +664,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                         IPaymaster(paymaster).postOp{
                             gas: mUserOp.verificationGasLimit
                         }(mode, context, actualGasCost);
-                    } else {
-                        try
-                            IPaymaster(paymaster).postOp{
-                                gas: mUserOp.verificationGasLimit
-                            }(mode, context, actualGasCost)
-                        // solhint-disable-next-line no-empty-blocks
-                        {} catch Error(string memory reason) {
-                            revert FailedOp(
-                                opIndex,
-                                string.concat("AA50 postOp reverted: ", reason)
-                            );
-                        } catch {
-                            revert FailedOp(opIndex, "AA50 postOp revert");
-                        }
                     }
                 }
             }

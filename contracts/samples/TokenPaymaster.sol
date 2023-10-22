@@ -150,10 +150,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     /// @notice Performs post-operation tasks, such as updating the token price and refunding excess tokens.
     /// @dev This function is called after a user operation has been executed or reverted.
-    /// @param mode The post-operation mode (either successful or reverted).
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
-    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
@@ -163,11 +162,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 address userOpSender
             ) = abi.decode(context, (uint256, uint256, uint256, address));
             uint256 gasPrice = getGasPrice(maxFeePerGas, maxPriorityFeePerGas);
-            if (mode == PostOpMode.postOpReverted) {
-                emit PostOpReverted(userOpSender, preCharge);
-                // Do nothing here to not revert the whole bundle and harm reputation
-                return;
-            }
             uint256 _cachedPrice = updateCachedPrice(false);
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;

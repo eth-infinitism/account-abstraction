@@ -20,12 +20,13 @@ import {
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
   TestWarmColdAccount__factory,
+  TestPaymasterRevertCustomError__factory,
   IEntryPoint__factory,
   SimpleAccountFactory__factory,
   IStakeManager__factory,
   INonceManager__factory,
   EntryPoint__factory,
-  TestPaymasterRevertCustomError__factory, EntryPoint
+  EntryPoint
 } from '../typechain'
 import {
   AddressZero,

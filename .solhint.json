@@ -3,6 +3,10 @@
   "rules": {
   "compiler-version": ["error",">=0.7.5"],
     "func-visibility": ["off",{"ignoreConstructors":true}],
+    "custom-errors": ["off"],
+    "explicit-types": ["off"],
+    "no-global-import": ["off"],
+    "immutable-vars-naming": ["off"],
     "mark-callable-contracts": ["off"]
   }
 }

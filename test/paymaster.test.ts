@@ -231,14 +231,13 @@ describe('EntryPoint with paymaster', function () {
           expect(await paymaster.allowance(account2.address, account.address)).to.eq(ethers.constants.MaxUint256)
         })
 
-        it('griefing attempt should cause handleOp to revert', async () => {
+        it('griefing attempt in postOp should cause the execution part of UserOp to revert', async () => {
           // account1 is approved to withdraw going to withdraw account2's balance
 
           const account2Balance = await paymaster.balanceOf(account2.address)
           const transferCost = parseEther('1').sub(account2Balance)
           const withdrawAmount = account2Balance.sub(transferCost.mul(0))
           const withdrawTokens = paymaster.interface.encodeFunctionData('transferFrom', [account2.address, account.address, withdrawAmount])
-          // const withdrawTokens = paymaster.interface.encodeFunctionData('transfer', [account.address, parseEther('0.1')])
           const execFromEntryPoint = account.interface.encodeFunctionData('execute', [paymaster.address, 0, withdrawTokens])
 
           const userOp1 = await fillAndSign({
@@ -255,12 +254,17 @@ describe('EntryPoint with paymaster', function () {
             callGasLimit: 1e6
           }, accountOwner, entryPoint)
 
-          await expect(
-            entryPoint.handleOps([
+          const rcpt =
+            await entryPoint.handleOps([
               userOp1,
               userOp2
             ], beneficiaryAddress)
-          ).to.be.revertedWith('transfer amount exceeds balance')
+
+          const transferEvents = await paymaster.queryFilter(paymaster.filters.Transfer(), rcpt.blockHash)
+          const [log1, log2] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
+          expect(log1.args.success).to.eq(true)
+          expect(log2.args.success).to.eq(false)
+          expect(transferEvents.length).to.eq(2)
         })
       })
     })

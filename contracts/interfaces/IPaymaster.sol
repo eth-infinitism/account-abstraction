@@ -14,7 +14,7 @@ interface IPaymaster {
         // User op reverted. Still has to pay for gas.
         opReverted,
         // User op succeeded, but caused postOp to revert.
-        // Now it's a 2nd call, after user's op was deliberately reverted.
+        // Only used internally in the EntryPoint - Paymasters will not be called again.
         postOpReverted
     }
 
