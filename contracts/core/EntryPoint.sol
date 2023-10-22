@@ -100,7 +100,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-            collected = _handlePostOp(
+            collected = _postExecution(
                 opIndex,
                 IPaymaster.PostOpMode.postOpReverted,
                 opInfo,
@@ -290,7 +290,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
             // Note: opIndex is ignored (relevant only if mode==postOpReverted, which is only possible outside of innerHandleOp)
-            return _handlePostOp(0, mode, opInfo, context, actualGas);
+            return _postExecution(0, mode, opInfo, context, actualGas);
         }
     }
 
@@ -640,7 +640,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param context   - The context returned in validatePaymasterUserOp.
      * @param actualGas - The gas used so far by this user operation.
      */
-    function _handlePostOp(
+    function _postExecution(
         uint256 opIndex,
         IPaymaster.PostOpMode mode,
         UserOpInfo memory opInfo,
