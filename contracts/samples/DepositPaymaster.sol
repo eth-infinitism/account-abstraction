@@ -146,18 +146,19 @@ contract DepositPaymaster is BasePaymaster {
 
     /**
      * perform the post-operation to charge the sender for the gas.
-     * in normal mode, use transferFrom to withdraw enough tokens from the sender's balance.
-     * in case the transferFrom fails, the _postOp reverts and the entryPoint will call it again,
-     * this time in *postOpReverted* mode.
-     * In this mode, we use the deposit to pay (which we validated to be large enough)
+     * use transferFrom to withdraw enough tokens from the sender's balance if allowance is enough.
+     * Or else we use the deposit to pay (which we validated to be large enough)
      */
     function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost) internal override {
-
         (address account, IERC20 token, uint256 gasPricePostOp, uint256 maxTokenCost, uint256 maxCost) = abi.decode(context, (address, IERC20, uint256, uint256, uint256));
         //use same conversion rate as used for validation.
         uint256 actualTokenCost = (actualGasCost + COST_OF_POST * gasPricePostOp) * maxTokenCost / maxCost;
         // attempt to pay with tokens:
-        token.safeTransferFrom(account, address(this), actualTokenCost);
+        if (token.allowance(account, address(this)) >= actualGasCost) {
+            token.safeTransferFrom(account, address(this), actualTokenCost);
+        } else {
+            balances[token][account] -= actualTokenCost;
+        }
         balances[token][owner()] += actualTokenCost;
     }
 }
