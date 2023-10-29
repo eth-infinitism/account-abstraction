@@ -749,4 +749,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             mstore(0, number())
         }
     }
+
+    /// @inheritdoc IEntryPoint
+    function delegateAndRevert(bytes calldata data) external {
+        (bool success, bytes memory ret) = address(this).delegatecall(data);
+        revert DelegateAndRevert(success, ret);
+    }
 }
