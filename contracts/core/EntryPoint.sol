@@ -662,9 +662,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                        IPaymaster(paymaster).postOp{
+                        try IPaymaster(paymaster).postOp{
                             gas: mUserOp.verificationGasLimit
-                        }(mode, context, actualGasCost);
+                        }(mode, context, actualGasCost)
+                        {} catch (bytes memory reason) {
+                            revert(string(abi.encodePacked("AA96 postOp reverted", reason)));
+                        }
                     }
                 }
             }

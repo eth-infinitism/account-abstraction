@@ -1075,6 +1075,26 @@ describe('EntryPoint', function () {
       it('should not revert when paymaster reverts with custom error on postOp', async function () {
         const account3Owner = createAccountOwner()
         const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.setRevertType(0)
+        await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
+        await errorPostOp.deposit({ value: ONE_ETH })
+
+        const op = await fillAndSign({
+          paymasterAndData: errorPostOp.address,
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(account3Owner.address, simpleAccountFactory),
+
+          verificationGasLimit: 3e6,
+          callGasLimit: 1e6
+        }, account3Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+        await entryPoint.handleOps([op], beneficiaryAddress)
+      })
+
+      it('should not revert when paymaster reverts with known EntryPoint error in postOp', async function () {
+        const account3Owner = createAccountOwner()
+        const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.setRevertType(1)
         await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
         await errorPostOp.deposit({ value: ONE_ETH })
 
