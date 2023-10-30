@@ -193,6 +193,8 @@ To help make sense of these params, note that a malicious paymaster can at most 
     * **[OP-062]** Precompiles:
         * Only allowed the core 9 precompiles.\
           Specifically the computation precompiles that do not access anything in the blockchain state or environment.
+* **[OP-070] Transient Storage slots defined in [EIP-1153](./eip-1153.md) and accessed using `TLOAD` (`0x5c`) and `TSTORE` (`0x5d`) opcodes
+    are treated exactly like persistent storage (SLOAD/SSTORE)
 
 ### Code Rules
 
