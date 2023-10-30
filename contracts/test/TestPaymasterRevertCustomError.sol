@@ -38,6 +38,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
             revert CustomError();
         }
         else if (revertType == RevertType.entryPointError){
+            // solium-disable-next-line security/no-inline-assembly
             assembly {
                 mstore(0, INNER_OUT_OF_GAS)
                 revert(0, 32)
