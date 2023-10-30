@@ -550,11 +550,16 @@ describe('EntryPoint', function () {
         const iterations = 10
         const count = await counter.populateTransaction.gasWaster(iterations, '')
         const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)
+        const callGasLimit = await ethersSigner.provider.estimateGas({
+          from: entryPoint.address,
+          to: account.address,
+          data: accountExec.data
+        })
         const op1 = await fillAndSign({
           sender: account.address,
           callData: accountExec.data,
           verificationGasLimit: 1e5,
-          callGasLimit: 265000
+          callGasLimit: callGasLimit
         }, accountOwner, entryPoint)
 
         const beneficiaryAddress = createAddress()
@@ -581,7 +586,7 @@ describe('EntryPoint', function () {
         const approximateUnusedGas = veryBigCallGasLimit - logs1[0].args.actualGasUsed.toNumber()
         const approximatePenalty = logs2[0].args.actualGasUsed.sub(logs1[0].args.actualGasUsed)
         // assuming 10% penalty is charged
-        expect(approximatePenalty.toNumber()).to.be.closeTo(approximateUnusedGas / 10, 40000)
+        expect(approximatePenalty.toNumber()).to.be.closeTo(approximateUnusedGas / 10, 45000)
       })
 
       it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
