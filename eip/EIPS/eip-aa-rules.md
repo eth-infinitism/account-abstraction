@@ -210,7 +210,8 @@ The permanent storage access with `SLOAD` and `SSTORE` instructions within each 
     * **[STO-022]**  There is an `initCode` and the `factory` contract is staked.
 * If the entity (`paymaster`, `factory`) is staked, then it is also allowed:
     * **[STO-031]** Access the entity's own storage.
-    * **[STO-032]** Access a storage slot in any non-entity contract that is associated with the entity.
+    * **[STO-032]** Read/Write Access to storage slots that is associated with the entity, in any non-entity contract.
+    * **[STO-033]** Read-only access to any storage in non-entity contract.
 * **[STO-040]** `UserOperation` may not use an entity address (`factory`/`paymaster`/`aggregator`) that is used as an "account" in another `UserOperation` in the mempool. \
 This means that a `Paymaster` and `Factory` contracts cannot practically be an "account" contract as well.
 * **[STO-041]** A contract whose Associated Storage slot is accessed during a `UserOperation` may not be an address of a "sender" in another `UserOperation` in the mempool.
