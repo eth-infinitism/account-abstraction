@@ -665,8 +665,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                         try IPaymaster(paymaster).postOp{
                             gas: mUserOp.verificationGasLimit
                         }(mode, context, actualGasCost)
+                        // solhint-disable-next-line no-empty-blocks
                         {} catch (bytes memory reason) {
-                            revert(string(abi.encodePacked("AA96 postOp reverted", reason)));
+                            revert(string(abi.encodePacked("AA96 reverted:", reason)));
                         }
                     }
                 }

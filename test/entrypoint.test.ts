@@ -1107,7 +1107,9 @@ describe('EntryPoint', function () {
           callGasLimit: 1e6
         }, account3Owner, entryPoint)
         const beneficiaryAddress = createAddress()
-        await entryPoint.handleOps([op], beneficiaryAddress)
+        const rcpt1 = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        expect(logs1[0].args.success).to.be.false
       })
 
       it('paymaster should pay for tx', async function () {
