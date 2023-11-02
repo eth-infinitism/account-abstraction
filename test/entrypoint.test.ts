@@ -560,6 +560,7 @@ describe('EntryPoint', function () {
 
         // "warmup" userop, for better gas calculation, below
         await entryPoint.handleOps([await fillAndSign({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillAndSign({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
 
         const op1 = await fillAndSign({
           sender: account.address,
