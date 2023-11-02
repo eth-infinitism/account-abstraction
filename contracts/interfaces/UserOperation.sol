@@ -7,8 +7,8 @@ pragma solidity ^0.8.12;
  * @param nonce                 - Unique value the sender uses to verify it is not a replay.
  * @param initCode              - If set, the account contract will be created by this constructor/
  * @param callData              - The method call to execute on this account.
- * @param callGasLimit          - The gas limit passed to the callData method call.
- * @param verificationGasLimit  - Gas used for validateUserOp and validatePaymasterUserOp.
+ * @param accountGasLimits      - Packed gas limits for validateUserOp and gas limit passed to the callData method call.
+ * @param paymasterGasLimits    - Packed gas limits for validatePaymasterUserOp and gas limit passed to postOp method call.
  * @param preVerificationGas    - Gas not calculated by the handleOps method, but added to the gas paid.
  *                                Covers batch overhead.
  * @param maxFeePerGas          - Same as EIP-1559 gas parameter.
@@ -22,8 +22,8 @@ struct UserOperation {
     uint256 nonce;
     bytes initCode;
     bytes callData;
-    uint256 callGasLimit;
-    uint256 verificationGasLimit;
+    bytes32 accountGasLimits;
+    bytes32 paymasterGasLimits;
     uint256 preVerificationGas;
     uint256 maxFeePerGas;
     uint256 maxPriorityFeePerGas;

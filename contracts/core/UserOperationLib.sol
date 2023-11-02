@@ -55,8 +55,8 @@ library UserOperationLib {
         uint256 nonce = userOp.nonce;
         bytes32 hashInitCode = calldataKeccak(userOp.initCode);
         bytes32 hashCallData = calldataKeccak(userOp.callData);
-        uint256 callGasLimit = userOp.callGasLimit;
-        uint256 verificationGasLimit = userOp.verificationGasLimit;
+        bytes32 accountGasLimits = userOp.accountGasLimits;
+        bytes32 paymasterGasLimits = userOp.paymasterGasLimits;
         uint256 preVerificationGas = userOp.preVerificationGas;
         uint256 maxFeePerGas = userOp.maxFeePerGas;
         uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
@@ -65,10 +65,22 @@ library UserOperationLib {
         return abi.encode(
             sender, nonce,
             hashInitCode, hashCallData,
-            callGasLimit, verificationGasLimit, preVerificationGas,
+            accountGasLimits, paymasterGasLimits, preVerificationGas,
             maxFeePerGas, maxPriorityFeePerGas,
             hashPaymasterAndData
         );
+    }
+
+    function getValidationGasLimit(
+        bytes32 packedGasLimits
+    ) internal pure returns(uint128) {
+        return uint128(bytes16(packedGasLimits));
+    }
+
+    function getExecutionGasLimit(
+        bytes32 packedGasLimits
+    ) internal pure returns(uint128) {
+      return uint128(uint256(packedGasLimits));
     }
 
     /**

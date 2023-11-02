@@ -2,6 +2,7 @@
 pragma solidity ^0.8.12;
 import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
+import "../core/UserOperationLib.sol";
 
 contract MaliciousAccount is IAccount {
     IEntryPoint private ep;
@@ -13,7 +14,11 @@ contract MaliciousAccount is IAccount {
         ep.depositTo{value : missingAccountFunds}(address(this));
         // Now calculate basefee per EntryPoint.getUserOpGasPrice() and compare it to the basefe we pass off-chain in the signature
         uint256 externalBaseFee = abi.decode(userOp.signature, (uint256));
-        uint256 requiredGas = userOp.callGasLimit + userOp.verificationGasLimit + userOp.preVerificationGas;
+        uint256 requiredGas = UserOperationLib.getValidationGasLimit(userOp.accountGasLimits) +
+                            UserOperationLib.getExecutionGasLimit(userOp.accountGasLimits) +
+                            UserOperationLib.getValidationGasLimit(userOp.paymasterGasLimits) +
+                            UserOperationLib.getExecutionGasLimit(userOp.paymasterGasLimits) +
+                        userOp.preVerificationGas;
         uint256 gasPrice = missingAccountFunds / requiredGas;
         uint256 basefee = gasPrice - userOp.maxPriorityFeePerGas;
         require (basefee == externalBaseFee, "Revert after first validation");
