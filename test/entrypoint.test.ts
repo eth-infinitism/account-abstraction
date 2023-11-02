@@ -555,6 +555,13 @@ describe('EntryPoint', function () {
           to: account.address,
           data: accountExec.data
         })
+        // expect(callGasLimit.toNumber()).to.be.closeTo(270000, 10000)
+        const beneficiaryAddress = createAddress()
+
+        // "warmup" userop, for better gas calculation, below
+        await entryPoint.handleOps([await fillAndSign({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillAndSign({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+
         const op1 = await fillAndSign({
           sender: account.address,
           callData: accountExec.data,
@@ -562,7 +569,6 @@ describe('EntryPoint', function () {
           callGasLimit: callGasLimit
         }, accountOwner, entryPoint)
 
-        const beneficiaryAddress = createAddress()
         const rcpt1 = await entryPoint.handleOps([op1], beneficiaryAddress, {
           maxFeePerGas: 1e9,
           gasLimit: 20000000
@@ -570,6 +576,7 @@ describe('EntryPoint', function () {
         const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
         expect(logs1[0].args.success).to.be.true
 
+        const gasUsed1 = logs1[0].args.actualGasUsed.toNumber()
         const veryBigCallGasLimit = 10000000
         const op2 = await fillAndSign({
           sender: account.address,
@@ -582,11 +589,16 @@ describe('EntryPoint', function () {
           gasLimit: 20000000
         }).then(async t => await t.wait())
         const logs2 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt2.blockHash)
+
+        const gasUsed2 = logs2[0].args.actualGasUsed.toNumber()
+
         // we cannot access internal transaction state, so we have to rely on two separate transactions for estimation
-        const approximateUnusedGas = veryBigCallGasLimit - logs1[0].args.actualGasUsed.toNumber()
-        const approximatePenalty = logs2[0].args.actualGasUsed.sub(logs1[0].args.actualGasUsed)
         // assuming 10% penalty is charged
-        expect(approximatePenalty.toNumber()).to.be.closeTo(approximateUnusedGas / 10, 45000)
+        const expectedGasPenalty = (veryBigCallGasLimit - callGasLimit.toNumber()) * 0.1
+        const actualGasPenalty = gasUsed2 - gasUsed1
+
+        console.log(actualGasPenalty / expectedGasPenalty)
+        expect(actualGasPenalty).to.be.closeTo(expectedGasPenalty, expectedGasPenalty * 0.001)
       })
 
       it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
