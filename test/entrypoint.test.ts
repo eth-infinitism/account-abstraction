@@ -1102,7 +1102,10 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
         const rcpt1 = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
         const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        const logs1postOpRevert = await entryPoint.queryFilter(entryPoint.filters.PostOpRevertReason(), rcpt1.blockHash)
+        const postOpRevertReason = decodeRevertReason(logs1postOpRevert[0].args.revertReason, false)
         expect(logs1[0].args.success).to.be.false
+        expect(postOpRevertReason).to.equal('PostOpReverted(CustomError("this is a long revert reason string we are looking for"))')
       })
 
       it('should not revert when paymaster reverts with known EntryPoint error in postOp', async function () {

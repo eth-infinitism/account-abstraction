@@ -6,7 +6,7 @@ import "../core/BasePaymaster.sol";
 /**
  * test postOp revert with custom error
  */
-error CustomError();
+error CustomError(string customReason);
 
 contract TestPaymasterRevertCustomError is BasePaymaster {
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
@@ -35,7 +35,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
 
     function _postOp(PostOpMode, bytes calldata, uint256) internal view override {
         if (revertType == RevertType.customError){
-            revert CustomError();
+            revert CustomError("this is a long revert reason string we are looking for");
         }
         else if (revertType == RevertType.entryPointError){
             // solhint-disable-next-line no-inline-assembly

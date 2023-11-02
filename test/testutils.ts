@@ -172,6 +172,13 @@ export function decodeRevertReason (data: string, nullIfNoMatch = true): string 
   } else if (methodSig === '0x4e487b71') {
     const [code] = ethers.utils.defaultAbiCoder.decode(['uint256'], dataParams)
     return `Panic(${panicCodes[code] ?? code} + ')`
+  } else if (methodSig === '0x8d6ea8be') {
+    const [reason] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
+    return `CustomError("${reason as string}")`
+  } else if (methodSig === '0xad7954bc') {
+    const [reasonBytes] = ethers.utils.defaultAbiCoder.decode(['bytes'], dataParams)
+    const reason = decodeRevertReason(reasonBytes)
+    return `PostOpReverted(${reason as string})`
   }
   if (!nullIfNoMatch) {
     return data
