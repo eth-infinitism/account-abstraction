@@ -103,7 +103,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     opInfo.userOpHash,
                     opInfo.mUserOp.sender,
                     opInfo.mUserOp.nonce,
-                    Exec.getReturnData(1000)
+                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
                 );
             }
 
