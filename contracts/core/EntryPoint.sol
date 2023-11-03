@@ -673,7 +673,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                             gas: mUserOp.verificationGasLimit
                         }(mode, context, actualGasCost)
                         // solhint-disable-next-line no-empty-blocks
-                        {} catch (bytes memory reason) {
+                        {} catch {
+                            bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);
                             revert PostOpReverted(reason);
                         }
                     }
