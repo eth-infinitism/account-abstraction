@@ -68,6 +68,11 @@ describe('EntryPoint with paymaster', function () {
       ownerAddr = await ethersSigner.getAddress()
     })
 
+    it('paymaster should revert on wrong entryPoint type', async () => {
+      await expect(new LegacyTokenPaymaster__factory(ethersSigner).deploy(factory.address, 'ttt', AddressZero))
+        .to.be.revertedWith('')
+    })
+
     it('owner should have allowance to withdraw funds', async () => {
       expect(await paymaster.allowance(pmAddr, ownerAddr)).to.equal(ethers.constants.MaxUint256)
       expect(await paymaster.allowance(pmAddr, otherAddr)).to.equal(0)
