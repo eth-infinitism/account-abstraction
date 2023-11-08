@@ -26,7 +26,7 @@ library Helpers {
      * Also convert zero validUntil to type(uint48).max.
      * @param validationData - The packed validation data.
      */
-    function _parseValidationData(uint256 validationData) public pure returns (ValidationData memory data) {
+    function _parseValidationData(uint256 validationData) internal pure returns (ValidationData memory data) {
         address aggregator = address(uint160(validationData));
         uint48 validUntil = uint48(validationData >> 160);
         if (validUntil == 0) {
@@ -42,7 +42,7 @@ library Helpers {
      * @param paymasterValidationData - The packed validation data of the paymaster.
      */
     function _intersectTimeRange(uint256 validationData, uint256 paymasterValidationData)
-        public
+        internal
         pure
         returns (ValidationData memory)
     {
@@ -66,7 +66,7 @@ library Helpers {
      * Helper to pack the return value for validateUserOp.
      * @param data - The ValidationData to pack.
      */
-    function _packValidationData(ValidationData memory data) public pure returns (uint256) {
+    function _packValidationData(ValidationData memory data) internal pure returns (uint256) {
         return uint160(data.aggregator) | (uint256(data.validUntil) << 160) | (uint256(data.validAfter) << (160 + 48));
     }
 
@@ -76,7 +76,7 @@ library Helpers {
      * @param validUntil - Last timestamp this UserOperation is valid (or zero for infinite).
      * @param validAfter - First timestamp this UserOperation is valid.
      */
-    function _packValidationData(bool sigFailed, uint48 validUntil, uint48 validAfter) public pure returns (uint256) {
+    function _packValidationData(bool sigFailed, uint48 validUntil, uint48 validAfter) internal pure returns (uint256) {
         return (sigFailed ? 1 : 0) | (uint256(validUntil) << 160) | (uint256(validAfter) << (160 + 48));
     }
 
@@ -84,7 +84,7 @@ library Helpers {
      * keccak function over calldata.
      * @dev copy calldata into memory, do keccak and drop allocated memory. Strangely, this is more efficient than letting solidity do it.
      */
-    function calldataKeccak(bytes calldata data) public pure returns (bytes32 ret) {
+    function calldataKeccak(bytes calldata data) internal pure returns (bytes32 ret) {
         assembly {
             let mem := mload(0x40)
             let len := data.length
