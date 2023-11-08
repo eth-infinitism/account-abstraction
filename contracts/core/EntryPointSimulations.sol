@@ -14,7 +14,8 @@ import "../interfaces/IEntryPointSimulations.sol";
  */
 contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
-    AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
+    AggregatorStakeInfo private NOT_AGGREGATED =
+        AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
     /**
      * simulation contract should not be deployed, and specifically, accounts should not trust
@@ -27,11 +28,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     /// @inheritdoc IEntryPointSimulations
     function simulateValidation(
         UserOperation calldata userOp
-    )
-    external
-    returns (
-        ValidationResult memory
-    ){
+    ) external returns (ValidationResult memory) {
         UserOpInfo memory outOpInfo;
 
         _simulationOnlyValidations(userOp);
@@ -47,12 +44,12 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         {
             bytes calldata initCode = userOp.initCode;
             address factory = initCode.length >= 20
-                ? address(bytes20(initCode[0 : 20]))
+                ? address(bytes20(initCode[0:20]))
                 : address(0);
             factoryInfo = _getStakeInfo(factory);
         }
 
-        ValidationData memory data = _intersectTimeRange(
+        ValidationData memory data = Helpers._intersectTimeRange(
             validationData,
             paymasterValidationData
         );
@@ -74,13 +71,14 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
                 _getStakeInfo(aggregator)
             );
         }
-        return ValidationResult(
-            returnInfo,
-            senderInfo,
-            factoryInfo,
-            paymasterInfo,
-            aggregatorInfo
-        );
+        return
+            ValidationResult(
+                returnInfo,
+                senderInfo,
+                factoryInfo,
+                paymasterInfo,
+                aggregatorInfo
+            );
     }
 
     /// @inheritdoc IEntryPointSimulations
@@ -88,18 +86,14 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         UserOperation calldata op,
         address target,
         bytes calldata targetCallData
-    )
-    external nonReentrant
-    returns (
-        ExecutionResult memory
-    ){
+    ) external nonReentrant returns (ExecutionResult memory) {
         UserOpInfo memory opInfo;
         _simulationOnlyValidations(op);
         (
             uint256 validationData,
             uint256 paymasterValidationData
         ) = _validatePrepayment(0, op, opInfo);
-        ValidationData memory data = _intersectTimeRange(
+        ValidationData memory data = Helpers._intersectTimeRange(
             validationData,
             paymasterValidationData
         );
@@ -112,30 +106,30 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         if (target != address(0)) {
             (targetSuccess, targetResult) = target.call(targetCallData);
         }
-        return ExecutionResult(
-            opInfo.preOpGas,
-            paid,
-            data.validAfter,
-            data.validUntil,
-            targetSuccess,
-            targetResult
-        );
+        return
+            ExecutionResult(
+                opInfo.preOpGas,
+                paid,
+                data.validAfter,
+                data.validUntil,
+                targetSuccess,
+                targetResult
+            );
     }
 
     function _simulationOnlyValidations(
         UserOperation calldata userOp
-    )
-    internal
-    view
-    {
+    ) internal view {
         try
-        this._validateSenderAndPaymaster(
-            userOp.initCode,
-            userOp.sender,
-            userOp.paymasterAndData
-        )
+            this._validateSenderAndPaymaster(
+                userOp.initCode,
+                userOp.sender,
+                userOp.paymasterAndData
+            )
         // solhint-disable-next-line no-empty-blocks
-        {} catch Error(string memory revertReason) {
+        {
+
+        } catch Error(string memory revertReason) {
             if (bytes(revertReason).length != 0) {
                 revert FailedOp(0, revertReason);
             }
@@ -159,7 +153,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             revert("AA20 account not deployed");
         }
         if (paymasterAndData.length >= 20) {
-            address paymaster = address(bytes20(paymasterAndData[0 : 20]));
+            address paymaster = address(bytes20(paymasterAndData[0:20]));
             if (paymaster.code.length == 0) {
                 // It would revert anyway. but give a meaningful message.
                 revert("AA30 paymaster not deployed");
@@ -171,11 +165,13 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     //make sure depositTo cost is more than normal EntryPoint's cost.
     // empiric test showed that without this wrapper, simulation depositTo costs less..
-    function depositTo(address account) public override(IStakeManager, StakeManager) payable {
+    function depositTo(
+        address account
+    ) public payable override(IStakeManager, StakeManager) {
         uint x;
         assembly {
             //some silly code to waste ~200 gas
-            x := exp(mload(0),100)
+            x := exp(mload(0), 100)
         }
         if (x == 123) {
             return;

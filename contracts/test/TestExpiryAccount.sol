@@ -28,15 +28,21 @@ contract TestExpiryAccount is SimpleAccount {
     // solhint-disable-next-line no-empty-blocks
     function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint48 _after, uint48 _until) public onlyOwner {
+    function addTemporaryOwner(
+        address owner,
+        uint48 _after,
+        uint48 _until
+    ) public onlyOwner {
         require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
         ownerUntil[owner] = _until;
     }
 
     /// implement template method of BaseAccount
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override view returns (uint256 validationData) {
+    function _validateSignature(
+        UserOperation calldata userOp,
+        bytes32 userOpHash
+    ) internal view override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
         uint48 _until = ownerUntil[signer];
@@ -44,6 +50,6 @@ contract TestExpiryAccount is SimpleAccount {
 
         //we have "until" value for all valid owners. so zero means "invalid signature"
         bool sigFailed = _until == 0;
-        return _packValidationData(sigFailed, _until, _after);
+        return Helpers._packValidationData(sigFailed, _until, _after);
     }
 }

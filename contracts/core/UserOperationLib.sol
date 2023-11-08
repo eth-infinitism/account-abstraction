@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 
 import "../interfaces/UserOperation.sol";
-import {calldataKeccak} from "./Helpers.sol";
+import "./Helpers.sol";
 
 /**
  * Utility functions helpful when working with UserOperation structs.
@@ -53,22 +53,30 @@ library UserOperationLib {
     ) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
         uint256 nonce = userOp.nonce;
-        bytes32 hashInitCode = calldataKeccak(userOp.initCode);
-        bytes32 hashCallData = calldataKeccak(userOp.callData);
+        bytes32 hashInitCode = Helpers.calldataKeccak(userOp.initCode);
+        bytes32 hashCallData = Helpers.calldataKeccak(userOp.callData);
         uint256 callGasLimit = userOp.callGasLimit;
         uint256 verificationGasLimit = userOp.verificationGasLimit;
         uint256 preVerificationGas = userOp.preVerificationGas;
         uint256 maxFeePerGas = userOp.maxFeePerGas;
         uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
-        bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
-
-        return abi.encode(
-            sender, nonce,
-            hashInitCode, hashCallData,
-            callGasLimit, verificationGasLimit, preVerificationGas,
-            maxFeePerGas, maxPriorityFeePerGas,
-            hashPaymasterAndData
+        bytes32 hashPaymasterAndData = Helpers.calldataKeccak(
+            userOp.paymasterAndData
         );
+
+        return
+            abi.encode(
+                sender,
+                nonce,
+                hashInitCode,
+                hashCallData,
+                callGasLimit,
+                verificationGasLimit,
+                preVerificationGas,
+                maxFeePerGas,
+                maxPriorityFeePerGas,
+                hashPaymasterAndData
+            );
     }
 
     /**
