@@ -1225,19 +1225,13 @@ describe('EntryPoint', function () {
     })
 
     it('should return true for pure EntryPoint, IStakeManager and INonceManager interface IDs', async function () {
-      const epInterface = EntryPoint__factory.createInterface()
+      const epInterface = IEntryPoint__factory.createInterface()
       const smInterface = IStakeManager__factory.createInterface()
       const nmInterface = INonceManager__factory.createInterface()
       // note: manually generating "pure", solidity-like "type(IEntryPoint).interfaceId" without inherited methods
+      const inheritedMethods = new Set([...smInterface.fragments, ...nmInterface.fragments].map(f => f.name))
       const epPureInterfaceFunctions = [
-        ...epInterface.fragments.filter(it => [
-          'handleOps',
-          'handleAggregatedOps',
-          'getUserOpHash',
-          'getSenderAddress',
-          'simulateValidation',
-          'simulateHandleOp'
-        ].includes(it.name))
+        ...epInterface.fragments.filter(it => !inheritedMethods.has(it.name) && it.type == 'function')
       ]
       const epPureInterfaceID = getERC165InterfaceID(epPureInterfaceFunctions)
       const smInterfaceID = getERC165InterfaceID([...smInterface.fragments])
