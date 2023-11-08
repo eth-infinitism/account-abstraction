@@ -16,7 +16,7 @@ contract TestExpirePaymaster is BasePaymaster {
     returns (bytes memory context, uint256 validationData) {
         (userOp, userOpHash, maxCost);
         (uint48 validAfter, uint48 validUntil) = abi.decode(userOp.paymasterAndData[20 :], (uint48, uint48));
-        validationData = _packValidationData(false, validUntil, validAfter);
+        validationData = Helpers._packValidationData(false, validUntil, validAfter);
         context = "";
     }
 }

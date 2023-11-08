@@ -6,18 +6,18 @@ import "../core/Helpers.sol";
 contract TestHelpers {
 
     function parseValidationData(uint validationData) public pure returns (ValidationData memory) {
-        return _parseValidationData(validationData);
+        return Helpers._parseValidationData(validationData);
     }
 
     function intersectTimeRange(uint256 validationData, uint256 paymasterValidationData) public pure returns (ValidationData memory) {
-        return _intersectTimeRange(validationData, paymasterValidationData);
+        return Helpers._intersectTimeRange(validationData, paymasterValidationData);
     }
 
     function packValidationDataStruct(ValidationData memory data) public pure returns (uint256) {
-        return _packValidationData(data);
+        return Helpers._packValidationData(data);
     }
 
     function packValidationData(bool sigFailed, uint48 validUntil, uint48 validAfter) public pure returns (uint256) {
-        return _packValidationData(sigFailed, validUntil, validAfter);
+        return Helpers._packValidationData(sigFailed, validUntil, validAfter);
     }
 }

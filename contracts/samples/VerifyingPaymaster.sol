@@ -82,12 +82,12 @@ contract VerifyingPaymaster is BasePaymaster {
 
         //don't revert on signature failure: return SIG_VALIDATION_FAILED
         if (verifyingSigner != ECDSA.recover(hash, signature)) {
-            return ("",_packValidationData(true,validUntil,validAfter));
+            return ("",Helpers._packValidationData(true,validUntil,validAfter));
         }
 
         //no need for other on-chain validation: entire UserOp should have been checked
         // by the external service prior to signing it.
-        return ("",_packValidationData(false,validUntil,validAfter));
+        return ("",Helpers._packValidationData(false,validUntil,validAfter));
     }
 
     function parsePaymasterAndData(bytes calldata paymasterAndData) public pure returns(uint48 validUntil, uint48 validAfter, bytes calldata signature) {

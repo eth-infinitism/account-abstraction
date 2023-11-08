@@ -52,7 +52,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             factoryInfo = _getStakeInfo(factory);
         }
 
-        ValidationData memory data = _intersectTimeRange(
+        ValidationData memory data = Helpers._intersectTimeRange(
             validationData,
             paymasterValidationData
         );
@@ -99,7 +99,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             uint256 validationData,
             uint256 paymasterValidationData
         ) = _validatePrepayment(0, op, opInfo);
-        ValidationData memory data = _intersectTimeRange(
+        ValidationData memory data = Helpers._intersectTimeRange(
             validationData,
             paymasterValidationData
         );
