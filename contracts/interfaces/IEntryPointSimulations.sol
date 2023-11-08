@@ -40,13 +40,7 @@ interface IEntryPointSimulations is IEntryPoint {
      *      outside the account's data.
      * @param userOp - The user operation to validate.
      */
-    function simulateValidation(
-        UserOperation calldata userOp
-    )
-    external
-    returns (
-        ValidationResult memory
-    );
+    function simulateValidation(UserOperation calldata userOp) external returns (ValidationResult memory);
 
     /**
      * Simulate full execution of a UserOperation (including both validation and target execution)
@@ -61,13 +55,7 @@ interface IEntryPointSimulations is IEntryPoint {
      *                         the targetSuccess and targetResult are set to the return from that call.
      * @param targetCallData - CallData to pass to target address.
      */
-    function simulateHandleOp(
-        UserOperation calldata op,
-        address target,
-        bytes calldata targetCallData
-    )
-    external
-    returns (
-        ExecutionResult memory
-    );
+    function simulateHandleOp(UserOperation calldata op, address target, bytes calldata targetCallData)
+        external
+        returns (ExecutionResult memory);
 }

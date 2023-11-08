@@ -19,21 +19,22 @@ import "../core/BasePaymaster.sol";
  *   to whitelist the account and the called method ids.
  */
 contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
-
     //calculated cost of the postOp
-    uint256 constant public COST_OF_POST = 15000;
+    uint256 public constant COST_OF_POST = 15000;
 
     address public immutable theFactory;
 
-    constructor(address accountFactory, string memory _symbol, IEntryPoint _entryPoint) ERC20(_symbol, _symbol) BasePaymaster(_entryPoint) {
+    constructor(address accountFactory, string memory _symbol, IEntryPoint _entryPoint)
+        ERC20(_symbol, _symbol)
+        BasePaymaster(_entryPoint)
+    {
         theFactory = accountFactory;
         //make it non-empty
         _mint(address(this), 1);
 
         //owner is allowed to withdraw tokens from the paymaster's balance
-        _approve(address(this), msg.sender, type(uint).max);
+        _approve(address(this), msg.sender, type(uint256).max);
     }
-
 
     /**
      * helpers for owner, to mint and withdraw tokens.
@@ -49,12 +50,12 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
      * owner of this paymaster is allowed to withdraw funds (tokens transferred to this paymaster's balance)
      * when changing owner, the old owner's withdrawal rights are revoked.
      */
-    function transferOwnership(address newOwner) public override virtual onlyOwner {
+    function transferOwnership(address newOwner) public virtual override onlyOwner {
         // remove allowance of current owner
         _approve(address(this), owner(), 0);
         super.transferOwnership(newOwner);
         // new owner is allowed to withdraw tokens from the paymaster's balance
-        _approve(address(this), newOwner, type(uint).max);
+        _approve(address(this), newOwner, type(uint256).max);
     }
 
     //Note: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
@@ -64,13 +65,17 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
     }
 
     /**
-      * validate the request:
-      * if this is a constructor call, make sure it is a known account.
-      * verify the sender has enough tokens.
-      * (since the paymaster is also the token, there is no notion of "approval")
-      */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
-    internal view override returns (bytes memory context, uint256 validationData) {
+     * validate the request:
+     * if this is a constructor call, make sure it is a known account.
+     * verify the sender has enough tokens.
+     * (since the paymaster is also the token, there is no notion of "approval")
+     */
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, /*userOpHash*/ uint256 requiredPreFund)
+        internal
+        view
+        override
+        returns (bytes memory context, uint256 validationData)
+    {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
@@ -81,7 +86,6 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
             _validateConstructor(userOp);
             require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance (pre-create)");
         } else {
-
             require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
@@ -90,8 +94,8 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
 
     // when constructing an account, validate constructor code and parameters
     // we trust our factory (and that it doesn't have any other public methods)
-    function _validateConstructor(UserOperation calldata userOp) internal virtual view {
-        address factory = address(bytes20(userOp.initCode[0 : 20]));
+    function _validateConstructor(UserOperation calldata userOp) internal view virtual {
+        address factory = address(bytes20(userOp.initCode[0:20]));
         require(factory == theFactory, "TokenPaymaster: wrong account factory");
     }
 

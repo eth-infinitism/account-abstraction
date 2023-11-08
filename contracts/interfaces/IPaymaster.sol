@@ -8,8 +8,9 @@ import "./UserOperation.sol";
  * A paymaster must hold a stake to cover the required entrypoint stake and also the gas for the transaction.
  */
 interface IPaymaster {
-    enum PostOpMode {
-        // User op succeeded.
+    enum PostOpMode
+    // User op succeeded.
+    {
         opSucceeded,
         // User op reverted. Still has to pay for gas.
         opReverted,
@@ -36,11 +37,9 @@ interface IPaymaster {
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function validatePaymasterUserOp(
-        UserOperation calldata userOp,
-        bytes32 userOpHash,
-        uint256 maxCost
-    ) external returns (bytes memory context, uint256 validationData);
+    function validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
+        external
+        returns (bytes memory context, uint256 validationData);
 
     /**
      * Post-operation handler.
@@ -53,9 +52,5 @@ interface IPaymaster {
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualGasCost - Actual gas used so far (without this postOp call).
      */
-    function postOp(
-        PostOpMode mode,
-        bytes calldata context,
-        uint256 actualGasCost
-    ) external;
+    function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external;
 }

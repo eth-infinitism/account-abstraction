@@ -27,10 +27,7 @@ contract VerifyingPaymaster is BasePaymaster {
 
     uint256 private constant SIGNATURE_OFFSET = 84;
 
-    constructor(
-        IEntryPoint _entryPoint,
-        address _verifyingSigner
-    ) BasePaymaster(_entryPoint) {
+    constructor(IEntryPoint _entryPoint, address _verifyingSigner) BasePaymaster(_entryPoint) {
         verifyingSigner = _verifyingSigner;
     }
 
@@ -41,31 +38,30 @@ contract VerifyingPaymaster is BasePaymaster {
      * note that this signature covers all fields of the UserOperation, except the "paymasterAndData",
      * which will carry the signature itself.
      */
-    function getHash(
-        UserOperation calldata userOp,
-        uint48 validUntil,
-        uint48 validAfter
-    ) public view returns (bytes32) {
+    function getHash(UserOperation calldata userOp, uint48 validUntil, uint48 validAfter)
+        public
+        view
+        returns (bytes32)
+    {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
         address sender = userOp.getSender();
-        return
-            keccak256(
-                abi.encode(
-                    sender,
-                    userOp.nonce,
-                    keccak256(userOp.initCode),
-                    keccak256(userOp.callData),
-                    userOp.callGasLimit,
-                    userOp.verificationGasLimit,
-                    userOp.preVerificationGas,
-                    userOp.maxFeePerGas,
-                    userOp.maxPriorityFeePerGas,
-                    block.chainid,
-                    address(this),
-                    validUntil,
-                    validAfter
-                )
-            );
+        return keccak256(
+            abi.encode(
+                sender,
+                userOp.nonce,
+                keccak256(userOp.initCode),
+                keccak256(userOp.callData),
+                userOp.callGasLimit,
+                userOp.verificationGasLimit,
+                userOp.preVerificationGas,
+                userOp.maxFeePerGas,
+                userOp.maxPriorityFeePerGas,
+                block.chainid,
+                address(this),
+                validUntil,
+                validAfter
+            )
+        );
     }
 
     /**
@@ -75,11 +71,7 @@ contract VerifyingPaymaster is BasePaymaster {
      * paymasterAndData[20:84] : abi.encode(validUntil, validAfter)
      * paymasterAndData[84:] : signature
      */
-    function _validatePaymasterUserOp(
-        UserOperation calldata userOp,
-        bytes32 /*userOpHash*/,
-        uint256 requiredPreFund
-    )
+    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, /*userOpHash*/ uint256 requiredPreFund)
         internal
         view
         override
@@ -87,27 +79,19 @@ contract VerifyingPaymaster is BasePaymaster {
     {
         (requiredPreFund);
 
-        (
-            uint48 validUntil,
-            uint48 validAfter,
-            bytes calldata signature
-        ) = parsePaymasterAndData(userOp.paymasterAndData);
+        (uint48 validUntil, uint48 validAfter, bytes calldata signature) =
+            parsePaymasterAndData(userOp.paymasterAndData);
         //ECDSA library supports both 64 and 65-byte long signatures.
         // we only "require" it here so that the revert reason on invalid signature will be of "VerifyingPaymaster", and not "ECDSA"
         require(
             signature.length == 64 || signature.length == 65,
             "VerifyingPaymaster: invalid signature length in paymasterAndData"
         );
-        bytes32 hash = ECDSA.toEthSignedMessageHash(
-            getHash(userOp, validUntil, validAfter)
-        );
+        bytes32 hash = ECDSA.toEthSignedMessageHash(getHash(userOp, validUntil, validAfter));
 
         //don't revert on signature failure: return SIG_VALIDATION_FAILED
         if (verifyingSigner != ECDSA.recover(hash, signature)) {
-            return (
-                "",
-                Helpers._packValidationData(true, validUntil, validAfter)
-            );
+            return ("", Helpers._packValidationData(true, validUntil, validAfter));
         }
 
         //no need for other on-chain validation: entire UserOp should have been checked
@@ -115,17 +99,13 @@ contract VerifyingPaymaster is BasePaymaster {
         return ("", Helpers._packValidationData(false, validUntil, validAfter));
     }
 
-    function parsePaymasterAndData(
-        bytes calldata paymasterAndData
-    )
+    function parsePaymasterAndData(bytes calldata paymasterAndData)
         public
         pure
         returns (uint48 validUntil, uint48 validAfter, bytes calldata signature)
     {
-        (validUntil, validAfter) = abi.decode(
-            paymasterAndData[VALID_TIMESTAMP_OFFSET:SIGNATURE_OFFSET],
-            (uint48, uint48)
-        );
+        (validUntil, validAfter) =
+            abi.decode(paymasterAndData[VALID_TIMESTAMP_OFFSET:SIGNATURE_OFFSET], (uint48, uint48));
         signature = paymasterAndData[SIGNATURE_OFFSET:];
     }
 }

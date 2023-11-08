@@ -11,7 +11,7 @@ import "./TestWrappedNativeToken.sol";
 contract TestUniswap {
     TestWrappedNativeToken public weth;
 
-    constructor(TestWrappedNativeToken _weth){
+    constructor(TestWrappedNativeToken _weth) {
         weth = _weth;
     }
 
@@ -19,12 +19,7 @@ contract TestUniswap {
 
     function exactOutputSingle(ISwapRouter.ExactOutputSingleParams calldata params) external returns (uint256) {
         uint256 amountIn = params.amountInMaximum - 5;
-        emit StubUniswapExchangeEvent(
-            amountIn,
-            params.amountOut,
-            params.tokenIn,
-            params.tokenOut
-        );
+        emit StubUniswapExchangeEvent(amountIn, params.amountOut, params.tokenIn, params.tokenOut);
         IERC20(params.tokenIn).transferFrom(msg.sender, address(this), amountIn);
         IERC20(params.tokenOut).transfer(params.recipient, params.amountOut);
         return amountIn;
@@ -32,12 +27,7 @@ contract TestUniswap {
 
     function exactInputSingle(ISwapRouter.ExactInputSingleParams calldata params) external returns (uint256) {
         uint256 amountOut = params.amountOutMinimum + 5;
-        emit StubUniswapExchangeEvent(
-            params.amountIn,
-            amountOut,
-            params.tokenIn,
-            params.tokenOut
-        );
+        emit StubUniswapExchangeEvent(params.amountIn, amountOut, params.tokenIn, params.tokenOut);
         IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);
         IERC20(params.tokenOut).transfer(params.recipient, amountOut);
         return amountOut;

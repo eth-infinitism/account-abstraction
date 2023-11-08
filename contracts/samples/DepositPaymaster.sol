@@ -25,12 +25,11 @@ import "./IOracle.sol";
  * (technically, it can be used by an "oracle" which returns a static value, without accessing any storage)
  */
 contract DepositPaymaster is BasePaymaster {
-
     using UserOperationLib for UserOperation;
     using SafeERC20 for IERC20;
 
     //calculated cost of the postOp
-    uint256 constant public COST_OF_POST = 35000;
+    uint256 public constant COST_OF_POST = 35000;
 
     IOracle private constant NULL_ORACLE = IOracle(address(0));
     mapping(IERC20 => IOracle) public oracles;
@@ -103,7 +102,10 @@ contract DepositPaymaster is BasePaymaster {
      * @param amount amount to withdraw
      */
     function withdrawTokensTo(IERC20 token, address target, uint256 amount) public {
-        require(unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender], "DepositPaymaster: must unlockTokenDeposit");
+        require(
+            unlockBlock[msg.sender] != 0 && block.number > unlockBlock[msg.sender],
+            "DepositPaymaster: must unlockTokenDeposit"
+        );
         balances[token][msg.sender] -= amount;
         token.safeTransfer(target, amount);
     }
@@ -114,7 +116,12 @@ contract DepositPaymaster is BasePaymaster {
      * @param ethBought the required eth value we want to "buy"
      * @return requiredTokens the amount of tokens required to get this amount of eth
      */
-    function getTokenValueOfEth(IERC20 token, uint256 ethBought) internal view virtual returns (uint256 requiredTokens) {
+    function getTokenValueOfEth(IERC20 token, uint256 ethBought)
+        internal
+        view
+        virtual
+        returns (uint256 requiredTokens)
+    {
         IOracle oracle = oracles[token];
         require(oracle != NULL_ORACLE, "DepositPaymaster: unsupported token");
         return oracle.getTokenValueOfEth(ethBought);
@@ -127,21 +134,24 @@ contract DepositPaymaster is BasePaymaster {
      * this deposit will be used to compensate the paymaster for the transaction.
      */
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
-    internal view override returns (bytes memory context, uint256 validationData) {
-
+        internal
+        view
+        override
+        returns (bytes memory context, uint256 validationData)
+    {
         (userOpHash);
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
         require(userOp.verificationGasLimit > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
         bytes calldata paymasterAndData = userOp.paymasterAndData;
-        require(paymasterAndData.length == 20+20, "DepositPaymaster: paymasterAndData must specify token");
+        require(paymasterAndData.length == 20 + 20, "DepositPaymaster: paymasterAndData must specify token");
         IERC20 token = IERC20(address(bytes20(paymasterAndData[20:])));
         address account = userOp.getSender();
         uint256 maxTokenCost = getTokenValueOfEth(token, maxCost);
         uint256 gasPriceUserOp = userOp.gasPrice();
         require(unlockBlock[account] == 0, "DepositPaymaster: deposit not locked");
         require(balances[token][account] >= maxTokenCost, "DepositPaymaster: deposit too low");
-        return (abi.encode(account, token, gasPriceUserOp, maxTokenCost, maxCost),0);
+        return (abi.encode(account, token, gasPriceUserOp, maxTokenCost, maxCost), 0);
     }
 
     /**
@@ -152,8 +162,8 @@ contract DepositPaymaster is BasePaymaster {
      * In this mode, we use the deposit to pay (which we validated to be large enough)
      */
     function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost) internal override {
-
-        (address account, IERC20 token, uint256 gasPricePostOp, uint256 maxTokenCost, uint256 maxCost) = abi.decode(context, (address, IERC20, uint256, uint256, uint256));
+        (address account, IERC20 token, uint256 gasPricePostOp, uint256 maxTokenCost, uint256 maxCost) =
+            abi.decode(context, (address, IERC20, uint256, uint256, uint256));
         //use same conversion rate as used for validation.
         uint256 actualTokenCost = (actualGasCost + COST_OF_POST * gasPricePostOp) * maxTokenCost / maxCost;
         // attempt to pay with tokens:

@@ -1,7 +1,8 @@
 /**
- ** Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
- ** Only one instance required on each chain.
- **/
+ * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
+ * Only one instance required on each chain.
+ *
+ */
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
@@ -15,7 +16,8 @@ import "./IAggregator.sol";
 import "./INonceManager.sol";
 
 interface IEntryPoint is IStakeManager, INonceManager {
-    /***
+    /**
+     *
      * An event emitted after each successful request.
      * @param userOpHash    - Unique identifier for the request (hash its entire content, except signature).
      * @param sender        - The account that generates this request.
@@ -43,12 +45,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param factory    - The factory used to deploy this account (in the initCode)
      * @param paymaster  - The paymaster used by this UserOp
      */
-    event AccountDeployed(
-        bytes32 indexed userOpHash,
-        address indexed sender,
-        address factory,
-        address paymaster
-    );
+    event AccountDeployed(bytes32 indexed userOpHash, address indexed sender, address factory, address paymaster);
 
     /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length.
@@ -58,10 +55,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param revertReason - The return bytes from the (reverted) call to "callData".
      */
     event UserOperationRevertReason(
-        bytes32 indexed userOpHash,
-        address indexed sender,
-        uint256 nonce,
-        bytes revertReason
+        bytes32 indexed userOpHash, address indexed sender, uint256 nonce, bytes revertReason
     );
 
     /**
@@ -114,29 +108,22 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param ops         - The operations to execute.
      * @param beneficiary - The address to receive the fees.
      */
-    function handleOps(
-        UserOperation[] calldata ops,
-        address payable beneficiary
-    ) external;
+    function handleOps(UserOperation[] calldata ops, address payable beneficiary) external;
 
     /**
      * Execute a batch of UserOperation with Aggregators
      * @param opsPerAggregator - The operations to execute, grouped by aggregator (or address(0) for no-aggregator accounts).
      * @param beneficiary      - The address to receive the fees.
      */
-    function handleAggregatedOps(
-        UserOpsPerAggregator[] calldata opsPerAggregator,
-        address payable beneficiary
-    ) external;
+    function handleAggregatedOps(UserOpsPerAggregator[] calldata opsPerAggregator, address payable beneficiary)
+        external;
 
     /**
      * Generate a request Id - unique identifier for this request.
      * The request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      * @param userOp - The user operation to generate the request ID for.
      */
-    function getUserOpHash(
-        UserOperation calldata userOp
-    ) external view returns (bytes32);
+    function getUserOpHash(UserOperation calldata userOp) external view returns (bytes32);
 
     /**
      * Gas and return values during simulation.
@@ -172,5 +159,4 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param initCode - The constructor code to be passed into the UserOperation.
      */
     function getSenderAddress(bytes memory initCode) external;
-
 }

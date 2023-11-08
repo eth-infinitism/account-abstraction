@@ -13,7 +13,6 @@ import "./IOracle.sol";
 /// Also support tokens that have no direct price oracle to the native asset.
 /// Sometimes oracles provide the price in the opposite direction of what we need in the moment.
 abstract contract OracleHelper {
-
     event TokenPriceUpdated(uint256 currentPrice, uint256 previousPrice, uint256 cachedPriceTimestamp);
 
     uint256 private constant PRICE_DENOMINATOR = 1e26;
@@ -21,23 +20,17 @@ abstract contract OracleHelper {
     struct OracleHelperConfig {
         /// @notice The Oracle contract used to fetch the latest token prices
         IOracle tokenOracle;
-
         /// @notice The Oracle contract used to fetch the latest ETH prices
         IOracle nativeOracle;
-
         /// @notice If 'true' we will fetch price directly from tokenOracle
         /// @notice If 'false' we will use nativeOracle to establish a token price through a shared third currency
         bool tokenToNativeOracle;
-
         /// @notice 'false' if price is dollars-per-token (or ether-per-token), 'true' if price is tokens-per-dollar
         bool tokenOracleReverse;
-
         /// @notice 'false' if price is dollars-per-ether, 'true' if price is ether-per-dollar
         bool nativeOracleReverse;
-
         /// @notice The price update threshold percentage that triggers a price update (1e6 = 100%)
         uint256 priceUpdateThreshold;
-
         /// @notice The price cache will be returned without even fetching the oracles for this number of seconds
         uint256 cacheTimeToLive;
     }
@@ -56,18 +49,12 @@ abstract contract OracleHelper {
     /// @notice The "10^(nativeOracle.decimals)" value used for the price calculation
     uint256 private nativeOracleDecimalPower;
 
-    constructor (
-        OracleHelperConfig memory _oracleHelperConfig
-    ) {
+    constructor(OracleHelperConfig memory _oracleHelperConfig) {
         cachedPrice = type(uint256).max; // initialize the storage slot to invalid value
-        _setOracleConfiguration(
-            _oracleHelperConfig
-        );
+        _setOracleConfiguration(_oracleHelperConfig);
     }
 
-    function _setOracleConfiguration(
-        OracleHelperConfig memory _oracleHelperConfig
-    ) private {
+    function _setOracleConfiguration(OracleHelperConfig memory _oracleHelperConfig) private {
         oracleHelperConfig = _oracleHelperConfig;
         require(_oracleHelperConfig.priceUpdateThreshold <= 1e6, "TPM: update threshold too high");
         tokenOracleDecimalPower = 10 ** oracleHelperConfig.tokenOracle.decimals();
@@ -93,16 +80,12 @@ abstract contract OracleHelper {
             nativeAssetPrice = fetchPrice(nativeOracle);
         }
         uint256 price = calculatePrice(
-            tokenPrice,
-            nativeAssetPrice,
-            oracleHelperConfig.tokenOracleReverse,
-            oracleHelperConfig.nativeOracleReverse
+            tokenPrice, nativeAssetPrice, oracleHelperConfig.tokenOracleReverse, oracleHelperConfig.nativeOracleReverse
         );
         uint256 priceNewByOld = price * PRICE_DENOMINATOR / _cachedPrice;
 
-        bool updateRequired = force ||
-            priceNewByOld > PRICE_DENOMINATOR + priceUpdateThreshold ||
-            priceNewByOld < PRICE_DENOMINATOR - priceUpdateThreshold;
+        bool updateRequired = force || priceNewByOld > PRICE_DENOMINATOR + priceUpdateThreshold
+            || priceNewByOld < PRICE_DENOMINATOR - priceUpdateThreshold;
         if (!updateRequired) {
             return _cachedPrice;
         }
@@ -128,7 +111,7 @@ abstract contract OracleHelper {
         uint256 nativeAssetPrice,
         bool tokenOracleReverse,
         bool nativeOracleReverse
-    ) private view returns (uint256){
+    ) private view returns (uint256) {
         // tokenPrice is normalized as dollars-per-token
         if (tokenOracleReverse) {
             // inverting tokenPrice that was tokens-per-dollar (or tokens-per-ether)

@@ -3,11 +3,10 @@ pragma solidity ^0.8.12;
 
 // code taken from : https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol
 // missing core functions from "thehubbleproject/bls": jacAdd (and sum)
-library  BLSHelper {
-
+library BLSHelper {
     struct XY {
-        uint x;
-        uint y;
+        uint256 x;
+        uint256 y;
     }
     /**
      * sum all the points in the array
@@ -16,12 +15,13 @@ library  BLSHelper {
      * @param _pp the modulus of the curve
      * @return ret the sum of all points
      */
-    function sum(XY[] memory points, uint256 _pp) internal pure returns (XY memory ret){
-        uint x = points[0].x;
-        uint y = points[0].y;
-        uint z = 1;
 
-        for (uint i = 1; i < points.length; i++) {
+    function sum(XY[] memory points, uint256 _pp) internal pure returns (XY memory ret) {
+        uint256 x = points[0].x;
+        uint256 y = points[0].y;
+        uint256 z = 1;
+
+        for (uint256 i = 1; i < points.length; i++) {
             (x, y, z) = jacAdd(x, y, z, points[i].x, points[i].y, 1, _pp);
         }
         (x, y) = toAffine(x, y, z, _pp);
@@ -38,23 +38,20 @@ library  BLSHelper {
     /// @param _z2 coordinate z of square
     /// @param _pp the modulus
     /// @return (qx, qy, qz) P1+square in Jacobian
-    function jacAdd(
-        uint256 _x1,
-        uint256 _y1,
-        uint256 _z1,
-        uint256 _x2,
-        uint256 _y2,
-        uint256 _z2,
-        uint256 _pp)
-    internal pure returns (uint256, uint256, uint256)
+    function jacAdd(uint256 _x1, uint256 _y1, uint256 _z1, uint256 _x2, uint256 _y2, uint256 _z2, uint256 _pp)
+        internal
+        pure
+        returns (uint256, uint256, uint256)
     {
-        if (_x1 == 0 && _y1 == 0)
+        if (_x1 == 0 && _y1 == 0) {
             return (_x2, _y2, _z2);
-        if (_x2 == 0 && _y2 == 0)
+        }
+        if (_x2 == 0 && _y2 == 0) {
             return (_x1, _y1, _z1);
+        }
 
         // We follow the equations described in https://pdfs.semanticscholar.org/5c64/29952e08025a9649c2b0ba32518e9a7fb5c2.pdf Section 5
-        uint[4] memory zs;
+        uint256[4] memory zs;
         // z1^2, z1^3, z2^2, z2^3
         zs[0] = mulmod(_z1, _z1, _pp);
         zs[1] = mulmod(_z1, zs[0], _pp);
@@ -62,17 +59,12 @@ library  BLSHelper {
         zs[3] = mulmod(_z2, zs[2], _pp);
 
         // u1, s1, u2, s2
-        zs = [
-        mulmod(_x1, zs[2], _pp),
-        mulmod(_y1, zs[3], _pp),
-        mulmod(_x2, zs[0], _pp),
-        mulmod(_y2, zs[1], _pp)
-        ];
+        zs = [mulmod(_x1, zs[2], _pp), mulmod(_y1, zs[3], _pp), mulmod(_x2, zs[0], _pp), mulmod(_y2, zs[1], _pp)];
 
         // In case of zs[0] == zs[2] && zs[1] == zs[3], double function should be used
         require(zs[0] != zs[2] || zs[1] != zs[3], "Use jacDouble function instead");
 
-        uint[4] memory hr;
+        uint256[4] memory hr;
         //h
         hr[0] = addmod(zs[2], _pp - zs[0], _pp);
         //r
@@ -92,20 +84,13 @@ library  BLSHelper {
         return (qx, qy, qz);
     }
 
-
     /// @dev Converts a point (x, y, z) expressed in Jacobian coordinates to affine coordinates (x', y', 1).
     /// @param _x coordinate x
     /// @param _y coordinate y
     /// @param _z coordinate z
     /// @param _pp the modulus
     /// @return (x', y') affine coordinates
-    function toAffine(
-        uint256 _x,
-        uint256 _y,
-        uint256 _z,
-        uint256 _pp)
-    internal pure returns (uint256, uint256)
-    {
+    function toAffine(uint256 _x, uint256 _y, uint256 _z, uint256 _pp) internal pure returns (uint256, uint256) {
         uint256 zInv = invMod(_z, _pp);
         uint256 zInv2 = mulmod(zInv, zInv, _pp);
         uint256 x2 = mulmod(_x, zInv2, _pp);
@@ -113,7 +98,6 @@ library  BLSHelper {
 
         return (x2, y2);
     }
-
 
     /// @dev Modular euclidean inverse of a number (mod p).
     /// @param _x The number
@@ -141,16 +125,14 @@ library  BLSHelper {
     /// @param _aa the a scalar in the curve equation
     /// @param _pp the modulus
     /// @return (qx, qy, qz) 2P in Jacobian
-    function jacDouble(
-        uint256 _x,
-        uint256 _y,
-        uint256 _z,
-        uint256 _aa,
-        uint256 _pp)
-    internal pure returns (uint256, uint256, uint256)
+    function jacDouble(uint256 _x, uint256 _y, uint256 _z, uint256 _aa, uint256 _pp)
+        internal
+        pure
+        returns (uint256, uint256, uint256)
     {
-        if (_z == 0)
+        if (_z == 0) {
             return (_x, _y, _z);
+        }
 
         // We follow the equations described in https://pdfs.semanticscholar.org/5c64/29952e08025a9649c2b0ba32518e9a7fb5c2.pdf Section 5
         // Note: there is a bug in the paper regarding the m parameter, M=3*(x1^2)+a*(z1^4)
@@ -160,9 +142,9 @@ library  BLSHelper {
         uint256 z = mulmod(_z, _z, _pp); //z1^2
 
         // s
-        uint s = mulmod(4, mulmod(_x, y, _pp), _pp);
+        uint256 s = mulmod(4, mulmod(_x, y, _pp), _pp);
         // m
-        uint m = addmod(mulmod(3, x, _pp), mulmod(_aa, mulmod(z, z, _pp), _pp), _pp);
+        uint256 m = addmod(mulmod(3, x, _pp), mulmod(_aa, mulmod(z, z, _pp), _pp), _pp);
 
         // x, y, z at this point will be reassigned and rather represent qx, qy, qz from the paper
         // This allows to reduce the gas cost and stack footprint of the algorithm
@@ -184,18 +166,14 @@ library  BLSHelper {
     /// @param _aa constant of the curve
     /// @param _pp the modulus
     /// @return (qx, qy) = P1+P2 in affine coordinates
-    function ecAdd(
-        uint256 _x1,
-        uint256 _y1,
-        uint256 _x2,
-        uint256 _y2,
-        uint256 _aa,
-        uint256 _pp)
-    internal pure returns (uint256, uint256)
+    function ecAdd(uint256 _x1, uint256 _y1, uint256 _x2, uint256 _y2, uint256 _aa, uint256 _pp)
+        internal
+        pure
+        returns (uint256, uint256)
     {
-        uint x = 0;
-        uint y = 0;
-        uint z = 0;
+        uint256 x = 0;
+        uint256 y = 0;
+        uint256 z = 0;
 
         // Double if x1==x2 else add
         if (_x1 == _x2) {
@@ -204,29 +182,12 @@ library  BLSHelper {
                 return (0, 0);
             } else {
                 // P1 = P2
-                (x, y, z) = jacDouble(
-                    _x1,
-                    _y1,
-                    1,
-                    _aa,
-                    _pp);
+                (x, y, z) = jacDouble(_x1, _y1, 1, _aa, _pp);
             }
         } else {
-            (x, y, z) = jacAdd(
-                _x1,
-                _y1,
-                1,
-                _x2,
-                _y2,
-                1,
-                _pp);
+            (x, y, z) = jacAdd(_x1, _y1, 1, _x2, _y2, 1, _pp);
         }
         // Get back to affine
-        return toAffine(
-            x,
-            y,
-            z,
-            _pp);
+        return toAffine(x, y, z, _pp);
     }
-
 }

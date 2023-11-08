@@ -14,7 +14,7 @@ import "../../interfaces/IAccount.sol";
 import "../../interfaces/IEntryPoint.sol";
 import "../../utils/Exec.sol";
 
-    using ECDSA for bytes32;
+using ECDSA for bytes32;
 
 /**
  * Main EIP4337 module.
@@ -24,13 +24,12 @@ import "../../utils/Exec.sol";
  * Inherits GnosisSafe so that it can reference the memory storage
  */
 contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
-
     address public immutable eip4337Fallback;
     address public immutable entryPoint;
 
     // return value in case of signature failure, with no time-range.
     // equivalent to _packValidationData(true,0,0);
-    uint256 constant internal SIG_VALIDATION_FAILED = 1;
+    uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
     address internal constant SENTINEL_MODULES = address(0x1);
 
@@ -43,8 +42,11 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
     function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
-    external override returns (uint256 validationData) {
-        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+        external
+        override
+        returns (uint256 validationData)
+    {
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20:]));
         require(msgSender == entryPoint, "account: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
@@ -60,7 +62,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
 
         if (missingAccountFunds > 0) {
             //Note: MAY pay more than the minimum, to deposit for future transactions
-            (bool success,) = payable(msgSender).call{value : missingAccountFunds}("");
+            (bool success,) = payable(msgSender).call{value: missingAccountFunds}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }
@@ -73,23 +75,12 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
      * EntryPoint wouldn't know to emit the UserOperationRevertReason event,
      * which the frontend/client uses to capture the reason for the failure.
      */
-    function executeAndRevert(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation
-    ) external {
-        address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
+    function executeAndRevert(address to, uint256 value, bytes memory data, Enum.Operation operation) external {
+        address msgSender = address(bytes20(msg.data[msg.data.length - 20:]));
         require(msgSender == entryPoint, "account: not from entrypoint");
         require(msg.sender == eip4337Fallback, "account: not from EIP4337Fallback");
 
-        bool success = execute(
-            to,
-            value,
-            data,
-            operation,
-            type(uint256).max
-        );
+        bool success = execute(to, value, data, operation, type(uint256).max);
 
         bytes memory returnData = Exec.getReturnData(type(uint256).max);
         // Revert with the actual reason string
@@ -155,7 +146,6 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
      *  we don't test full transaction
      */
     function validateEip4337(GnosisSafe safe, EIP4337Manager manager) public {
-
         // this prevents mistaken replaceEIP4337Manager to disable the module completely.
         // minimal signature that pass "recover"
         bytes memory sig = new bytes(65);
@@ -170,7 +160,10 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         try _entryPoint.handleOps(userOps, payable(msg.sender)) {
             revert("validateEip4337: handleOps must fail");
         } catch (bytes memory error) {
-            if (keccak256(error) != keccak256(abi.encodeWithSignature("FailedOp(uint256,string)", 0, "AA24 signature error"))) {
+            if (
+                keccak256(error)
+                    != keccak256(abi.encodeWithSignature("FailedOp(uint256,string)", 0, "AA24 signature error"))
+            ) {
                 revert(string(error));
             }
         }
@@ -180,15 +173,15 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
      * @return prev prev module, needed by replaceEIP4337Manager
      * @return manager the current active EIP4337Manager
      */
+
     function getCurrentEIP4337Manager(GnosisSafe safe) public view returns (address prev, address manager) {
         prev = address(SENTINEL_MODULES);
         (address[] memory modules,) = safe.getModulesPaginated(SENTINEL_MODULES, 100);
-        for (uint i = 0; i < modules.length; i++) {
+        for (uint256 i = 0; i < modules.length; i++) {
             address module = modules[i];
             try EIP4337Fallback(module).eip4337manager() returns (address _manager) {
                 return (prev, _manager);
-            }
-            // solhint-disable-next-line no-empty-blocks
+            } // solhint-disable-next-line no-empty-blocks
             catch {}
             prev = module;
         }

@@ -45,64 +45,32 @@ contract BNPairingPrecompileCostEstimator {
         uint256[1] memory out;
         bool callSuccess;
         uint256 suppliedGas = gasleft() - 2000;
-        require(
-            gasleft() > 2000,
-            "BNPairingPrecompileCostEstimator: not enough gas, single pair"
-        );
+        require(gasleft() > 2000, "BNPairingPrecompileCostEstimator: not enough gas, single pair");
         uint256 gasT0 = gasleft();
         // solium-disable-next-line security/no-inline-assembly
         assembly {
             callSuccess := staticcall(suppliedGas, 8, input, 192, out, 0x20)
         }
         uint256 gasCost = gasT0 - gasleft();
-        require(
-            callSuccess,
-            "BNPairingPrecompileCostEstimator: single pair call is failed"
-        );
-        require(
-            out[0] == 0,
-            "BNPairingPrecompileCostEstimator: single pair call result must be 0"
-        );
+        require(callSuccess, "BNPairingPrecompileCostEstimator: single pair call is failed");
+        require(out[0] == 0, "BNPairingPrecompileCostEstimator: single pair call result must be 0");
         return gasCost;
     }
 
     function _gasCost2Pair() internal view returns (uint256) {
-        uint256[12] memory input =
-            [
-                G1_X,
-                G1_Y,
-                G2_X1,
-                G2_X0,
-                G2_Y1,
-                G2_Y0,
-                G1_X,
-                G1_Y,
-                G2_X1,
-                G2_X0,
-                N_G2_Y1,
-                N_G2_Y0
-            ];
+        uint256[12] memory input = [G1_X, G1_Y, G2_X1, G2_X0, G2_Y1, G2_Y0, G1_X, G1_Y, G2_X1, G2_X0, N_G2_Y1, N_G2_Y0];
         uint256[1] memory out;
         bool callSuccess;
         uint256 suppliedGas = gasleft() - 2000;
-        require(
-            gasleft() > 2000,
-            "BNPairingPrecompileCostEstimator: not enough gas, couple pair"
-        );
+        require(gasleft() > 2000, "BNPairingPrecompileCostEstimator: not enough gas, couple pair");
         uint256 gasT0 = gasleft();
         // solium-disable-next-line security/no-inline-assembly
         assembly {
             callSuccess := staticcall(suppliedGas, 8, input, 384, out, 0x20)
         }
         uint256 gasCost = gasT0 - gasleft();
-        require(
-            callSuccess,
-            "BNPairingPrecompileCostEstimator: couple pair call is failed"
-        );
-        require(
-            out[0] == 1,
-            "BNPairingPrecompileCostEstimator: couple pair call result must be 1"
-        );
+        require(callSuccess, "BNPairingPrecompileCostEstimator: couple pair call is failed");
+        require(out[0] == 1, "BNPairingPrecompileCostEstimator: couple pair call result must be 1");
         return gasCost;
     }
 }

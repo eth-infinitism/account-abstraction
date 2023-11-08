@@ -13,11 +13,11 @@ import "../core/BaseAccount.sol";
 import "./callback/TokenCallbackHandler.sol";
 
 /**
-  * minimal account.
-  *  this is sample minimal account.
-  *  has execute, eth handling methods
-  *  has a single signer that can send requests through the entryPoint.
-  */
+ * minimal account.
+ *  this is sample minimal account.
+ *  has execute, eth handling methods
+ *  has a single signer that can send requests through the entryPoint.
+ */
 contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Initializable {
     using ECDSA for bytes32;
 
@@ -36,7 +36,6 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     function entryPoint() public view virtual override returns (IEntryPoint) {
         return _entryPoint;
     }
-
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
@@ -80,7 +79,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     /**
      * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
      * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
-      * the implementation by calling `upgradeTo()`
+     * the implementation by calling `upgradeTo()`
      */
     function initialize(address anOwner) public virtual initializer {
         _initialize(anOwner);
@@ -98,15 +97,20 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
 
     /// implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override virtual returns (uint256 validationData) {
+        internal
+        virtual
+        override
+        returns (uint256 validationData)
+    {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
-        if (owner != hash.recover(userOp.signature))
+        if (owner != hash.recover(userOp.signature)) {
             return SIG_VALIDATION_FAILED;
+        }
         return 0;
     }
 
     function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value : value}(data);
+        (bool success, bytes memory result) = target.call{value: value}(data);
         if (!success) {
             assembly {
                 revert(add(result, 32), mload(result))
@@ -125,7 +129,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
      * deposit more funds for this account in the entryPoint
      */
     function addDeposit() public payable {
-        entryPoint().depositTo{value : msg.value}(address(this));
+        entryPoint().depositTo{value: msg.value}(address(this));
     }
 
     /**
@@ -142,4 +146,3 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         _onlyOwner();
     }
 }
-

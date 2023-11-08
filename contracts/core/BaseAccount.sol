@@ -47,11 +47,12 @@ abstract contract BaseAccount is IAccount {
      * @param missingAccountFunds - The amount of funds missing from the account
      *                              to pay for the user operation.
      */
-    function validateUserOp(
-        UserOperation calldata userOp,
-        bytes32 userOpHash,
-        uint256 missingAccountFunds
-    ) external virtual override returns (uint256 validationData) {
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+        external
+        virtual
+        override
+        returns (uint256 validationData)
+    {
         _requireFromEntryPoint();
         validationData = _validateSignature(userOp, userOpHash);
         _validateNonce(userOp.nonce);
@@ -62,10 +63,7 @@ abstract contract BaseAccount is IAccount {
      * Ensure the request comes from the known entrypoint.
      */
     function _requireFromEntryPoint() internal view virtual {
-        require(
-            msg.sender == address(entryPoint()),
-            "account: not from EntryPoint"
-        );
+        require(msg.sender == address(entryPoint()), "account: not from EntryPoint");
     }
 
     /**
@@ -82,10 +80,10 @@ abstract contract BaseAccount is IAccount {
      *                          SIG_VALIDATION_FAILED value (1) for signature failure.
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function _validateSignature(
-        UserOperation calldata userOp,
-        bytes32 userOpHash
-    ) internal virtual returns (uint256 validationData);
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+        internal
+        virtual
+        returns (uint256 validationData);
 
     /**
      * Validate the nonce of the UserOperation.
@@ -103,8 +101,7 @@ abstract contract BaseAccount is IAccount {
      *
      * solhint-disable-next-line no-empty-blocks
      */
-    function _validateNonce(uint256 nonce) internal view virtual {
-    }
+    function _validateNonce(uint256 nonce) internal view virtual {}
 
     /**
      * Sends to the entrypoint (msg.sender) the missing funds for this transaction.
@@ -117,10 +114,7 @@ abstract contract BaseAccount is IAccount {
      */
     function _payPrefund(uint256 missingAccountFunds) internal virtual {
         if (missingAccountFunds != 0) {
-            (bool success, ) = payable(msg.sender).call{
-                value: missingAccountFunds,
-                gas: type(uint256).max
-            }("");
+            (bool success,) = payable(msg.sender).call{value: missingAccountFunds, gas: type(uint256).max}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }

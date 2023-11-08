@@ -18,34 +18,26 @@ contract BrokenBLSAccount is SimpleAccount, IBLSAccount {
 
     // The constructor is used only for the "implementation" and only sets immutable values.
     // Mutable values slots for proxy accounts are set by the 'initialize' function.
-    constructor(
-        IEntryPoint anEntryPoint,
-        address anAggregator
-    ) SimpleAccount(anEntryPoint) {
+    constructor(IEntryPoint anEntryPoint, address anAggregator) SimpleAccount(anEntryPoint) {
         aggregator = anAggregator;
     }
 
-    function initialize(
-        uint256[4] memory aPublicKey
-    ) public virtual initializer {
+    function initialize(uint256[4] memory aPublicKey) public virtual initializer {
         (aPublicKey);
         super._initialize(address(0));
     }
 
-    function _validateSignature(
-        UserOperation calldata userOp,
-        bytes32 userOpHash
-    ) internal view override returns (uint256 validationData) {
+    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+        internal
+        view
+        override
+        returns (uint256 validationData)
+    {
         (userOp, userOpHash);
         return Helpers._packValidationData(ValidationData(aggregator, 0, 0));
     }
 
-    function getBlsPublicKey()
-        external
-        pure
-        override
-        returns (uint256[4] memory)
-    {
+    function getBlsPublicKey() external pure override returns (uint256[4] memory) {
         uint256[4] memory pubkey;
         return pubkey;
     }
@@ -70,48 +62,36 @@ contract BrokenBLSAccountFactory {
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      * Also note that out BLSSignatureAggregator requires that the public-key is the last parameter
      */
-    function createAccount(
-        uint salt,
-        uint256[4] memory aPublicKey
-    ) public returns (BrokenBLSAccount) {
+    function createAccount(uint256 salt, uint256[4] memory aPublicKey) public returns (BrokenBLSAccount) {
         address addr = getAddress(salt, aPublicKey);
-        uint codeSize = addr.code.length;
+        uint256 codeSize = addr.code.length;
         if (codeSize > 0) {
             return BrokenBLSAccount(payable(addr));
         }
-        return
-            BrokenBLSAccount(
-                payable(
-                    new ERC1967Proxy{salt: bytes32(salt)}(
+        return BrokenBLSAccount(
+            payable(
+                new ERC1967Proxy{salt: bytes32(salt)}(
                         address(accountImplementation),
                         abi.encodeCall(BrokenBLSAccount.initialize, aPublicKey)
                     )
-                )
-            );
+            )
+        );
     }
 
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(
-        uint salt,
-        uint256[4] memory aPublicKey
-    ) public view returns (address) {
-        return
-            Create2.computeAddress(
-                bytes32(salt),
-                keccak256(
-                    abi.encodePacked(
-                        type(ERC1967Proxy).creationCode,
-                        abi.encode(
-                            address(accountImplementation),
-                            abi.encodeCall(
-                                BrokenBLSAccount.initialize,
-                                (aPublicKey)
-                            )
-                        )
+    function getAddress(uint256 salt, uint256[4] memory aPublicKey) public view returns (address) {
+        return Create2.computeAddress(
+            bytes32(salt),
+            keccak256(
+                abi.encodePacked(
+                    type(ERC1967Proxy).creationCode,
+                    abi.encode(
+                        address(accountImplementation), abi.encodeCall(BrokenBLSAccount.initialize, (aPublicKey))
                     )
                 )
-            );
+            )
+        );
     }
 }

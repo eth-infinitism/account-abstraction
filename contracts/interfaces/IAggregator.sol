@@ -13,10 +13,7 @@ interface IAggregator {
      * @param userOps   - Array of UserOperations to validate the signature for.
      * @param signature - The aggregated signature.
      */
-    function validateSignatures(
-        UserOperation[] calldata userOps,
-        bytes calldata signature
-    ) external view;
+    function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) external view;
 
     /**
      * Validate signature of a single userOp.
@@ -26,9 +23,7 @@ interface IAggregator {
      * @return sigForUserOp - The value to put into the signature field of the userOp when calling handleOps.
      *                        (usually empty, unless account and aggregator support some kind of "multisig".
      */
-    function validateUserOpSignature(
-        UserOperation calldata userOp
-    ) external view returns (bytes memory sigForUserOp);
+    function validateUserOpSignature(UserOperation calldata userOp) external view returns (bytes memory sigForUserOp);
 
     /**
      * Aggregate multiple signatures into a single value.
@@ -37,7 +32,8 @@ interface IAggregator {
      * @param userOps              - Array of UserOperations to collect the signatures from.
      * @return aggregatedSignature - The aggregated signature.
      */
-    function aggregateSignatures(
-        UserOperation[] calldata userOps
-    ) external view returns (bytes memory aggregatedSignature);
+    function aggregateSignatures(UserOperation[] calldata userOps)
+        external
+        view
+        returns (bytes memory aggregatedSignature);
 }
