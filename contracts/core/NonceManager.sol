@@ -31,7 +31,6 @@ contract NonceManager is INonceManager {
      * called just after validateUserOp()
      */
     function _validateAndUpdateNonce(address sender, uint256 nonce) internal returns (bool) {
-
         uint192 key = uint192(nonce >> 64);
         uint64 seq = uint64(nonce);
         return nonceSequenceNumber[sender][key]++ == seq;
