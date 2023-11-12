@@ -98,6 +98,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 //report paymaster, since if it is not deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
                 revert FailedOp(opIndex, "AA95 out of gas");
+            } else {
+                emit PostOpRevertReason(
+                    opInfo.userOpHash,
+                    opInfo.mUserOp.sender,
+                    opInfo.mUserOp.nonce,
+                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
+                );
             }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
@@ -662,9 +669,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                        IPaymaster(paymaster).postOp{
+                        try IPaymaster(paymaster).postOp{
                             gas: mUserOp.verificationGasLimit
-                        }(mode, context, actualGasCost);
+                        }(mode, context, actualGasCost)
+                        // solhint-disable-next-line no-empty-blocks
+                        {} catch {
+                            bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);
+                            revert PostOpReverted(reason);
+                        }
                     }
                 }
             }
