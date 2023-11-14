@@ -33,6 +33,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
+    uint256 private constant PENALTY_PERCENT = 10;
 
     /**
      * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
@@ -97,6 +98,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 //report paymaster, since if it is not deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
                 revert FailedOp(opIndex, "AA95 out of gas");
+            } else {
+                emit PostOpRevertReason(
+                    opInfo.userOpHash,
+                    opInfo.mUserOp.sender,
+                    opInfo.mUserOp.nonce,
+                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
+                );
             }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
@@ -661,13 +669,35 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                        IPaymaster(paymaster).postOp{
+                        try IPaymaster(paymaster).postOp{
                             gas: mUserOp.verificationGasLimit
-                        }(mode, context, actualGasCost);
+                        }(mode, context, actualGasCost)
+                        // solhint-disable-next-line no-empty-blocks
+                        {} catch {
+                            bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);
+                            revert PostOpReverted(reason);
+                        }
                     }
                 }
             }
             actualGas += preGas - gasleft();
+
+            // Calculating a penalty for unused execution gas
+            {
+                uint256 executionGasLimit = mUserOp.callGasLimit;
+                // Note that 'verificationGasLimit' here is the limit given to the 'postOp' which is part of execution
+                if (context.length > 0){
+                    executionGasLimit += mUserOp.verificationGasLimit;
+                }
+                uint256 executionGasUsed = actualGas - opInfo.preOpGas;
+                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
+                if (executionGasLimit > executionGasUsed) {
+                    uint256 unusedGas = executionGasLimit - executionGasUsed;
+                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+                    actualGas += unusedGasPenalty;
+                }
+            }
+
             actualGasCost = actualGas * gasPrice;
             if (opInfo.prefund < actualGasCost) {
                 revert FailedOp(opIndex, "AA51 prefund below actualGasCost");

@@ -24,7 +24,14 @@ import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
 } from '../../typechain/contracts/samples/TokenPaymaster'
-import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
+import {
+  checkForGeth,
+  createAccount,
+  createAccountOwner,
+  decodeRevertReason,
+  deployEntryPoint,
+  fund
+} from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
 
@@ -392,9 +399,11 @@ describe('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
-    const userOpSuccess = decodedLogs[2].args.success
+    const postOpRevertReason = decodeRevertReason(decodedLogs[2].args.revertReason)
+    assert.equal(postOpRevertReason, 'PostOpReverted(Error(ERC20: transfer amount exceeds balance))')
+    const userOpSuccess = decodedLogs[3].args.success
     assert.equal(userOpSuccess, false)
-    assert.equal(decodedLogs.length, 3)
+    assert.equal(decodedLogs.length, 4)
     await ethers.provider.send('evm_revert', [snapshot])
   })
 

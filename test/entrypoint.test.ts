@@ -542,6 +542,64 @@ describe('EntryPoint', function () {
         expect(await getBalance(account.address)).to.eq(inititalAccountBalance)
       })
 
+      it('account should pay a penalty for requiring too much gas and leaving it unused', async function () {
+        if (process.env.COVERAGE != null) {
+          return
+        }
+        const iterations = 10
+        const count = await counter.populateTransaction.gasWaster(iterations, '')
+        const accountExec = await account.populateTransaction.execute(counter.address, 0, count.data!)
+        const callGasLimit = await ethersSigner.provider.estimateGas({
+          from: entryPoint.address,
+          to: account.address,
+          data: accountExec.data
+        })
+        // expect(callGasLimit.toNumber()).to.be.closeTo(270000, 10000)
+        const beneficiaryAddress = createAddress()
+
+        // "warmup" userop, for better gas calculation, below
+        await entryPoint.handleOps([await fillAndSign({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillAndSign({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+
+        const op1 = await fillAndSign({
+          sender: account.address,
+          callData: accountExec.data,
+          verificationGasLimit: 1e5,
+          callGasLimit: callGasLimit
+        }, accountOwner, entryPoint)
+
+        const rcpt1 = await entryPoint.handleOps([op1], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 20000000
+        }).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        expect(logs1[0].args.success).to.be.true
+
+        const gasUsed1 = logs1[0].args.actualGasUsed.toNumber()
+        const veryBigCallGasLimit = 10000000
+        const op2 = await fillAndSign({
+          sender: account.address,
+          callData: accountExec.data,
+          verificationGasLimit: 1e5,
+          callGasLimit: veryBigCallGasLimit
+        }, accountOwner, entryPoint)
+        const rcpt2 = await entryPoint.handleOps([op2], beneficiaryAddress, {
+          maxFeePerGas: 1e9,
+          gasLimit: 20000000
+        }).then(async t => await t.wait())
+        const logs2 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt2.blockHash)
+
+        const gasUsed2 = logs2[0].args.actualGasUsed.toNumber()
+
+        // we cannot access internal transaction state, so we have to rely on two separate transactions for estimation
+        // assuming 10% penalty is charged
+        const expectedGasPenalty = (veryBigCallGasLimit - callGasLimit.toNumber()) * 0.1
+        const actualGasPenalty = gasUsed2 - gasUsed1
+
+        console.log(actualGasPenalty / expectedGasPenalty)
+        expect(actualGasPenalty).to.be.closeTo(expectedGasPenalty, expectedGasPenalty * 0.001)
+      })
+
       it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
         const op = await fillAndSign({
           sender: account.address,
@@ -1028,6 +1086,7 @@ describe('EntryPoint', function () {
       it('should not revert when paymaster reverts with custom error on postOp', async function () {
         const account3Owner = createAccountOwner()
         const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.setRevertType(0)
         await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
         await errorPostOp.deposit({ value: ONE_ETH })
 
@@ -1040,7 +1099,33 @@ describe('EntryPoint', function () {
           callGasLimit: 1e6
         }, account3Owner, entryPoint)
         const beneficiaryAddress = createAddress()
-        await entryPoint.handleOps([op], beneficiaryAddress)
+        const rcpt1 = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        const logs1postOpRevert = await entryPoint.queryFilter(entryPoint.filters.PostOpRevertReason(), rcpt1.blockHash)
+        const postOpRevertReason = decodeRevertReason(logs1postOpRevert[0].args.revertReason, false)
+        expect(logs1[0].args.success).to.be.false
+        expect(postOpRevertReason).to.equal('PostOpReverted(CustomError("this is a long revert reason string we are looking for"))')
+      })
+
+      it('should not revert when paymaster reverts with known EntryPoint error in postOp', async function () {
+        const account3Owner = createAccountOwner()
+        const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.setRevertType(1)
+        await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
+        await errorPostOp.deposit({ value: ONE_ETH })
+
+        const op = await fillAndSign({
+          paymasterAndData: errorPostOp.address,
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(account3Owner.address, simpleAccountFactory),
+
+          verificationGasLimit: 3e6,
+          callGasLimit: 1e6
+        }, account3Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+        const rcpt1 = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        expect(logs1[0].args.success).to.be.false
       })
 
       it('paymaster should pay for tx', async function () {
