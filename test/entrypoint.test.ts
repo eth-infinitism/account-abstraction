@@ -25,7 +25,6 @@ import {
   SimpleAccountFactory__factory,
   IStakeManager__factory,
   INonceManager__factory,
-  EntryPoint__factory,
   EntryPoint
 } from '../typechain'
 import {
@@ -1231,7 +1230,7 @@ describe('EntryPoint', function () {
       // note: manually generating "pure", solidity-like "type(IEntryPoint).interfaceId" without inherited methods
       const inheritedMethods = new Set([...smInterface.fragments, ...nmInterface.fragments].map(f => f.name))
       const epPureInterfaceFunctions = [
-        ...epInterface.fragments.filter(it => !inheritedMethods.has(it.name) && it.type == 'function')
+        ...epInterface.fragments.filter(it => !inheritedMethods.has(it.name) && it.type === 'function')
       ]
       const epPureInterfaceID = getERC165InterfaceID(epPureInterfaceFunctions)
       const smInterfaceID = getERC165InterfaceID([...smInterface.fragments])
