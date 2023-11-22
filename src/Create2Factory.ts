@@ -23,7 +23,7 @@ export class Create2Factory {
    * deploy a contract using our deterministic deployer.
    * The deployer is deployed (unless it is already deployed)
    * NOTE: this transaction will fail if already deployed. use getDeployedAddress to check it first.
-   * @param initCode delpoyment code. can be a hex string or factory.getDeploymentTransaction(..)
+   * @param initCode deployment code. can be a hex string or factory.getDeploymentTransaction(..)
    * @param salt specific salt for deployment
    * @param gasLimit gas limit or 'estimate' to use estimateGas. by default, calculate gas based on data size.
    */
