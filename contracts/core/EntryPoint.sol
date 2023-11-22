@@ -425,7 +425,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             address sender = mUserOp.sender;
             _createSenderIfNeeded(opIndex, opInfo, op.initCode);
             address paymaster = mUserOp.paymaster;
-            numberMarker();
             uint256 missingAccountFunds = 0;
             if (paymaster == address(0)) {
                 uint256 bal = balanceOf(sender);
@@ -612,10 +611,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             revert FailedOp(opIndex, "AA25 invalid account nonce");
         }
 
-        // A "marker" where account opcode validation is done and paymaster opcode validation
-        // is about to start (used only by off-chain simulateValidation).
-        numberMarker();
-
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
             (context, paymasterValidationData) = _validatePaymasterPrepayment(
@@ -766,17 +761,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     ) internal pure returns (bytes memory data) {
         assembly {
             data := offset
-        }
-    }
-
-    /**
-     * Places the NUMBER opcode in the code.
-     * This is used as a marker during simulation, as this OP is completely banned from the simulated code of the
-     * account and paymaster.
-     */
-    function numberMarker() internal view {
-        assembly {
-            mstore(0, number())
         }
     }
 }
