@@ -11,10 +11,7 @@ import "../core/BasePaymaster.sol";
 import "./utils/UniswapHelper.sol";
 import "./utils/OracleHelper.sol";
 
-// TODO: note https://github.com/pimlicolabs/erc20-paymaster-contracts/issues/10
-// TODO: set a hard limit on how much gas a single user op may cost (postOp to fix the price)
 /// @title Sample ERC-20 Token Paymaster for ERC-4337
-/// @notice Based on Pimlico 'PimlicoERC20Paymaster' and OpenGSN 'PermitERC20UniswapV3Paymaster'
 /// This Paymaster covers gas fees in exchange for ERC20 tokens charged using allowance pre-issued by ERC-4337 accounts.
 /// The contract refunds excess tokens if the actual gas cost is lower than the initially provided amount.
 /// The token price cannot be queried in the validation code due to storage access restrictions of ERC-4337.
@@ -54,12 +51,14 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     TokenPaymasterConfig private tokenPaymasterConfig;
 
-    // TODO: I don't like defaults in Solidity - accept ALL parameters of fail!!!
-    /// @notice Initializes the PimlicoERC20Paymaster contract with the given parameters.
+    /// @notice Initializes the TokenPaymaster contract with the given parameters.
     /// @param _token The ERC20 token used for transaction fee payments.
     /// @param _entryPoint The EntryPoint contract used in the Account Abstraction infrastructure.
-    /// @ param _tokenOracle The Oracle contract used to fetch the latest token prices.
-    /// @ param _nativeAssetOracle The Oracle contract used to fetch the latest native asset (ETH, Matic, Avax, etc.) prices.
+    /// @param _wrappedNative The ERC-20 token that wraps the native asset for current chain.
+    /// @param _uniswap The Uniswap V3 SwapRouter contract.
+    /// @param _tokenPaymasterConfig The configuration for the Token Paymaster.
+    /// @param _oracleHelperConfig The configuration for the Oracle Helper.
+    /// @param _uniswapHelperConfig The configuration for the Uniswap Helper.
     /// @param _owner The address that will be set as the owner of the contract.
     constructor(
         IERC20Metadata _token,
@@ -90,7 +89,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     }
 
     /// @notice Updates the configuration for the Token Paymaster.
-    /// @param _tokenPaymasterConfig The new price markup percentage (1e6 = 100%).
+    /// @param _tokenPaymasterConfig The new configuration struct.
     function setTokenPaymasterConfig(
         TokenPaymasterConfig memory _tokenPaymasterConfig
     ) public onlyOwner {
@@ -192,6 +191,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     }
 
     /// @notice If necessary this function uses this Paymaster's token balance to refill the deposit on EntryPoint
+    /// @param _cachedPrice the token price that will be used to calculate the swap amount.
     function refillEntryPointDeposit(uint256 _cachedPrice) private {
         uint256 currentEntryPointBalance = entryPoint.balanceOf(address(this));
         if (
@@ -205,7 +205,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     function getGasPrice(uint256 maxFeePerGas, uint256 maxPriorityFeePerGas) internal view returns (uint256) {
         if (maxFeePerGas == maxPriorityFeePerGas) {
-            //legacy mode (for networks that don't support basefee opcode)
+            // legacy mode (for networks that don't support the 'basefee' opcode)
             return maxFeePerGas;
         }
         return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
