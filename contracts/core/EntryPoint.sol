@@ -183,8 +183,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
 
-        emit BeforeExecution();
-
         uint256 opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
@@ -207,6 +205,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 opIndex++;
             }
         }
+
+        emit BeforeExecution();
 
         uint256 collected = 0;
         opIndex = 0;
