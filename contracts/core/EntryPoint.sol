@@ -79,12 +79,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
-
-        try this.innerHandleOp(userOp.callData, opInfo, context) returns (
-            uint256 _actualGasCost
-        ) {
-            collected = _actualGasCost;
-        } catch {
+        uint saveFreePtr;
+        assembly {
+            saveFreePtr := mload(0x40)
+        }
+        bytes memory innerCall = abi.encodeCall(this.innerHandleOp,(userOp.callData, opInfo, context));
+        bool success;
+        assembly {
+            success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
+            collected := mload(0)
+            mstore(0x40, saveFreePtr)
+        }
+        if (!success) {
             bytes32 innerRevertCode;
             assembly {
                 let len := returndatasize()
