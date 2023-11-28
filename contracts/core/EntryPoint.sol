@@ -5,6 +5,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 
 import "../interfaces/IAccount.sol";
+import "../interfaces/IAccountExecute.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
 
@@ -83,7 +84,22 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         assembly {
             saveFreePtr := mload(0x40)
         }
-        bytes memory innerCall = abi.encodeCall(this.innerHandleOp,(userOp.callData, opInfo, context));
+        bytes calldata callData = userOp.callData;
+        bytes memory innerCall;
+        bytes4 methodSig;
+        assembly {
+            let len := callData.length
+            if gt(len,3) {
+                methodSig := calldataload(callData.offset)
+            }
+        }
+        if (methodSig == IAccountExecute.executeUserOp.selector) {
+            bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
+            innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
+        } else
+        {
+            innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
+        }
         bool success;
         assembly {
             success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
