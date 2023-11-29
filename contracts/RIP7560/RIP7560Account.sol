@@ -14,5 +14,6 @@ contract RIP7560Account {
     fallback() external {
         accCounter++;
         emit AccountEvent("account", string(msg.data));
+        return "account-returned-data-here";
     }
 }

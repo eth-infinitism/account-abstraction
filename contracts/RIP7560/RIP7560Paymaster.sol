@@ -8,5 +8,6 @@ contract RIP7560Paymaster {
     fallback() external {
         pmCounter++;
         emit PaymasterEvent("paymaster", string(msg.data));
+        return "paymaster-returned-data-here";
     }
 }

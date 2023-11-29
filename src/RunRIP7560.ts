@@ -1,6 +1,5 @@
 import { ethers } from 'hardhat'
 import { RIP7560Account__factory, RIP7560Paymaster__factory } from '../typechain'
-import { defaultAbiCoder } from 'ethers/lib/utils'
 
 async function main (): Promise<void> {
   const [coinbase] = await ethers.provider.listAccounts()
