@@ -14,11 +14,14 @@ contract MaliciousAccount is IAccount {
         ep.depositTo{value : missingAccountFunds}(address(this));
         // Now calculate basefee per EntryPoint.getUserOpGasPrice() and compare it to the basefe we pass off-chain in the signature
         uint256 externalBaseFee = abi.decode(userOp.signature, (uint256));
-        uint256 requiredGas = UserOperationLib.getValidationGasLimit(userOp.accountGasLimits) +
-                            UserOperationLib.getExecutionGasLimit(userOp.accountGasLimits) +
-                            UserOperationLib.getValidationGasLimit(userOp.paymasterGasLimits) +
-                            UserOperationLib.getExecutionGasLimit(userOp.paymasterGasLimits) +
-                        userOp.preVerificationGas;
+        (uint128 verificationGasLimit, uint128 callGasLimit) = UserOperationLib.unpackAccountGasLimits(userOp.accountGasLimits);
+        uint128 paymasterVerificationGasLimit = uint128(bytes16(userOp.paymasterAndData[20:36]));
+        uint128 paymasterPostOpGasLimit = uint128(bytes16(userOp.paymasterAndData[36:52]));
+        uint256 requiredGas = verificationGasLimit +
+                            callGasLimit +
+                            paymasterVerificationGasLimit +
+                            paymasterPostOpGasLimit +
+                            userOp.preVerificationGas;
         uint256 gasPrice = missingAccountFunds / requiredGas;
         uint256 basefee = gasPrice - userOp.maxPriorityFeePerGas;
         require (basefee == externalBaseFee, "Revert after first validation");

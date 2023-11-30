@@ -225,8 +225,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
-        bytes32 accountGasLimits;
-        bytes32 paymasterGasLimits;
+        uint128 verificationGasLimit;
+        uint128 callGasLimit;
+        uint128 paymasterVerificationGasLimit;
+        uint128 paymasterPostOpGasLimit;
         uint256 preVerificationGas;
         address paymaster;
         uint256 maxFeePerGas;
@@ -257,15 +259,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
-        uint callGasLimit = UserOperationLib.getExecutionGasLimit(mUserOp.accountGasLimits);
+        uint callGasLimit = mUserOp.callGasLimit;
         unchecked {
             // handleOps was called with gas limit too low. abort entire bundle.
             if (
                 gasleft() <
                 callGasLimit +
-                UserOperationLib.getValidationGasLimit(mUserOp.accountGasLimits) +
-                UserOperationLib.getValidationGasLimit(mUserOp.paymasterGasLimits) +
-                UserOperationLib.getExecutionGasLimit(mUserOp.paymasterGasLimits) +
+                mUserOp.verificationGasLimit +
+                mUserOp.paymasterVerificationGasLimit +
+                mUserOp.paymasterPostOpGasLimit +
                 5000
             ) {
                 assembly {
@@ -318,7 +320,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     ) internal pure {
         mUserOp.sender = userOp.sender;
         mUserOp.nonce = userOp.nonce;
-        mUserOp.accountGasLimits = userOp.accountGasLimits;
+        (mUserOp.verificationGasLimit, mUserOp.callGasLimit) = UserOperationLib.unpackAccountGasLimits(userOp.accountGasLimits);
         mUserOp.preVerificationGas = userOp.preVerificationGas;
         mUserOp.maxFeePerGas = userOp.maxFeePerGas;
         mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
@@ -329,10 +331,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 "AA93 invalid paymasterAndData"
             );
             mUserOp.paymaster = address(bytes20(paymasterAndData[:20]));
-            mUserOp.paymasterGasLimits = userOp.paymasterGasLimits;
+            mUserOp.paymasterVerificationGasLimit = uint128(bytes16(paymasterAndData[20:36]));
+            mUserOp.paymasterPostOpGasLimit = uint128(bytes16(paymasterAndData[36:52]));
         } else {
             mUserOp.paymaster = address(0);
-            mUserOp.paymasterGasLimits = bytes32(0);
+            mUserOp.paymasterVerificationGasLimit = 0;
+            mUserOp.paymasterPostOpGasLimit = 0;
         }
     }
 
@@ -344,10 +348,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         MemoryUserOp memory mUserOp
     ) internal pure returns (uint256 requiredPrefund) {
         unchecked {
-            uint256 requiredGas = UserOperationLib.getValidationGasLimit(mUserOp.accountGasLimits) +
-                UserOperationLib.getExecutionGasLimit(mUserOp.accountGasLimits) +
-                UserOperationLib.getValidationGasLimit(mUserOp.paymasterGasLimits) +
-                UserOperationLib.getExecutionGasLimit(mUserOp.paymasterGasLimits) +
+            uint256 requiredGas = mUserOp.verificationGasLimit +
+                mUserOp.callGasLimit +
+                mUserOp.paymasterVerificationGasLimit +
+                mUserOp.paymasterPostOpGasLimit +
                 mUserOp.preVerificationGas;
 
             requiredPrefund = requiredGas * mUserOp.maxFeePerGas;
@@ -370,7 +374,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             if (sender.code.length != 0)
                 revert FailedOp(opIndex, "AA10 sender already constructed");
             address sender1 = senderCreator.createSender{
-                gas: UserOperationLib.getValidationGasLimit(opInfo.mUserOp.accountGasLimits)
+                gas: opInfo.mUserOp.verificationGasLimit
             }(initCode);
             if (sender1 == address(0))
                 revert FailedOp(opIndex, "AA13 initCode failed or OOG");
@@ -431,7 +435,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
             try
                 IAccount(sender).validateUserOp{
-                    gas: UserOperationLib.getValidationGasLimit(mUserOp.accountGasLimits)
+                    gas: mUserOp.verificationGasLimit
                 }(op, opInfo.userOpHash, missingAccountFunds)
             returns (uint256 _validationData) {
                 validationData = _validationData;
@@ -477,7 +481,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
         // TODO: Do we actually need that still?
-            uint256 verificationGasLimit = UserOperationLib.getValidationGasLimit(mUserOp.accountGasLimits);
+            uint256 verificationGasLimit = mUserOp.verificationGasLimit;
             require(
                 verificationGasLimit > gasUsedByValidateAccountPrepayment,
                 "AA41 too little verificationGas"
@@ -491,7 +495,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
             paymasterInfo.deposit = uint112(deposit - requiredPreFund);
             try
-                IPaymaster(paymaster).validatePaymasterUserOp{gas: uint128(bytes16(mUserOp.paymasterGasLimits))}(
+                IPaymaster(paymaster).validatePaymasterUserOp{gas: mUserOp.paymasterVerificationGasLimit}(
                     op,
                     opInfo.userOpHash,
                     requiredPreFund
@@ -585,10 +589,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         // Validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow.
         uint256 maxGasValues = mUserOp.preVerificationGas |
-            UserOperationLib.getValidationGasLimit(mUserOp.accountGasLimits) |
-            UserOperationLib.getExecutionGasLimit(mUserOp.accountGasLimits) |
-            UserOperationLib.getValidationGasLimit(mUserOp.paymasterGasLimits) |
-            UserOperationLib.getExecutionGasLimit(mUserOp.paymasterGasLimits) |
+            mUserOp.verificationGasLimit |
+            mUserOp.callGasLimit |
+            mUserOp.paymasterVerificationGasLimit |
+            mUserOp.paymasterPostOpGasLimit |
             userOp.maxFeePerGas |
             userOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
@@ -626,7 +630,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             uint256 gasUsed = preGas - gasleft();
 
-            if (UserOperationLib.getValidationGasLimit(userOp.accountGasLimits) + UserOperationLib.getValidationGasLimit(userOp.paymasterGasLimits) < gasUsed) {
+            if (mUserOp.verificationGasLimit + mUserOp.paymasterVerificationGasLimit < gasUsed) {
                 revert FailedOp(opIndex, "AA40 over verificationGasLimit");
             }
             outOpInfo.prefund = requiredPreFund;
@@ -667,7 +671,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     actualGasCost = actualGas * gasPrice;
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         IPaymaster(paymaster).postOp{
-                            gas: uint128(uint256(mUserOp.paymasterGasLimits))
+                            gas: mUserOp.paymasterVerificationGasLimit
                         }(mode, context, actualGasCost);
                     }
                 }

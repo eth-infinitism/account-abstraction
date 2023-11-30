@@ -131,7 +131,7 @@ contract DepositPaymaster is BasePaymaster {
 
         (userOpHash);
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
-        require(UserOperationLib.getExecutionGasLimit(userOp.paymasterGasLimits) > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
+        require(uint128(bytes16(userOp.paymasterAndData[36:52])) > COST_OF_POST, "DepositPaymaster: gas too low for postOp");
 
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         require(paymasterAndData.length == 20+20, "DepositPaymaster: paymasterAndData must specify token");

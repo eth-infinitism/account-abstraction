@@ -8,12 +8,11 @@ pragma solidity ^0.8.12;
  * @param initCode              - If set, the account contract will be created by this constructor/
  * @param callData              - The method call to execute on this account.
  * @param accountGasLimits      - Packed gas limits for validateUserOp and gas limit passed to the callData method call.
- * @param paymasterGasLimits    - Packed gas limits for validatePaymasterUserOp and gas limit passed to postOp method call.
  * @param preVerificationGas    - Gas not calculated by the handleOps method, but added to the gas paid.
  *                                Covers batch overhead.
  * @param maxFeePerGas          - Same as EIP-1559 gas parameter.
  * @param maxPriorityFeePerGas  - Same as EIP-1559 gas parameter.
- * @param paymasterAndData      - If set, this field holds the paymaster address and paymaster-specific data.
+ * @param paymasterAndData      - If set, this field holds the paymaster address, verification gas limit, postOp gas limit and paymaster-specific extra data
  *                                The paymaster will pay for the transaction instead of the sender.
  * @param signature             - Sender-verified signature over the entire request, the EntryPoint address and the chain ID.
  */
@@ -23,7 +22,6 @@ struct UserOperation {
     bytes initCode;
     bytes callData;
     bytes32 accountGasLimits;
-    bytes32 paymasterGasLimits;
     uint256 preVerificationGas;
     uint256 maxFeePerGas;
     uint256 maxPriorityFeePerGas;

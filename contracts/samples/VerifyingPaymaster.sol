@@ -51,7 +51,7 @@ contract VerifyingPaymaster is BasePaymaster {
                     keccak256(userOp.initCode),
                     keccak256(userOp.callData),
                     userOp.accountGasLimits,
-                    userOp.paymasterGasLimits,
+                    uint128(bytes16(userOp.paymasterAndData[20:52])),
                     userOp.preVerificationGas,
                     userOp.maxFeePerGas,
                     userOp.maxPriorityFeePerGas,

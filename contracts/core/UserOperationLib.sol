@@ -56,7 +56,6 @@ library UserOperationLib {
         bytes32 hashInitCode = calldataKeccak(userOp.initCode);
         bytes32 hashCallData = calldataKeccak(userOp.callData);
         bytes32 accountGasLimits = userOp.accountGasLimits;
-        bytes32 paymasterGasLimits = userOp.paymasterGasLimits;
         uint256 preVerificationGas = userOp.preVerificationGas;
         uint256 maxFeePerGas = userOp.maxFeePerGas;
         uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
@@ -65,22 +64,22 @@ library UserOperationLib {
         return abi.encode(
             sender, nonce,
             hashInitCode, hashCallData,
-            accountGasLimits, paymasterGasLimits, preVerificationGas,
+            accountGasLimits, preVerificationGas,
             maxFeePerGas, maxPriorityFeePerGas,
             hashPaymasterAndData
         );
     }
 
-    function getValidationGasLimit(
-        bytes32 packedGasLimits
-    ) internal pure returns(uint128) {
-        return uint128(bytes16(packedGasLimits));
+    function unpackAccountGasLimits(
+        bytes32 accountGasLimits
+    ) internal pure returns(uint128 validationGasLimit, uint128 callGasLimit) {
+        return (uint128(bytes16(accountGasLimits)), uint128(uint256(accountGasLimits)));
     }
 
-    function getExecutionGasLimit(
-        bytes32 packedGasLimits
-    ) internal pure returns(uint128) {
-      return uint128(uint256(packedGasLimits));
+    function unpackPaymasterStaticFields(
+        bytes calldata paymasterAndData
+    ) internal pure returns(address paymaster, uint128 validationGasLimit, uint128 postOp) {
+        return (address(bytes20(paymasterAndData[:20])), uint128(bytes16(paymasterAndData[20:36])), uint128(bytes16(paymasterAndData[36:52])));
     }
 
     /**

@@ -76,7 +76,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
 
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
         // make sure that verificationGasLimit is high enough to handle postOp
-        require(UserOperationLib.getExecutionGasLimit(userOp.paymasterGasLimits) > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
+        require(uint128(bytes16(userOp.paymasterAndData[36:52])) > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);
