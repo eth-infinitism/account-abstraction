@@ -265,8 +265,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             if (
                 gasleft() <
                 callGasLimit +
-                mUserOp.verificationGasLimit +
-                mUserOp.paymasterVerificationGasLimit +
                 mUserOp.paymasterPostOpGasLimit +
                 5000
             ) {
@@ -671,7 +669,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     actualGasCost = actualGas * gasPrice;
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         IPaymaster(paymaster).postOp{
-                            gas: mUserOp.paymasterVerificationGasLimit
+                            gas: mUserOp.paymasterPostOpGasLimit
                         }(mode, context, actualGasCost);
                     }
                 }
