@@ -18,7 +18,6 @@ import EntryPointSimulationsJson from '../artifacts/contracts/core/EntryPointSim
 import { ethers } from 'hardhat'
 import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSimulations'
 
-
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
   let paymasterAndData = '0x'
@@ -52,7 +51,7 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
     // for the purpose of calculating gas cost encode also signature (and no keccak of bytes)
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes', 'bytes',
-       'uint256', 'uint256', 'uint256', 'uint256',
+        'uint256', 'uint256', 'uint256', 'uint256',
         'bytes', 'bytes'],
       [packedUserOp.sender, packedUserOp.nonce, packedUserOp.initCode, packedUserOp.callData,
         packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
@@ -227,7 +226,7 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
 }
 
 export async function fillSignAndPack (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<PackedUserOperation> {
-  const filledAndSignedOp =  await fillAndSign(op, signer, entryPoint, getNonceFunction)
+  const filledAndSignedOp = await fillAndSign(op, signer, entryPoint, getNonceFunction)
   return packUserOp(filledAndSignedOp)
 }
 

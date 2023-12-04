@@ -43,7 +43,11 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   describe('#parsePaymasterAndData', () => {
     it('should parse data properly', async () => {
-      const paymasterAndData = hexConcat([paymaster.address, hexZeroPad(hexlify(DefaultsForUserOp.paymasterVerificationGasLimit, {hexPad: 'left'}),16), hexZeroPad(hexlify(DefaultsForUserOp.paymasterPostOpGasLimit, {hexPad: 'left'}),16), defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG])
+      const paymasterAndData = hexConcat([
+        paymaster.address, hexZeroPad(hexlify(DefaultsForUserOp.paymasterVerificationGasLimit, { hexPad: 'left' }), 16),
+        hexZeroPad(hexlify(DefaultsForUserOp.paymasterPostOpGasLimit, { hexPad: 'left' }), 16),
+        defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG
+      ])
       console.log(paymasterAndData)
       const res = await paymaster.parsePaymasterAndData(paymasterAndData)
       console.log('MOCK_VALID_UNTIL, MOCK_VALID_AFTER', MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
@@ -70,7 +74,8 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       const userOp = await fillSignAndPack({
         sender: account.address,
         paymaster: paymaster.address,
-        paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
+        paymasterData: hexConcat(
+          [defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       await expect(simulateValidation(userOp, entryPoint.address)).to.be.revertedWith('ECDSA: invalid signature')
     })
@@ -101,7 +106,8 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       const userOp1 = await fillAndSign({
         sender: account.address,
         paymaster: paymaster.address,
-        paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
+        paymasterData: hexConcat(
+          [defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
       const hash = await paymaster.getHash(packUserOp(userOp1), MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
       const sig = await offchainSigner.signMessage(arrayify(hash))

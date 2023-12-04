@@ -1,4 +1,4 @@
-import { BigNumberish, ContractReceipt, ContractTransaction, Wallet, utils, BigNumber } from 'ethers'
+import { ContractReceipt, ContractTransaction, Wallet, utils, BigNumber } from 'ethers'
 import { hexlify, hexZeroPad, Interface, parseEther } from 'ethers/lib/utils'
 import { assert, expect } from 'chai'
 import { ethers } from 'hardhat'
@@ -27,18 +27,6 @@ import {
 import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
 
 import { fillUserOp, packUserOp, signUserOp } from '../UserOp'
-
-function generatePaymasterAndData (pm: string, tokenPrice?: BigNumberish): string {
-  if (tokenPrice != null) {
-    return utils.hexlify(
-      utils.concat([pm, utils.hexZeroPad(utils.hexlify(tokenPrice), 32)])
-    )
-  } else {
-    return utils.hexlify(
-      utils.concat([pm])
-    )
-  }
-}
 
 const priceDenominator = BigNumber.from(10).pow(26)
 

@@ -18,7 +18,6 @@ export interface UserOperation {
   signature: typ.bytes
 }
 
-
 export interface PackedUserOperation {
 
   sender: typ.address

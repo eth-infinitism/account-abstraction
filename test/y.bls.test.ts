@@ -13,7 +13,7 @@ import {
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { createAddress, deployEntryPoint, fund, ONE_ETH } from './testutils'
-import { DefaultsForUserOp, fillAndPack, fillUserOp, packUserOp, simulateValidation } from './UserOp'
+import { DefaultsForUserOp, fillAndPack, packUserOp, simulateValidation } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'

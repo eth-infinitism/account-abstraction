@@ -120,7 +120,7 @@ describe('EntryPoint with paymaster', function () {
           initCode: getAccountDeployer(entryPoint.address, accountOwner.address, 1),
           verificationGasLimit: 1e7,
           paymaster: paymaster.address,
-          paymasterPostOpGasLimit: 3e5,
+          paymasterPostOpGasLimit: 3e5
         }, accountOwner, entryPoint)
         await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7

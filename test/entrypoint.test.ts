@@ -52,7 +52,7 @@ import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUse
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
@@ -1164,7 +1164,7 @@ describe('EntryPoint', function () {
           const userOp = await fillSignAndPack({
             sender: account.address,
             paymaster: paymaster.address,
-            paymasterData: timeRange,
+            paymasterData: timeRange
           }, ethersSigner, entryPoint)
           const ret = await simulateValidation(userOp, entryPoint.address)
           expect(ret.returnInfo.validUntil).to.eql(now - 60)
@@ -1177,7 +1177,7 @@ describe('EntryPoint', function () {
           return await fillSignAndPack({
             sender: account.address,
             paymaster: paymaster.address,
-            paymasterData: timeRange,
+            paymasterData: timeRange
           }, owner, entryPoint)
         }
 
