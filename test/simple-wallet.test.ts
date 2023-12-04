@@ -20,7 +20,7 @@ import {
   ONE_ETH,
   HashZero, deployEntryPoint
 } from './testutils'
-import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
+import { fillUserOpDefaults, getUserOpHash, encodeUserOp, signUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
@@ -53,7 +53,7 @@ describe('SimpleAccount', function () {
 
   it('should pack in js the same as solidity', async () => {
     const op = await fillUserOpDefaults({ sender: accounts[0] })
-    const packed = packUserOp(op)
+    const packed = encodeUserOp(op)
     expect(await testUtil.packUserOp(op)).to.equal(packed)
   })
 

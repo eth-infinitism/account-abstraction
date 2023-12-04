@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import {
   arrayify,
-  hexConcat,
+  hexConcat, hexlify, hexZeroPad,
   keccak256,
   parseEther
 } from 'ethers/lib/utils'
@@ -22,6 +22,7 @@ import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
+import { Hexable } from '@ethersproject/bytes/src.ts'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -285,4 +286,16 @@ export async function createAccount (
     accountFactory,
     proxy
   }
+}
+
+export function packAccountGasLimits (validationGasLimit: BytesLike | Hexable | number | bigint, callGasLimit: BytesLike | Hexable | number | bigint): string {
+  return ethers.utils.hexConcat([hexZeroPad(hexlify(validationGasLimit, {hexPad: 'left'}),16), hexZeroPad(hexlify(callGasLimit, {hexPad: 'left'}),16)])
+}
+
+export function packPaymasterData (paymaster: string, paymasterVerificationGasLimit: BytesLike | Hexable | number | bigint, postOpGasLimit: BytesLike | Hexable | number | bigint, paymasterData: string): string {
+  return ethers.utils.hexConcat([paymaster, hexZeroPad(hexlify(paymasterVerificationGasLimit, {hexPad: 'left'}),16), hexZeroPad(hexlify(postOpGasLimit, {hexPad: 'left'}),16), paymasterData])
+}
+
+export function unpackAccountGasLimits (accountGasLimits: string): {validationGasLimit: number, callGasLimit: number} {
+  return { validationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
 }
