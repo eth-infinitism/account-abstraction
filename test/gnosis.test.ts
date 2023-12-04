@@ -25,7 +25,7 @@ import {
   HashZero,
   isDeployed
 } from './testutils'
-import { fillAndSign } from './UserOp'
+import { fillSignAndPack } from './UserOp'
 import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { expect } from 'chai'
 
@@ -101,7 +101,7 @@ describe('Gnosis Proxy', function () {
   })
 
   it('should fail from wrong entrypoint', async function () {
-    const op = await fillAndSign({
+    const op = await fillSignAndPack({
       sender: proxy.address
     }, owner, entryPoint, 'getNonce')
 
@@ -111,7 +111,7 @@ describe('Gnosis Proxy', function () {
   })
 
   it('should fail on invalid userop', async function () {
-    let op = await fillAndSign({
+    let op = await fillSignAndPack({
       sender: proxy.address,
       nonce: 1234,
       callGasLimit: 1e6,
@@ -119,18 +119,18 @@ describe('Gnosis Proxy', function () {
     }, owner, entryPoint, 'getNonce')
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('AA25 invalid account nonce')
 
-    op = await fillAndSign({
+    op = await fillSignAndPack({
       sender: proxy.address,
       callGasLimit: 1e6,
       callData: safe_execTxCallData
     }, owner, entryPoint, 'getNonce')
     // invalidate the signature
-    op.callGasLimit = 1
+    op.maxFeePerGas = 1
     await expect(entryPoint.handleOps([op], beneficiary)).to.revertedWith('FailedOp(0, "AA24 signature error")')
   })
 
   it('should exec', async function () {
-    const op = await fillAndSign({
+    const op = await fillSignAndPack({
       sender: proxy.address,
       callGasLimit: 1e6,
       callData: safe_execTxCallData
@@ -147,7 +147,7 @@ describe('Gnosis Proxy', function () {
     const counter_countFailCallData = counter.interface.encodeFunctionData('countFail')
     const safe_execFailTxCallData = manager.interface.encodeFunctionData('executeAndRevert', [counter.address, 0, counter_countFailCallData, 0])
 
-    const op = await fillAndSign({
+    const op = await fillSignAndPack({
       sender: proxy.address,
       callGasLimit: 1e6,
       callData: safe_execFailTxCallData
@@ -180,7 +180,7 @@ describe('Gnosis Proxy', function () {
       to: counterfactualAddress,
       value: parseEther('0.1')
     })
-    const op = await fillAndSign({
+    const op = await fillSignAndPack({
       sender: counterfactualAddress,
       initCode,
       verificationGasLimit: 400000
@@ -198,7 +198,7 @@ describe('Gnosis Proxy', function () {
     if (counterfactualAddress == null) this.skip()
     expect(await isDeployed(counterfactualAddress))
 
-    const op = await fillAndSign({
+    const op = await fillSignAndPack({
       sender: counterfactualAddress,
       callData: safe_execTxCallData
     }, owner, entryPoint, 'getNonce')

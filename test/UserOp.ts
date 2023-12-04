@@ -80,7 +80,7 @@ export const DefaultsForUserOp: UserOperation = {
   maxPriorityFeePerGas: 1e9,
   paymaster: '0x',
   paymasterData: '0x',
-  paymasterVerificationGasLimit: 2e5,
+  paymasterVerificationGasLimit: 3e5,
   paymasterPostOpGasLimit: 0,
   signature: '0x'
 }
@@ -200,6 +200,10 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
     op2.preVerificationGas = callDataCost(encodeUserOp(op2, false))
   }
   return op2
+}
+
+export async function fillAndPack (op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<PackedUserOperation> {
+  return packUserOp(await fillUserOp(op, entryPoint, getNonceFunction))
 }
 
 export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {

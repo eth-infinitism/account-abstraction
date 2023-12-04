@@ -151,8 +151,8 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
 
     /**
      * Validate this gnosisSafe is callable through the EntryPoint.
-     * the test is might be incomplete: we check that we reach our validateUserOp and fail on signature.
-     *  we don't test full transaction
+     * the test might be incomplete: we check that we reach our validateUserOp and fail on signature.
+     *  we don't test a full transaction
      */
     function validateEip4337(GnosisSafe safe, EIP4337Manager manager) public {
 
