@@ -163,7 +163,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
         uint256 nonce = uint256(IEntryPoint(manager.entryPoint()).getNonce(address(safe), 0));
-        UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", bytes32(bytes3(0x0f4240)), 0, 0, 0, "", sig);
+        UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", bytes32(bytes16(uint128(0x0f4240))), 0, 0, 0, "", sig);
         UserOperation[] memory userOps = new UserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));

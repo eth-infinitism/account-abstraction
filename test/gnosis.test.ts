@@ -97,6 +97,7 @@ describe('Gnosis Proxy', function () {
   })
 
   it('should validate', async function () {
+    console.log('manager proxy', manager.address, proxySafe.address)
     await manager.callStatic.validateEip4337(proxySafe.address, manager.address, { gasLimit: 10e6 })
   })
 
