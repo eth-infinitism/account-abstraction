@@ -255,15 +255,6 @@ export async function isDeployed (addr: string): Promise<boolean> {
   return code.length > 2
 }
 
-// internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
-export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOpsPerAggregatorStruct[] {
-  return [{
-    userOps,
-    aggregator: AddressZero,
-    signature: '0x'
-  }]
-}
-
 // Deploys an implementation and a proxy pointing to this implementation
 export async function createAccount (
   ethersSigner: Signer,
