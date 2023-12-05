@@ -16,11 +16,10 @@ import {
   SimpleAccountFactory,
   TestAggregatedAccountFactory
 } from '../typechain'
-import { BytesLike } from '@ethersproject/bytes'
+import { BytesLike, Hexable } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
-import { Hexable } from '@ethersproject/bytes/src.ts'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
