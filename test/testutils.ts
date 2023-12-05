@@ -10,7 +10,6 @@ import {
   EntryPoint,
   EntryPoint__factory,
   IERC20,
-  IEntryPoint,
   SimpleAccount,
   SimpleAccountFactory__factory,
   SimpleAccount__factory,
@@ -21,7 +20,6 @@ import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
-import { UserOperation } from './UserOperation'
 import { Hexable } from '@ethersproject/bytes/src.ts'
 
 export const AddressZero = ethers.constants.AddressZero
