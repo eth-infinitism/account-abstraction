@@ -42,8 +42,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
 
-    event PostOpReverted(address indexed user, uint256 preCharge);
-
     event Received(address indexed sender, uint256 value);
 
     /// @notice All 'price' variables are multiplied by this value to avoid rounding up
@@ -151,7 +149,12 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @dev This function is called after a user operation has been executed or reverted.
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost) internal override {
+    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
+        // Marked for removal when using with next EP version
+        if (mode == PostOpMode.postOpReverted) {
+            return; // Do nothing here to not revert the whole bundle and harm reputation
+        }
+
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
