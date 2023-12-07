@@ -6,6 +6,7 @@ pragma solidity ^0.8.7;
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "@gnosis.pm/safe-contracts/contracts/base/Executor.sol";
 import "@gnosis.pm/safe-contracts/contracts/examples/libraries/GnosisSafeStorage.sol";
@@ -13,8 +14,6 @@ import "./EIP4337Fallback.sol";
 import "../../interfaces/IAccount.sol";
 import "../../interfaces/IEntryPoint.sol";
 import "../../utils/Exec.sol";
-
-    using ECDSA for bytes32;
 
 /**
  * Main EIP4337 module.
@@ -48,8 +47,8 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         require(msgSender == entryPoint, "account: not from entrypoint");
 
         GnosisSafe pThis = GnosisSafe(payable(address(this)));
-        bytes32 hash = userOpHash.toEthSignedMessageHash();
-        address recovered = hash.recover(userOp.signature);
+        bytes32 hash = MessageHashUtils.toEthSignedMessageHash(userOpHash);
+        address recovered = ECDSA.recover(hash, userOp.signature);
         require(threshold == 1, "account: only threshold 1");
         if (!pThis.isOwner(recovered)) {
             validationData = SIG_VALIDATION_FAILED;

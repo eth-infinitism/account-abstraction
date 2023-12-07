@@ -158,11 +158,9 @@ export function rethrow (): (e: Error) => void {
 }
 
 const decodeRevertReasonContracts = new Interface([
-  ...[
-    ...EntryPoint__factory.createInterface().fragments,
-    ...TestPaymasterRevertCustomError__factory.createInterface().fragments
-  ].filter(f => f.type === 'error')
-]) //
+  ...EntryPoint__factory.createInterface().fragments,
+  ...TestPaymasterRevertCustomError__factory.createInterface().fragments
+].filter(f => f.type === 'error'))
 
 export function decodeRevertReason (data: string | Error, nullIfNoMatch = true): string | null {
   if (typeof data !== 'string') {
@@ -172,6 +170,7 @@ export function decodeRevertReason (data: string | Error, nullIfNoMatch = true):
   const methodSig = data.slice(0, 10)
   const dataParams = '0x' + data.slice(10)
 
+  // can't add Error(string) to xface...
   if (methodSig === '0x08c379a0') {
     const [err] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions

@@ -7,10 +7,9 @@ import "@gnosis.pm/safe-contracts/contracts/handler/DefaultCallbackHandler.sol";
 import "@gnosis.pm/safe-contracts/contracts/GnosisSafe.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "../../interfaces/IAccount.sol";
 import "./EIP4337Manager.sol";
-
-using ECDSA for bytes32;
 
 /**
  * The GnosisSafe enables adding custom functions implementation to the Safe by setting a 'fallbackHandler'.
@@ -74,8 +73,8 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
         bytes32 _hash,
         bytes memory _signature
     ) external override view returns (bytes4) {
-        bytes32 hash = _hash.toEthSignedMessageHash();
-        address recovered = hash.recover(_signature);
+        bytes32 hash = MessageHashUtils.toEthSignedMessageHash(_hash);
+        address recovered = ECDSA.recover(hash,_signature);
 
         GnosisSafe safe = GnosisSafe(payable(address(msg.sender)));
 

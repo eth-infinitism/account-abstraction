@@ -711,7 +711,9 @@ describe('EntryPoint', function () {
         }).then(async r => r.wait())
 
         const error = rcpt.events?.find(ev => ev.event === 'UserOperationRevertReason')
-        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('Error(ReentrancyGuard: reentrant call)', 'execution of handleOps inside a UserOp should revert')
+        // console.log(rcpt.events!.map(e => ({ ev: e.event, ...objdump(e.args!) })))
+
+        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('ReentrancyGuardReentrantCall()', 'execution of handleOps inside a UserOp should revert')
       })
       it('should report failure on insufficient verificationGas after creation', async () => {
         const op0 = await fillAndSign({
@@ -1104,7 +1106,7 @@ describe('EntryPoint', function () {
         const logs1postOpRevert = await entryPoint.queryFilter(entryPoint.filters.PostOpRevertReason(), rcpt1.blockHash)
         const postOpRevertReason = decodeRevertReason(logs1postOpRevert[0].args.revertReason, false)
         expect(logs1[0].args.success).to.be.false
-        expect(postOpRevertReason).to.equal('PostOpReverted(CustomError("this is a long revert reason string we are looking for"))')
+        expect(postOpRevertReason).to.equal('PostOpReverted(CustomError(this is a long revert reason string we are looking for))')
       })
 
       it('should not revert when paymaster reverts with known EntryPoint error in postOp', async function () {
