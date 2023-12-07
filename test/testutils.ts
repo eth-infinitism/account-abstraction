@@ -15,7 +15,7 @@ import {
   SimpleAccountFactory__factory,
   SimpleAccount__factory,
   SimpleAccountFactory,
-  TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory
+  TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory, TestERC20__factory
 } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
@@ -159,8 +159,10 @@ export function rethrow (): (e: Error) => void {
 
 const decodeRevertReasonContracts = new Interface([
   ...EntryPoint__factory.createInterface().fragments,
-  ...TestPaymasterRevertCustomError__factory.createInterface().fragments
-].filter(f => f.type === 'error'))
+  ...TestPaymasterRevertCustomError__factory.createInterface().fragments,
+  ...TestERC20__factory.createInterface().fragments, // for OZ errors,
+  'error ECDSAInvalidSignature()'
+]) // .filter(f => f.type === 'error'))
 
 export function decodeRevertReason (data: string | Error, nullIfNoMatch = true): string | null {
   if (typeof data !== 'string') {
@@ -182,8 +184,6 @@ export function decodeRevertReason (data: string | Error, nullIfNoMatch = true):
 
   try {
     const err = decodeRevertReasonContracts.parseError(data)
-    // let args: any[] = err.args as any
-
     // treat any error "bytes" argument as possible error to decode (e.g. FailedOpWithRevert, PostOpReverted)
     const args = err.args.map((arg: any, index) => {
       switch (err.errorFragment.inputs[index].type) {

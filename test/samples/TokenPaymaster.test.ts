@@ -156,13 +156,13 @@ describe('TokenPaymaster', function () {
     // await expect(
     expect(await entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
       .catch(e => decodeRevertReason(e)))
-      .to.include('ERC20: insufficient allowance')
+      .to.match(/FailedOpWithRevert\(0,"AA33 reverted",ERC20InsufficientAllowance/)
 
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
     expect(await entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
       .catch(e => decodeRevertReason(e)))
-      .to.include('ERC20: transfer amount exceeds balance')
+      .to.match(/FailedOpWithRevert\(0,"AA33 reverted",ERC20InsufficientBalance/)
 
     await ethers.provider.send('evm_revert', [snapshot])
   })
@@ -407,7 +407,7 @@ describe('TokenPaymaster', function () {
       return testInterface.parseLog(it)
     })
     const postOpRevertReason = decodeRevertReason(decodedLogs[2].args.revertReason)
-    assert.equal(postOpRevertReason, 'PostOpReverted(Error(ERC20: transfer amount exceeds balance))')
+    assert.include(postOpRevertReason, 'PostOpReverted(ERC20InsufficientBalance')
     const userOpSuccess = decodedLogs[3].args.success
     assert.equal(userOpSuccess, false)
     assert.equal(decodedLogs.length, 4)

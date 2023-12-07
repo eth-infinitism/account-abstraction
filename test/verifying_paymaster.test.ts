@@ -70,7 +70,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
       }, accountOwner, entryPoint)
       expect(await simulateValidation(userOp, entryPoint.address)
         .catch(e => decodeRevertReason(e)))
-        .to.include('ECDSA: invalid signature')
+        .to.include('ECDSAInvalidSignature')
     })
 
     describe('with wrong signature', () => {
