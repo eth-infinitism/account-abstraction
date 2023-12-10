@@ -3,6 +3,7 @@
   "version": "0.6.0",
   "description": "ERC-4337 Account Abstraction Implementation",
   "scripts": {
+    "rip": "REVERT=0 npx hardhat --network dev run src/RunRIP7560.ts",
     "clean": "rm -rf cache artifacts typechain typechain-types",
     "compile": "./scripts/hh-wrapper compile",
     "tsc": "tsc",
@@ -33,6 +34,7 @@
     "@typechain/ethers-v5": "^10.1.0",
     "@types/chai": "^4.2.21",
     "@types/node": "^16.4.12",
+    "@types/readline-sync": "^1.4.8",
     "@typescript-eslint/eslint-plugin": "^5.30.5",
     "@typescript-eslint/parser": "^5.30.5",
     "@uniswap/v3-periphery": "^1.4.3",
@@ -64,6 +66,7 @@
     "ethereumjs-wallet": "^1.0.1",
     "hardhat-deploy": "^0.11.23",
     "hardhat-deploy-ethers": "^0.3.0-beta.11",
+    "readline-sync": "^1.4.10",
     "solidity-coverage": "^0.8.4",
     "source-map-support": "^0.5.19",
     "table": "^6.8.0",

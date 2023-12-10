@@ -1,5 +1,6 @@
 import { ethers } from 'hardhat'
 import { RIP7560Account__factory, RIP7560Paymaster__factory } from '../typechain'
+import { question } from 'readline-sync'
 
 async function main (): Promise<void> {
   const [coinbase] = await ethers.provider.listAccounts()
@@ -8,7 +9,8 @@ async function main (): Promise<void> {
   const signer = ethers.provider.getSigner(coinbase)
 
   const account = await new RIP7560Account__factory(signer).deploy()
-  const paymaster = await new RIP7560Paymaster__factory(signer).deploy()
+  const revertValidation = (parseInt(process.env.REVERT!) !== 0) ?? false
+  const paymaster = await new RIP7560Paymaster__factory(signer).deploy(revertValidation)
 
   const paymasterData = paymaster.address +
     ethers.utils
@@ -16,7 +18,7 @@ async function main (): Promise<void> {
       .replace('0x', '')
 
   console.log('Smart Account: ', account.address)
-  console.log('Paymaster: ', paymaster.address)
+  console.log('Paymaster: ', paymaster.address, ' reverts: ', revertValidation)
   console.log('Paymaster Data: ', paymasterData)
 
   const response = await signer.sendTransaction({
@@ -25,10 +27,9 @@ async function main (): Promise<void> {
   })
   console.log('Value transfer tx hash: ', response.hash)
 
-  console.log('=========')
-  console.log('=========')
+  question('Press enter to send AA transaction:>')
 
-  await ethers.provider.send('eth_sendTransaction', [{
+  const type4transaction1 = {
     gas: '0x5208',
     value: '0x1',
     // todo: remove 'from' field for Type 4 request
@@ -45,7 +46,22 @@ async function main (): Promise<void> {
     paymasterGas: '0x666',
     deployerData: '0xaa',
     paymasterData
-  }])
+  }
+  // const type4transaction2 = {
+  //   ...type4transaction1,
+  //   to: '0xaa5b5e4058bfa43ae80744f206eb3aacf6cda867',
+  //   nonce: '0x8'
+  // }
+  const responseAA1 = await ethers.provider.send('eth_sendTransaction', [type4transaction1])
+  // const responseAA2 = await ethers.provider.send('eth_sendTransaction', [type4transaction2])
+
+  console.log('=========')
+  console.log('AA transactions sent. Responses:')
+  console.warn(JSON.stringify(responseAA1))
+
+  const receipt = await ethers.provider.getTransactionReceipt(responseAA1)
+  console.log('Receipt:', JSON.stringify(receipt))
+  // console.warn(JSON.stringify(responseAA2))
 }
 
 void main()
