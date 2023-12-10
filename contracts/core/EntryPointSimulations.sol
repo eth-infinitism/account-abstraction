@@ -104,9 +104,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             paymasterValidationData
         );
 
-        numberMarker();
         uint256 paid = _executeUserOp(0, op, opInfo);
-        numberMarker();
         bool targetSuccess;
         bytes memory targetResult;
         if (target != address(0)) {
