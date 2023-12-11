@@ -30,7 +30,7 @@ import {
   createAccountOwner,
   decodeRevertReason,
   deployEntryPoint,
-  fund
+  fund, objdump
 } from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
@@ -406,6 +406,8 @@ describe('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
+    console.log(decodedLogs.map((e: any) => ({ ev: e.name, ...objdump(e.args!) })))
+
     const postOpRevertReason = decodeRevertReason(decodedLogs[2].args.revertReason)
     assert.include(postOpRevertReason, 'PostOpReverted(ERC20InsufficientBalance')
     const userOpSuccess = decodedLogs[3].args.success
