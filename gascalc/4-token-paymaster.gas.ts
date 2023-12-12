@@ -14,8 +14,8 @@ import {
   UniswapHelper as UniswapHelperNamespace
 } from '../typechain/contracts/samples/TokenPaymaster'
 import { BigNumber } from 'ethers'
-
-const ethersSigner = ethers.provider.getSigner()
+import { createAccountOwner } from '../test/testutils'
+// const ethersSigner = ethers.provider.getSigner()
 
 context('Token Paymaster', function () {
   this.timeout(60000)
@@ -24,6 +24,11 @@ context('Token Paymaster', function () {
   let paymasterAddress: string
   before(async () => {
     await GasCheckCollector.init()
+    const globalSigner = ethers.provider.getSigner()
+    const create2Factory = new Create2Factory(ethers.provider, globalSigner)
+
+    const ethersSigner = createAccountOwner()
+    await globalSigner.sendTransaction({ to: ethersSigner.getAddress(), value: parseEther('10') })
 
     const minEntryPointBalance = 1e17.toString()
     const initialPriceToken = 100000000 // USD per TOK
@@ -31,13 +36,13 @@ context('Token Paymaster', function () {
     const priceDenominator = BigNumber.from(10).pow(26)
 
     const tokenInit = await new TestERC20__factory(ethersSigner).getDeployTransaction(6)
-    const tokenAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(tokenInit, 0)
+    const tokenAddress = await create2Factory.deploy(tokenInit, 0)
     const token = TestERC20__factory.connect(tokenAddress, ethersSigner)
 
     const wethInit = await new TestWrappedNativeToken__factory(ethersSigner).getDeployTransaction()
-    const wethAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(wethInit, 0)
+    const wethAddress = await create2Factory.deploy(wethInit, 0)
     const testUniswapInit = await new TestUniswap__factory(ethersSigner).getDeployTransaction(wethAddress)
-    const testUniswapAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(testUniswapInit, 0)
+    const testUniswapAddress = await create2Factory.deploy(testUniswapInit, 0)
 
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
       priceMaxAge: 86400,
@@ -47,9 +52,9 @@ context('Token Paymaster', function () {
     }
 
     const nativeAssetOracleInit = await new TestOracle2__factory(ethersSigner).getDeployTransaction(initialPriceEther, 8)
-    const nativeAssetOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(nativeAssetOracleInit, 0, 10_000_000)
+    const nativeAssetOracleAddress = await create2Factory.deploy(nativeAssetOracleInit, 0, 10_000_000)
     const tokenOracleInit = await new TestOracle2__factory(ethersSigner).getDeployTransaction(initialPriceToken, 8)
-    const tokenOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(tokenOracleInit, 0, 10_000_000)
+    const tokenOracleAddress = await create2Factory.deploy(tokenOracleInit, 0, 10_000_000)
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
       cacheTimeToLive: 0,
@@ -79,7 +84,7 @@ context('Token Paymaster', function () {
       uniswapHelperConfig,
       owner
     ).data!)
-    paymasterAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(paymasterInit, 0)
+    paymasterAddress = await create2Factory.deploy(paymasterInit, 0)
     const paymaster = TokenPaymaster__factory.connect(paymasterAddress, ethersSigner)
     await paymaster.addStake(1, { value: 1 })
     await g.entryPoint().depositTo(paymaster.address, { value: parseEther('10') })
@@ -90,6 +95,16 @@ context('Token Paymaster', function () {
       await token.transfer(address, parseEther('1'))
       await token.sudoApprove(address, paymaster.address, ethers.constants.MaxUint256)
     }
+
+    console.log('==addresses:', {
+      ethersSigner: await ethersSigner.getAddress(),
+      paymasterAddress,
+      nativeAssetOracleAddress,
+      tokenOracleAddress,
+      tokenAddress,
+      owner,
+      createdAccounts: g.createdAccounts
+    })
   })
 
   it('token paymaster', async function () {
