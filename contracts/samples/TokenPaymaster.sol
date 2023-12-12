@@ -149,12 +149,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @dev This function is called after a user operation has been executed or reverted.
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
-    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
-        // Marked for removal when using with next EP version
-        if (mode == PostOpMode.postOpReverted) {
-            return; // Do nothing here to not revert the whole bundle and harm reputation
-        }
-
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
