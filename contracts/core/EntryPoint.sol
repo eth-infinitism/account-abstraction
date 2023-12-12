@@ -80,42 +80,43 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
 
-        try this.innerHandleOp(userOp.callData, opInfo, context) returns (
-            uint256 _actualGasCost
-        ) {
-            collected = _actualGasCost;
-        } catch {
-            bytes32 innerRevertCode;
-            assembly {
-                let len := returndatasize()
-                if eq(32,len) {
-                    returndatacopy(0, 0, 32)
-                    innerRevertCode := mload(0)
-                }
-            }
-            // handleOps was called with gas limit too low. abort entire bundle.
-            if (innerRevertCode == INNER_OUT_OF_GAS) {
-                //report paymaster, since if it is not deliberately caused by the bundler,
-                // it must be a revert caused by paymaster.
-                revert FailedOp(opIndex, "AA95 out of gas");
-            } else {
-                emit PostOpRevertReason(
-                    opInfo.userOpHash,
-                    opInfo.mUserOp.sender,
-                    opInfo.mUserOp.nonce,
-                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
-                );
-            }
-
-            uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-            collected = _postExecution(
-                opIndex,
-                IPaymaster.PostOpMode.postOpReverted,
-                opInfo,
-                context,
-                actualGas
-            );
-        }
+        collected = innerHandleOp(userOp.callData, opInfo, context);
+//        try this.innerHandleOp(userOp.callData, opInfo, context) returns (
+//            uint256 _actualGasCost
+//        ) {
+//            collected = _actualGasCost;
+//        } catch {
+//            bytes32 innerRevertCode;
+//            assembly {
+//                let len := returndatasize()
+//                if eq(32,len) {
+//                    returndatacopy(0, 0, 32)
+//                    innerRevertCode := mload(0)
+//                }
+//            }
+//            // handleOps was called with gas limit too low. abort entire bundle.
+//            if (innerRevertCode == INNER_OUT_OF_GAS) {
+//                //report paymaster, since if it is not deliberately caused by the bundler,
+//                // it must be a revert caused by paymaster.
+//                revert FailedOp(opIndex, "AA95 out of gas");
+//            } else {
+//                emit PostOpRevertReason(
+//                    opInfo.userOpHash,
+//                    opInfo.mUserOp.sender,
+//                    opInfo.mUserOp.nonce,
+//                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
+//                );
+//            }
+//
+//            uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+//            collected = _postExecution(
+//                opIndex,
+//                IPaymaster.PostOpMode.postOpReverted,
+//                opInfo,
+//                context,
+//                actualGas
+//            );
+//        }
     }
 
     /// @inheritdoc IEntryPoint
@@ -249,6 +250,21 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 preOpGas;
     }
 
+    function miniInner(address sender, bytes calldata callData, uint callGasLimit , address paymaster, uint postOpGasLimit, bytes calldata context) external {
+        require(msg.sender == address(this), "AA92 internal call only");
+        bool success;
+        assembly {
+            let temp:=mload(0x40)
+            let len := callData.length
+            let data := callData.offset
+            calldatacopy(temp,data,len)
+            success := call(callGasLimit, sender, 0, temp, len, 0, 0)
+        }
+//    bool success = Exec.call(sender, 0, callData, callGasLimit);
+        if (!success) {
+            Exec.revertWithData(Exec.getReturnData(REVERT_REASON_MAX_LEN));
+        }
+    }
     /**
      * Inner function to handle a UserOperation.
      * Must be declared "external" to open a call context, but it can only be called by handleOps.
@@ -257,12 +273,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param context  - The context bytes.
      */
     function innerHandleOp(
-        bytes memory callData,
+        bytes calldata callData,
         UserOpInfo memory opInfo,
-        bytes calldata context
-    ) external returns (uint256 actualGasCost) {
+        bytes memory context
+    ) internal returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
-        require(msg.sender == address(this), "AA92 internal call only");
+//        require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
         uint callGasLimit = mUserOp.callGasLimit;
@@ -280,8 +296,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         IPaymaster.PostOpMode mode = IPaymaster.PostOpMode.opSucceeded;
         if (callData.length > 0) {
-            bool success = Exec.call(mUserOp.sender, 0, callData, callGasLimit);
-            if (!success) {
+//            bool success = Exec.call(mUserOp.sender, 0, callData, callGasLimit);
+            //pass data to miniInner.
+            //NOTE: currently it doesn't use the paymaster related params. passed in only for better gas estimation
+            try this.miniInner(mUserOp.sender, callData, callGasLimit, mUserOp.paymaster, mUserOp.verificationGasLimit, context) {}
+            catch {
                 bytes memory result = Exec.getReturnData(REVERT_REASON_MAX_LEN);
                 if (result.length > 0) {
                     emit UserOperationRevertReason(
