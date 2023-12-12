@@ -250,7 +250,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 preOpGas;
     }
 
-    function miniInner(address sender, bytes calldata callData, uint callGasLimit , address paymaster, uint postOpGasLimit, bytes calldata context) external {
+    function miniInner(uint gasPrice, address sender, bytes calldata callData, uint callGasLimit , address paymaster, uint postOpGasLimit, bytes calldata context) external {
         require(msg.sender == address(this), "AA92 internal call only");
         bool success;
         assembly {
@@ -299,7 +299,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 //            bool success = Exec.call(mUserOp.sender, 0, callData, callGasLimit);
             //pass data to miniInner.
             //NOTE: currently it doesn't use the paymaster related params. passed in only for better gas estimation
-            try this.miniInner(mUserOp.sender, callData, callGasLimit, mUserOp.paymaster, mUserOp.verificationGasLimit, context) {}
+            try this.miniInner(context.length==0 ? 0 : getUserOpGasPrice(mUserOp), mUserOp.sender, callData, callGasLimit, mUserOp.paymaster, mUserOp.verificationGasLimit, context) {}
             catch {
                 bytes memory result = Exec.getReturnData(REVERT_REASON_MAX_LEN);
                 if (result.length > 0) {
