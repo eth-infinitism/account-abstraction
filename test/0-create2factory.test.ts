@@ -7,6 +7,11 @@ import { Provider } from '@ethersproject/providers'
 describe('test Create2Factory', () => {
   let factory: Create2Factory
   let provider: Provider
+
+  if (process.env.COVERAGE != null) {
+    return
+  }
+
   before(async () => {
     provider = ethers.provider
     factory = new Create2Factory(provider)

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.12;
 
 import "../interfaces/UserOperation.sol";
+import "../core/UserOperationLib.sol";
 
 contract TestUtil {
     using UserOperationLib for UserOperation;

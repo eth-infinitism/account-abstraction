@@ -3,12 +3,11 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   SimpleAccount,
-  EntryPoint,
   LegacyTokenPaymaster,
   LegacyTokenPaymaster__factory,
   TestCounter__factory,
   SimpleAccountFactory,
-  SimpleAccountFactory__factory
+  SimpleAccountFactory__factory, EntryPoint
 } from '../typechain'
 import {
   AddressZero,
@@ -20,13 +19,12 @@ import {
   checkForGeth,
   calcGasUsage,
   deployEntryPoint,
-  checkForBannedOps,
   createAddress,
   ONE_ETH,
   createAccount,
   getAccountAddress
 } from './testutils'
-import { fillAndSign } from './UserOp'
+import { fillAndSign, simulateValidation } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 import { hexValue } from '@ethersproject/bytes'
@@ -139,9 +137,12 @@ describe('EntryPoint with paymaster', function () {
         await paymaster.mintTokens(preAddr, parseEther('1'))
         // paymaster is the token, so no need for "approve" or any init function...
 
-        await entryPoint.simulateValidation(createOp, { gasLimit: 5e6 }).catch(e => e.message)
-        const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
-        await checkForBannedOps(tx, true)
+        // const snapshot = await ethers.provider.send('evm_snapshot', [])
+        await simulateValidation(createOp, entryPoint.address, { gasLimit: 5e6 })
+        // TODO: can't do opcode banning with EntryPointSimulations (since its not on-chain) add when we can debug_traceCall
+        // const [tx] = await ethers.provider.getBlock('latest').then(block => block.transactions)
+        // await checkForBannedOps(tx, true)
+        // await ethers.provider.send('evm_revert', [snapshot])
 
         const rcpt = await entryPoint.handleOps([createOp], beneficiaryAddress, {
           gasLimit: 1e7
@@ -230,14 +231,13 @@ describe('EntryPoint with paymaster', function () {
           expect(await paymaster.allowance(account2.address, account.address)).to.eq(ethers.constants.MaxUint256)
         })
 
-        it('griefing attempt should cause handleOp to revert', async () => {
+        it('griefing attempt in postOp should cause the execution part of UserOp to revert', async () => {
           // account1 is approved to withdraw going to withdraw account2's balance
 
           const account2Balance = await paymaster.balanceOf(account2.address)
           const transferCost = parseEther('1').sub(account2Balance)
           const withdrawAmount = account2Balance.sub(transferCost.mul(0))
           const withdrawTokens = paymaster.interface.encodeFunctionData('transferFrom', [account2.address, account.address, withdrawAmount])
-          // const withdrawTokens = paymaster.interface.encodeFunctionData('transfer', [account.address, parseEther('0.1')])
           const execFromEntryPoint = account.interface.encodeFunctionData('execute', [paymaster.address, 0, withdrawTokens])
 
           const userOp1 = await fillAndSign({
@@ -246,7 +246,7 @@ describe('EntryPoint with paymaster', function () {
             paymasterAndData: paymaster.address
           }, accountOwner, entryPoint)
 
-          // account2's operation is unimportant, as it is going to be reverted - but the paymaster will have to pay for it..
+          // account2's operation is unimportant, as it is going to be reverted - but the paymaster will have to pay for it.
           const userOp2 = await fillAndSign({
             sender: account2.address,
             callData: execFromEntryPoint,
@@ -254,12 +254,17 @@ describe('EntryPoint with paymaster', function () {
             callGasLimit: 1e6
           }, accountOwner, entryPoint)
 
-          await expect(
-            entryPoint.handleOps([
+          const rcpt =
+            await entryPoint.handleOps([
               userOp1,
               userOp2
             ], beneficiaryAddress)
-          ).to.be.revertedWith('transfer amount exceeds balance')
+
+          const transferEvents = await paymaster.queryFilter(paymaster.filters.Transfer(), rcpt.blockHash)
+          const [log1, log2] = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
+          expect(log1.args.success).to.eq(true)
+          expect(log2.args.success).to.eq(false)
+          expect(transferEvents.length).to.eq(2)
         })
       })
     })

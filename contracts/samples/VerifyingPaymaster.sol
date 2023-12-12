@@ -5,6 +5,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 
 import "../core/BasePaymaster.sol";
+import "../core/UserOperationLib.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /**
  * A sample paymaster that uses external service to decide whether to pay for the UserOp.
@@ -70,7 +71,7 @@ contract VerifyingPaymaster is BasePaymaster {
      * paymasterAndData[84:] : signature
      */
     function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
-    internal override returns (bytes memory context, uint256 validationData) {
+    internal view override returns (bytes memory context, uint256 validationData) {
         (requiredPreFund);
 
         (uint48 validUntil, uint48 validAfter, bytes calldata signature) = parsePaymasterAndData(userOp.paymasterAndData);

@@ -24,7 +24,14 @@ import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
 } from '../../typechain/contracts/samples/TokenPaymaster'
-import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
+import {
+  checkForGeth,
+  createAccount,
+  createAccountOwner,
+  decodeRevertReason,
+  deployEntryPoint,
+  fund
+} from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
 
@@ -272,7 +279,7 @@ describe('TokenPaymaster', function () {
     })
 
     const preChargeTokens = decodedLogs[0].args.value
-    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(3)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
+    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(2)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
     const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
     const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
 
@@ -313,7 +320,7 @@ describe('TokenPaymaster', function () {
     })
 
     const preChargeTokens = decodedLogs[0].args.value
-    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(3)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
+    const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).mul(2)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
     const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
     const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
 
@@ -392,10 +399,11 @@ describe('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
+    const postOpRevertReason = decodeRevertReason(decodedLogs[2].args.revertReason)
+    assert.equal(postOpRevertReason, 'PostOpReverted(Error(ERC20: transfer amount exceeds balance))')
     const userOpSuccess = decodedLogs[3].args.success
     assert.equal(userOpSuccess, false)
     assert.equal(decodedLogs.length, 4)
-    assert.equal(decodedLogs[2].name, 'PostOpReverted')
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
