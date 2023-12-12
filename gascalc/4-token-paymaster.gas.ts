@@ -47,9 +47,9 @@ context('Token Paymaster', function () {
     }
 
     const nativeAssetOracleInit = await new TestOracle2__factory(ethersSigner).getDeployTransaction(initialPriceEther, 8)
-    const nativeAssetOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(nativeAssetOracleInit, 0, 20_000_000)
+    const nativeAssetOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(nativeAssetOracleInit, 0, 10_000_000)
     const tokenOracleInit = await new TestOracle2__factory(ethersSigner).getDeployTransaction(initialPriceToken, 8)
-    const tokenOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(tokenOracleInit, 0, 20_000_000)
+    const tokenOracleAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(tokenOracleInit, 0, 10_000_000)
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
       cacheTimeToLive: 0,

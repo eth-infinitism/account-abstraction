@@ -6,7 +6,7 @@ import {
   checkForGeth,
   createAddress,
   createAccountOwner,
-  deployEntryPoint
+  deployEntryPoint, decodeRevertReason
 } from '../test/testutils'
 import {
   EntryPoint, EntryPoint__factory, SimpleAccountFactory,
@@ -21,6 +21,7 @@ import { Create2Factory } from '../src/Create2Factory'
 import * as fs from 'fs'
 import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
 import { UserOperation } from '../test/UserOperation'
+import { expect } from 'chai'
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
 
@@ -253,6 +254,15 @@ export class GasChecker {
     const ret = await GasCheckCollector.inst.entryPoint.handleOps(userOps, info.beneficiary, { gasLimit: gasEst.mul(3).div(2) })
     const rcpt = await ret.wait()
     const gasUsed = rcpt.gasUsed.toNumber()
+    const countSuccessOps = rcpt.events?.filter(e => e.event === 'UserOperationEvent' && e.args?.success).length
+
+    rcpt.events?.filter(e => e.event?.match(/PostOpRevertReason|UserOperationRevertReason/)).find(e => {
+      // console.log(e.event, e.args)
+      throw new Error(`${e.event}(${decodeRevertReason(e.args?.revertReason)})`)
+    })
+    // check for failure with no revert reason (e.g. OOG)
+    expect(countSuccessOps).to.eq(userOps.length, 'Some UserOps failed to execute (with no revert reason)')
+
     console.debug('count', info.count, 'gasUsed', gasUsed)
     const gasDiff = gasUsed - lastGasUsed
     if (info.diffLastGas) {
