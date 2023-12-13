@@ -91,6 +91,7 @@ context('Token Paymaster', function () {
     await paymaster.updateCachedPrice(true)
     await g.createAccounts1(11)
     await token.sudoMint(await ethersSigner.getAddress(), parseEther('20'))
+    await token.transfer(paymaster.address, parseEther('0.1'))
     for (const address of g.createdAccounts) {
       await token.transfer(address, parseEther('1'))
       await token.sudoApprove(address, paymaster.address, ethers.constants.MaxUint256)
