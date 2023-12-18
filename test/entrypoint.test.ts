@@ -286,7 +286,7 @@ describe('EntryPoint', function () {
         // if we get here, it means the userOp passed first sim and reverted second
         expect.fail(null, null, 'should fail on first simulation')
       } catch (e: any) {
-        expect(e.message).to.include('Revert after first validation')
+        expect(decodeRevertReason(e)).to.include('Revert after first validation')
       }
     })
 
@@ -334,7 +334,7 @@ describe('EntryPoint', function () {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('AA23 reverted (or OOG)')
+            expect(decodeRevertReason(e)).to.include('AA23 reverted')
           }
         }
       })
@@ -359,7 +359,7 @@ describe('EntryPoint', function () {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('AA23 reverted (or OOG)')
+            expect(decodeRevertReason(e)).to.include('AA23 reverted')
           }
         }
       })
@@ -726,7 +726,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 10000
         }, accountOwner, entryPoint)
         await expect(simulateValidation(op1, entryPoint.address))
-          .to.revertedWith('AA23 reverted (or OOG)')
+          .to.revertedWith('AA23 reverted')
       })
     })
 

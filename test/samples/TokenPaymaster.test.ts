@@ -49,6 +49,11 @@ function generatePaymasterAndData (pm: string, tokenPrice?: BigNumberish): strin
 
 const priceDenominator = BigNumber.from(10).pow(26)
 
+function uniq (arr: any[]): any[] {
+  // remove items with duplicate "name" attribute
+  return Object.values(arr.reduce((set, item) => ({ ...set, [item.name]: item }), {}))
+}
+
 describe('TokenPaymaster', function () {
   const minEntryPointBalance = 1e17.toString()
   const initialPriceToken = 100000000 // USD per TOK
@@ -56,12 +61,12 @@ describe('TokenPaymaster', function () {
   const ethersSigner = ethers.provider.getSigner()
   const beneficiaryAddress = '0x'.padEnd(42, '1')
   const testInterface = new Interface(
-    [
+    uniq([
       ...TestUniswap__factory.abi,
       ...TestERC20__factory.abi,
       ...TokenPaymaster__factory.abi,
       ...EntryPoint__factory.abi
-    ]
+    ])
   )
 
   let chainId: number
@@ -148,15 +153,17 @@ describe('TokenPaymaster', function () {
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
-    await expect(
-      entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
-    ).to.be.revertedWith('AA33 reverted: ERC20: insufficient allowance')
+    // await expect(
+    expect(await entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .catch(e => decodeRevertReason(e)))
+      .to.include('ERC20: insufficient allowance')
 
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
-    await expect(
-      entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
-    ).to.revertedWith('AA33 reverted: ERC20: transfer amount exceeds balance')
+    expect(await entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
+      .catch(e => decodeRevertReason(e)))
+      .to.include('ERC20: transfer amount exceeds balance')
+
     await ethers.provider.send('evm_revert', [snapshot])
   })
 

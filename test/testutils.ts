@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import {
   arrayify,
-  hexConcat,
+  hexConcat, Interface,
   keccak256,
   parseEther
 } from 'ethers/lib/utils'
@@ -15,7 +15,7 @@ import {
   SimpleAccountFactory__factory,
   SimpleAccount__factory,
   SimpleAccountFactory,
-  TestAggregatedAccountFactory
+  TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory
 } from '../typechain'
 import { BytesLike } from '@ethersproject/bytes'
 import { expect } from 'chai'
@@ -157,7 +157,18 @@ export function rethrow (): (e: Error) => void {
   }
 }
 
-export function decodeRevertReason (data: string, nullIfNoMatch = true): string | null {
+const decodeRevertReasonContracts = new Interface([
+  ...[
+    ...EntryPoint__factory.createInterface().fragments,
+    ...TestPaymasterRevertCustomError__factory.createInterface().fragments
+  ].filter(f => f.type === 'error')
+]) //
+
+export function decodeRevertReason (data: string | Error, nullIfNoMatch = true): string | null {
+  if (typeof data !== 'string') {
+    const err = data as any
+    data = (err.data ?? err.error.data) as string
+  }
   const methodSig = data.slice(0, 10)
   const dataParams = '0x' + data.slice(10)
 
@@ -165,25 +176,31 @@ export function decodeRevertReason (data: string, nullIfNoMatch = true): string 
     const [err] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     return `Error(${err})`
-  } else if (methodSig === '0x00fa072b') {
-    const [opindex, paymaster, msg] = ethers.utils.defaultAbiCoder.decode(['uint256', 'address', 'string'], dataParams)
-    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    return `FailedOp(${opindex}, ${paymaster !== AddressZero ? paymaster : 'none'}, ${msg})`
   } else if (methodSig === '0x4e487b71') {
     const [code] = ethers.utils.defaultAbiCoder.decode(['uint256'], dataParams)
     return `Panic(${panicCodes[code] ?? code} + ')`
-  } else if (methodSig === '0x8d6ea8be') {
-    const [reason] = ethers.utils.defaultAbiCoder.decode(['string'], dataParams)
-    return `CustomError("${reason as string}")`
-  } else if (methodSig === '0xad7954bc') {
-    const [reasonBytes] = ethers.utils.defaultAbiCoder.decode(['bytes'], dataParams)
-    const reason = decodeRevertReason(reasonBytes)
-    return `PostOpReverted(${reason as string})`
   }
-  if (!nullIfNoMatch) {
-    return data
+
+  try {
+    const err = decodeRevertReasonContracts.parseError(data)
+    // let args: any[] = err.args as any
+
+    // treat any error "bytes" argument as possible error to decode (e.g. FailedOpWithRevert, PostOpReverted)
+    const args = err.args.map((arg: any, index) => {
+      switch (err.errorFragment.inputs[index].type) {
+        case 'bytes' : return decodeRevertReason(arg)
+        case 'string': return `"${(arg as string)}"`
+        default: return arg
+      }
+    })
+    return `${err.name}(${args.join(',')})`
+  } catch (e) {
+    // throw new Error('unsupported errorSig ' + data)
+    if (!nullIfNoMatch) {
+      return data
+    }
+    return null
   }
-  return null
 }
 
 let currentNode: string = ''
@@ -215,12 +232,14 @@ export async function checkForGeth (): Promise<void> {
 // becomes:
 // { first: "a", second: "20" }
 export function objdump (obj: { [key: string]: any }): any {
-  return Object.keys(obj)
-    .filter(key => key.match(/^[\d_]/) == null)
-    .reduce((set, key) => ({
-      ...set,
-      [key]: decodeRevertReason(obj[key].toString(), false)
-    }), {})
+  return obj == null
+    ? null
+    : Object.keys(obj)
+      .filter(key => key.match(/^[\d_]/) == null)
+      .reduce((set, key) => ({
+        ...set,
+        [key]: decodeRevertReason(obj[key].toString(), false)
+      }), {})
 }
 
 export async function checkForBannedOps (txHash: string, checkPaymaster: boolean): Promise<void> {
