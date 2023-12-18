@@ -438,13 +438,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 }(op, opInfo.userOpHash, missingAccountFunds)
             returns (uint256 _validationData) {
                 validationData = _validationData;
-            } catch Error(string memory revertReason) {
-                revert FailedOp(
-                    opIndex,
-                    string.concat("AA23 reverted: ", revertReason)
-                );
             } catch {
-                revert FailedOp(opIndex, "AA23 reverted (or OOG)");
+                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
@@ -503,13 +498,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             returns (bytes memory _context, uint256 _validationData) {
                 context = _context;
                 validationData = _validationData;
-            } catch Error(string memory revertReason) {
-                revert FailedOp(
-                    opIndex,
-                    string.concat("AA33 reverted: ", revertReason)
-                );
             } catch {
-                revert FailedOp(opIndex, "AA33 reverted (or OOG)");
+                revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
         }
     }
