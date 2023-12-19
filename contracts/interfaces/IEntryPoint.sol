@@ -206,6 +206,5 @@ interface IEntryPoint is IStakeManager, INonceManager {
      *  The method always revert, so is only useful off-chain for dry run calls, in cases where state-override to replace
      *  actual EntryPoint code is less convenient.
      */
-    function delegateAndRevert(bytes calldata data) external;
-
+    function delegateAndRevert(address target, bytes calldata data) external;
 }
