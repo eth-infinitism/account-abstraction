@@ -65,6 +65,20 @@ interface IEntryPoint is IStakeManager, INonceManager {
     );
 
     /**
+     * An event emitted if the UserOperation Paymaster's "postOp" call reverted with non-zero length.
+     * @param userOpHash   - The request unique identifier.
+     * @param sender       - The sender of this request.
+     * @param nonce        - The nonce used in the request.
+     * @param revertReason - The return bytes from the (reverted) call to "callData".
+     */
+    event PostOpRevertReason(
+        bytes32 indexed userOpHash,
+        address indexed sender,
+        uint256 nonce,
+        bytes revertReason
+    );
+
+    /**
      * An event emitted by handleOps(), before starting the execution loop.
      * Any event emitted before this event, is part of the validation.
      */
@@ -87,6 +101,17 @@ interface IEntryPoint is IStakeManager, INonceManager {
      *                  so a failure can be attributed to the correct entity.
      */
     error FailedOp(uint256 opIndex, string reason);
+
+    /**
+     * A custom revert error of handleOps, to report a revert by account or paymaster.
+     * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
+     * @param reason  - Revert reason. see FailedOp(uint,string), above
+     * @param inner   - data from inner cought revert reason
+     * @dev note that inner is truncated to 2048 bytes
+     */
+    error FailedOpWithRevert(uint256 opIndex, string reason, bytes inner);
+
+    error PostOpReverted(bytes returnData);
 
     /**
      * Error case when a signature aggregator fails to verify the aggregated signature it had created.

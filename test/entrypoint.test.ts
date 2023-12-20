@@ -287,7 +287,7 @@ describe('EntryPoint', function () {
         // if we get here, it means the userOp passed first sim and reverted second
         expect.fail(null, null, 'should fail on first simulation')
       } catch (e: any) {
-        expect(e.message).to.include('Revert after first validation')
+        expect(decodeRevertReason(e)).to.include('Revert after first validation')
       }
     })
 
@@ -335,7 +335,7 @@ describe('EntryPoint', function () {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('AA23 reverted (or OOG)')
+            expect(decodeRevertReason(e)).to.include('AA23 reverted')
           }
         }
       })
@@ -360,7 +360,7 @@ describe('EntryPoint', function () {
             const tx = await entryPoint.handleOps([badOp], beneficiaryAddress, { gasLimit: 1e6 })
             await tx.wait()
           } else {
-            expect(e.message).to.include('AA23 reverted (or OOG)')
+            expect(decodeRevertReason(e)).to.include('AA23 reverted')
           }
         }
       })
@@ -727,7 +727,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 10000
         }, accountOwner, entryPoint)
         await expect(simulateValidation(op1, entryPoint.address))
-          .to.revertedWith('AA23 reverted (or OOG)')
+          .to.revertedWith('AA23 reverted')
       })
     })
 
@@ -1087,6 +1087,7 @@ describe('EntryPoint', function () {
       it('should not revert when paymaster reverts with custom error on postOp', async function () {
         const account3Owner = createAccountOwner()
         const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.setRevertType(0)
         await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
         await errorPostOp.deposit({ value: ONE_ETH })
 
@@ -1099,7 +1100,33 @@ describe('EntryPoint', function () {
           callGasLimit: 1e6
         }, account3Owner, entryPoint)
         const beneficiaryAddress = createAddress()
-        await entryPoint.handleOps([op], beneficiaryAddress)
+        const rcpt1 = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        const logs1postOpRevert = await entryPoint.queryFilter(entryPoint.filters.PostOpRevertReason(), rcpt1.blockHash)
+        const postOpRevertReason = decodeRevertReason(logs1postOpRevert[0].args.revertReason, false)
+        expect(logs1[0].args.success).to.be.false
+        expect(postOpRevertReason).to.equal('PostOpReverted(CustomError("this is a long revert reason string we are looking for"))')
+      })
+
+      it('should not revert when paymaster reverts with known EntryPoint error in postOp', async function () {
+        const account3Owner = createAccountOwner()
+        const errorPostOp = await new TestPaymasterRevertCustomError__factory(ethersSigner).deploy(entryPoint.address)
+        await errorPostOp.setRevertType(1)
+        await errorPostOp.addStake(globalUnstakeDelaySec, { value: paymasterStake })
+        await errorPostOp.deposit({ value: ONE_ETH })
+
+        const op = await fillAndSign({
+          paymasterAndData: errorPostOp.address,
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(account3Owner.address, simpleAccountFactory),
+
+          verificationGasLimit: 3e6,
+          callGasLimit: 1e6
+        }, account3Owner, entryPoint)
+        const beneficiaryAddress = createAddress()
+        const rcpt1 = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => await t.wait())
+        const logs1 = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt1.blockHash)
+        expect(logs1[0].args.success).to.be.false
       })
 
       it('paymaster should pay for tx', async function () {

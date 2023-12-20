@@ -142,7 +142,7 @@ describe('EntryPointSimulations', function () {
     it('should revert on oog if not enough verificationGas', async () => {
       const op = await fillAndSign({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
       await expect(simulateValidation(op, entryPoint.address)).to
-        .revertedWith('AA23 reverted (or OOG)')
+        .revertedWith('AA23 reverted')
     })
 
     it('should succeed if validateUserOp succeeds', async () => {

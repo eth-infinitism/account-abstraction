@@ -9,7 +9,7 @@ import {
 } from '../typechain'
 import {
   createAccount,
-  createAccountOwner, createAddress,
+  createAccountOwner, createAddress, decodeRevertReason,
   deployEntryPoint
 } from './testutils'
 import { fillAndSign, simulateValidation } from './UserOp'
@@ -58,7 +58,9 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x1234'])
       }, accountOwner, entryPoint)
-      await expect(simulateValidation(userOp, entryPoint.address)).to.be.revertedWith('invalid signature length in paymasterAndData')
+      expect(await simulateValidation(userOp, entryPoint.address)
+        .catch(e => decodeRevertReason(e)))
+        .to.include('invalid signature length in paymasterAndData')
     })
 
     it('should reject on invalid signature', async () => {
@@ -66,7 +68,9 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         sender: account.address,
         paymasterAndData: hexConcat([paymaster.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
       }, accountOwner, entryPoint)
-      await expect(simulateValidation(userOp, entryPoint.address)).to.be.revertedWith('ECDSA: invalid signature')
+      expect(await simulateValidation(userOp, entryPoint.address)
+        .catch(e => decodeRevertReason(e)))
+        .to.include('ECDSA: invalid signature')
     })
 
     describe('with wrong signature', () => {
