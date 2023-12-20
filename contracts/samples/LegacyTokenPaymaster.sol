@@ -70,7 +70,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
       * verify the sender has enough tokens.
       * (since the paymaster is also the token, there is no notion of "approval")
       */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     internal view override returns (bytes memory context, uint256 validationData) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
@@ -91,7 +91,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
 
     // when constructing an account, validate constructor code and parameters
     // we trust our factory (and that it doesn't have any other public methods)
-    function _validateConstructor(UserOperation calldata userOp) internal virtual view {
+    function _validateConstructor(PackedUserOperation calldata userOp) internal virtual view {
         address factory = address(bytes20(userOp.initCode[0 : 20]));
         require(factory == theFactory, "TokenPaymaster: wrong account factory");
     }

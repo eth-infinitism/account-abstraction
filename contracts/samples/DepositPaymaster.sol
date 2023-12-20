@@ -26,7 +26,7 @@ import "./IOracle.sol";
  */
 contract DepositPaymaster is BasePaymaster {
 
-    using UserOperationLib for UserOperation;
+    using UserOperationLib for PackedUserOperation;
     using SafeERC20 for IERC20;
 
     //calculated cost of the postOp
@@ -126,7 +126,7 @@ contract DepositPaymaster is BasePaymaster {
      * Note that the sender's balance is not checked. If it fails to pay from its balance,
      * this deposit will be used to compensate the paymaster for the transaction.
      */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash, uint256 maxCost)
     internal view override returns (bytes memory context, uint256 validationData) {
 
         (userOpHash);

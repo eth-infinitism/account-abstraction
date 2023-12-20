@@ -9,7 +9,7 @@ contract MaliciousAccount is IAccount {
     constructor(IEntryPoint _ep) payable {
         ep = _ep;
     }
-    function validateUserOp(UserOperation calldata userOp, bytes32, uint256 missingAccountFunds)
+    function validateUserOp(PackedUserOperation calldata userOp, bytes32, uint256 missingAccountFunds)
     external returns (uint256 validationData) {
         ep.depositTo{value : missingAccountFunds}(address(this));
         // Now calculate basefee per EntryPoint.getUserOpGasPrice() and compare it to the basefe we pass off-chain in the signature

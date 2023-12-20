@@ -16,7 +16,7 @@ pragma solidity ^0.8.12;
  *                                The paymaster will pay for the transaction instead of the sender.
  * @param signature             - Sender-verified signature over the entire request, the EntryPoint address and the chain ID.
  */
-struct UserOperation {
+struct PackedUserOperation {
     address sender;
     uint256 nonce;
     bytes initCode;

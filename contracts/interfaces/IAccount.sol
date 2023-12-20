@@ -32,7 +32,7 @@ interface IAccount {
      *                              Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function validateUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 missingAccountFunds
     ) external returns (uint256 validationData);

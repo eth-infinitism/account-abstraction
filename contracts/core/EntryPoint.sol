@@ -25,7 +25,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  */
 contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard, OpenZeppelin.ERC165 {
 
-    using UserOperationLib for UserOperation;
+    using UserOperationLib for PackedUserOperation;
 
     SenderCreator private senderCreator = new SenderCreator();
 
@@ -70,7 +70,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      */
     function _executeUserOp(
         uint256 opIndex,
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         UserOpInfo memory opInfo
     )
     internal
@@ -112,7 +112,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /// @inheritdoc IEntryPoint
     function handleOps(
-        UserOperation[] calldata ops,
+        PackedUserOperation[] calldata ops,
         address payable beneficiary
     ) public nonReentrant {
         uint256 opslen = ops.length;
@@ -154,7 +154,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 totalOps = 0;
         for (uint256 i = 0; i < opasLen; i++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[i];
-            UserOperation[] calldata ops = opa.userOps;
+            PackedUserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
             //address(1) is special marker of "signature error"
@@ -180,7 +180,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
-            UserOperation[] calldata ops = opa.userOps;
+            PackedUserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
             uint256 opslen = ops.length;
@@ -205,7 +205,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
             emit SignatureAggregatorChanged(address(opa.aggregator));
-            UserOperation[] calldata ops = opa.userOps;
+            PackedUserOperation[] calldata ops = opa.userOps;
             uint256 opslen = ops.length;
 
             for (uint256 i = 0; i < opslen; i++) {
@@ -301,7 +301,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /// @inheritdoc IEntryPoint
     function getUserOpHash(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     ) public view returns (bytes32) {
         return
             keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
@@ -313,7 +313,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param mUserOp - The memory user operation.
      */
     function _copyUserOpToMemory(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         MemoryUserOp memory mUserOp
     ) internal pure {
         mUserOp.sender = userOp.sender;
@@ -405,7 +405,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      */
     function _validateAccountPrepayment(
         uint256 opIndex,
-        UserOperation calldata op,
+        PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
         uint256 requiredPrefund
     )
@@ -465,7 +465,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      */
     function _validatePaymasterPrepayment(
         uint256 opIndex,
-        UserOperation calldata op,
+        PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
         uint256 requiredPreFund
     ) internal returns (bytes memory context, uint256 validationData) {
@@ -559,7 +559,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      */
     function _validatePrepayment(
         uint256 opIndex,
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         UserOpInfo memory outOpInfo
     )
         internal

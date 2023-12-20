@@ -42,7 +42,7 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
     /**
      * delegate-called (using execFromModule) through the fallback, so "real" msg.sender is attached as last 20 bytes
      */
-    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+    function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
     external override returns (uint256 validationData) {
         address msgSender = address(bytes20(msg.data[msg.data.length - 20 :]));
         require(msgSender == entryPoint, "account: not from entrypoint");
@@ -163,8 +163,8 @@ contract EIP4337Manager is IAccount, GnosisSafeStorage, Executor {
         sig[2] = bytes1(uint8(1));
         sig[35] = bytes1(uint8(1));
         uint256 nonce = uint256(IEntryPoint(manager.entryPoint()).getNonce(address(safe), 0));
-        UserOperation memory userOp = UserOperation(address(safe), nonce, "", "", bytes32(bytes16(uint128(0x0f4240))), 0, 0, 0, "", sig);
-        UserOperation[] memory userOps = new UserOperation[](1);
+        PackedUserOperation memory userOp = PackedUserOperation(address(safe), nonce, "", "", bytes32(bytes16(uint128(0x0f4240))), 0, 0, 0, "", sig);
+        PackedUserOperation[] memory userOps = new PackedUserOperation[](1);
         userOps[0] = userOp;
         IEntryPoint _entryPoint = IEntryPoint(payable(manager.entryPoint()));
         try _entryPoint.handleOps(userOps, payable(msg.sender)) {

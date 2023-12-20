@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract VerifyingPaymaster is BasePaymaster {
 
     using ECDSA for bytes32;
-    using UserOperationLib for UserOperation;
+    using UserOperationLib for PackedUserOperation;
 
     address public immutable verifyingSigner;
 
@@ -39,7 +39,7 @@ contract VerifyingPaymaster is BasePaymaster {
      * note that this signature covers all fields of the UserOperation, except the "paymasterAndData",
      * which will carry the signature itself.
      */
-    function getHash(UserOperation calldata userOp, uint48 validUntil, uint48 validAfter)
+    function getHash(PackedUserOperation calldata userOp, uint48 validUntil, uint48 validAfter)
     public view returns (bytes32) {
         //can't use userOp.hash(), since it contains also the paymasterAndData itself.
         address sender = userOp.getSender();
@@ -70,7 +70,7 @@ contract VerifyingPaymaster is BasePaymaster {
      * paymasterAndData[20:84] : abi.encode(validUntil, validAfter)
      * paymasterAndData[84:] : signature
      */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     internal view override returns (bytes memory context, uint256 validationData) {
         (requiredPreFund);
 

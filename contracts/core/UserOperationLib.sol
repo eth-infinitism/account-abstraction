@@ -19,7 +19,7 @@ library UserOperationLib {
      * @param userOp - The user operation data.
      */
     function getSender(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     ) internal pure returns (address) {
         address data;
         //read sender from userOp, which is first userOp member (saves 800 gas...)
@@ -35,7 +35,7 @@ library UserOperationLib {
      * @param userOp - The user operation data.
      */
     function gasPrice(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     ) internal view returns (uint256) {
         unchecked {
             uint256 maxFeePerGas = userOp.maxFeePerGas;
@@ -53,7 +53,7 @@ library UserOperationLib {
      * @param userOp - The user operation data.
      */
     function encode(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     ) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
         uint256 nonce = userOp.nonce;
@@ -91,7 +91,7 @@ library UserOperationLib {
      * @param userOp - The user operation data.
      */
     function hash(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     ) internal pure returns (bytes32) {
         return keccak256(encode(userOp));
     }

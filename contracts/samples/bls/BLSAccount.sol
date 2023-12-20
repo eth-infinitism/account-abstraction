@@ -30,7 +30,7 @@ contract BLSAccount is SimpleAccount, IBLSAccount {
         _setBlsPublicKey(aPublicKey);
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
     internal override view returns (uint256 validationData) {
 
         (userOp, userOpHash);

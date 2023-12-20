@@ -45,7 +45,7 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
     /**
      * called from the Safe. delegate actual work to EIP4337Manager
      */
-    function validateUserOp(UserOperation calldata, bytes32, uint256) override external returns (uint256 deadline){
+    function validateUserOp(PackedUserOperation calldata, bytes32, uint256) override external returns (uint256 deadline){
         bytes memory ret = delegateToManager();
         return abi.decode(ret, (uint256));
     }

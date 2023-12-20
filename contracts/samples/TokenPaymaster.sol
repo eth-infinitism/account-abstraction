@@ -119,7 +119,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param requiredPreFund The amount of tokens required for pre-funding.
     /// @return context The context containing the token amount and user sender address (if applicable).
     /// @return validationResult A uint256 value indicating the result of the validation (always 0 in this implementation).
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256 requiredPreFund)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 requiredPreFund)
     internal
     override
     returns (bytes memory context, uint256 validationResult) {unchecked {
