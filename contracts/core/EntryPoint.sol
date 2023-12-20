@@ -328,9 +328,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 paymasterAndData.length >= 20,
                 "AA93 invalid paymasterAndData"
             );
-            mUserOp.paymaster = address(bytes20(paymasterAndData[:20]));
-            mUserOp.paymasterVerificationGasLimit = uint128(bytes16(paymasterAndData[20:36]));
-            mUserOp.paymasterPostOpGasLimit = uint128(bytes16(paymasterAndData[36:52]));
+            (mUserOp.paymaster, mUserOp.paymasterVerificationGasLimit, mUserOp.paymasterPostOpGasLimit) = UserOperationLib.unpackPaymasterStaticFields(paymasterAndData);
         } else {
             mUserOp.paymaster = address(0);
             mUserOp.paymasterVerificationGasLimit = 0;
@@ -413,12 +411,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     )
         internal
         returns (
-            uint256 gasUsedByValidateAccountPrepayment,
             uint256 validationData
         )
     {
         unchecked {
-            uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address sender = mUserOp.sender;
             _createSenderIfNeeded(opIndex, opInfo, op.initCode);
@@ -453,7 +449,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 }
                 senderInfo.deposit = uint112(deposit - requiredPrefund);
             }
-            gasUsedByValidateAccountPrepayment = preGas - gasleft();
         }
     }
 
@@ -467,24 +462,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param op                                 - The user operation.
      * @param opInfo                             - The operation info.
      * @param requiredPreFund                    - The required prefund amount.
-     * @param gasUsedByValidateAccountPrepayment - The gas used by _validateAccountPrepayment.
      */
     function _validatePaymasterPrepayment(
         uint256 opIndex,
         UserOperation calldata op,
         UserOpInfo memory opInfo,
-        uint256 requiredPreFund,
-        uint256 gasUsedByValidateAccountPrepayment
+        uint256 requiredPreFund
     ) internal returns (bytes memory context, uint256 validationData) {
         unchecked {
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
-        // TODO: Do we actually need that still?
-            uint256 verificationGasLimit = mUserOp.verificationGasLimit;
-            require(
-                verificationGasLimit > gasUsedByValidateAccountPrepayment,
-                "AA41 too little verificationGas"
-            );
-
             address paymaster = mUserOp.paymaster;
             DepositInfo storage paymasterInfo = deposits[paymaster];
             uint256 deposit = paymasterInfo.deposit;
@@ -595,12 +581,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             userOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
 
-        uint256 gasUsedByValidateAccountPrepayment;
         uint256 requiredPreFund = _getRequiredPrefund(mUserOp);
-        (
-            gasUsedByValidateAccountPrepayment,
-            validationData
-        ) = _validateAccountPrepayment(
+        validationData = _validateAccountPrepayment(
             opIndex,
             userOp,
             outOpInfo,
@@ -621,8 +603,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 opIndex,
                 userOp,
                 outOpInfo,
-                requiredPreFund,
-                gasUsedByValidateAccountPrepayment
+                requiredPreFund
             );
         }
         unchecked {

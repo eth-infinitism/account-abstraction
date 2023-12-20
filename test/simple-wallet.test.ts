@@ -55,7 +55,7 @@ describe('SimpleAccount', function () {
     const op = await fillUserOpDefaults({ sender: accounts[0] })
     const encoded = encodeUserOp(op)
     const packed = packUserOp(op)
-    expect(await testUtil.packUserOp(packed)).to.equal(encoded)
+    expect(await testUtil.encodeUserOp(packed)).to.equal(encoded)
   })
 
   describe('#executeBatch', () => {

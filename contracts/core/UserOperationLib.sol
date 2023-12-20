@@ -10,6 +10,10 @@ import {calldataKeccak} from "./Helpers.sol";
  * Utility functions helpful when working with UserOperation structs.
  */
 library UserOperationLib {
+
+    uint256 public constant PAYMASTER_VALIDATION_GAS_OFFSET = 20;
+    uint256 public constant PAYMASTER_POSTOP_GAS_OFFSET = 36;
+    uint256 public constant PAYMASTER_DATA_OFFSET = 52;
     /**
      * Get sender from user operation data.
      * @param userOp - The user operation data.
@@ -48,7 +52,7 @@ library UserOperationLib {
      * Pack the user operation data into bytes for hashing.
      * @param userOp - The user operation data.
      */
-    function pack(
+    function encode(
         UserOperation calldata userOp
     ) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
@@ -79,7 +83,7 @@ library UserOperationLib {
     function unpackPaymasterStaticFields(
         bytes calldata paymasterAndData
     ) internal pure returns(address paymaster, uint128 validationGasLimit, uint128 postOp) {
-        return (address(bytes20(paymasterAndData[:20])), uint128(bytes16(paymasterAndData[20:36])), uint128(bytes16(paymasterAndData[36:52])));
+        return (address(bytes20(paymasterAndData[:PAYMASTER_VALIDATION_GAS_OFFSET])), uint128(bytes16(paymasterAndData[PAYMASTER_VALIDATION_GAS_OFFSET:PAYMASTER_POSTOP_GAS_OFFSET])), uint128(bytes16(paymasterAndData[PAYMASTER_POSTOP_GAS_OFFSET:PAYMASTER_DATA_OFFSET])));
     }
 
     /**
@@ -89,7 +93,7 @@ library UserOperationLib {
     function hash(
         UserOperation calldata userOp
     ) internal pure returns (bytes32) {
-        return keccak256(pack(userOp));
+        return keccak256(encode(userOp));
     }
 
     /**
