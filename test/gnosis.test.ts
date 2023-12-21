@@ -214,14 +214,16 @@ describe('Gnosis Proxy', function () {
     const safe = EIP4337Fallback__factory.connect(proxySafe.address, ethersSigner)
 
     const message = ethers.utils.hexlify(ethers.utils.toUtf8Bytes('hello erc1271'))
-    const dataHash = ethers.utils.arrayify(ethers.utils.keccak256(message))
 
-    const sig = await owner.signMessage(dataHash)
+    const dataHash = ethers.utils.keccak256(message)
+    const boundData = defaultAbiCoder.encode(['address', 'bytes32'], [safe.address, dataHash])
+    const boundHash = ethers.utils.arrayify(ethers.utils.keccak256(boundData))
+    const sig = await owner.signMessage(boundHash)
     expect(await safe.isValidSignature(dataHash, sig)).to.be.eq('0x1626ba7e')
 
-    // make an sig invalid
+    // make an invalid sig
     const badWallet = ethers.Wallet.createRandom()
-    const badSig = await badWallet.signMessage(dataHash)
+    const badSig = await badWallet.signMessage(boundHash)
     expect(await safe.isValidSignature(dataHash, badSig)).to.be.not.eq('0x1626ba7e')
   })
 

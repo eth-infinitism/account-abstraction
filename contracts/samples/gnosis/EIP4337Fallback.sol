@@ -74,7 +74,8 @@ contract EIP4337Fallback is DefaultCallbackHandler, IAccount, IERC1271 {
         bytes32 _hash,
         bytes memory _signature
     ) external override view returns (bytes4) {
-        bytes32 hash = _hash.toEthSignedMessageHash();
+        bytes32 boundHash = keccak256(abi.encode(address(msg.sender), _hash));
+        bytes32 hash = boundHash.toEthSignedMessageHash();
         address recovered = hash.recover(_signature);
 
         GnosisSafe safe = GnosisSafe(payable(address(msg.sender)));
