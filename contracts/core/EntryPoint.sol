@@ -33,6 +33,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
+    uint256 private constant PENALTY_PERCENT = 10;
 
     /**
      * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
@@ -97,6 +98,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 //report paymaster, since if it is not deliberately caused by the bundler,
                 // it must be a revert caused by paymaster.
                 revert FailedOp(opIndex, "AA95 out of gas");
+            } else {
+                emit PostOpRevertReason(
+                    opInfo.userOpHash,
+                    opInfo.mUserOp.sender,
+                    opInfo.mUserOp.nonce,
+                    Exec.getReturnData(REVERT_REASON_MAX_LEN)
+                );
             }
 
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
@@ -175,8 +183,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
 
-        emit BeforeExecution();
-
         uint256 opIndex = 0;
         for (uint256 a = 0; a < opasLen; a++) {
             UserOpsPerAggregator calldata opa = opsPerAggregator[a];
@@ -199,6 +205,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 opIndex++;
             }
         }
+
+        emit BeforeExecution();
 
         uint256 collected = 0;
         opIndex = 0;
@@ -419,7 +427,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             address sender = mUserOp.sender;
             _createSenderIfNeeded(opIndex, opInfo, op.initCode);
             address paymaster = mUserOp.paymaster;
-            numberMarker();
             uint256 missingAccountFunds = 0;
             if (paymaster == address(0)) {
                 uint256 bal = balanceOf(sender);
@@ -433,13 +440,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 }(op, opInfo.userOpHash, missingAccountFunds)
             returns (uint256 _validationData) {
                 validationData = _validationData;
-            } catch Error(string memory revertReason) {
-                revert FailedOp(
-                    opIndex,
-                    string.concat("AA23 reverted: ", revertReason)
-                );
             } catch {
-                revert FailedOp(opIndex, "AA23 reverted (or OOG)");
+                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
@@ -487,13 +489,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             returns (bytes memory _context, uint256 _validationData) {
                 context = _context;
                 validationData = _validationData;
-            } catch Error(string memory revertReason) {
-                revert FailedOp(
-                    opIndex,
-                    string.concat("AA33 reverted: ", revertReason)
-                );
             } catch {
-                revert FailedOp(opIndex, "AA33 reverted (or OOG)");
+                revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
         }
     }
@@ -593,10 +590,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             revert FailedOp(opIndex, "AA25 invalid account nonce");
         }
 
-        // A "marker" where account opcode validation is done and paymaster opcode validation
-        // is about to start (used only by off-chain simulateValidation).
-        numberMarker();
-
         bytes memory context;
         if (mUserOp.paymaster != address(0)) {
             (context, paymasterValidationData) = _validatePaymasterPrepayment(
@@ -649,13 +642,35 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
-                        IPaymaster(paymaster).postOp{
+                        try IPaymaster(paymaster).postOp{
                             gas: mUserOp.paymasterPostOpGasLimit
-                        }(mode, context, actualGasCost);
+                        }(mode, context, actualGasCost)
+                        // solhint-disable-next-line no-empty-blocks
+                        {} catch {
+                            bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);
+                            revert PostOpReverted(reason);
+                        }
                     }
                 }
             }
             actualGas += preGas - gasleft();
+
+            // Calculating a penalty for unused execution gas
+            {
+                uint256 executionGasLimit = mUserOp.callGasLimit;
+                // Note that 'verificationGasLimit' here is the limit given to the 'postOp' which is part of execution
+                if (context.length > 0){
+                    executionGasLimit += mUserOp.verificationGasLimit;
+                }
+                uint256 executionGasUsed = actualGas - opInfo.preOpGas;
+                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
+                if (executionGasLimit > executionGasUsed) {
+                    uint256 unusedGas = executionGasLimit - executionGasUsed;
+                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+                    actualGas += unusedGasPenalty;
+                }
+            }
+
             actualGasCost = actualGas * gasPrice;
             if (opInfo.prefund < actualGasCost) {
                 revert FailedOp(opIndex, "AA51 prefund below actualGasCost");
@@ -727,14 +742,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
     }
 
-    /**
-     * Places the NUMBER opcode in the code.
-     * This is used as a marker during simulation, as this OP is completely banned from the simulated code of the
-     * account and paymaster.
-     */
-    function numberMarker() internal view {
-        assembly {
-            mstore(0, number())
-        }
+    /// @inheritdoc IEntryPoint
+    function delegateAndRevert(address target, bytes calldata data) external {
+        (bool success, bytes memory ret) = target.delegatecall(data);
+        revert DelegateAndRevert(success, ret);
     }
 }

@@ -22,7 +22,7 @@ import {
   createAddress,
   ONE_ETH,
   createAccount,
-  getAccountAddress
+  getAccountAddress, decodeRevertReason
 } from './testutils'
 import { fillSignAndPack, simulateValidation } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
@@ -101,12 +101,14 @@ describe('EntryPoint with paymaster', function () {
           paymasterPostOpGasLimit: 3e5,
           callData: calldata
         }, accountOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
+        expect(await entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        })).to.revertedWith('AA33 reverted: TokenPaymaster: no balance')
-        await expect(entryPoint.handleOps([op], beneficiaryAddress, {
+        }).catch(e => decodeRevertReason(e)))
+          .to.include('TokenPaymaster: no balance')
+        expect(await entryPoint.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        })).to.revertedWith('AA33 reverted: TokenPaymaster: no balance')
+        }).catch(e => decodeRevertReason(e)))
+          .to.include('TokenPaymaster: no balance')
       })
     })
 
@@ -122,9 +124,10 @@ describe('EntryPoint with paymaster', function () {
           paymaster: paymaster.address,
           paymasterPostOpGasLimit: 3e5
         }, accountOwner, entryPoint)
-        await expect(entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
+        expect(await entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
-        }).catch(rethrow())).to.revertedWith('TokenPaymaster: no balance')
+        }).catch(e => decodeRevertReason(e)))
+          .to.include('TokenPaymaster: no balance')
       })
 
       it('should succeed to create account with tokens', async () => {

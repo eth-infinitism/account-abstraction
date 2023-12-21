@@ -334,9 +334,9 @@ export class AASigner extends Signer {
   async sendTransaction (transaction: Deferrable<TransactionRequest>): Promise<TransactionResponse> {
     const userOp = await this._createUserOperation(transaction)
     // get response BEFORE sending request: the response waits for events, which might be triggered before the actual send returns.
-    const reponse = await this.userEventResponse(userOp)
+    const response = await this.userEventResponse(userOp)
     await this.sendUserOp(userOp)
-    return reponse
+    return response
   }
 
   async syncAccount (): Promise<void> {

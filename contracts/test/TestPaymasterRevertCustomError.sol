@@ -6,9 +6,18 @@ import "../core/BasePaymaster.sol";
 /**
  * test postOp revert with custom error
  */
-error CustomError();
+error CustomError(string customReason);
 
 contract TestPaymasterRevertCustomError is BasePaymaster {
+    bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
+
+    enum RevertType {
+        customError,
+        entryPointError
+    }
+
+    RevertType private revertType;
+
     // solhint-disable no-empty-blocks
     constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
     {}
@@ -20,8 +29,20 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
         context = abi.encodePacked(userOp.sender);
     }
 
-    function _postOp(PostOpMode, bytes calldata, uint256) internal pure override {
+    function setRevertType(RevertType _revertType) external {
+        revertType = _revertType;
+    }
 
-        revert CustomError();
+    function _postOp(PostOpMode, bytes calldata, uint256) internal view override {
+        if (revertType == RevertType.customError){
+            revert CustomError("this is a long revert reason string we are looking for");
+        }
+        else if (revertType == RevertType.entryPointError){
+            // solhint-disable-next-line no-inline-assembly
+            assembly {
+                mstore(0, INNER_OUT_OF_GAS)
+                revert(0, 32)
+            }
+        }
     }
 }

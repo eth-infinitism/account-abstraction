@@ -24,11 +24,23 @@ import {
   OracleHelper as OracleHelperNamespace,
   UniswapHelper as UniswapHelperNamespace
 } from '../../typechain/contracts/samples/TokenPaymaster'
-import { checkForGeth, createAccount, createAccountOwner, deployEntryPoint, fund } from '../testutils'
+import {
+  checkForGeth,
+  createAccount,
+  createAccountOwner,
+  decodeRevertReason,
+  deployEntryPoint,
+  fund
+} from '../testutils'
 
 import { fillUserOp, packUserOp, signUserOp } from '../UserOp'
 
 const priceDenominator = BigNumber.from(10).pow(26)
+
+function uniq (arr: any[]): any[] {
+  // remove items with duplicate "name" attribute
+  return Object.values(arr.reduce((set, item) => ({ ...set, [item.name]: item }), {}))
+}
 
 describe('TokenPaymaster', function () {
   const minEntryPointBalance = 1e17.toString()
@@ -37,12 +49,12 @@ describe('TokenPaymaster', function () {
   const ethersSigner = ethers.provider.getSigner()
   const beneficiaryAddress = '0x'.padEnd(42, '1')
   const testInterface = new Interface(
-    [
+    uniq([
       ...TestUniswap__factory.abi,
       ...TestERC20__factory.abi,
       ...TokenPaymaster__factory.abi,
       ...EntryPoint__factory.abi
-    ]
+    ])
   )
 
   let chainId: number
@@ -129,15 +141,17 @@ describe('TokenPaymaster', function () {
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
     const opPacked = packUserOp(op)
-    await expect(
-      entryPoint.handleOps([opPacked], beneficiaryAddress, { gasLimit: 1e7 })
-    ).to.be.revertedWith('AA33 reverted: ERC20: insufficient allowance')
+    // await expect(
+    expect(await entryPoint.handleOps([opPacked], beneficiaryAddress, { gasLimit: 1e7 })
+      .catch(e => decodeRevertReason(e)))
+      .to.include('ERC20: insufficient allowance')
 
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
-    await expect(
-      entryPoint.handleOps([opPacked], beneficiaryAddress, { gasLimit: 1e7 })
-    ).to.revertedWith('AA33 reverted: ERC20: transfer amount exceeds balance')
+    expect(await entryPoint.handleOps([opPacked], beneficiaryAddress, { gasLimit: 1e7 })
+      .catch(e => decodeRevertReason(e)))
+      .to.include('ERC20: transfer amount exceeds balance')
+
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
@@ -395,9 +409,11 @@ describe('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
-    const userOpSuccess = decodedLogs[2].args.success
+    const postOpRevertReason = decodeRevertReason(decodedLogs[2].args.revertReason)
+    assert.equal(postOpRevertReason, 'PostOpReverted(Error(ERC20: transfer amount exceeds balance))')
+    const userOpSuccess = decodedLogs[3].args.success
     assert.equal(userOpSuccess, false)
-    assert.equal(decodedLogs.length, 3)
+    assert.equal(decodedLogs.length, 4)
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
