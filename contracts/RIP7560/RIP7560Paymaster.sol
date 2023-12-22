@@ -18,13 +18,17 @@ contract RIP7560Paymaster {
         bytes calldata transaction)
     external
     returns (
-        bytes memory context,
-        uint256 validationData
+        bytes memory validationData
     ){
         emit PaymasterValidationEvent("the-paymaster", pmCounter);
-        context = abi.encodePacked("context here", pmCounter);
-        validationData = 0;
+        bytes memory context = abi.encodePacked("context here", pmCounter);
         pmCounter++;
+        bytes memory ret = abi.encodeWithSelector(bytes4(0xe0e6183a), context, block.timestamp, block.timestamp + 10000);
+        uint256 len = ret.length;
+        // avoid wrapping return value as a byte array here
+        assembly {
+            return(add(ret, 0x20), len)
+        }
     }
 
     function postPaymasterTransaction(

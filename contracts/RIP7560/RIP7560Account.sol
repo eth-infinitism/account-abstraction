@@ -11,7 +11,7 @@ contract RIP7560Account {
     event AccountValidationEvent(string name, uint256 counter, uint256 builderFee);
     event AccountExecutionEvent(string name, uint256 counter, bytes data);
 
-    constructor() public {
+    constructor() {
     }
 
     function validateTransaction(
@@ -22,6 +22,7 @@ contract RIP7560Account {
         emit AccountValidationEvent("the-account", accCounter, txStruct.builderFee);
         validationData = 0;
         accCounter++;
+        return uint256(bytes32(abi.encodePacked(bytes4(0xbf45c166), uint64(block.timestamp), uint64(block.timestamp + 10000))));
     }
 
     function anyExecutionFunction() external {
