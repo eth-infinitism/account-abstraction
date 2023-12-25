@@ -3,7 +3,6 @@ import { ethers } from 'hardhat'
 import { expect } from 'chai'
 
 import { RIP7560NonceManager, RIP7560NonceManager__factory } from '../../typechain'
-import { bufferToHex, toChecksumAddress } from 'ethereumjs-util'
 
 describe.only('RIP7560NonceManager', function () {
   let signer: Signer

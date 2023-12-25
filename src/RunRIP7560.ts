@@ -5,7 +5,11 @@ import {
   RIP7560NonceManager__factory,
   RIP7560Paymaster__factory
 } from '../typechain'
+
 import { question } from 'readline-sync'
+import { defaultAbiCoder, hexConcat } from 'ethers/lib/utils'
+
+import { Create2Factory } from './Create2Factory'
 
 async function main (): Promise<void> {
   const [coinbase] = await ethers.provider.listAccounts()
@@ -13,7 +17,14 @@ async function main (): Promise<void> {
 
   const signer = ethers.provider.getSigner(coinbase)
 
-  const nonceManager = await new RIP7560NonceManager__factory(signer).deploy('0x7560000000000000000000000000000000007560')
+  const create2Factory = new Create2Factory(ethers.provider)
+  const nonceManagerAddress = await create2Factory.deploy(
+    hexConcat([
+      RIP7560NonceManager__factory.bytecode,
+      defaultAbiCoder.encode(['address'], ['0x7560000000000000000000000000000000007560'])
+    ]), 0, 2885201)
+
+  const nonceManager = new RIP7560NonceManager__factory(signer).attach(nonceManagerAddress)
 
   // const account = await new RIP7560Account__factory(signer).deploy()
   const revertValidation = (parseInt(process.env.REVERT!) !== 0) ?? false
@@ -25,7 +36,7 @@ async function main (): Promise<void> {
   console.log('Smart Account: ', accountAddress)
   console.log('Paymaster: ', paymaster.address, ' reverts: ', revertValidation)
   console.log('Deployer: ', deployer.address)
-  console.log('Nonce Manager: ', nonceManager.address, ' reverts: ', revertValidation)
+  console.log('Nonce Manager: ', nonceManagerAddress, ' reverts: ', revertValidation)
 
   const paymasterData = paymaster.address +
     nonceManager.address.replace('0x', '') +
