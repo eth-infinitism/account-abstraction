@@ -15,10 +15,15 @@ import { Create2Factory } from './Create2Factory'
 async function main (): Promise<void> {
   const [coinbase] = await ethers.provider.listAccounts()
   console.log('Coinbase Account: ', coinbase)
+  const balance = await ethers.provider.getBalance(coinbase)
+  console.log('Coinbase Balance: ', balance.toString())
 
   const signer = ethers.provider.getSigner(coinbase)
 
   const create2Factory = new Create2Factory(ethers.provider)
+  await create2Factory.deployFactory(signer)
+  console.log('Factory deployed')
+
   const { address: nonceManagerAddress, deployed } = await create2Factory.deploy(
     hexConcat([
       RIP7560NonceManager__factory.bytecode,
@@ -79,6 +84,7 @@ async function main (): Promise<void> {
   const data = RIP7560Account__factory.createInterface().encodeFunctionData('anyExecutionFunction')
 
   const response = await signer.sendTransaction({
+    from: coinbase,
     to: accountAddress,
     value: 10e18.toString()
   })
