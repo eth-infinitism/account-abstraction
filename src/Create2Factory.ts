@@ -27,7 +27,10 @@ export class Create2Factory {
    * @param salt specific salt for deployment
    * @param gasLimit gas limit or 'estimate' to use estimateGas. by default, calculate gas based on data size.
    */
-  async deploy (initCode: string | TransactionRequest, salt: BigNumberish = 0, gasLimit?: BigNumberish | 'estimate'): Promise<string> {
+  async deploy (initCode: string | TransactionRequest, salt: BigNumberish = 0, gasLimit?: BigNumberish | 'estimate'): Promise<{
+    address: string
+    deployed: boolean
+  }> {
     await this.deployFactory()
     if (typeof initCode !== 'string') {
       // eslint-disable-next-line @typescript-eslint/no-base-to-string
@@ -36,7 +39,10 @@ export class Create2Factory {
 
     const addr = Create2Factory.getDeployedAddress(initCode, salt)
     if (await this.provider.getCode(addr).then(code => code.length) > 2) {
-      return addr
+      return {
+        address: addr,
+        deployed: false
+      }
     }
 
     const deployTx = {
@@ -66,7 +72,10 @@ export class Create2Factory {
     if (await this.provider.getCode(addr).then(code => code.length) === 2) {
       throw new Error('failed to deploy')
     }
-    return addr
+    return {
+      address: addr,
+      deployed: true
+    }
   }
 
   getDeployTransactionCallData (initCode: string, salt: BigNumberish = 0): string {

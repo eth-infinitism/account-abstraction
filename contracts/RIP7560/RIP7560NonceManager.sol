@@ -17,7 +17,7 @@ contract RIP7560NonceManager {
         address account = address(bytes20(data[:20]));
         uint192 key = uint192(bytes24(data[20:44]));
         if (msg.sender == entryPoint){
-            uint64 nonce = uint64(bytes8(data[44:53]));
+            uint64 nonce = uint64(bytes8(data[44:52]));
             require(nonces[account][key]++ == nonce, "nonce mismatch");
             emit NonceIncrease(account, key, nonces[account][key]);
             return "";

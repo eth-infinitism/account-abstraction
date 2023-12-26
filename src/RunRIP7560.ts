@@ -1,3 +1,4 @@
+import * as fs from 'fs'
 import { ethers } from 'hardhat'
 import {
   RIP7560Account__factory,
@@ -18,7 +19,7 @@ async function main (): Promise<void> {
   const signer = ethers.provider.getSigner(coinbase)
 
   const create2Factory = new Create2Factory(ethers.provider)
-  const nonceManagerAddress = await create2Factory.deploy(
+  const { address: nonceManagerAddress, deployed } = await create2Factory.deploy(
     hexConcat([
       RIP7560NonceManager__factory.bytecode,
       defaultAbiCoder.encode(['address'], ['0x7560000000000000000000000000000000007560'])
@@ -28,25 +29,48 @@ async function main (): Promise<void> {
 
   // const account = await new RIP7560Account__factory(signer).deploy()
   const revertValidation = (parseInt(process.env.REVERT!) !== 0) ?? false
-  const paymaster = await new RIP7560Paymaster__factory(signer).deploy(revertValidation)
-  const deployer = await new RIP7560Deployer__factory(signer).deploy()
 
-  const accountAddress = await deployer.getAddress(deployer.address, 0)
+  let deployerData: string
+  let paymasterAddress: string
+  let accountAddress: string
+  if (deployed) {
+    const paymaster = await new RIP7560Paymaster__factory(signer).deploy(revertValidation)
+    const deployer = await new RIP7560Deployer__factory(signer).deploy()
+    console.log('Deployer: ', deployer.address)
 
-  console.log('Smart Account: ', accountAddress)
-  console.log('Paymaster: ', paymaster.address, ' reverts: ', revertValidation)
-  console.log('Deployer: ', deployer.address)
+    accountAddress = await deployer.getAddress(deployer.address, 0)
+
+    paymasterAddress = paymaster.address
+    deployerData = deployer.address +
+      deployer.interface
+        .encodeFunctionData('createAccount', [deployer.address, 0])
+        .replace('0x', '')
+    fs.writeFileSync('./tmpaatx.json', JSON.stringify(
+      {
+        accountAddress: accountAddress,
+        paymasterAddress: paymaster.address
+      }
+    ))
+  } else {
+    ({ accountAddress, paymasterAddress } = JSON.parse(fs.readFileSync('./tmpaatx.json', 'utf-8')))
+    deployerData = ''
+  }
+
   console.log('Nonce Manager: ', nonceManagerAddress, ' reverts: ', revertValidation)
+  console.log('Paymaster: ', paymasterAddress, ' reverts: ', revertValidation)
+  console.log('ACCOUNT: ', accountAddress)
 
-  const paymasterData = paymaster.address +
+  const currentNonce = await ethers.provider.call({
+    to: nonceManagerAddress,
+    data: accountAddress + '00'.repeat(24)
+  })
+  const bigNonce = '0x' + parseInt(currentNonce).toString(16)
+  console.log('Current account nonce: ', bigNonce)
+
+  const paymasterData = paymasterAddress +
     nonceManager.address.replace('0x', '') +
     ethers.utils
       .hexlify(ethers.utils.toUtf8Bytes('hello paymasters!'))
-      .replace('0x', '')
-
-  const deployerData = deployer.address +
-    deployer.interface
-      .encodeFunctionData('createAccount', [deployer.address, 0])
       .replace('0x', '')
 
   console.log('Paymaster Data: ', paymasterData)
@@ -64,7 +88,7 @@ async function main (): Promise<void> {
 
   const type4transaction1 = {
     gas: '0xf4240',
-    value: '0x1',
+    value: '0x0',
     // todo: remove 'from' field for Type 4 request
     from: coinbase,
     to: '0xf45b5e4058bfa43ae80744f206eb3aacf6cda867',
@@ -74,7 +98,7 @@ async function main (): Promise<void> {
     nonce: '0x7',
     // RIP-7560 transaction fields
     sender: accountAddress,
-    bigNonce: '0x8',
+    bigNonce,
     signature: '0xbb',
     validationGas: '0xf4240',
     paymasterGas: '0xf4240',
