@@ -88,6 +88,7 @@ async function main (): Promise<void> {
     to: accountAddress,
     value: 10e18.toString()
   })
+  await response.wait(1)
   console.log('Value transfer tx hash: ', response.hash)
 
   question('Press enter to send AA transaction:>')
