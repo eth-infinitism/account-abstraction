@@ -102,6 +102,15 @@ interface IEntryPoint is IStakeManager, INonceManager {
      */
     error FailedOp(uint256 opIndex, string reason);
 
+    /**
+     * A custom revert error of handleOps, to report a revert by account or paymaster.
+     * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
+     * @param reason  - Revert reason. see FailedOp(uint,string), above
+     * @param inner   - data from inner cought revert reason
+     * @dev note that inner is truncated to 2048 bytes
+     */
+    error FailedOpWithRevert(uint256 opIndex, string reason, bytes inner);
+
     error PostOpReverted(bytes returnData);
 
     /**
@@ -189,4 +198,13 @@ interface IEntryPoint is IStakeManager, INonceManager {
      */
     function getSenderAddress(bytes memory initCode) external;
 
+    error DelegateAndRevert(bool success, bytes ret);
+
+    /**
+     * Helper method for dry-run testing.
+     * @dev calling this method, the EntryPoint will make a delegatecall to the given data, and report (via revert) the result.
+     *  The method always revert, so is only useful off-chain for dry run calls, in cases where state-override to replace
+     *  actual EntryPoint code is less convenient.
+     */
+    function delegateAndRevert(address target, bytes calldata data) external;
 }

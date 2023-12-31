@@ -23,7 +23,7 @@ import {
   deployEntryPoint,
   getBalance,
   HashZero,
-  isDeployed
+  isDeployed, decodeRevertReason
 } from './testutils'
 import { fillAndSign } from './UserOp'
 import { defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
@@ -107,7 +107,10 @@ describe('Gnosis Proxy', function () {
 
     const anotherEntryPoint = await new EntryPoint__factory(ethersSigner).deploy()
 
-    await expect(anotherEntryPoint.handleOps([op], beneficiary)).to.revertedWith('account: not from entrypoint')
+    // await expect(
+    expect(await anotherEntryPoint.handleOps([op], beneficiary)
+      .catch(e => decodeRevertReason(e)))
+      .to.include('account: not from entrypoint')
   })
 
   it('should fail on invalid userop', async function () {

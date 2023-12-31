@@ -42,8 +42,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
 
-    event PostOpReverted(address indexed user, uint256 preCharge);
-
     event Received(address indexed sender, uint256 value);
 
     /// @notice All 'price' variables are multiplied by this value to avoid rounding up
