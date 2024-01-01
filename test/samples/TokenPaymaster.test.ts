@@ -265,7 +265,6 @@ describe('TokenPaymaster', function () {
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
     const opPacked = packUserOp(op)
-    console.log('op', opPacked, op)
 
     // for simpler 'gasPrice()' calculation
     await ethers.provider.send('hardhat_setNextBlockBaseFeePerGas', [utils.hexlify(op.maxFeePerGas)])
