@@ -19,6 +19,10 @@ abstract contract OracleHelper {
     uint256 private constant PRICE_DENOMINATOR = 1e26;
 
     struct OracleHelperConfig {
+
+        /// @notice The price cache will be returned without even fetching the oracles for this number of seconds
+        uint48 cacheTimeToLive;
+
         /// @notice The Oracle contract used to fetch the latest token prices
         IOracle tokenOracle;
 
@@ -36,25 +40,23 @@ abstract contract OracleHelper {
         bool nativeOracleReverse;
 
         /// @notice The price update threshold percentage that triggers a price update (1e6 = 100%)
-        uint256 priceUpdateThreshold;
+        uint48 priceUpdateThreshold;
 
-        /// @notice The price cache will be returned without even fetching the oracles for this number of seconds
-        uint256 cacheTimeToLive;
     }
 
     /// @notice The cached token price from the Oracle, always in (ether-per-token) * PRICE_DENOMINATOR format
     uint256 public cachedPrice;
 
     /// @notice The timestamp of a block when the cached price was updated
-    uint256 public cachedPriceTimestamp;
+    uint48 public cachedPriceTimestamp;
 
     OracleHelperConfig private oracleHelperConfig;
 
     /// @notice The "10^(tokenOracle.decimals)" value used for the price calculation
-    uint256 private tokenOracleDecimalPower;
+    uint128 private tokenOracleDecimalPower;
 
     /// @notice The "10^(nativeOracle.decimals)" value used for the price calculation
-    uint256 private nativeOracleDecimalPower;
+    uint128 private nativeOracleDecimalPower;
 
     constructor (
         OracleHelperConfig memory _oracleHelperConfig
@@ -70,8 +72,8 @@ abstract contract OracleHelper {
     ) private {
         oracleHelperConfig = _oracleHelperConfig;
         require(_oracleHelperConfig.priceUpdateThreshold <= 1e6, "TPM: update threshold too high");
-        tokenOracleDecimalPower = 10 ** oracleHelperConfig.tokenOracle.decimals();
-        nativeOracleDecimalPower = 10 ** oracleHelperConfig.nativeOracle.decimals();
+        tokenOracleDecimalPower = uint128(10 ** oracleHelperConfig.tokenOracle.decimals());
+        nativeOracleDecimalPower = uint128(10 ** oracleHelperConfig.nativeOracle.decimals());
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.
@@ -109,7 +111,7 @@ abstract contract OracleHelper {
         uint256 previousPrice = _cachedPrice;
         _cachedPrice = price;
         cachedPrice = _cachedPrice;
-        cachedPriceTimestamp = block.timestamp;
+        cachedPriceTimestamp = uint48(block.timestamp);
         emit TokenPriceUpdated(_cachedPrice, previousPrice, cachedPriceTimestamp);
         return _cachedPrice;
     }
