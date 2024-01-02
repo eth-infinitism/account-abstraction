@@ -295,7 +295,7 @@ describe('TokenPaymaster', function () {
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
-  it('should use cached token price if the one supplied by the client if it is worse', async function () {
+  it('should use cached token price if the one supplied by the client is worse', async function () {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
     await token.transfer(account.address, parseEther('1'))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
@@ -307,6 +307,7 @@ describe('TokenPaymaster', function () {
     const paymasterAndData = generatePaymasterAndData(paymasterAddress, overrideTokenPrice)
     let op = await fillUserOp({
       sender: account.address,
+      maxFeePerGas: 1000000000,
       paymasterAndData,
       callData
     }, entryPoint)
