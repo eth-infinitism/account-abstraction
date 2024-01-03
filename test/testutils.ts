@@ -304,7 +304,7 @@ export async function createAccount (
   }
 }
 
-export function packAccountGasLimits (validationGasLimit: BytesLike | Hexable | number | bigint, callGasLimit: BytesLike | Hexable | number | bigint): string {
+export function packAccountGasLimits (validationGasLimit: BigNumberish, callGasLimit: BigNumberish): string {
   return ethers.utils.hexConcat([
     hexZeroPad(hexlify(validationGasLimit, { hexPad: 'left' }), 16), hexZeroPad(hexlify(callGasLimit, { hexPad: 'left' }), 16)
   ])

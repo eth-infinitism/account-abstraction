@@ -275,7 +275,7 @@ describe('EntryPoint', function () {
         // we need maxFeeperGas > block.basefee + maxPriorityFeePerGas so requiredPrefund onchain is basefee + maxPriorityFeePerGas
         maxFeePerGas: block.baseFeePerGas.mul(3),
         maxPriorityFeePerGas: block.baseFeePerGas,
-        paymaster: '0x',
+        paymaster: AddressZero,
         paymasterData: '0x',
         paymasterVerificationGasLimit: 0,
         paymasterPostOpGasLimit: 0

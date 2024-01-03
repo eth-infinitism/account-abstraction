@@ -11,7 +11,7 @@ export interface UserOperation {
   preVerificationGas: typ.uint256
   maxFeePerGas: typ.uint256
   maxPriorityFeePerGas: typ.uint256
-  paymaster: typ.bytes
+  paymaster: typ.address
   paymasterVerificationGasLimit: typ.uint128
   paymasterPostOpGasLimit: typ.uint128
   paymasterData: typ.bytes

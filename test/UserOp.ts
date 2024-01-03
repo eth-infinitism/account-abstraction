@@ -21,7 +21,7 @@ import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSi
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
   let paymasterAndData = '0x'
-  if (userOp.paymaster.length >= 20) {
+  if (userOp.paymaster.length >= 20 && userOp.paymaster !== AddressZero) {
     paymasterAndData = packPaymasterData(userOp.paymaster as string, userOp.paymasterVerificationGasLimit, userOp.paymasterPostOpGasLimit, userOp.paymasterData as string)
   }
   return {
@@ -42,7 +42,7 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
   if (forSignature) {
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes32', 'bytes32',
-        'uint256', 'uint256', 'uint256', 'uint256',
+        'bytes32', 'uint256', 'uint256', 'uint256',
         'bytes32'],
       [packedUserOp.sender, packedUserOp.nonce, keccak256(packedUserOp.initCode), keccak256(packedUserOp.callData),
         packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
@@ -51,7 +51,7 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
     // for the purpose of calculating gas cost encode also signature (and no keccak of bytes)
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes', 'bytes',
-        'uint256', 'uint256', 'uint256', 'uint256',
+        'bytes32', 'uint256', 'uint256', 'uint256',
         'bytes', 'bytes'],
       [packedUserOp.sender, packedUserOp.nonce, packedUserOp.initCode, packedUserOp.callData,
         packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
@@ -77,7 +77,7 @@ export const DefaultsForUserOp: UserOperation = {
   preVerificationGas: 21000, // should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
-  paymaster: '0x',
+  paymaster: AddressZero,
   paymasterData: '0x',
   paymasterVerificationGasLimit: 3e5,
   paymasterPostOpGasLimit: 0,

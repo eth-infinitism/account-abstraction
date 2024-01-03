@@ -10,10 +10,10 @@ import {
 import {
   createAccount,
   createAccountOwner, createAddress, decodeRevertReason,
-  deployEntryPoint
+  deployEntryPoint, packPaymasterData
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, packUserOp, simulateValidation } from './UserOp'
-import { arrayify, defaultAbiCoder, hexConcat, hexlify, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import { PackedUserOperation } from './UserOperation'
 
 const MOCK_VALID_UNTIL = '0x00000000deadbeef'
@@ -43,11 +43,14 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
   describe('#parsePaymasterAndData', () => {
     it('should parse data properly', async () => {
-      const paymasterAndData = hexConcat([
-        paymaster.address, hexZeroPad(hexlify(DefaultsForUserOp.paymasterVerificationGasLimit, { hexPad: 'left' }), 16),
-        hexZeroPad(hexlify(DefaultsForUserOp.paymasterPostOpGasLimit, { hexPad: 'left' }), 16),
-        defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG
-      ])
+      const paymasterAndData = packPaymasterData(
+        paymaster.address,
+        DefaultsForUserOp.paymasterVerificationGasLimit,
+        DefaultsForUserOp.paymasterPostOpGasLimit,
+        hexConcat([
+          defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG
+        ])
+      )
       console.log(paymasterAndData)
       const res = await paymaster.parsePaymasterAndData(paymasterAndData)
       // console.log('MOCK_VALID_UNTIL, MOCK_VALID_AFTER', MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
