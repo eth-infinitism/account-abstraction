@@ -4,6 +4,8 @@ import { ethers } from 'hardhat'
 import { AddressZero } from '../testutils'
 
 import {
+  EntryPoint,
+  EntryPoint__factory,
   TestERC20,
   TestERC20__factory,
   TestOracle2,
@@ -102,6 +104,8 @@ describe('OracleHelper', function () {
   // @ts-ignore
   const testEnv: TestEnv = {}
 
+  let entryPoint: EntryPoint
+
   before(async function () {
     const ethersSigner = ethers.provider.getSigner()
     testEnv.owner = await ethersSigner.getAddress()
@@ -124,9 +128,11 @@ describe('OracleHelper', function () {
 
     testEnv.token = await new TestERC20__factory(ethersSigner).deploy(18)
 
+    entryPoint = await new EntryPoint__factory(ethersSigner).deploy()
+
     testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
       testEnv.token.address,
-      AddressZero,
+      entryPoint.address,
       AddressZero,
       testEnv.owner, // cannot approve to AddressZero
       testEnv.tokenPaymasterConfig,
@@ -164,7 +170,7 @@ describe('OracleHelper', function () {
       const ethersSigner = ethers.provider.getSigner()
       testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
         testEnv.token.address,
-        AddressZero,
+        entryPoint.address,
         AddressZero,
         testEnv.owner, // cannot approve to AddressZero
         testEnv.tokenPaymasterConfig,
@@ -215,7 +221,7 @@ describe('OracleHelper', function () {
       const ethersSigner = ethers.provider.getSigner()
       testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
         testEnv.token.address,
-        AddressZero,
+        entryPoint.address,
         AddressZero,
         testEnv.owner, // cannot approve to AddressZero
         testEnv.tokenPaymasterConfig,
@@ -245,7 +251,7 @@ describe('OracleHelper', function () {
       const ethersSigner = ethers.provider.getSigner()
       testEnv.paymaster = await new TokenPaymaster__factory(ethersSigner).deploy(
         testEnv.token.address,
-        AddressZero,
+        entryPoint.address,
         AddressZero,
         testEnv.owner, // cannot approve to AddressZero
         testEnv.tokenPaymasterConfig,
