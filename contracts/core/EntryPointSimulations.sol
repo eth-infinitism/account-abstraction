@@ -167,7 +167,8 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         revert("");
     }
 
-    //make sure depositTo cost is more than normal EntryPoint's cost.
+    //make sure depositTo cost is more than normal EntryPoint's cost,
+    // to mitigate DoS vector on the bundler
     // empiric test showed that without this wrapper, simulation depositTo costs less..
     function depositTo(address account) public override(IStakeManager, StakeManager) payable {
         unchecked{
