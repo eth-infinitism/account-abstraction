@@ -51,11 +51,11 @@ abstract contract StakeManager is IStakeManager {
      * @param account - The account to increment.
      * @param amount  - The amount to increment by.
      */
-    function _incrementDeposit(address account, uint256 amount) internal {
+    function _incrementDeposit(address account, uint256 amount) internal returns (uint256) {
         DepositInfo storage info = deposits[account];
         uint256 newAmount = info.deposit + amount;
-        require(newAmount <= type(uint112).max, "deposit overflow");
-        info.deposit = uint112(newAmount);
+        info.deposit = newAmount;
+        return newAmount;
     }
 
     /**
@@ -63,9 +63,8 @@ abstract contract StakeManager is IStakeManager {
      * @param account - The account to add to.
      */
     function depositTo(address account) public virtual payable {
-        _incrementDeposit(account, msg.value);
-        DepositInfo storage info = deposits[account];
-        emit Deposited(account, info.deposit);
+        uint newDeposit = _incrementDeposit(account, msg.value);
+        emit Deposited(account, newDeposit);
     }
 
     /**
@@ -125,7 +124,7 @@ abstract contract StakeManager is IStakeManager {
         info.withdrawTime = 0;
         info.stake = 0;
         emit StakeWithdrawn(msg.sender, withdrawAddress, stake);
-        (bool success, ) = withdrawAddress.call{value: stake}("");
+        (bool success,) = withdrawAddress.call{value: stake}("");
         require(success, "failed to withdraw stake");
     }
 
@@ -140,9 +139,9 @@ abstract contract StakeManager is IStakeManager {
     ) external {
         DepositInfo storage info = deposits[msg.sender];
         require(withdrawAmount <= info.deposit, "Withdraw amount too large");
-        info.deposit = uint112(info.deposit - withdrawAmount);
+        info.deposit = info.deposit - withdrawAmount;
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
-        (bool success, ) = withdrawAddress.call{value: withdrawAmount}("");
+        (bool success,) = withdrawAddress.call{value: withdrawAmount}("");
         require(success, "failed to withdraw");
     }
 }
