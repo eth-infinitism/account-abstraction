@@ -30,7 +30,7 @@ import {
   createAccountOwner,
   decodeRevertReason,
   deployEntryPoint,
-  fund
+  fund, objdump
 } from '../testutils'
 
 import { fillUserOp, signUserOp } from '../UserOp'
@@ -156,13 +156,13 @@ describe('TokenPaymaster', function () {
     // await expect(
     expect(await entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
       .catch(e => decodeRevertReason(e)))
-      .to.include('ERC20: insufficient allowance')
+      .to.match(/FailedOpWithRevert\(0,"AA33 reverted",ERC20InsufficientAllowance/)
 
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
     expect(await entryPoint.handleOps([op], beneficiaryAddress, { gasLimit: 1e7 })
       .catch(e => decodeRevertReason(e)))
-      .to.include('ERC20: transfer amount exceeds balance')
+      .to.match(/FailedOpWithRevert\(0,"AA33 reverted",ERC20InsufficientBalance/)
 
     await ethers.provider.send('evm_revert', [snapshot])
   })
@@ -295,7 +295,7 @@ describe('TokenPaymaster', function () {
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
-  it('should use cached token price if the one supplied by the client if it is worse', async function () {
+  it('should use cached token price if the one supplied by the client is worse', async function () {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
     await token.transfer(account.address, parseEther('1'))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
@@ -307,6 +307,7 @@ describe('TokenPaymaster', function () {
     const paymasterAndData = generatePaymasterAndData(paymasterAddress, overrideTokenPrice)
     let op = await fillUserOp({
       sender: account.address,
+      maxFeePerGas: 1000000000,
       paymasterAndData,
       callData
     }, entryPoint)
@@ -406,8 +407,10 @@ describe('TokenPaymaster', function () {
     const decodedLogs = tx.logs.map(it => {
       return testInterface.parseLog(it)
     })
+    console.log(decodedLogs.map((e: any) => ({ ev: e.name, ...objdump(e.args!) })))
+
     const postOpRevertReason = decodeRevertReason(decodedLogs[2].args.revertReason)
-    assert.equal(postOpRevertReason, 'PostOpReverted(Error(ERC20: transfer amount exceeds balance))')
+    assert.include(postOpRevertReason, 'PostOpReverted(ERC20InsufficientBalance')
     const userOpSuccess = decodedLogs[3].args.success
     assert.equal(userOpSuccess, false)
     assert.equal(decodedLogs.length, 4)

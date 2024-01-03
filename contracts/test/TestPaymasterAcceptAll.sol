@@ -21,6 +21,6 @@ contract TestPaymasterAcceptAll is BasePaymaster {
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         (userOp, userOpHash, maxCost);
-        return ("", maxCost == 12345 ? 1 : 0);
+        return ("", 0);
     }
 }
