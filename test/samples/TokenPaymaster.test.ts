@@ -301,6 +301,7 @@ describe('TokenPaymaster', function () {
     const overrideTokenPrice = priceDenominator.mul(50)
     let op = await fillUserOp({
       sender: account.address,
+      maxFeePerGas: 1000000000,
       paymaster: paymasterAddress,
       paymasterVerificationGasLimit: 3e5,
       paymasterPostOpGasLimit: 3e5,
