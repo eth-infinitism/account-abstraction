@@ -2,7 +2,6 @@
 pragma solidity ^0.8.12;
 
 import "../core/BasePaymaster.sol";
-/* solhint-disable no-empty-blocks */
 
 /**
  * test paymaster, that pays for everything, without any check.
@@ -22,14 +21,6 @@ contract TestPaymasterAcceptAll is BasePaymaster {
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         (userOp, userOpHash, maxCost);
-        // return a context, as it is used for EntryPoint gas checking.
-        return ("1", 0);
-    }
-
-    function _postOp(
-        PostOpMode mode,
-        bytes calldata context,
-        uint256 actualGasCost
-    ) internal override {
+        return ("", 0);
     }
 }

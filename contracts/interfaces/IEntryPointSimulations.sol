@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./UserOperation.sol";
+import "./PackedUserOperation.sol";
 import "./IEntryPoint.sol";
 
 interface IEntryPointSimulations is IEntryPoint {

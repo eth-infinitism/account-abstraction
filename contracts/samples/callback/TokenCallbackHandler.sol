@@ -4,7 +4,6 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-empty-blocks */
 
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 
@@ -12,16 +11,7 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
  * Token callback handler.
  *   Handles supported tokens' callbacks, allowing account receiving these tokens.
  */
-contract TokenCallbackHandler is IERC777Recipient, IERC721Receiver, IERC1155Receiver {
-    function tokensReceived(
-        address,
-        address,
-        address,
-        uint256,
-        bytes calldata,
-        bytes calldata
-    ) external pure override {
-    }
+contract TokenCallbackHandler is IERC721Receiver, IERC1155Receiver {
 
     function onERC721Received(
         address,

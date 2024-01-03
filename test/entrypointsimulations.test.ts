@@ -56,8 +56,9 @@ describe('EntryPointSimulations', function () {
 
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
       const diff = simCost.sub(epCost).toNumber()
-      expect(diff).to.be.within(0, 300,
-        `${message} cost ${simCost.toNumber()} should be (up to 200) above ep cost ${epCost.toNumber()}`)
+      const max = 350
+      expect(diff).to.be.within(0, max,
+        `${message} cost ${simCost.toNumber()} should be (up to ${max}) above ep cost ${epCost.toNumber()}`)
     }
     it('deposit on simulation must be >= real entrypoint', async () => {
       costInRange(

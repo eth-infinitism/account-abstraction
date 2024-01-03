@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
-
+pragma solidity ^0.8.23;
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
 
 import "../interfaces/IAccount.sol";
+import "../interfaces/IAccountExecute.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
 
@@ -17,7 +17,7 @@ import "./UserOperationLib.sol";
 
 // we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
@@ -79,12 +79,33 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
-
-        try this.innerHandleOp(userOp.callData, opInfo, context) returns (
-            uint256 _actualGasCost
-        ) {
-            collected = _actualGasCost;
-        } catch {
+        uint saveFreePtr;
+        assembly {
+            saveFreePtr := mload(0x40)
+        }
+        bytes calldata callData = userOp.callData;
+        bytes memory innerCall;
+        bytes4 methodSig;
+        assembly {
+            let len := callData.length
+            if gt(len,3) {
+                methodSig := calldataload(callData.offset)
+            }
+        }
+        if (methodSig == IAccountExecute.executeUserOp.selector) {
+            bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
+            innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
+        } else
+        {
+            innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
+        }
+        bool success;
+        assembly {
+            success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
+            collected := mload(0)
+            mstore(0x40, saveFreePtr)
+        }
+        if (!success) {
             bytes32 innerRevertCode;
             assembly {
                 let len := returndatasize()
@@ -449,7 +470,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 if (requiredPrefund > deposit) {
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
                 }
-                senderInfo.deposit = uint112(deposit - requiredPrefund);
+                senderInfo.deposit = deposit - requiredPrefund;
             }
         }
     }
@@ -479,7 +500,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             if (deposit < requiredPreFund) {
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
-            paymasterInfo.deposit = uint112(deposit - requiredPreFund);
+            paymasterInfo.deposit = deposit - requiredPreFund;
             try
                 IPaymaster(paymaster).validatePaymasterUserOp{gas: mUserOp.paymasterVerificationGasLimit}(
                     op,
