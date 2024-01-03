@@ -342,7 +342,7 @@ describe('EntryPoint', function () {
       it('should prevent detection through paymaster.code.length', async () => {
         const testWarmColdAccount = await new TestWarmColdAccount__factory(ethersSigner).deploy(entryPoint.address,
           { value: parseEther('1') })
-        const paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address, false)
+        const paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
         await paymaster.deposit({ value: ONE_ETH })
         const badOp: UserOperation = {
           ...DefaultsForUserOp,
@@ -1051,7 +1051,7 @@ describe('EntryPoint', function () {
       const account2Owner = createAccountOwner()
 
       before(async () => {
-        paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address, false)
+        paymaster = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
         await paymaster.addStake(globalUnstakeDelaySec, { value: paymasterStake })
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
