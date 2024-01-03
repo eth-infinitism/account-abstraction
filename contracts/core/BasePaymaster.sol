@@ -17,7 +17,7 @@ import "./Helpers.sol";
 abstract contract BasePaymaster is IPaymaster, Ownable {
     IEntryPoint public immutable entryPoint;
 
-    constructor(IEntryPoint _entryPoint) {
+    constructor(IEntryPoint _entryPoint) Ownable(msg.sender) {
         _validateEntryPointInterface(_entryPoint);
         entryPoint = _entryPoint;
     }

@@ -29,13 +29,13 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         uint256 priceMarkup;
 
         /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
-        uint256 minEntryPointBalance;
+        uint128 minEntryPointBalance;
 
         /// @notice Estimated gas cost for refunding tokens after the transaction is completed
-        uint256 refundPostopCost;
+        uint48 refundPostopCost;
 
         /// @notice Transactions are only valid as long as the cached price is not older than this value
-        uint256 priceMaxAge;
+        uint48 priceMaxAge;
     }
 
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);

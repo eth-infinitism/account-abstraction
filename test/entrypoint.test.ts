@@ -25,7 +25,6 @@ import {
   SimpleAccountFactory__factory,
   IStakeManager__factory,
   INonceManager__factory,
-  EntryPoint__factory,
   EntryPoint
 } from '../typechain'
 import {
@@ -712,7 +711,9 @@ describe('EntryPoint', function () {
         }).then(async r => r.wait())
 
         const error = rcpt.events?.find(ev => ev.event === 'UserOperationRevertReason')
-        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('Error(ReentrancyGuard: reentrant call)', 'execution of handleOps inside a UserOp should revert')
+        // console.log(rcpt.events!.map(e => ({ ev: e.event, ...objdump(e.args!) })))
+
+        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('ReentrancyGuardReentrantCall()', 'execution of handleOps inside a UserOp should revert')
       })
       it('should report failure on insufficient verificationGas after creation', async () => {
         const op0 = await fillAndSign({
@@ -1310,19 +1311,13 @@ describe('EntryPoint', function () {
     })
 
     it('should return true for pure EntryPoint, IStakeManager and INonceManager interface IDs', async function () {
-      const epInterface = EntryPoint__factory.createInterface()
+      const epInterface = IEntryPoint__factory.createInterface()
       const smInterface = IStakeManager__factory.createInterface()
       const nmInterface = INonceManager__factory.createInterface()
       // note: manually generating "pure", solidity-like "type(IEntryPoint).interfaceId" without inherited methods
+      const inheritedMethods = new Set([...smInterface.fragments, ...nmInterface.fragments].map(f => f.name))
       const epPureInterfaceFunctions = [
-        ...epInterface.fragments.filter(it => [
-          'handleOps',
-          'handleAggregatedOps',
-          'getUserOpHash',
-          'getSenderAddress',
-          'simulateValidation',
-          'simulateHandleOp'
-        ].includes(it.name))
+        ...epInterface.fragments.filter(it => !inheritedMethods.has(it.name) && it.type === 'function')
       ]
       const epPureInterfaceID = getERC165InterfaceID(epPureInterfaceFunctions)
       const smInterfaceID = getERC165InterfaceID([...smInterface.fragments])

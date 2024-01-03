@@ -198,4 +198,13 @@ interface IEntryPoint is IStakeManager, INonceManager {
      */
     function getSenderAddress(bytes memory initCode) external;
 
+    error DelegateAndRevert(bool success, bytes ret);
+
+    /**
+     * Helper method for dry-run testing.
+     * @dev calling this method, the EntryPoint will make a delegatecall to the given data, and report (via revert) the result.
+     *  The method always revert, so is only useful off-chain for dry run calls, in cases where state-override to replace
+     *  actual EntryPoint code is less convenient.
+     */
+    function delegateAndRevert(address target, bytes calldata data) external;
 }
