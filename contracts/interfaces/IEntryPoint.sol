@@ -9,7 +9,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "./UserOperation.sol";
+import "./PackedUserOperation.sol";
 import "./IStakeManager.sol";
 import "./IAggregator.sol";
 import "./INonceManager.sol";
