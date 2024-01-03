@@ -4,6 +4,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
 import "./Helpers.sol";
@@ -17,7 +18,14 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     IEntryPoint public immutable entryPoint;
 
     constructor(IEntryPoint _entryPoint) Ownable(msg.sender) {
+        _validateEntryPointInterface(_entryPoint);
         entryPoint = _entryPoint;
+    }
+
+    //sanity check: make sure this EntryPoint was compiled against the same
+    // IEntryPoint of this paymaster
+    function _validateEntryPointInterface(IEntryPoint _entryPoint) internal virtual {
+        require(IERC165(address(_entryPoint)).supportsInterface(type(IEntryPoint).interfaceId), "IEntryPoint interface mismatch");
     }
 
     /// @inheritdoc IPaymaster
