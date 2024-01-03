@@ -711,7 +711,9 @@ describe('EntryPoint', function () {
         }).then(async r => r.wait())
 
         const error = rcpt.events?.find(ev => ev.event === 'UserOperationRevertReason')
-        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('Error(ReentrancyGuard: reentrant call)', 'execution of handleOps inside a UserOp should revert')
+        // console.log(rcpt.events!.map(e => ({ ev: e.event, ...objdump(e.args!) })))
+
+        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('ReentrancyGuardReentrantCall()', 'execution of handleOps inside a UserOp should revert')
       })
       it('should report failure on insufficient verificationGas after creation', async () => {
         const op0 = await fillAndSign({

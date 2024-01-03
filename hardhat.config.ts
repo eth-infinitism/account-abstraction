@@ -25,7 +25,7 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
 }
 
 const optimizedComilerSettings = {
-  version: '0.8.17',
+  version: '0.8.23',
   settings: {
     optimizer: { enabled: true, runs: 1000000 },
     viaIR: true
@@ -38,7 +38,7 @@ const optimizedComilerSettings = {
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [{
-      version: '0.8.15',
+      version: '0.8.23',
       settings: {
         optimizer: { enabled: true, runs: 1000000 }
       }

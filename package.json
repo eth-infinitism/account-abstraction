@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "@nomiclabs/hardhat-etherscan": "^2.1.6",
-    "@openzeppelin/contracts": "^4.2.0",
+    "@openzeppelin/contracts": "^5.0.0",
     "@thehubbleproject/bls": "^0.5.1",
     "@typechain/hardhat": "^2.3.0",
     "@types/mocha": "^9.0.0",

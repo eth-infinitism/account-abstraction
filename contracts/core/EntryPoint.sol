@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
-
+pragma solidity ^0.8.23;
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
 
@@ -17,7 +16,7 @@ import "./UserOperationLib.sol";
 
 // we also require '@gnosis.pm/safe-contracts' and both libraries have 'IERC165.sol', leading to conflicts
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol" as OpenZeppelin;
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
