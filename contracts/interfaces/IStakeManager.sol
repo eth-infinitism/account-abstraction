@@ -44,7 +44,7 @@ interface IStakeManager {
      *      - 32 bit allows 150 years for unstake delay
      */
     struct DepositInfo {
-        uint112 deposit;
+        uint256 deposit;
         bool staked;
         uint112 stake;
         uint32 unstakeDelaySec;

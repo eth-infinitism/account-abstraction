@@ -468,7 +468,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 if (requiredPrefund > deposit) {
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
                 }
-                senderInfo.deposit = uint112(deposit - requiredPrefund);
+                senderInfo.deposit = deposit - requiredPrefund;
             }
             gasUsedByValidateAccountPrepayment = preGas - gasleft();
         }
@@ -509,7 +509,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             if (deposit < requiredPreFund) {
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
-            paymasterInfo.deposit = uint112(deposit - requiredPreFund);
+            paymasterInfo.deposit = deposit - requiredPreFund;
             try
                 IPaymaster(paymaster).validatePaymasterUserOp{gas: gas}(
                     op,
