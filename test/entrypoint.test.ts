@@ -530,7 +530,7 @@ describe('EntryPoint', function () {
           sender: account.address,
           callData: accountExec.data,
           verificationGasLimit: 1e5,
-          callGasLimit: 11e5
+          callGasLimit: 11.5e5
         }, accountOwner, entryPoint)
         const inititalAccountBalance = await getBalance(account.address)
         const beneficiaryAddress = createAddress()

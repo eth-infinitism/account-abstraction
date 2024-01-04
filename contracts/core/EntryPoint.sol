@@ -254,10 +254,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
-        uint128 verificationGasLimit;
-        uint128 callGasLimit;
-        uint128 paymasterVerificationGasLimit;
-        uint128 paymasterPostOpGasLimit;
+        uint256 verificationGasLimit;
+        uint256 callGasLimit;
+        uint256 paymasterVerificationGasLimit;
+        uint256 paymasterPostOpGasLimit;
         uint256 preVerificationGas;
         address paymaster;
         uint256 maxFeePerGas;
