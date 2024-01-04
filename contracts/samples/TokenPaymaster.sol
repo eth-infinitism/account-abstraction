@@ -121,7 +121,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     override
     returns (bytes memory context, uint256 validationResult) {unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
-            uint256 paymasterAndDataLength = userOp.paymasterAndData.length - UserOperationLib.PAYMASTER_DATA_OFFSET;
+            uint256 paymasterAndDataLength = userOp.paymasterAndData.length - PAYMASTER_DATA_OFFSET;
             require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
             );
@@ -129,7 +129,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (paymasterAndDataLength == 32) {
-                uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[UserOperationLib.PAYMASTER_DATA_OFFSET : UserOperationLib.PAYMASTER_DATA_OFFSET + 32]));
+                uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[PAYMASTER_DATA_OFFSET : PAYMASTER_DATA_OFFSET + 32]));
                 if (clientSuppliedPrice < cachedPriceWithMarkup) {
                     // note: smaller number means 'more ether per token'
                     cachedPriceWithMarkup = clientSuppliedPrice;

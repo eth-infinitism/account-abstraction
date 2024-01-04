@@ -23,7 +23,7 @@ contract VerifyingPaymaster is BasePaymaster {
 
     address public immutable verifyingSigner;
 
-    uint256 private constant VALID_TIMESTAMP_OFFSET = UserOperationLib.PAYMASTER_DATA_OFFSET;
+    uint256 private constant VALID_TIMESTAMP_OFFSET = PAYMASTER_DATA_OFFSET;
 
     uint256 private constant SIGNATURE_OFFSET = VALID_TIMESTAMP_OFFSET + 64;
 
@@ -50,7 +50,7 @@ contract VerifyingPaymaster is BasePaymaster {
                 keccak256(userOp.initCode),
                 keccak256(userOp.callData),
                 userOp.accountGasLimits,
-                uint256(bytes32(userOp.paymasterAndData[20 : 52])),
+                uint256(bytes32(userOp.paymasterAndData[PAYMASTER_VALIDATION_GAS_OFFSET : PAYMASTER_DATA_OFFSET])),
                 userOp.preVerificationGas,
                 userOp.maxFeePerGas,
                 userOp.maxPriorityFeePerGas,
