@@ -47,6 +47,8 @@ describe('EntryPointSimulations', function () {
   })
 
   describe('Simulation Contract Sanity checks', () => {
+    // validate that successful simulation is always successful on real entrypoint,
+    // regardless of "environment" parameters (like gaslimit)
     const addr = createAddress()
 
     // coverage skews gas checks.
