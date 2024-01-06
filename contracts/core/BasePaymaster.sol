@@ -54,10 +54,11 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     function postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint gasPrice
     ) external override {
         _requireFromEntryPoint();
-        _postOp(mode, context, actualGasCost);
+        _postOp(mode, context, actualGasCost, gasPrice);
     }
 
     /**
@@ -76,9 +77,10 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     function _postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint gasPrice
     ) internal virtual {
-        (mode, context, actualGasCost); // unused params
+        (mode, context, actualGasCost, gasPrice); // unused params
         // subclass must override this method if validatePaymasterUserOp returns a context
         revert("must override");
     }

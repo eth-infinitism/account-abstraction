@@ -24,7 +24,8 @@ contract TestPaymasterWithPostOp is TestPaymasterAcceptAll {
     function _postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint gasPrice
     ) internal override {
     }
 }

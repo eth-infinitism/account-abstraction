@@ -56,6 +56,7 @@ interface IPaymaster {
     function postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint gasPrice
     ) external;
 }
