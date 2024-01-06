@@ -45,13 +45,13 @@ import {
   HashZero,
   createAccount,
   getAggregatedAccountInitCode,
-  decodeRevertReason
+  decodeRevertReason, findMin, objdump
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { arrayify, defaultAbiCoder, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexZeroPad, LogDescription, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
@@ -280,6 +280,7 @@ describe('EntryPoint', function () {
         paymasterVerificationGasLimit: 0,
         paymasterPostOpGasLimit: 0
       }
+
       const userOpPacked = packUserOp(userOp)
       try {
         await simulateValidation(userOpPacked, entryPoint.address, { gasLimit: 1e6 })
@@ -520,6 +521,115 @@ describe('EntryPoint', function () {
         // therefore this value can be used as a reference in the test below
         console.log('  == offset after', await counter.offset())
         expect(await counter.offset()).to.equal(offsetBefore.add(iterations))
+      })
+
+      describe('validate external gas limit', () => {
+        [100000, 1000, 0].forEach(appendBytes =>
+          [2e5, 2e6].forEach(expectGas =>
+            it(`expectGas=${expectGas} buf=${appendBytes} account should not pay if tx gas limit is too low`, async function () {
+              this.timeout(30000)
+              const iterations = 30
+              const expecGasCall = (await counter.interface.encodeFunctionData('expectGas', [expectGas, iterations])).padEnd(appendBytes, 'f')
+              const accountExec = await account.interface.encodeFunctionData('execute', [counter.address, 0, expecGasCall])
+              const beneficiaryAddress = createAddress()
+
+              const verificationGasLimit = 1e6
+              // helper exact gas calculator:
+              // create a transaction with this callGasLimit, but send it using handleOp with given txGasLimit.
+              // success (true) means the UserOp's callData was called (UserOperationEvent.success==true)
+              const testGas = async function (callGasLimit: number, txGasLimit: number): Promise<boolean> {
+                const snap = await ethers.provider.send('evm_snapshot', [])
+                try {
+                  const op = await fillAndSign({
+                    sender: account.address,
+                    callData: accountExec,
+                    verificationGasLimit,
+                    callGasLimit: callGasLimit
+                  }, accountOwner, entryPoint)
+                  const rcpt = await entryPoint.handleOps([packUserOp(op)], beneficiaryAddress, {
+                    maxFeePerGas: 1e9,
+                    gasLimit: txGasLimit
+                  }).then(async x => x.wait())
+                  const success = rcpt.events?.find(e => e.event === 'UserOperationEvent')?.args?.success
+                  // console.log('gas', callGasLimit, 'tx gas=', txGasLimit, 'success=', success)
+                  return success === true
+                } catch (e) {
+                  // console.log('cgl', callGasLimit, 'tx gas=', txGasLimit, 'ex=', e.message)
+                  return false
+                } finally {
+                  await ethers.provider.send('evm_revert', [snap])
+                }
+              }
+
+              // rough estimation of accountExec (for fewer iterations for binary search, below)
+              const est1 = (await ethersSigner.provider.estimateGas({
+                from: entryPoint.address,
+                to: account.address,
+                data: accountExec
+              })).toNumber()
+
+              // first, find real minimum callGasLimit. below it (by 2 gas) userop's callData fails:
+              const minCallGasLimit = await findMin(async gas => testGas(gas, 3e7), Math.floor(est1 * 0.3), Math.min(est1 * 3, 30e7), 2)
+              console.log('found minimum callGasLimit=', minCallGasLimit)
+
+              // now find minimum gas limit for outer TX that doesn't revert
+              const minGas = await findMin(async gas => testGas(minCallGasLimit, gas), 6e5, 4e6, 2)
+              console.log('found min tx gas limit=', minGas)
+
+              // create a UserOp with the above found minCallGasLimit
+              const op = await fillAndSign({
+                sender: account.address,
+                callData: accountExec,
+                verificationGasLimit,
+                callGasLimit: minCallGasLimit
+              }, accountOwner, entryPoint)
+
+              {
+                const snap = await ethers.provider.send('evm_snapshot', [])
+
+                // sanity (that our calculated min gas values are correct): when UserOp is called with minGas, it succeeds
+                const rcpt = await entryPoint.handleOps([packUserOp(op)], beneficiaryAddress, {
+                  maxFeePerGas: 1e9,
+                  gasLimit: minGas
+                }).then(async x => x.wait())
+                const success = rcpt.events?.find(e => e.event === 'UserOperationEvent')?.args?.success
+                expect(success).to.equal(true, 'handleOps called but userop call failed')
+                // console.log('sanity test events=', rcpt.events!.map(e => ({ ev: e.event, ...objdump(e.args!) })))
+
+                await ethers.provider.send('evm_revert', [snap])
+
+                console.log('sanity passed with callGasLimit=', minCallGasLimit, 'and tx gaslimit=', minGas)
+              }
+
+              const prevBlockNumber = await ethers.provider.getBlockNumber()
+
+              const lowGasLimit = minGas - 1
+              console.log('sending with gasLimit=', lowGasLimit)
+              const ret = await entryPoint.handleOps([packUserOp(op)], beneficiaryAddress, {
+                maxFeePerGas: 1e9,
+                gasLimit: lowGasLimit
+              }).catch(e => e)
+
+              let events: LogDescription[]
+              {
+              // dump rcpt events (both on error or not
+                const b = await ethers.provider.getBlock('latest')
+                expect(b.number).to.equal(prevBlockNumber + 1, 'handleOp tx failed to submit')
+                const r = await ethers.provider.getTransactionReceipt(b.transactions[0])
+                events = r.logs!.map(log => entryPoint.interface.parseLog(log))
+                console.log('tx revert status=', r.status, 'gas used=', r.gasUsed)
+                console.log('events=', events!.map(e => ({ ev: e.name, ...objdump(e.args!) })))
+              }
+
+              if (ret.message != null) {
+              // console.log('ex=', ret.message)
+                expect(ret.message).to.match(/AA95 out of gas/)
+              } else {
+                const success = events.find(e => e.name === 'UserOperationEvent')?.args.success
+                expect(success).to.equal(true, 'FATAL: caused UserOp to fail execution')
+                throw new Error('expected to revert on gas too low (check gas limits)')
+              }
+            })))
       })
 
       it('account should not pay if too low gas limit was set', async function () {

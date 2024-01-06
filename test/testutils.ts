@@ -320,3 +320,25 @@ export function packPaymasterData (paymaster: string, paymasterVerificationGasLi
 export function unpackAccountGasLimits (accountGasLimits: string): { validationGasLimit: number, callGasLimit: number } {
   return { validationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
 }
+
+// find the lowest number in the range min..max where testFunc returns true
+export async function findMin (testFunc: (index: number) => Promise<boolean>, min: number, max: number, delta = 5): Promise<number> {
+  if (await testFunc(min)) {
+    throw new Error(`increase range: min in ${min}..${max} already true`)
+  }
+  if (!await testFunc(max)) {
+    throw new Error(`no result: function is false for max value in ${min}..${max}`)
+  }
+  while (true) {
+    const avg = Math.floor((max + min) / 2)
+    if (await testFunc(avg)) {
+      max = avg
+    } else {
+      min = avg
+    }
+    // console.log('== ', min, '...', max, max - min)
+    if (Math.abs(max - min) < delta) {
+      return max
+    }
+  }
+}

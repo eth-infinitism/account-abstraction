@@ -31,4 +31,9 @@ contract TestCounter {
             xxx[offset] = i;
         }
     }
+
+    function expectGas(uint gas, uint waste) external {
+        require(gasleft() > gas, "expected more gas");
+        this.gasWaster(waste, "");
+    }
 }
