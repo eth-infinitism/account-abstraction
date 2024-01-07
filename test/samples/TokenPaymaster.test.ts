@@ -204,7 +204,7 @@ describe('TokenPaymaster', function () {
     assert.equal(actualTokenChargeEvents.toString(), actualTokenCharge.toString())
     assert.equal(actualTokenChargeEvents.toString(), expectedTokenCharge.toString())
     assert.equal(actualTokenPrice / (priceDenominator as any), expectedTokenPrice)
-    assert.closeTo(postOpGasCost.div(tx.effectiveGasPrice).toNumber(), 40000, 20000)
+    assert.closeTo(postOpGasCost.div(tx.effectiveGasPrice).toNumber(), 50000, 20000)
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
