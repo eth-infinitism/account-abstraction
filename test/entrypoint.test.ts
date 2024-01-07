@@ -1073,7 +1073,6 @@ describe('EntryPoint', function () {
         const pm = createAddress()
         const op = await fillSignAndPack({
           paymaster: pm,
-          paymasterData: '0x',
           paymasterVerificationGasLimit: 3e6,
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
@@ -1086,7 +1085,6 @@ describe('EntryPoint', function () {
       it('should fail if paymaster has no deposit', async function () {
         const op = await fillSignAndPack({
           paymaster: paymaster.address,
-          paymasterData: '0x',
           paymasterVerificationGasLimit: 3e6,
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
@@ -1107,7 +1105,6 @@ describe('EntryPoint', function () {
 
         const op = await fillSignAndPack({
           paymaster: errorPostOp.address,
-          paymasterData: '0x',
           paymasterPostOpGasLimit: 1e5,
           paymasterVerificationGasLimit: 3e6,
           callData: accountExecFromEntryPoint.data,
@@ -1150,7 +1147,6 @@ describe('EntryPoint', function () {
         await paymaster.deposit({ value: ONE_ETH })
         const op = await fillSignAndPack({
           paymaster: paymaster.address,
-          paymasterData: '0x',
           paymasterVerificationGasLimit: 1e6,
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory)
@@ -1169,7 +1165,6 @@ describe('EntryPoint', function () {
 
         const op = await fillSignAndPack({
           paymaster: paymaster.address,
-          paymasterData: '0x',
           paymasterVerificationGasLimit: 1e6,
           callData: accountExecFromEntryPoint.data,
           initCode: getAccountInitCode(anOwner.address, simpleAccountFactory)
