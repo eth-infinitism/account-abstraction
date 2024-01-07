@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 
 import "../interfaces/UserOperation.sol";
-import {calldataKeccak} from "./Helpers.sol";
+import {calldataKeccak, min} from "./Helpers.sol";
 
 /**
  * Utility functions helpful when working with UserOperation structs.
@@ -79,14 +79,5 @@ library UserOperationLib {
         UserOperation calldata userOp
     ) internal pure returns (bytes32) {
         return keccak256(pack(userOp));
-    }
-
-    /**
-     * The minimum of two numbers.
-     * @param a - First number.
-     * @param b - Second number.
-     */
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
     }
 }

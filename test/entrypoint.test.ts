@@ -733,9 +733,6 @@ describe('EntryPoint', function () {
     })
 
     describe('create account', () => {
-      if (process.env.COVERAGE != null) {
-        return
-      }
       let createOp: UserOperation
       const beneficiaryAddress = createAddress() // 1
 
