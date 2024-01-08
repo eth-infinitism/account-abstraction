@@ -55,10 +55,10 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost,
-        uint gasPrice
+        uint actualUserOpFeePerGas
     ) external override {
         _requireFromEntryPoint();
-        _postOp(mode, context, actualGasCost, gasPrice);
+        _postOp(mode, context, actualGasCost, actualUserOpFeePerGas);
     }
 
     /**
@@ -72,15 +72,18 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      *                        postOpReverted - User op succeeded, but caused postOp (in mode=opSucceeded) to revert.
      *                                         Now this is the 2nd call, after user's op was deliberately reverted.
      * @param context       - The context value returned by validatePaymasterUserOp
-     * @param actualGasCost - Actual gas used so far (without this postOp call).
+     * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
+     *                        and maxPriorityFee (and basefee)
+     *                        It is not the same as tx.gasprice, which is what the bundler pays.
+
      */
     function _postOp(
         PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost,
-        uint gasPrice
+        uint actualUserOpFeePerGas
     ) internal virtual {
-        (mode, context, actualGasCost, gasPrice); // unused params
+        (mode, context, actualGasCost, actualUserOpFeePerGas); // unused params
         // subclass must override this method if validatePaymasterUserOp returns a context
         revert("must override");
     }

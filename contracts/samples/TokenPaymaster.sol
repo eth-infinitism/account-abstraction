@@ -149,7 +149,10 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @dev This function is called after a user operation has been executed or reverted.
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint gasPrice) internal override {
+    /// @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
+    //      and maxPriorityFee (and basefee)
+    //      It is not the same as tx.gasprice, which is what the bundler pays.
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint actualUserOpFeePerGas) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
@@ -160,7 +163,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
-            uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * gasPrice;
+            uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * actualUserOpFeePerGas;
             uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup);
             if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference
