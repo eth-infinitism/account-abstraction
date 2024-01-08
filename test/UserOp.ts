@@ -5,12 +5,12 @@ import {
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
-import { AddressZero, callDataCost, rethrow } from './testutils'
+import { AddressZero, callDataCost, packAccountGasLimits, packPaymasterData, rethrow } from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
   EntryPoint, EntryPointSimulations__factory
 } from '../typechain'
-import { UserOperation } from './UserOperation'
+import { PackedUserOperation, UserOperation } from './UserOperation'
 import { Create2Factory } from '../src/Create2Factory'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 
@@ -18,55 +18,49 @@ import EntryPointSimulationsJson from '../artifacts/contracts/core/EntryPointSim
 import { ethers } from 'hardhat'
 import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSimulations'
 
-export function packUserOp (op: UserOperation, forSignature = true): string {
+export function packUserOp (userOp: UserOperation): PackedUserOperation {
+  const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
+  let paymasterAndData = '0x'
+  if (userOp.paymaster.length >= 20 && userOp.paymaster !== AddressZero) {
+    paymasterAndData = packPaymasterData(userOp.paymaster as string, userOp.paymasterVerificationGasLimit, userOp.paymasterPostOpGasLimit, userOp.paymasterData as string)
+  }
+  return {
+    sender: userOp.sender,
+    nonce: userOp.nonce,
+    callData: userOp.callData,
+    accountGasLimits,
+    initCode: userOp.initCode,
+    preVerificationGas: userOp.preVerificationGas,
+    maxFeePerGas: userOp.maxFeePerGas,
+    maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+    paymasterAndData,
+    signature: userOp.signature
+  }
+}
+export function encodeUserOp (userOp: UserOperation, forSignature = true): string {
+  const packedUserOp = packUserOp(userOp)
   if (forSignature) {
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes32', 'bytes32',
-        'uint256', 'uint256', 'uint256', 'uint256', 'uint256',
+        'bytes32', 'uint256', 'uint256', 'uint256',
         'bytes32'],
-      [op.sender, op.nonce, keccak256(op.initCode), keccak256(op.callData),
-        op.callGasLimit, op.verificationGasLimit, op.preVerificationGas, op.maxFeePerGas, op.maxPriorityFeePerGas,
-        keccak256(op.paymasterAndData)])
+      [packedUserOp.sender, packedUserOp.nonce, keccak256(packedUserOp.initCode), keccak256(packedUserOp.callData),
+        packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
+        keccak256(packedUserOp.paymasterAndData)])
   } else {
     // for the purpose of calculating gas cost encode also signature (and no keccak of bytes)
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes', 'bytes',
-        'uint256', 'uint256', 'uint256', 'uint256', 'uint256',
+        'bytes32', 'uint256', 'uint256', 'uint256',
         'bytes', 'bytes'],
-      [op.sender, op.nonce, op.initCode, op.callData,
-        op.callGasLimit, op.verificationGasLimit, op.preVerificationGas, op.maxFeePerGas, op.maxPriorityFeePerGas,
-        op.paymasterAndData, op.signature])
+      [packedUserOp.sender, packedUserOp.nonce, packedUserOp.initCode, packedUserOp.callData,
+        packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
+        packedUserOp.paymasterAndData, packedUserOp.signature])
   }
 }
 
-export function packUserOp1 (op: UserOperation): string {
-  return defaultAbiCoder.encode([
-    'address', // sender
-    'uint256', // nonce
-    'bytes32', // initCode
-    'bytes32', // callData
-    'uint256', // callGasLimit
-    'uint256', // verificationGasLimit
-    'uint256', // preVerificationGas
-    'uint256', // maxFeePerGas
-    'uint256', // maxPriorityFeePerGas
-    'bytes32' // paymasterAndData
-  ], [
-    op.sender,
-    op.nonce,
-    keccak256(op.initCode),
-    keccak256(op.callData),
-    op.callGasLimit,
-    op.verificationGasLimit,
-    op.preVerificationGas,
-    op.maxFeePerGas,
-    op.maxPriorityFeePerGas,
-    keccak256(op.paymasterAndData)
-  ])
-}
-
 export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number): string {
-  const userOpHash = keccak256(packUserOp(op, true))
+  const userOpHash = keccak256(encodeUserOp(op, true))
   const enc = defaultAbiCoder.encode(
     ['bytes32', 'address', 'uint256'],
     [userOpHash, entryPoint, chainId])
@@ -83,7 +77,10 @@ export const DefaultsForUserOp: UserOperation = {
   preVerificationGas: 21000, // should also cover calldata cost.
   maxFeePerGas: 0,
   maxPriorityFeePerGas: 1e9,
-  paymasterAndData: '0x',
+  paymaster: AddressZero,
+  paymasterData: '0x',
+  paymasterVerificationGasLimit: 3e5,
+  paymasterPostOpGasLimit: 0,
   signature: '0x'
 }
 
@@ -177,6 +174,14 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
     // estimateGas assumes direct call from entryPoint. add wrapper cost.
     op1.callGasLimit = gasEtimated // .add(55000)
   }
+  if (op1.paymaster != null) {
+    if (op1.paymasterVerificationGasLimit == null) {
+      op1.paymasterVerificationGasLimit = DefaultsForUserOp.paymasterVerificationGasLimit
+    }
+    if (op1.paymasterPostOpGasLimit == null) {
+      op1.paymasterPostOpGasLimit = DefaultsForUserOp.paymasterPostOpGasLimit
+    }
+  }
   if (op1.maxFeePerGas == null) {
     if (provider == null) throw new Error('must have entryPoint to autofill maxFeePerGas')
     const block = await provider.getBlock('latest')
@@ -191,9 +196,13 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   // eslint-disable-next-line @typescript-eslint/no-base-to-string
   if (op2.preVerificationGas.toString() === '0') {
     // TODO: we don't add overhead, which is ~21000 for a single TX, but much lower in a batch.
-    op2.preVerificationGas = callDataCost(packUserOp(op2, false))
+    op2.preVerificationGas = callDataCost(encodeUserOp(op2, false))
   }
   return op2
+}
+
+export async function fillAndPack (op: Partial<UserOperation>, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<PackedUserOperation> {
+  return packUserOp(await fillUserOp(op, entryPoint, getNonceFunction))
 }
 
 export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {
@@ -216,6 +225,11 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
   }
 }
 
+export async function fillSignAndPack (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<PackedUserOperation> {
+  const filledAndSignedOp = await fillAndSign(op, signer, entryPoint, getNonceFunction)
+  return packUserOp(filledAndSignedOp)
+}
+
 /**
  * This function relies on a "state override" functionality of the 'eth_call' RPC method
  * in order to provide the details of a simulated validation call to the bundler
@@ -224,7 +238,7 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
  * @param txOverrides
  */
 export async function simulateValidation (
-  userOp: UserOperation,
+  userOp: PackedUserOperation,
   entryPointAddress: string,
   txOverrides?: any): Promise<IEntryPointSimulations.ValidationResultStructOutput> {
   const entryPointSimulations = EntryPointSimulations__factory.createInterface()
@@ -257,7 +271,7 @@ export async function simulateValidation (
 // TODO: this code is very much duplicated but "encodeFunctionData" is based on 20 overloads
 //  TypeScript is not able to resolve overloads with variables: https://github.com/microsoft/TypeScript/issues/14107
 export async function simulateHandleOp (
-  userOp: UserOperation,
+  userOp: PackedUserOperation,
   target: string,
   targetCallData: string,
   entryPointAddress: string,

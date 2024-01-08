@@ -5,6 +5,7 @@ pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../core/BasePaymaster.sol";
+import "../core/UserOperationLib.sol";
 
 /**
  * A sample paymaster that defines itself as a token to pay for gas.
@@ -69,13 +70,13 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
       * verify the sender has enough tokens.
       * (since the paymaster is also the token, there is no notion of "approval")
       */
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     internal view override returns (bytes memory context, uint256 validationData) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
         // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
         // make sure that verificationGasLimit is high enough to handle postOp
-        require(userOp.verificationGasLimit > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
+        require(uint128(bytes16(userOp.paymasterAndData[PAYMASTER_POSTOP_GAS_OFFSET : PAYMASTER_DATA_OFFSET])) > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);
@@ -90,7 +91,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
 
     // when constructing an account, validate constructor code and parameters
     // we trust our factory (and that it doesn't have any other public methods)
-    function _validateConstructor(UserOperation calldata userOp) internal virtual view {
+    function _validateConstructor(PackedUserOperation calldata userOp) internal virtual view {
         address factory = address(bytes20(userOp.initCode[0 : 20]));
         require(factory == theFactory, "TokenPaymaster: wrong account factory");
     }

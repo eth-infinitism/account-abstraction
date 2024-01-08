@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
 import "./Helpers.sol";
-
+import "./UserOperationLib.sol";
 /**
  * Helper class for creating a paymaster.
  * provides helper methods for staking.
@@ -16,6 +16,10 @@ import "./Helpers.sol";
  */
 abstract contract BasePaymaster is IPaymaster, Ownable {
     IEntryPoint public immutable entryPoint;
+
+    uint256 internal constant PAYMASTER_VALIDATION_GAS_OFFSET = UserOperationLib.PAYMASTER_VALIDATION_GAS_OFFSET;
+    uint256 internal constant PAYMASTER_POSTOP_GAS_OFFSET = UserOperationLib.PAYMASTER_POSTOP_GAS_OFFSET;
+    uint256 internal constant PAYMASTER_DATA_OFFSET = UserOperationLib.PAYMASTER_DATA_OFFSET;
 
     constructor(IEntryPoint _entryPoint) Ownable(msg.sender) {
         _validateEntryPointInterface(_entryPoint);
@@ -30,7 +34,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
 
     /// @inheritdoc IPaymaster
     function validatePaymasterUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 maxCost
     ) external override returns (bytes memory context, uint256 validationData) {
@@ -45,7 +49,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param maxCost    - The maximum cost of the user operation.
      */
     function _validatePaymasterUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 maxCost
     ) internal virtual returns (bytes memory context, uint256 validationData);

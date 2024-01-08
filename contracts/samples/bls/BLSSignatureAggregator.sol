@@ -13,7 +13,7 @@ import "./BLSHelper.sol";
  * A BLS-based signature aggregator, to validate aggregated signature of multiple UserOps if BLSAccount
  */
 contract BLSSignatureAggregator is IAggregator {
-    using UserOperationLib for UserOperation;
+    using UserOperationLib for PackedUserOperation;
 
     bytes32 public constant BLS_DOMAIN = keccak256("eip4337.bls.domain");
 
@@ -31,7 +31,7 @@ contract BLSSignatureAggregator is IAggregator {
      *         normally public key will be queried from the deployed BLSAccount itself;
      *         the public key will be read from the 'initCode' if the account is not deployed yet;
      */
-    function getUserOpPublicKey(UserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
+    function getUserOpPublicKey(PackedUserOperation memory userOp) public view returns (uint256[4] memory publicKey) {
         bytes memory initCode = userOp.initCode;
         if (initCode.length > 0) {
             publicKey = getTrailingPublicKey(initCode);
@@ -59,7 +59,7 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     /// @inheritdoc IAggregator
-    function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature)
+    function validateSignatures(PackedUserOperation[] calldata userOps, bytes calldata signature)
     external view override {
         require(signature.length == 64, "BLS: invalid signature");
         (uint256[2] memory blsSignature) = abi.decode(signature, (uint256[2]));
@@ -69,7 +69,7 @@ contract BLSSignatureAggregator is IAggregator {
         uint256[2][] memory messages = new uint256[2][](userOpsLen);
         for (uint256 i = 0; i < userOpsLen; i++) {
 
-            UserOperation memory userOp = userOps[i];
+            PackedUserOperation memory userOp = userOps[i];
             blsPublicKeys[i] = getUserOpPublicKey(userOp);
 
             messages[i] = _userOpToMessage(userOp, _getPublicKeyHash(blsPublicKeys[i]));
@@ -82,14 +82,13 @@ contract BLSSignatureAggregator is IAggregator {
      * NOTE: this hash is not the same as UserOperation.hash()
      *  (slightly less efficient, since it uses memory userOp)
      */
-    function internalUserOpHash(UserOperation memory userOp) internal pure returns (bytes32) {
+    function internalUserOpHash(PackedUserOperation memory userOp) internal pure returns (bytes32) {
         return keccak256(abi.encode(
                 userOp.sender,
                 userOp.nonce,
                 keccak256(userOp.initCode),
                 keccak256(userOp.callData),
-                userOp.callGasLimit,
-                userOp.verificationGasLimit,
+                userOp.accountGasLimits,
                 userOp.preVerificationGas,
                 userOp.maxFeePerGas,
                 userOp.maxPriorityFeePerGas,
@@ -101,22 +100,22 @@ contract BLSSignatureAggregator is IAggregator {
      * return the BLS "message" for the given UserOp.
      * the account checks the signature over this value using its public key
      */
-    function userOpToMessage(UserOperation memory userOp) public view returns (uint256[2] memory) {
+    function userOpToMessage(PackedUserOperation memory userOp) public view returns (uint256[2] memory) {
         bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _userOpToMessage(userOp, publicKeyHash);
     }
 
-    function _userOpToMessage(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (uint256[2] memory) {
+    function _userOpToMessage(PackedUserOperation memory userOp, bytes32 publicKeyHash) internal view returns (uint256[2] memory) {
         bytes32 userOpHash = _getUserOpHash(userOp, publicKeyHash);
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
 
-    function getUserOpHash(UserOperation memory userOp) public view returns (bytes32) {
+    function getUserOpHash(PackedUserOperation memory userOp) public view returns (bytes32) {
         bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _getUserOpHash(userOp, publicKeyHash);
     }
 
-    function _getUserOpHash(UserOperation memory userOp, bytes32 publicKeyHash) internal view returns (bytes32) {
+    function _getUserOpHash(PackedUserOperation memory userOp, bytes32 publicKeyHash) internal view returns (bytes32) {
         return keccak256(abi.encode(internalUserOpHash(userOp), publicKeyHash, address(this), block.chainid, entryPoint));
     }
 
@@ -131,7 +130,7 @@ contract BLSSignatureAggregator is IAggregator {
      * @return sigForUserOp the value to put into the signature field of the userOp when calling handleOps.
      *    (usually empty, unless account and aggregator support some kind of "multisig"
      */
-    function validateUserOpSignature(UserOperation calldata userOp)
+    function validateUserOpSignature(PackedUserOperation calldata userOp)
     external view returns (bytes memory sigForUserOp) {
         uint256[2] memory signature = abi.decode(userOp.signature, (uint256[2]));
         uint256[4] memory pubkey = getUserOpPublicKey(userOp);
@@ -149,7 +148,7 @@ contract BLSSignatureAggregator is IAggregator {
      * @param userOps array of UserOperations to collect the signatures from.
      * @return aggregatedSignature the aggregated signature
      */
-    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
+    function aggregateSignatures(PackedUserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
         BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
         for (uint i = 0; i < points.length; i++) {
             (uint256 x, uint256 y) = abi.decode(userOps[i].signature, (uint256, uint256));

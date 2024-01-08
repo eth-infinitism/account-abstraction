@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 import "../interfaces/IEntryPoint.sol";
 import "../core/BasePaymaster.sol";
+import "../core/UserOperationLib.sol";
 import "./utils/UniswapHelper.sol";
 import "./utils/OracleHelper.sol";
 
@@ -115,12 +116,12 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param requiredPreFund The amount of tokens required for pre-funding.
     /// @return context The context containing the token amount and user sender address (if applicable).
     /// @return validationResult A uint256 value indicating the result of the validation (always 0 in this implementation).
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256 requiredPreFund)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 requiredPreFund)
     internal
     override
     returns (bytes memory context, uint256 validationResult) {unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
-            uint256 paymasterAndDataLength = userOp.paymasterAndData.length - 20;
+            uint256 paymasterAndDataLength = userOp.paymasterAndData.length - PAYMASTER_DATA_OFFSET;
             require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
                 "TPM: invalid data length"
             );
@@ -128,7 +129,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (paymasterAndDataLength == 32) {
-                uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[20 : 52]));
+                uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[PAYMASTER_DATA_OFFSET : PAYMASTER_DATA_OFFSET + 32]));
                 if (clientSuppliedPrice < cachedPriceWithMarkup) {
                     // note: smaller number means 'more ether per token'
                     cachedPriceWithMarkup = clientSuppliedPrice;

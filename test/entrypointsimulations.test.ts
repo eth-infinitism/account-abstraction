@@ -18,7 +18,7 @@ import {
   getBalance, deployEntryPoint
 } from './testutils'
 
-import { fillAndSign, simulateHandleOp, simulateValidation } from './UserOp'
+import { fillSignAndPack, simulateHandleOp, simulateValidation } from './UserOp'
 import { BigNumber, Wallet } from 'ethers'
 import { hexConcat } from 'ethers/lib/utils'
 
@@ -118,7 +118,7 @@ describe('EntryPointSimulations', function () {
 
     it('should fail if validateUserOp fails', async () => {
       // using wrong nonce
-      const op = await fillAndSign({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
+      const op = await fillSignAndPack({ sender: account.address, nonce: 1234 }, accountOwner, entryPoint)
       await expect(simulateValidation(op, entryPoint.address)).to
         .revertedWith('AA25 invalid account nonce')
     })
@@ -127,13 +127,13 @@ describe('EntryPointSimulations', function () {
       // (this is actually a feature of the wallet, not the entrypoint)
       // using wrong owner for account1
       // (zero gas price so that it doesn't fail on prefund)
-      const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
+      const op = await fillSignAndPack({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
       const { returnInfo } = await simulateValidation(op, entryPoint.address)
       expect(returnInfo.sigFailed).to.be.true
     })
 
     it('should revert if wallet not deployed (and no initCode)', async () => {
-      const op = await fillAndSign({
+      const op = await fillSignAndPack({
         sender: createAddress(),
         nonce: 0,
         verificationGasLimit: 1000
@@ -143,19 +143,19 @@ describe('EntryPointSimulations', function () {
     })
 
     it('should revert on oog if not enough verificationGas', async () => {
-      const op = await fillAndSign({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
+      const op = await fillSignAndPack({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
       await expect(simulateValidation(op, entryPoint.address)).to
         .revertedWith('AA23 reverted')
     })
 
     it('should succeed if validateUserOp succeeds', async () => {
-      const op = await fillAndSign({ sender: account1.address }, accountOwner1, entryPoint)
+      const op = await fillSignAndPack({ sender: account1.address }, accountOwner1, entryPoint)
       await fund(account1)
       await simulateValidation(op, entryPoint.address)
     })
 
     it('should return empty context if no paymaster', async () => {
-      const op = await fillAndSign({ sender: account1.address, maxFeePerGas: 0 }, accountOwner1, entryPoint)
+      const op = await fillSignAndPack({ sender: account1.address, maxFeePerGas: 0 }, accountOwner1, entryPoint)
       const { returnInfo } = await simulateValidation(op, entryPoint.address)
       expect(returnInfo.paymasterContext).to.eql('0x')
     })
@@ -166,14 +166,14 @@ describe('EntryPointSimulations', function () {
       const { proxy: account2 } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address)
       await fund(account2)
       await account2.execute(entryPoint.address, stakeValue, entryPoint.interface.encodeFunctionData('addStake', [unstakeDelay]))
-      const op = await fillAndSign({ sender: account2.address }, ethersSigner, entryPoint)
+      const op = await fillSignAndPack({ sender: account2.address }, ethersSigner, entryPoint)
       const result = await simulateValidation(op, entryPoint.address)
       expect(result.senderInfo.stake).to.equal(stakeValue)
       expect(result.senderInfo.unstakeDelaySec).to.equal(unstakeDelay)
     })
 
     it('should prevent overflows: fail if any numeric value is more than 120 bits', async () => {
-      const op = await fillAndSign({
+      const op = await fillSignAndPack({
         preVerificationGas: BigNumber.from(2).pow(130),
         sender: account1.address
       }, accountOwner1, entryPoint)
@@ -183,7 +183,7 @@ describe('EntryPointSimulations', function () {
     })
 
     it('should fail creation for wrong sender', async () => {
-      const op1 = await fillAndSign({
+      const op1 = await fillSignAndPack({
         initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 30e6
@@ -195,7 +195,7 @@ describe('EntryPointSimulations', function () {
     it('should report failure on insufficient verificationGas (OOG) for creation', async () => {
       const initCode = getAccountInitCode(accountOwner1.address, simpleAccountFactory)
       const sender = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
-      const op0 = await fillAndSign({
+      const op0 = await fillSignAndPack({
         initCode,
         sender,
         verificationGasLimit: 5e5,
@@ -204,7 +204,7 @@ describe('EntryPointSimulations', function () {
       // must succeed with enough verification gas.
       await simulateValidation(op0, entryPoint.address, { gas: '0xF4240' })
 
-      const op1 = await fillAndSign({
+      const op1 = await fillSignAndPack({
         initCode,
         sender,
         verificationGasLimit: 1e5,
@@ -216,7 +216,7 @@ describe('EntryPointSimulations', function () {
 
     it('should succeed for creating an account', async () => {
       const sender = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
-      const op1 = await fillAndSign({
+      const op1 = await fillSignAndPack({
         sender,
         initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
@@ -229,7 +229,7 @@ describe('EntryPointSimulations', function () {
       // a possible attack: call an account's execFromEntryPoint through initCode. This might lead to stolen funds.
       const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
       const sender = createAddress()
-      const op1 = await fillAndSign({
+      const op1 = await fillSignAndPack({
         initCode: hexConcat([
           account.address,
           account.interface.encodeFunctionData('execute', [sender, 0, '0x'])
@@ -251,7 +251,7 @@ describe('EntryPointSimulations', function () {
       const count = counter.interface.encodeFunctionData('count')
       const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, count])
       // deliberately broken signature. simulate should work with it too.
-      const userOp = await fillAndSign({
+      const userOp = await fillSignAndPack({
         sender: account.address,
         callData
       }, accountOwner1, entryPoint)

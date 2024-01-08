@@ -1,7 +1,10 @@
 import { ethers } from 'hardhat'
 import {
   arrayify,
-  hexConcat, Interface,
+  hexConcat,
+  hexlify,
+  hexZeroPad,
+  Interface,
   keccak256,
   parseEther
 } from 'ethers/lib/utils'
@@ -10,18 +13,16 @@ import {
   EntryPoint,
   EntryPoint__factory,
   IERC20,
-  IEntryPoint,
   SimpleAccount,
   SimpleAccountFactory__factory,
   SimpleAccount__factory,
   SimpleAccountFactory,
   TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory, TestERC20__factory
 } from '../typechain'
-import { BytesLike } from '@ethersproject/bytes'
+import { BytesLike, Hexable } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
-import { UserOperation } from './UserOperation'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -279,15 +280,6 @@ export async function isDeployed (addr: string): Promise<boolean> {
   return code.length > 2
 }
 
-// internal helper function: create a UserOpsPerAggregator structure, with no aggregator or signature
-export function userOpsWithoutAgg (userOps: UserOperation[]): IEntryPoint.UserOpsPerAggregatorStruct[] {
-  return [{
-    userOps,
-    aggregator: AddressZero,
-    signature: '0x'
-  }]
-}
-
 // Deploys an implementation and a proxy pointing to this implementation
 export async function createAccount (
   ethersSigner: Signer,
@@ -310,4 +302,21 @@ export async function createAccount (
     accountFactory,
     proxy
   }
+}
+
+export function packAccountGasLimits (validationGasLimit: BigNumberish, callGasLimit: BigNumberish): string {
+  return ethers.utils.hexConcat([
+    hexZeroPad(hexlify(validationGasLimit, { hexPad: 'left' }), 16), hexZeroPad(hexlify(callGasLimit, { hexPad: 'left' }), 16)
+  ])
+}
+
+export function packPaymasterData (paymaster: string, paymasterVerificationGasLimit: BytesLike | Hexable | number | bigint, postOpGasLimit: BytesLike | Hexable | number | bigint, paymasterData: string): string {
+  return ethers.utils.hexConcat([
+    paymaster, hexZeroPad(hexlify(paymasterVerificationGasLimit, { hexPad: 'left' }), 16),
+    hexZeroPad(hexlify(postOpGasLimit, { hexPad: 'left' }), 16), paymasterData
+  ])
+}
+
+export function unpackAccountGasLimits (accountGasLimits: string): { validationGasLimit: number, callGasLimit: number } {
+  return { validationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
 }

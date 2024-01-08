@@ -14,7 +14,7 @@ import "../samples/SimpleAccount.sol";
 contract TestSignatureAggregator is IAggregator {
 
     /// @inheritdoc IAggregator
-    function validateSignatures(UserOperation[] calldata userOps, bytes calldata signature) external pure override {
+    function validateSignatures(PackedUserOperation[] calldata userOps, bytes calldata signature) external pure override {
         uint sum = 0;
         for (uint i = 0; i < userOps.length; i++) {
             uint nonce = userOps[i].nonce;
@@ -26,7 +26,7 @@ contract TestSignatureAggregator is IAggregator {
     }
 
     /// @inheritdoc IAggregator
-    function validateUserOpSignature(UserOperation calldata)
+    function validateUserOpSignature(PackedUserOperation calldata)
     external pure returns (bytes memory) {
         return "";
     }
@@ -34,7 +34,7 @@ contract TestSignatureAggregator is IAggregator {
     /**
      * dummy test aggregator: sum all nonce values of UserOps.
      */
-    function aggregateSignatures(UserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
+    function aggregateSignatures(PackedUserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
         uint sum = 0;
         for (uint i = 0; i < userOps.length; i++) {
             sum += userOps[i].nonce;

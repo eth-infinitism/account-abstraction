@@ -13,7 +13,7 @@ contract TestPaymasterWithPostOp is TestPaymasterAcceptAll {
     constructor(IEntryPoint _entryPoint) TestPaymasterAcceptAll(_entryPoint) {
     }
 
-    function _validatePaymasterUserOp(UserOperation calldata, bytes32, uint256)
+    function _validatePaymasterUserOp(PackedUserOperation calldata, bytes32, uint256)
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         // return a context, to force a call for postOp.
