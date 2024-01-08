@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./UserOperation.sol";
+import "./PackedUserOperation.sol";
 import "./IEntryPoint.sol";
 
 interface IEntryPointSimulations is IEntryPoint {
@@ -41,7 +41,7 @@ interface IEntryPointSimulations is IEntryPoint {
      * @param userOp - The user operation to validate.
      */
     function simulateValidation(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     )
     external
     returns (
@@ -62,7 +62,7 @@ interface IEntryPointSimulations is IEntryPoint {
      * @param targetCallData - CallData to pass to target address.
      */
     function simulateHandleOp(
-        UserOperation calldata op,
+        PackedUserOperation calldata op,
         address target,
         bytes calldata targetCallData
     )

@@ -22,7 +22,7 @@ contract TestAggregatedAccount is SimpleAccount {
         super._initialize(address(0));
     }
 
-    function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
+    function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
     internal override view returns (uint256 validationData) {
         (userOp, userOpHash);
         return _packValidationData(ValidationData(aggregator, 0, 0));

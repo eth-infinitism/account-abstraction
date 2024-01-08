@@ -6,8 +6,8 @@ import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/provi
 import { BigNumber, Bytes, ethers, Event, Signer } from 'ethers'
 import { clearInterval } from 'timers'
 import { getAccountAddress, getAccountInitCode } from '../test/testutils'
-import { fillAndSign, getUserOpHash } from '../test/UserOp'
-import { UserOperation } from '../test/UserOperation'
+import { fillAndSign, getUserOpHash, packUserOp } from '../test/UserOp'
+import { PackedUserOperation, UserOperation } from '../test/UserOperation'
 import {
   EntryPoint,
   EntryPoint__factory,
@@ -132,12 +132,12 @@ async function sendQueuedUserOps (queueSender: QueueSendUserOp, entryPoint: Entr
       console.log('queue too small/too young. waiting')
       return
     }
-    const ops: UserOperation[] = []
+    const ops: PackedUserOperation[] = []
     const queue = queueSender.queue
     Object.keys(queue).forEach(sender => {
       const op = queue[sender].shift()
       if (op != null) {
-        ops.push(op)
+        ops.push(packUserOp(op))
         queueSender.queueSize--
       }
     })
@@ -174,7 +174,7 @@ export function localUserOpSender (entryPointAddress: string, signer: Signer, be
     }
     const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGasLimit).add(userOp.callGasLimit)
     console.log('calc gaslimit=', gasLimit.toString())
-    const ret = await entryPoint.handleOps([userOp], beneficiary ?? await signer.getAddress(), {
+    const ret = await entryPoint.handleOps([packUserOp(userOp)], beneficiary ?? await signer.getAddress(), {
       maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
       maxFeePerGas: userOp.maxFeePerGas
     })
