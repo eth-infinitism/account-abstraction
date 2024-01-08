@@ -26,7 +26,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     /// @inheritdoc IEntryPointSimulations
     function simulateValidation(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     )
     external
     returns (
@@ -85,7 +85,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     /// @inheritdoc IEntryPointSimulations
     function simulateHandleOp(
-        UserOperation calldata op,
+        PackedUserOperation calldata op,
         address target,
         bytes calldata targetCallData
     )
@@ -121,7 +121,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     }
 
     function _simulationOnlyValidations(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     )
     internal
     view

@@ -13,7 +13,7 @@ import {
 } from '../typechain'
 import { ethers } from 'hardhat'
 import { createAddress, deployEntryPoint, fund, ONE_ETH } from './testutils'
-import { DefaultsForUserOp, fillUserOp, simulateValidation } from './UserOp'
+import { DefaultsForUserOp, fillAndPack, packUserOp, simulateValidation } from './UserOp'
 import { expect } from 'chai'
 import { keccak256 } from 'ethereumjs-util'
 import { hashToPoint } from '@thehubbleproject/bls/dist/mcl'
@@ -66,14 +66,14 @@ describe('bls account', function () {
     const sig1 = signer1.sign('0x1234')
     const sig2 = signer2.sign('0x5678')
     const offChainSigResult = hexConcat(aggregate([sig1, sig2]))
-    const userOp1 = { ...DefaultsForUserOp, signature: hexConcat(sig1) }
-    const userOp2 = { ...DefaultsForUserOp, signature: hexConcat(sig2) }
+    const userOp1 = packUserOp({ ...DefaultsForUserOp, signature: hexConcat(sig1) })
+    const userOp2 = packUserOp({ ...DefaultsForUserOp, signature: hexConcat(sig2) })
     const solidityAggResult = await blsAgg.aggregateSignatures([userOp1, userOp2])
     expect(solidityAggResult).to.equal(offChainSigResult)
   })
 
   it('#userOpToMessage', async () => {
-    const userOp1 = await fillUserOp({
+    const userOp1 = await fillAndPack({
       sender: account1.address
     }, entrypoint)
     const requestHash = await blsAgg.getUserOpHash(userOp1)
@@ -83,7 +83,7 @@ describe('bls account', function () {
   })
 
   it('#validateUserOpSignature', async () => {
-    const userOp1 = await fillUserOp({
+    const userOp1 = await fillAndPack({
       sender: account1.address
     }, entrypoint)
     const requestHash = await blsAgg.getUserOpHash(userOp1)
@@ -108,7 +108,7 @@ describe('bls account', function () {
     const res = await brokenAccountFactory.provider.call(deployTx)
     const acc = brokenAccountFactory.interface.decodeFunctionResult('createAccount', res)[0]
     await fund(acc)
-    const userOp = await fillUserOp({
+    const userOp = await fillAndPack({
       sender: acc,
       initCode: hexConcat([brokenAccountFactory.address, deployTx.data!])
     }, entrypoint)
@@ -135,14 +135,14 @@ describe('bls account', function () {
   it('validateSignatures', async function () {
     // yes, it does take long on hardhat, but quick on geth.
     this.timeout(30000)
-    const userOp1 = await fillUserOp({
+    const userOp1 = await fillAndPack({
       sender: account1.address
     }, entrypoint)
     const requestHash = await blsAgg.getUserOpHash(userOp1)
     const sig1 = signer1.sign(requestHash)
     userOp1.signature = hexConcat(sig1)
 
-    const userOp2 = await fillUserOp({
+    const userOp2 = await fillAndPack({
       sender: account2.address
     }, entrypoint)
     const requestHash2 = await blsAgg.getUserOpHash(userOp2)
@@ -182,7 +182,7 @@ describe('bls account', function () {
       const verifier = new BlsVerifier(BLS_DOMAIN)
       const senderAddress = await entrypoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
       await fund(senderAddress, '0.01')
-      const userOp = await fillUserOp({
+      const userOp = await fillAndPack({
         sender: senderAddress,
         initCode
       }, entrypoint)

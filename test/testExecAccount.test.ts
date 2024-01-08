@@ -6,7 +6,7 @@ import {
   TestExecAccountFactory__factory
 } from '../typechain'
 import { createAccountOwner, deployEntryPoint, fund, objdump } from './testutils'
-import { fillAndSign } from './UserOp'
+import { fillSignAndPack } from './UserOp'
 import { Signer, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import { defaultAbiCoder, hexConcat, hexStripZeros } from 'ethers/lib/utils'
@@ -37,7 +37,7 @@ describe('IAccountExecute', () => {
       account.interface.encodeFunctionData('entryPoint')
     ])
 
-    const userOp = await fillAndSign({
+    const userOp = await fillSignAndPack({
       sender: account.address,
       callGasLimit: 100000, // normal estimate also chokes on this callData
       callData: hexConcat([execSig, innerCall])

@@ -20,9 +20,9 @@ contract TestExecAccount is SimpleAccount, IAccountExecute {
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint){
     }
 
-    event Executed(UserOperation userOp, bytes innerCallRet);
+    event Executed(PackedUserOperation userOp, bytes innerCallRet);
 
-    function executeUserOp(UserOperation calldata userOp, bytes32 /*userOpHash*/) external {
+    function executeUserOp(PackedUserOperation calldata userOp, bytes32 /*userOpHash*/) external {
         _requireFromEntryPointOrOwner();
 
         // read from the userOp.callData, but skip the "magic" prefix (executeUserOp sig),

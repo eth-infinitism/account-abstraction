@@ -22,7 +22,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
     constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
     {}
 
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256)
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         validationData = 0;
