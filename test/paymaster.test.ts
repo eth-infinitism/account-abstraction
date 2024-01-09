@@ -7,7 +7,7 @@ import {
   LegacyTokenPaymaster__factory,
   TestCounter__factory,
   SimpleAccountFactory,
-  SimpleAccountFactory__factory, EntryPoint, TokenCallbackHandler__factory
+  SimpleAccountFactory__factory, EntryPoint
 } from '../typechain'
 import {
   AddressZero,
@@ -69,7 +69,8 @@ describe('EntryPoint with paymaster', function () {
     })
 
     it('paymaster should revert on wrong entryPoint type', async () => {
-      const notEntryPoint = await new TokenCallbackHandler__factory(ethersSigner).deploy()
+      // account is a sample contract with supportsInterface (which is obviously not an entrypoint)
+      const notEntryPoint = account
       // a contract that has "supportsInterface" but with different interface value..
       await expect(new LegacyTokenPaymaster__factory(ethersSigner).deploy(factory.address, 'ttt', notEntryPoint.address))
         .to.be.revertedWith('IEntryPoint interface mismatch')
