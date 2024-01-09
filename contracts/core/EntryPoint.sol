@@ -88,7 +88,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         uint256 saveFreePtr;
-        assembly {
+        assembly ("memory-safe") {
             saveFreePtr := mload(0x40)
         }
         bytes calldata callData = userOp.callData;
@@ -108,14 +108,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
         }
         bool success;
-        assembly {
+        assembly ("memory-safe") {
             success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
             collected := mload(0)
             mstore(0x40, saveFreePtr)
         }
         if (!success) {
             bytes32 innerRevertCode;
-            assembly {
+            assembly ("memory-safe") {
                 let len := returndatasize()
                 if eq(32,len) {
                     returndatacopy(0, 0, 32)
@@ -305,7 +305,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 mUserOp.paymasterPostOpGasLimit +
                 INNER_GAS_OVERHEAD
             ) {
-                assembly {
+                assembly ("memory-safe") {
                     mstore(0, INNER_OUT_OF_GAS)
                     revert(0, 32)
                 }
@@ -757,7 +757,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     function getMemoryBytesFromOffset(
         uint256 offset
     ) internal pure returns (bytes memory data) {
-        assembly {
+        assembly ("memory-safe") {
             data := offset
         }
     }

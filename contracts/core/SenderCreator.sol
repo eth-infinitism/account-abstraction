@@ -19,7 +19,7 @@ contract SenderCreator {
         bytes memory initCallData = initCode[20:];
         bool success;
         /* solhint-disable no-inline-assembly */
-        assembly {
+        assembly ("memory-safe") {
             success := call(
                 gas(),
                 factory,
