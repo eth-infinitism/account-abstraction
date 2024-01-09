@@ -33,7 +33,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
         revertType = _revertType;
     }
 
-    function _postOp(PostOpMode, bytes calldata, uint256) internal view override {
+    function _postOp(PostOpMode, bytes calldata, uint256, uint256) internal view override {
         if (revertType == RevertType.customError){
             revert CustomError("this is a long revert reason string we are looking for");
         }

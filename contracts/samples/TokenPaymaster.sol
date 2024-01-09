@@ -137,7 +137,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             }
             uint256 tokenAmount = weiToToken(preChargeNative, cachedPriceWithMarkup);
             SafeERC20.safeTransferFrom(token, userOp.sender, address(this), tokenAmount);
-            context = abi.encode(tokenAmount, userOp.maxFeePerGas, userOp.maxPriorityFeePerGas, userOp.sender);
+            context = abi.encode(tokenAmount, userOp.sender);
             validationResult = _packValidationData(
                 false,
                 uint48(cachedPriceTimestamp + tokenPaymasterConfig.priceMaxAge),
@@ -150,21 +150,21 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @dev This function is called after a user operation has been executed or reverted.
     /// @param context The context containing the token amount and user sender address.
     /// @param actualGasCost The actual gas cost of the transaction.
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost) internal override {
+    /// @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
+    //      and maxPriorityFee (and basefee)
+    //      It is not the same as tx.gasprice, which is what the bundler pays.
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint actualUserOpFeePerGas) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
                 uint256 preCharge,
-                uint256 maxFeePerGas,
-                uint256 maxPriorityFeePerGas,
                 address userOpSender
-            ) = abi.decode(context, (uint256, uint256, uint256, address));
-            uint256 gasPrice = getGasPrice(maxFeePerGas, maxPriorityFeePerGas);
+            ) = abi.decode(context, (uint256, address));
             uint256 _cachedPrice = updateCachedPrice(false);
         // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
-            uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * gasPrice;
+            uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * actualUserOpFeePerGas;
             uint256 actualTokenNeeded = weiToToken(actualChargeNative, cachedPriceWithMarkup);
             if (preCharge > actualTokenNeeded) {
                 // If the initially provided token amount is greater than the actual amount needed, refund the difference

@@ -52,10 +52,14 @@ interface IPaymaster {
      *                                         Now this is the 2nd call, after user's op was deliberately reverted.
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualGasCost - Actual gas used so far (without this postOp call).
+     * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
+     *                        and maxPriorityFee (and basefee)
+     *                        It is not the same as tx.gasprice, which is what the bundler pays.
      */
     function postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
     ) external;
 }
