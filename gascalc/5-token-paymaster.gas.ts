@@ -57,7 +57,7 @@ context('Token Paymaster', function () {
     const tokenOracleAddress = await create2Factory.deploy(tokenOracleInit, 0, 10_000_000)
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
-      cacheTimeToLive: 0,
+      cacheTimeToLive: 100000000,
       nativeOracle: nativeAssetOracleAddress,
       nativeOracleReverse: false,
       priceUpdateThreshold: 200_000, // +20%

@@ -103,11 +103,11 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
      * the user's TX , back to the state it was before the transaction started (before the validatePaymasterUserOp),
      * and the transaction should succeed there.
      */
-    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) internal override {
+    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost, uint actualUserOpFeePerGas) internal override {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
         address sender = abi.decode(context, (address));
-        uint256 charge = getTokenValueOfEth(actualGasCost + COST_OF_POST);
+        uint256 charge = getTokenValueOfEth(actualGasCost + COST_OF_POST * actualUserOpFeePerGas);
         //actualGasCost is known to be no larger than the above requiredPreFund, so the transfer should succeed.
         _transfer(sender, address(this), charge);
     }
