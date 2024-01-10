@@ -63,7 +63,7 @@ abstract contract StakeManager is IStakeManager {
      * @param account - The account to add to.
      */
     function depositTo(address account) public virtual payable {
-        uint newDeposit = _incrementDeposit(account, msg.value);
+        uint256 newDeposit = _incrementDeposit(account, msg.value);
         emit Deposited(account, newDeposit);
     }
 

@@ -27,7 +27,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     using UserOperationLib for PackedUserOperation;
 
-    SenderCreator private senderCreator = new SenderCreator();
+    SenderCreator private immutable _senderCreator = new SenderCreator();
+
+    function senderCreator() internal view virtual returns (SenderCreator) {
+        return _senderCreator;
+    }
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
@@ -79,7 +83,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
-        uint saveFreePtr;
+        uint256 saveFreePtr;
         assembly {
             saveFreePtr := mload(0x40)
         }
@@ -254,10 +258,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
-        uint128 verificationGasLimit;
-        uint128 callGasLimit;
-        uint128 paymasterVerificationGasLimit;
-        uint128 paymasterPostOpGasLimit;
+        uint256 verificationGasLimit;
+        uint256 callGasLimit;
+        uint256 paymasterVerificationGasLimit;
+        uint256 paymasterPostOpGasLimit;
         uint256 preVerificationGas;
         address paymaster;
         uint256 maxFeePerGas;
@@ -288,7 +292,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
-        uint callGasLimit = mUserOp.callGasLimit;
+        uint256 callGasLimit = mUserOp.callGasLimit;
         unchecked {
             // handleOps was called with gas limit too low. abort entire bundle.
             if (
@@ -398,7 +402,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             address sender = opInfo.mUserOp.sender;
             if (sender.code.length != 0)
                 revert FailedOp(opIndex, "AA10 sender already constructed");
-            address sender1 = senderCreator.createSender{
+            address sender1 = senderCreator().createSender{
                 gas: opInfo.mUserOp.verificationGasLimit
             }(initCode);
             if (sender1 == address(0))
@@ -419,7 +423,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /// @inheritdoc IEntryPoint
     function getSenderAddress(bytes calldata initCode) public {
-        address sender = senderCreator.createSender(initCode);
+        address sender = senderCreator().createSender(initCode);
         revert SenderAddressResult(sender);
     }
 

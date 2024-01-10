@@ -76,13 +76,13 @@ library UserOperationLib {
 
     function unpackAccountGasLimits(
         bytes32 accountGasLimits
-    ) internal pure returns (uint128 validationGasLimit, uint128 callGasLimit) {
+    ) internal pure returns (uint256 validationGasLimit, uint256 callGasLimit) {
         return (uint128(bytes16(accountGasLimits)), uint128(uint256(accountGasLimits)));
     }
 
     function unpackPaymasterStaticFields(
         bytes calldata paymasterAndData
-    ) internal pure returns (address paymaster, uint128 validationGasLimit, uint128 postOp) {
+    ) internal pure returns (address paymaster, uint256 validationGasLimit, uint256 postOp) {
         return (
             address(bytes20(paymasterAndData[: PAYMASTER_VALIDATION_GAS_OFFSET])),
             uint128(bytes16(paymasterAndData[PAYMASTER_VALIDATION_GAS_OFFSET : PAYMASTER_POSTOP_GAS_OFFSET])),

@@ -14,7 +14,7 @@ contract MaliciousAccount is IAccount {
         ep.depositTo{value : missingAccountFunds}(address(this));
         // Now calculate basefee per EntryPoint.getUserOpGasPrice() and compare it to the basefe we pass off-chain in the signature
         uint256 externalBaseFee = abi.decode(userOp.signature, (uint256));
-        (uint128 verificationGasLimit, uint128 callGasLimit) = UserOperationLib.unpackAccountGasLimits(userOp.accountGasLimits);
+        (uint256 verificationGasLimit, uint256 callGasLimit) = UserOperationLib.unpackAccountGasLimits(userOp.accountGasLimits);
         uint256 requiredGas = verificationGasLimit +
                             callGasLimit +
                             userOp.preVerificationGas;
