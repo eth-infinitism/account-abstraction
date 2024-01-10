@@ -74,9 +74,8 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
     internal view override returns (bytes memory context, uint256 validationData) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
-        // verificationGasLimit is dual-purposed, as gas limit for postOp. make sure it is high enough
-        // make sure that verificationGasLimit is high enough to handle postOp
-        require(uint128(bytes16(userOp.paymasterAndData[PAYMASTER_POSTOP_GAS_OFFSET : PAYMASTER_DATA_OFFSET])) > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
+        (,,uint256 postOpGasLimit) = UserOperationLib.unpackPaymasterStaticFields(userOp.paymasterAndData);
+        require( postOpGasLimit > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
             _validateConstructor(userOp);
