@@ -79,7 +79,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
-        uint saveFreePtr;
+        uint256 saveFreePtr;
         assembly {
             saveFreePtr := mload(0x40)
         }
@@ -254,10 +254,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     struct MemoryUserOp {
         address sender;
         uint256 nonce;
-        uint128 verificationGasLimit;
-        uint128 callGasLimit;
-        uint128 paymasterVerificationGasLimit;
-        uint128 paymasterPostOpGasLimit;
+        uint256 verificationGasLimit;
+        uint256 callGasLimit;
+        uint256 paymasterVerificationGasLimit;
+        uint256 paymasterPostOpGasLimit;
         uint256 preVerificationGas;
         address paymaster;
         uint256 maxFeePerGas;
@@ -288,7 +288,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
 
-        uint callGasLimit = mUserOp.callGasLimit;
+        uint256 callGasLimit = mUserOp.callGasLimit;
         unchecked {
             // handleOps was called with gas limit too low. abort entire bundle.
             if (
