@@ -27,7 +27,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     using UserOperationLib for PackedUserOperation;
 
-    SenderCreator private senderCreator = new SenderCreator();
+    SenderCreator private immutable _senderCreator = new SenderCreator();
+
+    function senderCreator() internal view virtual returns (SenderCreator) {
+        return _senderCreator;
+    }
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
@@ -398,7 +402,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             address sender = opInfo.mUserOp.sender;
             if (sender.code.length != 0)
                 revert FailedOp(opIndex, "AA10 sender already constructed");
-            address sender1 = senderCreator.createSender{
+            address sender1 = senderCreator().createSender{
                 gas: opInfo.mUserOp.verificationGasLimit
             }(initCode);
             if (sender1 == address(0))
@@ -419,7 +423,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     /// @inheritdoc IEntryPoint
     function getSenderAddress(bytes calldata initCode) public {
-        address sender = senderCreator.createSender(initCode);
+        address sender = senderCreator().createSender(initCode);
         revert SenderAddressResult(sender);
     }
 

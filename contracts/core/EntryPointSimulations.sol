@@ -16,6 +16,20 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
     AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
+    SenderCreator private _senderCreator;
+
+    function initSenderCreator() internal virtual {
+        //this is the address of the first contract created with CREATE by this address.
+        address createdObj = address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", address(this), hex"01")))));
+        _senderCreator = SenderCreator(createdObj);
+    }
+
+    function senderCreator() internal view virtual override returns (SenderCreator) {
+        // return the same senderCreator as real EntryPoint.
+        // this call is slightly (100) more expensive than EntryPoint's access to immutable member
+        return _senderCreator;
+    }
+
     /**
      * simulation contract should not be deployed, and specifically, accounts should not trust
      * it as entrypoint, since the simulation functions don't check the signatures
@@ -34,6 +48,8 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     ){
         UserOpInfo memory outOpInfo;
 
+        //initialize senderCreator(). we can't rely on constructor
+        initSenderCreator();
         _simulationOnlyValidations(userOp);
         (
             uint256 validationData,
