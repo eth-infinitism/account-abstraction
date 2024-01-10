@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
  * Token callback handler.
  *   Handles supported tokens' callbacks, allowing account receiving these tokens.
  */
-contract TokenCallbackHandler is IERC721Receiver, IERC1155Receiver {
+abstract contract TokenCallbackHandler is IERC721Receiver, IERC1155Receiver {
 
     function onERC721Received(
         address,

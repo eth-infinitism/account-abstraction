@@ -108,3 +108,13 @@ function _packValidationData(
             ret := keccak256(mem, len)
         }
     }
+
+
+/**
+ * The minimum of two numbers.
+ * @param a - First number.
+ * @param b - Second number.
+ */
+    function min(uint256 a, uint256 b) pure returns (uint256) {
+        return a < b ? a : b;
+    }

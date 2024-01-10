@@ -735,15 +735,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     }
 
     /**
-     * The minimum of two numbers.
-     * @param a - First number.
-     * @param b - Second number.
-     */
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
-    /**
      * The offset of the given bytes in memory.
      * @param data - The bytes to get the offset of.
      */

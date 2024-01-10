@@ -210,10 +210,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
 
-    function min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a < b ? a : b;
-    }
-
     receive() external payable {
         emit Received(msg.sender, msg.value);
     }
