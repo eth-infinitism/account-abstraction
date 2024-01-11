@@ -524,13 +524,22 @@ describe('EntryPoint', function () {
       })
 
       describe('validate external gas limit', () => {
+        let snap: any
+        before(async () => {
+          snap = await ethers.provider.send('evm_snapshot', [])
+        })
+
+        after(async () => {
+          await ethers.provider.send('evm_revert', [snap])
+        });
+
         [100000, 1000, 0].forEach(appendBytes =>
           [2e5, 2e6].forEach(expectGas =>
             it(`expectGas=${expectGas} buf=${appendBytes} account should not pay if tx gas limit is too low`, async function () {
               this.timeout(30000)
               const iterations = 30
-              const expecGasCall = (await counter.interface.encodeFunctionData('expectGas', [expectGas, iterations])).padEnd(appendBytes, 'f')
-              const accountExec = await account.interface.encodeFunctionData('execute', [counter.address, 0, expecGasCall])
+              const expectGasCall = (await counter.interface.encodeFunctionData('expectGas', [expectGas, iterations])).padEnd(appendBytes, 'f')
+              const accountExec = await account.interface.encodeFunctionData('execute', [counter.address, 0, expectGasCall])
               const beneficiaryAddress = createAddress()
 
               const verificationGasLimit = 1e6
@@ -612,7 +621,7 @@ describe('EntryPoint', function () {
 
               let events: LogDescription[]
               {
-              // dump rcpt events (both on error or not
+                // dump rcpt events (both on error or not
                 const b = await ethers.provider.getBlock('latest')
                 expect(b.number).to.equal(prevBlockNumber + 1, 'handleOp tx failed to submit')
                 const r = await ethers.provider.getTransactionReceipt(b.transactions[0])
@@ -622,7 +631,7 @@ describe('EntryPoint', function () {
               }
 
               if (ret.message != null) {
-              // console.log('ex=', ret.message)
+                // console.log('ex=', ret.message)
                 expect(ret.message).to.match(/AA95 out of gas/)
               } else {
                 const success = events.find(e => e.name === 'UserOperationEvent')?.args.success
