@@ -15,7 +15,7 @@ import "./UserOperationLib.sol";
  * Specific account implementation should inherit it and provide the account-specific logic.
  */
 abstract contract BaseAccount is IAccount {
-    using UserOperationLib for UserOperation;
+    using UserOperationLib for PackedUserOperation;
 
     /**
      * Return value in case of signature failure, with no time-range.
@@ -48,7 +48,7 @@ abstract contract BaseAccount is IAccount {
      *                              to pay for the user operation.
      */
     function validateUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 missingAccountFunds
     ) external virtual override returns (uint256 validationData) {
@@ -83,7 +83,7 @@ abstract contract BaseAccount is IAccount {
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function _validateSignature(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash
     ) internal virtual returns (uint256 validationData);
 

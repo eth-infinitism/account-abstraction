@@ -22,7 +22,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
     constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
     {}
 
-    function _validatePaymasterUserOp(UserOperation calldata userOp, bytes32, uint256)
+    function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256)
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         validationData = 0;
@@ -33,7 +33,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
         revertType = _revertType;
     }
 
-    function _postOp(PostOpMode, bytes calldata, uint256) internal view override {
+    function _postOp(PostOpMode, bytes calldata, uint256, uint256) internal view override {
         if (revertType == RevertType.customError){
             revert CustomError("this is a long revert reason string we are looking for");
         }

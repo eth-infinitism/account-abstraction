@@ -20,7 +20,7 @@ import {
   ONE_ETH,
   HashZero, deployEntryPoint
 } from './testutils'
-import { fillUserOpDefaults, getUserOpHash, packUserOp, signUserOp } from './UserOp'
+import { fillUserOpDefaults, getUserOpHash, encodeUserOp, signUserOp, packUserOp } from './UserOp'
 import { parseEther } from 'ethers/lib/utils'
 import { UserOperation } from './UserOperation'
 
@@ -53,8 +53,9 @@ describe('SimpleAccount', function () {
 
   it('should pack in js the same as solidity', async () => {
     const op = await fillUserOpDefaults({ sender: accounts[0] })
+    const encoded = encodeUserOp(op)
     const packed = packUserOp(op)
-    expect(await testUtil.packUserOp(op)).to.equal(packed)
+    expect(await testUtil.encodeUserOp(packed)).to.equal(encoded)
   })
 
   describe('#executeBatch', () => {
@@ -135,7 +136,8 @@ describe('SimpleAccount', function () {
       expectedPay = actualGasPrice * (callGasLimit + verificationGasLimit)
 
       preBalance = await getBalance(account.address)
-      const ret = await account.validateUserOp(userOp, userOpHash, expectedPay, { gasPrice: actualGasPrice })
+      const packedOp = packUserOp(userOp)
+      const ret = await account.validateUserOp(packedOp, userOpHash, expectedPay, { gasPrice: actualGasPrice })
       await ret.wait()
     })
 
@@ -146,7 +148,8 @@ describe('SimpleAccount', function () {
 
     it('should return NO_SIG_VALIDATION on wrong signature', async () => {
       const userOpHash = HashZero
-      const deadline = await account.callStatic.validateUserOp({ ...userOp, nonce: 1 }, userOpHash, 0)
+      const packedOp = packUserOp(userOp)
+      const deadline = await account.callStatic.validateUserOp({ ...packedOp, nonce: 1 }, userOpHash, 0)
       expect(deadline).to.eq(1)
     })
   })

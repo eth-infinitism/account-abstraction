@@ -7,7 +7,7 @@ import {
   LegacyTokenPaymaster__factory,
   TestCounter__factory,
   SimpleAccountFactory,
-  SimpleAccountFactory__factory, EntryPoint, TokenCallbackHandler__factory
+  SimpleAccountFactory__factory, EntryPoint
 } from '../typechain'
 import {
   AddressZero,
@@ -24,9 +24,9 @@ import {
   createAccount,
   getAccountAddress, decodeRevertReason
 } from './testutils'
-import { fillAndSign, simulateValidation } from './UserOp'
+import { fillSignAndPack, simulateValidation } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
-import { UserOperation } from './UserOperation'
+import { PackedUserOperation } from './UserOperation'
 import { hexValue } from '@ethersproject/bytes'
 
 describe('EntryPoint with paymaster', function () {
@@ -69,7 +69,8 @@ describe('EntryPoint with paymaster', function () {
     })
 
     it('paymaster should revert on wrong entryPoint type', async () => {
-      const notEntryPoint = await new TokenCallbackHandler__factory(ethersSigner).deploy()
+      // account is a sample contract with supportsInterface (which is obviously not an entrypoint)
+      const notEntryPoint = account
       // a contract that has "supportsInterface" but with different interface value..
       await expect(new LegacyTokenPaymaster__factory(ethersSigner).deploy(factory.address, 'ttt', notEntryPoint.address))
         .to.be.revertedWith('IEntryPoint interface mismatch')
@@ -104,9 +105,10 @@ describe('EntryPoint with paymaster', function () {
         calldata = await account.populateTransaction.execute(account.address, 0, updateEntryPoint).then(tx => tx.data!)
       })
       it('paymaster should reject if account doesn\'t have tokens', async () => {
-        const op = await fillAndSign({
+        const op = await fillSignAndPack({
           sender: account.address,
-          paymasterAndData: paymaster.address,
+          paymaster: paymaster.address,
+          paymasterPostOpGasLimit: 3e5,
           callData: calldata
         }, accountOwner, entryPoint)
         expect(await entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
@@ -121,15 +123,16 @@ describe('EntryPoint with paymaster', function () {
     })
 
     describe('create account', () => {
-      let createOp: UserOperation
+      let createOp: PackedUserOperation
       let created = false
       const beneficiaryAddress = createAddress()
 
       it('should reject if account not funded', async () => {
-        const op = await fillAndSign({
+        const op = await fillSignAndPack({
           initCode: getAccountDeployer(entryPoint.address, accountOwner.address, 1),
           verificationGasLimit: 1e7,
-          paymasterAndData: paymaster.address
+          paymaster: paymaster.address,
+          paymasterPostOpGasLimit: 3e5
         }, accountOwner, entryPoint)
         expect(await entryPoint.callStatic.handleOps([op], beneficiaryAddress, {
           gasLimit: 1e7
@@ -138,10 +141,11 @@ describe('EntryPoint with paymaster', function () {
       })
 
       it('should succeed to create account with tokens', async () => {
-        createOp = await fillAndSign({
+        createOp = await fillSignAndPack({
           initCode: getAccountDeployer(entryPoint.address, accountOwner.address, 3),
           verificationGasLimit: 2e6,
-          paymasterAndData: paymaster.address,
+          paymaster: paymaster.address,
+          paymasterPostOpGasLimit: 3e5,
           nonce: 0
         }, accountOwner, entryPoint)
 
@@ -192,16 +196,17 @@ describe('EntryPoint with paymaster', function () {
         const justEmit = testCounter.interface.encodeFunctionData('justemit')
         const execFromSingleton = account.interface.encodeFunctionData('execute', [testCounter.address, 0, justEmit])
 
-        const ops: UserOperation[] = []
+        const ops: PackedUserOperation[] = []
         const accounts: SimpleAccount[] = []
 
         for (let i = 0; i < 4; i++) {
           const { proxy: aAccount } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
           await paymaster.mintTokens(aAccount.address, parseEther('1'))
-          const op = await fillAndSign({
+          const op = await fillSignAndPack({
             sender: aAccount.address,
             callData: execFromSingleton,
-            paymasterAndData: paymaster.address
+            paymaster: paymaster.address,
+            paymasterPostOpGasLimit: 3e5
           }, accountOwner, entryPoint)
 
           accounts.push(aAccount)
@@ -234,10 +239,11 @@ describe('EntryPoint with paymaster', function () {
           await paymaster.mintTokens(account.address, parseEther('1'))
           approveCallData = paymaster.interface.encodeFunctionData('approve', [account.address, ethers.constants.MaxUint256])
           // need to call approve from account2. use paymaster for that
-          const approveOp = await fillAndSign({
+          const approveOp = await fillSignAndPack({
             sender: account2.address,
             callData: account2.interface.encodeFunctionData('execute', [paymaster.address, 0, approveCallData]),
-            paymasterAndData: paymaster.address
+            paymaster: paymaster.address,
+            paymasterPostOpGasLimit: 3e5
           }, accountOwner, entryPoint)
           await entryPoint.handleOps([approveOp], beneficiaryAddress)
           expect(await paymaster.allowance(account2.address, account.address)).to.eq(ethers.constants.MaxUint256)
@@ -252,17 +258,19 @@ describe('EntryPoint with paymaster', function () {
           const withdrawTokens = paymaster.interface.encodeFunctionData('transferFrom', [account2.address, account.address, withdrawAmount])
           const execFromEntryPoint = account.interface.encodeFunctionData('execute', [paymaster.address, 0, withdrawTokens])
 
-          const userOp1 = await fillAndSign({
+          const userOp1 = await fillSignAndPack({
             sender: account.address,
             callData: execFromEntryPoint,
-            paymasterAndData: paymaster.address
+            paymaster: paymaster.address,
+            paymasterPostOpGasLimit: 3e5
           }, accountOwner, entryPoint)
 
           // account2's operation is unimportant, as it is going to be reverted - but the paymaster will have to pay for it.
-          const userOp2 = await fillAndSign({
+          const userOp2 = await fillSignAndPack({
             sender: account2.address,
             callData: execFromEntryPoint,
-            paymasterAndData: paymaster.address,
+            paymaster: paymaster.address,
+            paymasterPostOpGasLimit: 3e5,
             callGasLimit: 1e6
           }, accountOwner, entryPoint)
 

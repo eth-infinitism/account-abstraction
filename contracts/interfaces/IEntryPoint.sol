@@ -9,7 +9,7 @@ pragma solidity ^0.8.12;
 /* solhint-disable no-inline-assembly */
 /* solhint-disable reason-string */
 
-import "./UserOperation.sol";
+import "./PackedUserOperation.sol";
 import "./IStakeManager.sol";
 import "./IAggregator.sol";
 import "./INonceManager.sol";
@@ -124,7 +124,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
 
     // UserOps handled, per aggregator.
     struct UserOpsPerAggregator {
-        UserOperation[] userOps;
+        PackedUserOperation[] userOps;
         // Aggregator address
         IAggregator aggregator;
         // Aggregated signature
@@ -140,7 +140,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param beneficiary - The address to receive the fees.
      */
     function handleOps(
-        UserOperation[] calldata ops,
+        PackedUserOperation[] calldata ops,
         address payable beneficiary
     ) external;
 
@@ -160,7 +160,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param userOp - The user operation to generate the request ID for.
      */
     function getUserOpHash(
-        UserOperation calldata userOp
+        PackedUserOperation calldata userOp
     ) external view returns (bytes32);
 
     /**

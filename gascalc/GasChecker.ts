@@ -14,13 +14,13 @@ import {
 } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
-import { fillAndSign, fillUserOp, signUserOp } from '../test/UserOp'
+import { fillSignAndPack, fillUserOp, packUserOp, signUserOp } from '../test/UserOp'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import { table, TableUserConfig } from 'table'
 import { Create2Factory } from '../src/Create2Factory'
 import * as fs from 'fs'
 import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
-import { UserOperation } from '../test/UserOperation'
+import { PackedUserOperation } from '../test/UserOperation'
 import { expect } from 'chai'
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
@@ -131,7 +131,7 @@ export class GasChecker {
     console.log('factaddr', factoryAddress)
     const fact = SimpleAccountFactory__factory.connect(factoryAddress, ethersSigner)
     // create accounts
-    const creationOps: UserOperation[] = []
+    const creationOps: PackedUserOperation[] = []
     for (const n of range(count)) {
       const salt = n
       // const initCode = this.accountInitCode(fact, salt)
@@ -150,7 +150,7 @@ export class GasChecker {
           preVerificationGas: 1,
           maxFeePerGas: 0
         }), this.accountOwner, this.entryPoint().address, await provider.getNetwork().then(net => net.chainId))
-        creationOps.push(op)
+        creationOps.push(packUserOp(op))
         this.createdAccounts.add(addr)
       }
 
@@ -224,14 +224,16 @@ export class GasChecker {
         }
         // console.debug('== account est=', accountEst.toString())
         accountEst = est.accountEst
-        const op = await fillAndSign({
+        const op = await fillSignAndPack({
           sender: account,
           callData: accountExecFromEntryPoint,
           maxPriorityFeePerGas: info.gasPrice,
           maxFeePerGas: info.gasPrice,
           callGasLimit: accountEst,
           verificationGasLimit: 1000000,
-          paymasterAndData: paymaster,
+          paymaster: paymaster,
+          paymasterVerificationGasLimit: 30000,
+          paymasterPostOpGasLimit: 30000,
           preVerificationGas: 1
         }, accountOwner, GasCheckCollector.inst.entryPoint)
         // const packed = packUserOp(op, false)

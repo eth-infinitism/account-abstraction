@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
-import "./UserOperation.sol";
+import "./PackedUserOperation.sol";
 
 /**
  * The interface exposed by a paymaster contract, who agrees to pay the gas for user's operations.
@@ -37,7 +37,7 @@ interface IPaymaster {
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
     function validatePaymasterUserOp(
-        UserOperation calldata userOp,
+        PackedUserOperation calldata userOp,
         bytes32 userOpHash,
         uint256 maxCost
     ) external returns (bytes memory context, uint256 validationData);
@@ -52,10 +52,14 @@ interface IPaymaster {
      *                                         Now this is the 2nd call, after user's op was deliberately reverted.
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualGasCost - Actual gas used so far (without this postOp call).
+     * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
+     *                        and maxPriorityFee (and basefee)
+     *                        It is not the same as tx.gasprice, which is what the bundler pays.
      */
     function postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas
     ) external;
 }

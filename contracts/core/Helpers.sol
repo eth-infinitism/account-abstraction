@@ -26,7 +26,7 @@ struct ValidationData {
  * @param validationData - The packed validation data.
  */
 function _parseValidationData(
-    uint validationData
+    uint256 validationData
 ) pure returns (ValidationData memory data) {
     address aggregator = address(uint160(validationData));
     uint48 validUntil = uint48(validationData >> 160);
@@ -107,4 +107,14 @@ function _packValidationData(
             calldatacopy(mem, data.offset, len)
             ret := keccak256(mem, len)
         }
+    }
+
+
+/**
+ * The minimum of two numbers.
+ * @param a - First number.
+ * @param b - Second number.
+ */
+    function min(uint256 a, uint256 b) pure returns (uint256) {
+        return a < b ? a : b;
     }
