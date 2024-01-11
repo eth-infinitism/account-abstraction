@@ -33,6 +33,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         return _senderCreator;
     }
 
+    //compensate for innerHandleOps' emit message and deposit refund.
+    // allow some slack for future gas price changes.
+    uint private constant INNER_GAS_OVERHEAD = 10000;
+
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
 
@@ -296,10 +300,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         unchecked {
             // handleOps was called with gas limit too low. abort entire bundle.
             if (
-                gasleft() <
+                gasleft() * 63 / 64 <
                 callGasLimit +
                 mUserOp.paymasterPostOpGasLimit +
-                5000
+                INNER_GAS_OVERHEAD
             ) {
                 assembly {
                     mstore(0, INNER_OUT_OF_GAS)
