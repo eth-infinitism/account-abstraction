@@ -38,35 +38,6 @@ function _parseValidationData(
 }
 
 /**
- * Intersect account and paymaster ranges.
- * @param validationData          - The packed validation data of the account.
- * @param paymasterValidationData - The packed validation data of the paymaster.
- */
-function _intersectTimeRange(
-    uint256 validationData,
-    uint256 paymasterValidationData
-) pure returns (ValidationData memory) {
-    ValidationData memory accountValidationData = _parseValidationData(
-        validationData
-    );
-    ValidationData memory pmValidationData = _parseValidationData(
-        paymasterValidationData
-    );
-    address aggregator = accountValidationData.aggregator;
-    if (aggregator == address(0)) {
-        aggregator = pmValidationData.aggregator;
-    }
-    uint48 validAfter = accountValidationData.validAfter;
-    uint48 validUntil = accountValidationData.validUntil;
-    uint48 pmValidAfter = pmValidationData.validAfter;
-    uint48 pmValidUntil = pmValidationData.validUntil;
-
-    if (validAfter < pmValidAfter) validAfter = pmValidAfter;
-    if (validUntil > pmValidUntil) validUntil = pmValidUntil;
-    return ValidationData(aggregator, validAfter, validUntil);
-}
-
-/**
  * Helper to pack the return value for validateUserOp.
  * @param data - The ValidationData to pack.
  */

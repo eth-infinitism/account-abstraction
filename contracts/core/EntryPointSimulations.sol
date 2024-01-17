@@ -68,23 +68,17 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             factoryInfo = _getStakeInfo(factory);
         }
 
-        ValidationData memory data = _intersectTimeRange(
-            validationData,
-            paymasterValidationData
-        );
-        address aggregator = data.aggregator;
-        bool sigFailed = aggregator == address(1);
+        address aggregator = address(uint160(validationData));
         ReturnInfo memory returnInfo = ReturnInfo(
             outOpInfo.preOpGas,
             outOpInfo.prefund,
-            sigFailed,
-            data.validAfter,
-            data.validUntil,
+            validationData,
+            paymasterValidationData,
             getMemoryBytesFromOffset(outOpInfo.contextOffset)
         );
 
         AggregatorStakeInfo memory aggregatorInfo = NOT_AGGREGATED;
-        if (aggregator != address(0) && aggregator != address(1)) {
+        if (uint160(aggregator) > SIG_VALIDATION_FAILED) {
             aggregatorInfo = AggregatorStakeInfo(
                 aggregator,
                 _getStakeInfo(aggregator)
@@ -115,10 +109,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             uint256 validationData,
             uint256 paymasterValidationData
         ) = _validatePrepayment(0, op, opInfo);
-        ValidationData memory data = _intersectTimeRange(
-            validationData,
-            paymasterValidationData
-        );
 
         uint256 paid = _executeUserOp(0, op, opInfo);
         bool targetSuccess;
@@ -129,8 +119,8 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         return ExecutionResult(
             opInfo.preOpGas,
             paid,
-            data.validAfter,
-            data.validUntil,
+            validationData,
+            paymasterValidationData,
             targetSuccess,
             targetResult
         );
