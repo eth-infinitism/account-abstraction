@@ -16,7 +16,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // solhint-disable-next-line var-name-mixedcase
     AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
-    SenderCreator private _senderCreator;
+    SenderCreator _senderCreator;
 
     function initSenderCreator() internal virtual {
         //this is the address of the first contract created with CREATE by this address.
