@@ -509,18 +509,60 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
             paymasterInfo.deposit = deposit - requiredPreFund;
-            try
-                IPaymaster(paymaster).validatePaymasterUserOp{gas: mUserOp.paymasterVerificationGasLimit}(
+            bool success;
+            {
+                uint256 saveFreePtr;
+                assembly {
+                    saveFreePtr := mload(0x40)
+                }
+
+                bytes memory callPaymaster = abi.encodeCall(IPaymaster.validatePaymasterUserOp, (
                     op,
                     opInfo.userOpHash,
                     requiredPreFund
-                )
-            returns (bytes memory _context, uint256 _validationData) {
-                context = _context;
-                validationData = _validationData;
-            } catch {
+                ));
+                success = Exec.call(paymaster, 0, callPaymaster, mUserOp.paymasterVerificationGasLimit);
+                assembly {
+                    mstore(0x40, saveFreePtr)
+                }
+            }
+            if (success) {
+                (bool decodeSuccess, bytes memory _context, uint256 _validationData) = safeDecodePaymasterReturn(Exec.getReturnData(REVERT_REASON_MAX_LEN));
+                success = decodeSuccess;
+                if (decodeSuccess) {
+                    context = _context;
+                    validationData = _validationData;
+                }
+            }
+            if (!success) {
                 revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
+        }
+    }
+
+    /**
+     * perform abi.decode(ret, (bytes,uint256)), but without revert
+     *  ofs 0x00: <0x40>
+     *  ofs 0x20: <validationData>
+     *  ofs 0x40: <context-length>
+     *  ofs 0x60...: <context bytes>
+     */
+    function safeDecodePaymasterReturn(bytes memory ret)
+    internal pure returns (bool success, bytes memory context, uint validationData) {
+        uint256[] memory reta;
+        assembly {
+            reta := ret
+        }
+        // ret.length is in bytes, so we never hit the "array bounds checking" of reta
+        if (ret.length >= 0x60 && reta[0] == 0x40 && reta[2] <= ret.length - 0x60) {
+            validationData = reta[1];
+            // the "bytes context" is embedded in ret, so we just return a pointer to it
+            assembly {
+                context := add(ret,0x60)
+            }
+            success = true;
+        } else {
+            success = false;
         }
     }
 
