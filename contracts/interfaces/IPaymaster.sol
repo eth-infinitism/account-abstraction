@@ -13,7 +13,7 @@ interface IPaymaster {
         opSucceeded,
         // User op reverted. Still has to pay for gas.
         opReverted,
-        // User op succeeded, but caused postOp to revert.
+        // Regardless of the UserOp call status, the postOp reverted, and caused both executions to revert.
         // Only used internally in the EntryPoint - Paymasters will not be called again.
         postOpReverted
     }
