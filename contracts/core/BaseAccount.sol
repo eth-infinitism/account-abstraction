@@ -75,7 +75,7 @@ abstract contract BaseAccount is IAccount {
      *                          (also hashes the entrypoint and chain id)
      * @return validationData - Signature and time-range of this operation.
      *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
-     *                              otherwise, an address of an "authorizer" contract.
+     *                                                    other values are invalid for paymaster.
      *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          If the account doesn't use time-range, it is enough to return
