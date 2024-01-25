@@ -357,8 +357,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         mUserOp.nonce = userOp.nonce;
         (mUserOp.verificationGasLimit, mUserOp.callGasLimit) = UserOperationLib.unpackAccountGasLimits(userOp.accountGasLimits);
         mUserOp.preVerificationGas = userOp.preVerificationGas;
-        mUserOp.maxFeePerGas = userOp.maxFeePerGas;
-        mUserOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        (mUserOp.maxPriorityFeePerGas, mUserOp.maxFeePerGas) = UserOperationLib.unpackAccountGasLimits(userOp.gasFees);
         bytes calldata paymasterAndData = userOp.paymasterAndData;
         if (paymasterAndData.length > 0) {
             require(
@@ -603,8 +602,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             mUserOp.callGasLimit |
             mUserOp.paymasterVerificationGasLimit |
             mUserOp.paymasterPostOpGasLimit |
-            userOp.maxFeePerGas |
-            userOp.maxPriorityFeePerGas;
+            mUserOp.maxFeePerGas |
+            mUserOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
 
         uint256 requiredPreFund = _getRequiredPrefund(mUserOp);

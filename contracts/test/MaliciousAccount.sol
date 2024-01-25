@@ -19,7 +19,8 @@ contract MaliciousAccount is IAccount {
                             callGasLimit +
                             userOp.preVerificationGas;
         uint256 gasPrice = missingAccountFunds / requiredGas;
-        uint256 basefee = gasPrice - userOp.maxPriorityFeePerGas;
+        (uint256 maxPriorityFeePerGas, ) = UserOperationLib.unpackAccountGasLimits(userOp.gasFees);
+        uint256 basefee = gasPrice - maxPriorityFeePerGas;
         require (basefee == externalBaseFee, "Revert after first validation");
         return 0;
     }

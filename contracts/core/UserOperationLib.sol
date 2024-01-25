@@ -38,8 +38,7 @@ library UserOperationLib {
         PackedUserOperation calldata userOp
     ) internal view returns (uint256) {
         unchecked {
-            uint256 maxFeePerGas = userOp.maxFeePerGas;
-            uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+            (uint256 maxPriorityFeePerGas, uint256 maxFeePerGas) = unpackAccountGasLimits(userOp.gasFees);
             if (maxFeePerGas == maxPriorityFeePerGas) {
                 //legacy mode (for networks that don't support basefee opcode)
                 return maxFeePerGas;
@@ -61,15 +60,13 @@ library UserOperationLib {
         bytes32 hashCallData = calldataKeccak(userOp.callData);
         bytes32 accountGasLimits = userOp.accountGasLimits;
         uint256 preVerificationGas = userOp.preVerificationGas;
-        uint256 maxFeePerGas = userOp.maxFeePerGas;
-        uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        bytes32 gasFees = userOp.gasFees;
         bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
 
         return abi.encode(
             sender, nonce,
             hashInitCode, hashCallData,
-            accountGasLimits, preVerificationGas,
-            maxFeePerGas, maxPriorityFeePerGas,
+            accountGasLimits, preVerificationGas, gasFees,
             hashPaymasterAndData
         );
     }

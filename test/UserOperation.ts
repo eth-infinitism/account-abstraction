@@ -26,8 +26,7 @@ export interface PackedUserOperation {
   callData: typ.bytes
   accountGasLimits: typ.bytes32
   preVerificationGas: typ.uint256
-  maxFeePerGas: typ.uint256
-  maxPriorityFeePerGas: typ.uint256
+  gasFees: typ.bytes32
   paymasterAndData: typ.bytes
   signature: typ.bytes
 }
