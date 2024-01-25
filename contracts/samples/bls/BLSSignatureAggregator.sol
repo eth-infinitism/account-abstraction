@@ -27,6 +27,8 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     /**
+     * return the public key of this account.
+     * @param userOp the UserOperation that we need the account's public key for.
      * @return publicKey - the public key from a BLS keypair the Aggregator will use to verify this UserOp;
      *         normally public key will be queried from the deployed BLSAccount itself;
      *         the public key will be read from the 'initCode' if the account is not deployed yet;
@@ -110,6 +112,7 @@ contract BLSSignatureAggregator is IAggregator {
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
 
+
     function getUserOpHash(PackedUserOperation memory userOp) public view returns (bytes32) {
         bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
         return _getUserOpHash(userOp, publicKeyHash);
@@ -162,8 +165,9 @@ contract BLSSignatureAggregator is IAggregator {
      * allow staking for this aggregator
      * there is no limit on stake or delay, but it is not a problem, since it is a permissionless
      * signature aggregator, which doesn't support unstaking.
+     * @param unstakeDelaySec - the required unstaked delay
      */
-    function addStake(uint32 delay) external payable {
-        IEntryPoint(entryPoint).addStake{value : msg.value}(delay);
+    function addStake(uint32 unstakeDelaySec) external payable {
+        IEntryPoint(entryPoint).addStake{value : msg.value}(unstakeDelaySec);
     }
 }

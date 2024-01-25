@@ -50,6 +50,9 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
 
     /**
      * execute a transaction (called directly from owner, or by entryPoint)
+     * @param dest destination address to call
+     * @param value the value to pass in this call
+     * @param func the calldata to pass in this call
      */
     function execute(address dest, uint256 value, bytes calldata func) external {
         _requireFromEntryPointOrOwner();
@@ -59,6 +62,9 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     /**
      * execute a sequence of transactions
      * @dev to reduce gas consumption for trivial case (no value), use a zero-length array to mean zero value
+     * @param dest an array of destination addresses
+     * @param value an array of values to pass to each call. can be zero-length for no-value calls
+     * @param func an array of calldata to pass to each call
      */
     function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
         _requireFromEntryPointOrOwner();
@@ -78,6 +84,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
      * @dev The _entryPoint member is immutable, to reduce gas consumption.  To upgrade EntryPoint,
      * a new implementation of SimpleAccount must be deployed with the new EntryPoint address, then upgrading
       * the implementation by calling `upgradeTo()`
+      * @param anOwner the owner (signer) of this account
      */
     function initialize(address anOwner) public virtual initializer {
         _initialize(anOwner);
