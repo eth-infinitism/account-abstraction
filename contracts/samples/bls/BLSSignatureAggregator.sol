@@ -1,6 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity >=0.8.4 <0.9.0;
-pragma abicoder v2;
+pragma solidity ^0.8.23;
 
 import "../../interfaces/IAggregator.sol";
 import "../../interfaces/IEntryPoint.sol";

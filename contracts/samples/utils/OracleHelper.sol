@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable not-rely-on-time */
 
@@ -77,6 +77,7 @@ abstract contract OracleHelper {
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.
+    /// @param force true to force cache update, even if called after short time or the change is small.
     function updateCachedPrice(bool force) public returns (uint256 newPrice) {
         uint256 cacheTimeToLive = oracleHelperConfig.cacheTimeToLive;
         uint256 cacheAge = block.timestamp - cachedPriceTimestamp;

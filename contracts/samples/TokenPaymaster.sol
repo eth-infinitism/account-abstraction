@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 // Import the required libraries and contracts
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
