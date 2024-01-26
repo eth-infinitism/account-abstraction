@@ -87,35 +87,37 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
-        uint256 saveFreePtr;
-        assembly {
-            saveFreePtr := mload(0x40)
-        }
-        bytes calldata callData = userOp.callData;
-        bytes memory innerCall;
-        bytes4 methodSig;
-        assembly {
-            let len := callData.length
-            if gt(len,3) {
-                methodSig := calldataload(callData.offset)
-            }
-        }
-        if (methodSig == IAccountExecute.executeUserOp.selector) {
-            bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
-            innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
-        } else
-        {
-            innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
-        }
         bool success;
-        assembly {
-            success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
-            collected := mload(0)
-            mstore(0x40, saveFreePtr)
+        {
+            uint saveFreePtr;
+            assembly ("memory-safe") {
+                saveFreePtr := mload(0x40)
+            }
+            bytes calldata callData = userOp.callData;
+            bytes memory innerCall;
+            bytes4 methodSig;
+            assembly {
+                let len := callData.length
+                if gt(len, 3) {
+                    methodSig := calldataload(callData.offset)
+                }
+            }
+            if (methodSig == IAccountExecute.executeUserOp.selector) {
+                bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
+                innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
+            } else
+            {
+                innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
+            }
+            assembly ("memory-safe") {
+                success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
+                collected := mload(0)
+                mstore(0x40, saveFreePtr)
+            }
         }
         if (!success) {
             bytes32 innerRevertCode;
-            assembly {
+            assembly ("memory-safe") {
                 let len := returndatasize()
                 if eq(32,len) {
                     returndatacopy(0, 0, 32)
@@ -305,7 +307,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 mUserOp.paymasterPostOpGasLimit +
                 INNER_GAS_OVERHEAD
             ) {
-                assembly {
+                assembly ("memory-safe") {
                     mstore(0, INNER_OUT_OF_GAS)
                     revert(0, 32)
                 }
@@ -757,7 +759,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     function getMemoryBytesFromOffset(
         uint256 offset
     ) internal pure returns (bytes memory data) {
-        assembly {
+        assembly ("memory-safe") {
             data := offset
         }
     }

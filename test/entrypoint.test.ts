@@ -113,10 +113,10 @@ describe('EntryPoint', function () {
         await expect(entryPoint.addStake(2)).to.revertedWith('no stake specified')
       })
       it('should fail to stake without delay', async () => {
-        await expect(entryPoint.addStake(0, { value: ONE_ETH })).to.revertedWith('must specify unstake delay')
+        await expect(entryPoint.callStatic.addStake(0, { value: ONE_ETH })).to.revertedWith('must specify unstake delay')
       })
       it('should fail to unlock', async () => {
-        await expect(entryPoint.unlockStake()).to.revertedWith('not staked')
+        await expect(entryPoint.callStatic.unlockStake()).to.revertedWith('not staked')
       })
     })
     describe('with stake of 2 eth', () => {
@@ -163,7 +163,7 @@ describe('EntryPoint', function () {
           await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('Stake withdrawal is not due')
         })
         it('should fail to unlock again', async () => {
-          await expect(entryPoint.unlockStake()).to.revertedWith('already unstaking')
+          await expect(entryPoint.callStatic.unlockStake()).to.revertedWith('already unstaking')
         })
         describe('after unstake delay', () => {
           before(async () => {
@@ -191,7 +191,7 @@ describe('EntryPoint', function () {
           })
 
           it('should fail to unlock again', async () => {
-            await expect(entryPoint.unlockStake()).to.revertedWith('already unstaking')
+            await expect(entryPoint.callStatic.unlockStake()).to.revertedWith('already unstaking')
           })
           it('should succeed to withdraw', async () => {
             const { stake } = await entryPoint.getDepositInfo(addr)
