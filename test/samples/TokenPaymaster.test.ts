@@ -67,6 +67,7 @@ describe('TokenPaymaster', function () {
   let factory: SimpleAccountFactory
   let paymasterAddress: string
   let paymaster: TokenPaymaster
+  let paymasterOwner: string
   let callData: string
   let token: TestERC20
   let weth: TestWrappedNativeToken
@@ -88,7 +89,7 @@ describe('TokenPaymaster', function () {
     tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken, 8)
     await weth.deposit({ value: parseEther('1') })
     await weth.transfer(testUniswap.address, parseEther('1'))
-    const owner = await ethersSigner.getAddress()
+    paymasterOwner = await ethersSigner.getAddress()
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
       priceMaxAge: 86400,
       refundPostopCost: 40000,
@@ -120,7 +121,7 @@ describe('TokenPaymaster', function () {
       tokenPaymasterConfig,
       oracleHelperConfig,
       uniswapHelperConfig,
-      owner
+      paymasterOwner
     )
     paymasterAddress = paymaster.address
 
@@ -130,6 +131,25 @@ describe('TokenPaymaster', function () {
     await paymaster.addStake(1, { value: parseEther('2') })
 
     callData = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
+  })
+
+  it('Only owner should withdraw eth from paymaster to destination', async function () {
+    const recipient = accountOwner.address
+    const amount = 2e18.toString()
+    const balanceBefore = await ethers.provider.getBalance(paymasterAddress)
+    await fund(paymasterAddress, '2')
+    const balanceAfter = await ethers.provider.getBalance(paymasterAddress)
+    assert.equal(balanceBefore.add(BigNumber.from(amount)).toString(), balanceAfter.toString())
+
+    const impersonatedSigner = await ethers.getImpersonatedSigner('0x1234567890123456789012345678901234567890')
+    const paymasterDifferentSigner = TokenPaymaster__factory.connect(paymasterAddress, impersonatedSigner)
+
+    await expect(paymasterDifferentSigner.withdrawEth(paymasterOwner, amount)).to.be.revertedWith('OwnableUnauthorizedAccount')
+
+    const recipientBalanceBefore = await ethers.provider.getBalance(recipient)
+    await paymaster.withdrawEth(recipient, balanceAfter)
+    const recipientBalanceAfter = await ethers.provider.getBalance(recipient)
+    assert.equal(recipientBalanceBefore.add(BigNumber.from(amount)).toString(), recipientBalanceAfter.toString())
   })
 
   it('paymaster should reject if account does not have enough tokens or allowance', async () => {
