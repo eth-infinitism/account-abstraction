@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 import "../interfaces/IEntryPoint.sol";
 import "../core/BasePaymaster.sol";
-import "../core/UserOperationLib.sol";
+import "../core/Helpers.sol";
 import "./utils/UniswapHelper.sol";
 import "./utils/OracleHelper.sol";
 

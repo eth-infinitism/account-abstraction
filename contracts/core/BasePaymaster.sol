@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
-import "./Helpers.sol";
 import "./UserOperationLib.sol";
 /**
  * Helper class for creating a paymaster.
