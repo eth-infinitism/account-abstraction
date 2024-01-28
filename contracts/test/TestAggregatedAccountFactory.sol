@@ -26,7 +26,7 @@ contract TestAggregatedAccountFactory {
      */
     function createAccount(address owner,uint256 salt) public returns (TestAggregatedAccount ret) {
         address addr = getAddress(owner, salt);
-        uint codeSize = addr.code.length;
+        uint256 codeSize = addr.code.length;
         if (codeSize > 0) {
             return TestAggregatedAccount(payable(addr));
         }

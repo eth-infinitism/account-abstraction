@@ -105,7 +105,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     /**
      * A custom revert error of handleOps, to report a revert by account or paymaster.
      * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
-     * @param reason  - Revert reason. see FailedOp(uint,string), above
+     * @param reason  - Revert reason. see FailedOp(uint256,string), above
      * @param inner   - data from inner cought revert reason
      * @dev note that inner is truncated to 2048 bytes
      */
