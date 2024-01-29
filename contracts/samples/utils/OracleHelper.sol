@@ -161,7 +161,6 @@ abstract contract OracleHelper {
     function fetchPrice(IOracle _oracle) internal view returns (uint256 price) {
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = _oracle.latestRoundData();
         require(answer > 0, "TPM: Chainlink price <= 0");
-        // 2 days old price is considered stale since the price is updated every 24 hours
         require(updatedAt >= block.timestamp - oracleHelperConfig.maxOracleRoundAge, "TPM: Incomplete round");
         require(answeredInRound >= roundId, "TPM: Stale price");
         price = uint256(answer);
