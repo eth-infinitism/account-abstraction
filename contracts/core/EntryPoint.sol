@@ -682,11 +682,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
             // Calculating a penalty for unused execution gas
             {
-                uint256 executionGasLimit = mUserOp.callGasLimit;
-                // Note that 'verificationGasLimit' here is the limit given to the 'postOp' which is part of execution
-                if (context.length > 0){
-                    executionGasLimit += mUserOp.paymasterPostOpGasLimit;
-                }
+                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
                 if (executionGasLimit > executionGasUsed) {
