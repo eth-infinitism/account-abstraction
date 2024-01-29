@@ -76,7 +76,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         );
 
         AggregatorStakeInfo memory aggregatorInfo = NOT_AGGREGATED;
-        if (uint160(aggregator) > SIG_VALIDATION_FAILED) {
+        if (uint160(aggregator) != SIG_VALIDATION_SUCCESS && uint160(aggregator) != SIG_VALIDATION_FAILED) {
             aggregatorInfo = AggregatorStakeInfo(
                 aggregator,
                 _getStakeInfo(aggregator)

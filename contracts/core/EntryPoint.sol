@@ -43,12 +43,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     uint256 private constant PENALTY_PERCENT = 10;
 
-    /**
-     * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
-     * must return this value in case of signature failure, instead of revert.
-     */
-    uint256 public constant SIG_VALIDATION_FAILED = 1;
-
     /// @inheritdoc OpenZeppelin.IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
@@ -688,11 +682,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
             // Calculating a penalty for unused execution gas
             {
-                uint256 executionGasLimit = mUserOp.callGasLimit;
-                // Note that 'verificationGasLimit' here is the limit given to the 'postOp' which is part of execution
-                if (context.length > 0){
-                    executionGasLimit += mUserOp.paymasterPostOpGasLimit;
-                }
+                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
                 if (executionGasLimit > executionGasUsed) {
