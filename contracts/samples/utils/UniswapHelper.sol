@@ -33,21 +33,16 @@ abstract contract UniswapHelper {
 
     UniswapHelperConfig private uniswapHelperConfig;
 
-    /// @notice The "10^(token.decimals)" value used for the price calculation
-    uint256 private immutable tokenDecimalPower;
-
     constructor(
         IERC20 _token,
         IERC20 _wrappedNative,
         ISwapRouter _uniswap,
-        uint256 _tokenDecimalPower,
         UniswapHelperConfig memory _uniswapHelperConfig
     ){
         _token.approve(address(_uniswap), type(uint256).max);
         token = _token;
         wrappedNative = _wrappedNative;
         uniswap = _uniswap;
-        tokenDecimalPower = _tokenDecimalPower;
         _setUniswapHelperConfiguration(_uniswapHelperConfig);
     }
 

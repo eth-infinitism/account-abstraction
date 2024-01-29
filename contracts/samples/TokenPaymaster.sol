@@ -79,7 +79,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     _token,
     _wrappedNative,
     _uniswap,
-    10 ** _token.decimals(),
     _uniswapHelperConfig
     )
     {

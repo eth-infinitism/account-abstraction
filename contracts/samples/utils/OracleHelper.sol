@@ -77,7 +77,7 @@ abstract contract OracleHelper {
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.
-    function updateCachedPrice(bool force) public returns (uint256 newPrice) {
+    function updateCachedPrice(bool force) public returns (uint256) {
         uint256 cacheTimeToLive = oracleHelperConfig.cacheTimeToLive;
         uint256 cacheAge = block.timestamp - cachedPriceTimestamp;
         if (!force && cacheAge <= cacheTimeToLive) {
@@ -94,13 +94,13 @@ abstract contract OracleHelper {
         if (!oracleHelperConfig.tokenToNativeOracle) {
             nativeAssetPrice = fetchPrice(nativeOracle);
         }
-        uint256 price = calculatePrice(
+        uint256 newPrice = calculatePrice(
             tokenPrice,
             nativeAssetPrice,
             oracleHelperConfig.tokenOracleReverse,
             oracleHelperConfig.nativeOracleReverse
         );
-        uint256 priceNewByOld = price * PRICE_DENOMINATOR / _cachedPrice;
+        uint256 priceNewByOld = newPrice * PRICE_DENOMINATOR / _cachedPrice;
 
         bool updateRequired = force ||
             priceNewByOld > PRICE_DENOMINATOR + priceUpdateThreshold ||
@@ -108,12 +108,10 @@ abstract contract OracleHelper {
         if (!updateRequired) {
             return _cachedPrice;
         }
-        uint256 previousPrice = _cachedPrice;
-        _cachedPrice = price;
-        cachedPrice = _cachedPrice;
+        cachedPrice = newPrice;
         cachedPriceTimestamp = uint48(block.timestamp);
-        emit TokenPriceUpdated(_cachedPrice, previousPrice, cachedPriceTimestamp);
-        return _cachedPrice;
+        emit TokenPriceUpdated(newPrice, _cachedPrice, cachedPriceTimestamp);
+        return newPrice;
     }
 
     /**
