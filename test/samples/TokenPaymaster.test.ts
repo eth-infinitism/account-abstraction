@@ -100,7 +100,7 @@ describe('TokenPaymaster', function () {
       cacheTimeToLive: 0,
       nativeOracle: nativeAssetOracle.address,
       nativeOracleReverse: false,
-      priceUpdateThreshold: 200_000, // +20%
+      priceUpdateThreshold: 200, // +20%
       tokenOracle: tokenOracle.address,
       tokenOracleReverse: false,
       tokenToNativeOracle: false

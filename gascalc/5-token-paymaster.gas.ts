@@ -60,7 +60,7 @@ context('Token Paymaster', function () {
       cacheTimeToLive: 100000000,
       nativeOracle: nativeAssetOracleAddress,
       nativeOracleReverse: false,
-      priceUpdateThreshold: 200_000, // +20%
+      priceUpdateThreshold: 200, // +20%
       tokenOracle: tokenOracleAddress,
       tokenOracleReverse: false,
       tokenToNativeOracle: false
