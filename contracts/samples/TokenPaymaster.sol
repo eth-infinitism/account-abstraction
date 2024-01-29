@@ -184,7 +184,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 );
             }
 
-            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, _cachedPrice);
+            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPriceWithMarkup);
             refillEntryPointDeposit(_cachedPrice);
         }
     }
