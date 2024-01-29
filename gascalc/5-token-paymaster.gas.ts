@@ -58,6 +58,7 @@ context('Token Paymaster', function () {
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
       cacheTimeToLive: 100000000,
+      maxOracleRoundAge: 0,
       nativeOracle: nativeAssetOracleAddress,
       nativeOracleReverse: false,
       priceUpdateThreshold: 200_000, // +20%

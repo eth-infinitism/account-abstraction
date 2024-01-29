@@ -85,6 +85,7 @@ describe('OracleHelper', function () {
       nativeOracle: testEnv.nativeAssetOracle.address,
       tokenOracle: testEnv.tokenOracle.address,
       cacheTimeToLive: 0,
+      maxOracleRoundAge: 0,
       priceUpdateThreshold: 0
     }
   }
