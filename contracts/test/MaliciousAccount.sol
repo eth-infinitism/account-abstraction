@@ -3,6 +3,7 @@ pragma solidity ^0.8.12;
 import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
 import "../core/UserOperationLib.sol";
+import "../core/Helpers.sol";
 
 contract MaliciousAccount is IAccount {
     IEntryPoint private ep;
@@ -21,6 +22,6 @@ contract MaliciousAccount is IAccount {
         uint256 gasPrice = missingAccountFunds / requiredGas;
         uint256 basefee = gasPrice - userOp.maxPriorityFeePerGas;
         require (basefee == externalBaseFee, "Revert after first validation");
-        return 0;
+        return SIG_VALIDATION_SUCCESS;
     }
 }
