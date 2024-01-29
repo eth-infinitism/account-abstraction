@@ -5,7 +5,14 @@ import {
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
-import { AddressZero, callDataCost, packAccountGasLimits, packPaymasterData, rethrow } from './testutils'
+import {
+  AddressZero,
+  callDataCost,
+  decodeRevertReason,
+  packAccountGasLimits,
+  packPaymasterData,
+  rethrow
+} from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
   EntryPoint, EntryPointSimulations__factory
@@ -294,10 +301,9 @@ export async function simulateHandleOp (
     // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
     return res[0]
   } catch (error: any) {
-    const revertData = error?.data
-    if (revertData != null) {
-      // note: this line throws the revert reason instead of returning it
-      entryPointSimulations.decodeFunctionResult('simulateHandleOp', revertData)
+    const err = decodeRevertReason(error)
+    if (err != null) {
+      throw new Error(err)
     }
     throw error
   }
