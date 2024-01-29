@@ -39,8 +39,8 @@ abstract contract OracleHelper {
         /// @notice 'false' if price is dollars-per-ether, 'true' if price is ether-per-dollar
         bool nativeOracleReverse;
 
-        /// @notice The price update threshold percentage from PRICE_DENOMINATOR that triggers a price update (1000 = 100%)
-        uint48 priceUpdateThreshold;
+        /// @notice The price update threshold percentage from PRICE_DENOMINATOR that triggers a price update (1e26 = 100%)
+        uint256 priceUpdateThreshold;
 
     }
 
@@ -71,7 +71,7 @@ abstract contract OracleHelper {
         OracleHelperConfig memory _oracleHelperConfig
     ) private {
         oracleHelperConfig = _oracleHelperConfig;
-        require(_oracleHelperConfig.priceUpdateThreshold <= 1000, "TPM: update threshold too high");
+        require(_oracleHelperConfig.priceUpdateThreshold <= PRICE_DENOMINATOR, "TPM: update threshold too high");
         tokenOracleDecimalPower = uint128(10 ** oracleHelperConfig.tokenOracle.decimals());
         nativeOracleDecimalPower = uint128(10 ** oracleHelperConfig.nativeOracle.decimals());
     }
@@ -100,9 +100,10 @@ abstract contract OracleHelper {
             oracleHelperConfig.tokenOracleReverse,
             oracleHelperConfig.nativeOracleReverse
         );
+        uint256 priceRatio = PRICE_DENOMINATOR * price / _cachedPrice;
         bool updateRequired = force ||
-            price > (_cachedPrice * (1000 + priceUpdateThreshold) / 1000) ||
-            price < (_cachedPrice * (1000 - priceUpdateThreshold) / 1000);
+            priceRatio > PRICE_DENOMINATOR + priceUpdateThreshold ||
+            priceRatio < PRICE_DENOMINATOR - priceUpdateThreshold;
         if (!updateRequired) {
             return _cachedPrice;
         }

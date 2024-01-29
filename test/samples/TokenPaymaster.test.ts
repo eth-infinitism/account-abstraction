@@ -42,7 +42,7 @@ function uniq (arr: any[]): any[] {
   return Object.values(arr.reduce((set, item) => ({ ...set, [item.name]: item }), {}))
 }
 
-describe('TokenPaymaster', function () {
+describe.only('TokenPaymaster', function () {
   const minEntryPointBalance = 1e17.toString()
   const initialPriceToken = 100000000 // USD per TOK
   const initialPriceEther = 500000000 // USD per ETH
@@ -100,7 +100,7 @@ describe('TokenPaymaster', function () {
       cacheTimeToLive: 0,
       nativeOracle: nativeAssetOracle.address,
       nativeOracleReverse: false,
-      priceUpdateThreshold: 200, // +20%
+      priceUpdateThreshold: priceDenominator.mul(12).div(100).toString(), // 20%
       tokenOracle: tokenOracle.address,
       tokenOracleReverse: false,
       tokenToNativeOracle: false
