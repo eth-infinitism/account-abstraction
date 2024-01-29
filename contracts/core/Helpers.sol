@@ -3,6 +3,21 @@ pragma solidity ^0.8.12;
 
 /* solhint-disable no-inline-assembly */
 
+
+ /*
+  * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
+  * must return this value in case of signature failure, instead of revert.
+  */
+uint256 constant SIG_VALIDATION_FAILED = 1;
+
+
+/*
+ * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
+ * return this value on success.
+ */
+uint256 constant SIG_VALIDATION_SUCCESS = 0;
+
+
 /**
  * Returned data from validateUserOp.
  * validateUserOp returns a uint256, with is created by `_packedValidationData` and
