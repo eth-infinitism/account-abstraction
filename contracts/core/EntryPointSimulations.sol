@@ -48,8 +48,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     ){
         UserOpInfo memory outOpInfo;
 
-        //initialize senderCreator(). we can't rely on constructor
-        initSenderCreator();
         _simulationOnlyValidations(userOp);
         (
             uint256 validationData,
@@ -140,8 +138,10 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         PackedUserOperation calldata userOp
     )
     internal
-    view
     {
+        //initialize senderCreator(). we can't rely on constructor
+        initSenderCreator();
+
         try
         this._validateSenderAndPaymaster(
             userOp.initCode,

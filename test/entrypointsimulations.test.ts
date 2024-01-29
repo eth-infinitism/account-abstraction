@@ -5,6 +5,8 @@ import {
   EntryPoint, EntryPointSimulations, EntryPointSimulations__factory,
   SimpleAccount,
   SimpleAccountFactory,
+  SimpleAccountFactory__factory,
+  SimpleAccount__factory,
   TestCounter__factory
 } from '../typechain'
 import {
@@ -242,6 +244,43 @@ describe('EntryPointSimulations', function () {
   })
 
   describe('#simulateHandleOp', () => {
+    it('should simulate creation', async () => {
+      const accountOwner1 = createAccountOwner()
+      const factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
+      const initCode = hexConcat([
+        factory.address,
+        factory.interface.encodeFunctionData('createAccount', [accountOwner1.address, 0])
+      ])
+
+      const sender = await factory.getAddress(accountOwner1.address, 0)
+
+      const account = SimpleAccount__factory.connect(sender, ethersSigner)
+
+      await fund(sender)
+      const counter = await new TestCounter__factory(ethersSigner).deploy()
+
+      const count = counter.interface.encodeFunctionData('count')
+      const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, count])
+      // deliberately broken signature. simulate should work with it too.
+      const userOp = await fillSignAndPack({
+        sender,
+        initCode,
+        callData,
+        callGasLimit: 1e5 // fillAndSign can't estimate calls during creation
+      }, accountOwner1, entryPoint)
+      const ret = await simulateHandleOp(userOp,
+        counter.address,
+        counter.interface.encodeFunctionData('counters', [account.address]),
+        entryPoint.address)
+
+      const [countResult] = counter.interface.decodeFunctionResult('counters', ret.targetResult)
+      expect(countResult).to.equal(1)
+      expect(ret.targetSuccess).to.be.true
+
+      // actual counter is zero
+      expect(await counter.counters(account.address)).to.equal(0)
+    })
+
     it('should simulate execution', async () => {
       const accountOwner1 = createAccountOwner()
       const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
