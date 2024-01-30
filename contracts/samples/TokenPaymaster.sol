@@ -26,7 +26,7 @@ import "./utils/OracleHelper.sol";
 contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     struct TokenPaymasterConfig {
-        /// @notice The price markup percentage applied to the token price (1e6 = 100%)
+        /// @notice The price markup percentage applied to the token price (1e26 = 100%). Ranges from 1e26 to 2e26
         uint256 priceMarkup;
 
         /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
@@ -212,5 +212,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     receive() external payable {
         emit Received(msg.sender, msg.value);
+    }
+
+    function withdrawEth(address payable recipient, uint256 amount) external onlyOwner {
+        recipient.call{value: amount}("");
     }
 }
