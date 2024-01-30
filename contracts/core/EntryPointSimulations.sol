@@ -180,7 +180,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         unchecked{
         // silly code, to waste some gas to make sure depositTo is always little more
         // expensive than on-chain call
-            uint x = 1;
+            uint256 x = 1;
             while (x < 5) {
                 x++;
             }

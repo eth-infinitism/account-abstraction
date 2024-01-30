@@ -6,8 +6,8 @@ pragma solidity ^0.8.23;
 library  BLSHelper {
 
     struct XY {
-        uint x;
-        uint y;
+        uint256 x;
+        uint256 y;
     }
     /**
      * sum all the points in the array
@@ -17,11 +17,11 @@ library  BLSHelper {
      * @return ret the sum of all points
      */
     function sum(XY[] memory points, uint256 _pp) internal pure returns (XY memory ret){
-        uint x = points[0].x;
-        uint y = points[0].y;
-        uint z = 1;
+        uint256 x = points[0].x;
+        uint256 y = points[0].y;
+        uint256 z = 1;
 
-        for (uint i = 1; i < points.length; i++) {
+        for (uint256 i = 1; i < points.length; i++) {
             (x, y, z) = jacAdd(x, y, z, points[i].x, points[i].y, 1, _pp);
         }
         (x, y) = toAffine(x, y, z, _pp);
@@ -54,7 +54,7 @@ library  BLSHelper {
             return (_x1, _y1, _z1);
 
         // We follow the equations described in https://pdfs.semanticscholar.org/5c64/29952e08025a9649c2b0ba32518e9a7fb5c2.pdf Section 5
-        uint[4] memory zs;
+        uint256[4] memory zs;
         // z1^2, z1^3, z2^2, z2^3
         zs[0] = mulmod(_z1, _z1, _pp);
         zs[1] = mulmod(_z1, zs[0], _pp);
@@ -72,7 +72,7 @@ library  BLSHelper {
         // In case of zs[0] == zs[2] && zs[1] == zs[3], double function should be used
         require(zs[0] != zs[2] || zs[1] != zs[3], "Use jacDouble function instead");
 
-        uint[4] memory hr;
+        uint256[4] memory hr;
         //h
         hr[0] = addmod(zs[2], _pp - zs[0], _pp);
         //r
@@ -160,9 +160,9 @@ library  BLSHelper {
         uint256 z = mulmod(_z, _z, _pp); //z1^2
 
         // s
-        uint s = mulmod(4, mulmod(_x, y, _pp), _pp);
+        uint256 s = mulmod(4, mulmod(_x, y, _pp), _pp);
         // m
-        uint m = addmod(mulmod(3, x, _pp), mulmod(_aa, mulmod(z, z, _pp), _pp), _pp);
+        uint256 m = addmod(mulmod(3, x, _pp), mulmod(_aa, mulmod(z, z, _pp), _pp), _pp);
 
         // x, y, z at this point will be reassigned and rather represent qx, qy, qz from the paper
         // This allows to reduce the gas cost and stack footprint of the algorithm
@@ -193,9 +193,9 @@ library  BLSHelper {
         uint256 _pp)
     internal pure returns (uint256, uint256)
     {
-        uint x = 0;
-        uint y = 0;
-        uint z = 0;
+        uint256 x = 0;
+        uint256 y = 0;
+        uint256 z = 0;
 
         // Double if x1==x2 else add
         if (_x1 == _x2) {

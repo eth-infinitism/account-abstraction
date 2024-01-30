@@ -45,7 +45,7 @@ contract BLSSignatureAggregator is IAggregator {
      * return the trailing 4 words of input data
      */
     function getTrailingPublicKey(bytes memory data) public pure returns (uint256[4] memory publicKey) {
-        uint len = data.length;
+        uint256 len = data.length;
         require(len > 32 * 4, "data too short for sig");
 
         /* solhint-disable-next-line no-inline-assembly */
@@ -65,7 +65,7 @@ contract BLSSignatureAggregator is IAggregator {
         require(signature.length == 64, "BLS: invalid signature");
         (uint256[2] memory blsSignature) = abi.decode(signature, (uint256[2]));
 
-        uint userOpsLen = userOps.length;
+        uint256 userOpsLen = userOps.length;
         uint256[4][] memory blsPublicKeys = new uint256[4][](userOpsLen);
         uint256[2][] memory messages = new uint256[2][](userOpsLen);
         for (uint256 i = 0; i < userOpsLen; i++) {
@@ -152,7 +152,7 @@ contract BLSSignatureAggregator is IAggregator {
      */
     function aggregateSignatures(PackedUserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
         BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
-        for (uint i = 0; i < points.length; i++) {
+        for (uint256 i = 0; i < points.length; i++) {
             (uint256 x, uint256 y) = abi.decode(userOps[i].signature, (uint256, uint256));
             points[i] = BLSHelper.XY(x, y);
         }

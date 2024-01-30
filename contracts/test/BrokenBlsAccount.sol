@@ -60,10 +60,10 @@ contract BrokenBLSAccountFactory {
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      * Also note that out BLSSignatureAggregator requires that the public-key is the last parameter
      */
-    function createAccount(uint salt, uint256[4] memory aPublicKey) public returns (BrokenBLSAccount) {
+    function createAccount(uint256 salt, uint256[4] memory aPublicKey) public returns (BrokenBLSAccount) {
 
         address addr = getAddress(salt, aPublicKey);
-        uint codeSize = addr.code.length;
+        uint256 codeSize = addr.code.length;
         if (codeSize > 0) {
             return BrokenBLSAccount(payable(addr));
         }
@@ -76,7 +76,7 @@ contract BrokenBLSAccountFactory {
     /**
      * calculate the counterfactual address of this account as it would be returned by createAccount()
      */
-    function getAddress(uint salt, uint256[4] memory aPublicKey) public view returns (address) {
+    function getAddress(uint256 salt, uint256[4] memory aPublicKey) public view returns (address) {
         return Create2.computeAddress(bytes32(salt), keccak256(abi.encodePacked(
                 type(ERC1967Proxy).creationCode,
                 abi.encode(

@@ -37,7 +37,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     //compensate for innerHandleOps' emit message and deposit refund.
     // allow some slack for future gas price changes.
-    uint private constant INNER_GAS_OVERHEAD = 10000;
+    uint256 private constant INNER_GAS_OVERHEAD = 10000;
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
@@ -85,7 +85,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
         {
-            uint saveFreePtr;
+            uint256 saveFreePtr;
             assembly ("memory-safe") {
                 saveFreePtr := mload(0x40)
             }

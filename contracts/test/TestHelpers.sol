@@ -5,7 +5,7 @@ import "../core/Helpers.sol";
 
 contract TestHelpers {
 
-    function parseValidationData(uint validationData) public pure returns (ValidationData memory) {
+    function parseValidationData(uint256 validationData) public pure returns (ValidationData memory) {
         return _parseValidationData(validationData);
     }
 

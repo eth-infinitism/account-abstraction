@@ -20,7 +20,7 @@ contract TestWrappedNativeToken is ERC20 {
         _mint(msg.sender, msg.value);
     }
 
-    function withdraw(uint amount) public {
+    function withdraw(uint256 amount) public {
         _burn(msg.sender, amount);
         // solhint-disable-next-line avoid-low-level-calls
         (bool success,) = msg.sender.call{value:amount}("");

@@ -10,7 +10,7 @@ import "../core/Helpers.sol";
 // COLD_ACCOUNT_ACCESS_COST == 2600, COLD_SLOAD_COST == 2100, WARM_STORAGE_READ_COST == 100
 contract TestWarmColdAccount is IAccount {
     IEntryPoint private ep;
-    uint public state = 1;
+    uint256 public state = 1;
     constructor(IEntryPoint _ep) payable {
         ep = _ep;
     }

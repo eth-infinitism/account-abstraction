@@ -152,7 +152,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
     //      and maxPriorityFee (and basefee)
     //      It is not the same as tx.gasprice, which is what the bundler pays.
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint actualUserOpFeePerGas) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256 actualUserOpFeePerGas) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
