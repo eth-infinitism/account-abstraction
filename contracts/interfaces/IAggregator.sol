@@ -20,7 +20,7 @@ interface IAggregator {
 
     /**
      * Validate signature of a single userOp.
-     * This method is should be called by bundler after EntryPointSimulation.simulateValidation() returns
+     * This method should be called by bundler after EntryPointSimulation.simulateValidation() returns
      * the aggregator this account uses.
      * First it validates the signature over the userOp. Then it returns data to be used when creating the handleOps.
      * @param userOp        - The userOperation received from the user.
