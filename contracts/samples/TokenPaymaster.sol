@@ -126,12 +126,12 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 "TPM: invalid data length"
             );
             uint256 preChargeNative = requiredPreFund + (tokenPaymasterConfig.refundPostopCost * userOp.maxFeePerGas);
-        // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+        // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (paymasterAndDataLength == 32) {
                 uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[PAYMASTER_DATA_OFFSET : PAYMASTER_DATA_OFFSET + 32]));
                 if (clientSuppliedPrice < cachedPriceWithMarkup) {
-                    // note: smaller number means 'more ether per token'
+                    // note: smaller number means 'more native asset per token'
                     cachedPriceWithMarkup = clientSuppliedPrice;
                 }
             }
@@ -161,7 +161,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 address userOpSender
             ) = abi.decode(context, (uint256, address));
             uint256 _cachedPrice = updateCachedPrice(false);
-        // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+        // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
             uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * actualUserOpFeePerGas;

@@ -29,17 +29,17 @@ abstract contract OracleHelper {
         /// @notice The Oracle contract used to fetch the latest token prices
         IOracle tokenOracle;
 
-        /// @notice The Oracle contract used to fetch the latest ETH prices. Only needed if tokenToNativeOracle flag is not set.
+        /// @notice The Oracle contract used to fetch the latest native asset prices. Only needed if tokenToNativeOracle flag is not set.
         IOracle nativeOracle;
 
         /// @notice If 'true' we will fetch price directly from tokenOracle
         /// @notice If 'false' we will use nativeOracle to establish a token price through a shared third currency
         bool tokenToNativeOracle;
 
-        /// @notice 'false' if price is dollars-per-token (or ether-per-token), 'true' if price is tokens-per-dollar
+        /// @notice 'false' if price is bridging-asset-per-token (or native-asset-per-token), 'true' if price is tokens-per-bridging-asset
         bool tokenOracleReverse;
 
-        /// @notice 'false' if price is dollars-per-ether, 'true' if price is ether-per-dollar
+        /// @notice 'false' if price is bridging-asset-per-native-asset, 'true' if price is native-asset-per-bridging-asset
         bool nativeOracleReverse;
 
         /// @notice The price update threshold percentage from PRICE_DENOMINATOR that triggers a price update (1e26 = 100%)
@@ -47,7 +47,7 @@ abstract contract OracleHelper {
 
     }
 
-    /// @notice The cached token price from the Oracle, always in (ether-per-token) * PRICE_DENOMINATOR format
+    /// @notice The cached token price from the Oracle, always in (native-asset-per-token) * PRICE_DENOMINATOR format
     uint256 public cachedPrice;
 
     /// @notice The timestamp of a block when the cached price was updated
@@ -130,7 +130,7 @@ abstract contract OracleHelper {
      * @param nativeAssetPrice - the price of the native asset relative to a bridging asset or 1 if no bridging needed.
      * @param tokenOracleReverse - flag indicating direction of the "tokenPrice".
      * @param nativeOracleReverse - flag indicating direction of the "nativeAssetPrice".
-     * @return the ether-per-token price multiplied by the PRICE_DENOMINATOR constant.
+     * @return the native-asset-per-token price multiplied by the PRICE_DENOMINATOR constant.
      */
     function calculatePrice(
         uint256 tokenPrice,
@@ -138,22 +138,22 @@ abstract contract OracleHelper {
         bool tokenOracleReverse,
         bool nativeOracleReverse
     ) private view returns (uint256){
-        // tokenPrice is normalized as dollars-per-token
+        // tokenPrice is normalized as bridging-asset-per-token
         if (tokenOracleReverse) {
-            // inverting tokenPrice that was tokens-per-dollar (or tokens-per-ether)
+            // inverting tokenPrice that was tokens-per-bridging-asset (or tokens-per-native-asset)
             tokenPrice = PRICE_DENOMINATOR * tokenOracleDecimalPower / tokenPrice;
         } else {
-            // tokenPrice already dollars-per-token (or ethers-per-token)
+            // tokenPrice already bridging-asset-per-token (or native-asset-per-token)
             tokenPrice = PRICE_DENOMINATOR * tokenPrice / tokenOracleDecimalPower;
         }
 
         if (nativeOracleReverse) {
-            // multiplying by nativeAssetPrice that is  ethers-per-dollar
-            // => result = (dollar / token) * (ether / dollar) = ether / token
+            // multiplying by nativeAssetPrice that is native-asset-per-bridging-asset
+            // => result = (bridging-asset / token) * (native-asset / bridging-asset) = native-asset / token
             return nativeAssetPrice * tokenPrice / nativeOracleDecimalPower;
         } else {
-            // dividing by nativeAssetPrice that is dollars-per-ether
-            // => result = (dollar / token) / (dollar / ether) = ether / token
+            // dividing by nativeAssetPrice that is bridging-asset-per-native-asset
+            // => result = (bridging-asset / token) / (bridging-asset / native-asset) = native-asset / token
             return tokenPrice * nativeOracleDecimalPower / nativeAssetPrice;
         }
     }
