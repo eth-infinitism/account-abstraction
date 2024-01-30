@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 // code taken from : https://github.com/witnet/elliptic-curve-solidity/blob/master/contracts/EllipticCurve.sol
 // missing core functions from "thehubbleproject/bls": jacAdd (and sum)
