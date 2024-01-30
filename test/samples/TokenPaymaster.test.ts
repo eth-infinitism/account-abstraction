@@ -99,6 +99,7 @@ describe('TokenPaymaster', function () {
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
       cacheTimeToLive: 0,
+      maxOracleRoundAge: 0,
       nativeOracle: nativeAssetOracle.address,
       nativeOracleReverse: false,
       priceUpdateThreshold: priceDenominator.mul(12).div(100).toString(), // 20%
