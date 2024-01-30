@@ -124,7 +124,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             require(dataLength == 0 || dataLength == 32,
                 "TPM: invalid data length"
             );
-            (uint256 maxFeePerGas,) = UserOperationLib.unpackAccountGasLimits(userOp.gasFees);
+            (,uint256 maxFeePerGas) = UserOperationLib.unpackAccountGasLimits(userOp.gasFees);
             uint256 preChargeNative = requiredPreFund + (tokenPaymasterConfig.refundPostopCost * maxFeePerGas);
         // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
