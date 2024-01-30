@@ -29,7 +29,7 @@ abstract contract OracleHelper {
         /// @notice The Oracle contract used to fetch the latest token prices
         IOracle tokenOracle;
 
-        /// @notice The Oracle contract used to fetch the latest ETH prices
+        /// @notice The Oracle contract used to fetch the latest ETH prices. Only needed if tokenToNativeOracle flag is not set.
         IOracle nativeOracle;
 
         /// @notice If 'true' we will fetch price directly from tokenOracle
@@ -76,7 +76,12 @@ abstract contract OracleHelper {
         oracleHelperConfig = _oracleHelperConfig;
         require(_oracleHelperConfig.priceUpdateThreshold <= PRICE_DENOMINATOR, "TPM: update threshold too high");
         tokenOracleDecimalPower = uint128(10 ** oracleHelperConfig.tokenOracle.decimals());
-        nativeOracleDecimalPower = uint128(10 ** oracleHelperConfig.nativeOracle.decimals());
+        if (oracleHelperConfig.tokenToNativeOracle) {
+            require(address(oracleHelperConfig.nativeOracle) == address(0), "TPM: native oracle must be zero");
+            nativeOracleDecimalPower = 1;
+        } else {
+            nativeOracleDecimalPower = uint128(10 ** oracleHelperConfig.nativeOracle.decimals());
+        }
     }
 
     /// @notice Updates the token price by fetching the latest price from the Oracle.

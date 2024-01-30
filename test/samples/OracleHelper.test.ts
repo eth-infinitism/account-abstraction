@@ -82,7 +82,7 @@ describe('OracleHelper', function () {
       nativeOracleReverse,
       tokenOracleReverse,
       tokenToNativeOracle,
-      nativeOracle: testEnv.nativeAssetOracle.address,
+      nativeOracle: tokenToNativeOracle ? AddressZero : testEnv.nativeAssetOracle.address,
       tokenOracle: testEnv.tokenOracle.address,
       cacheTimeToLive: 0,
       maxOracleRoundAge: 0,
