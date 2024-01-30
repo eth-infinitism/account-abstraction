@@ -39,6 +39,7 @@ interface IEntryPointSimulations is IEntryPoint {
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage
      *      outside the account's data.
      * @param userOp - The user operation to validate.
+     * @return the validation result structure
      */
     function simulateValidation(
         PackedUserOperation calldata userOp
@@ -60,6 +61,7 @@ interface IEntryPointSimulations is IEntryPoint {
      * @param target         - If nonzero, a target address to call after userop simulation. If called,
      *                         the targetSuccess and targetResult are set to the return from that call.
      * @param targetCallData - CallData to pass to target address.
+     * @return the execution result structure
      */
     function simulateHandleOp(
         PackedUserOperation calldata op,

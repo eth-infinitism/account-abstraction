@@ -32,15 +32,7 @@ abstract contract BaseAccount is IAccount {
      */
     function entryPoint() public view virtual returns (IEntryPoint);
 
-    /**
-     * Validate user's signature and nonce.
-     * Subclass doesn't need to override this method. Instead,
-     * it should override the specific internal validation methods.
-     * @param userOp              - The user operation to validate.
-     * @param userOpHash          - The hash of the user operation.
-     * @param missingAccountFunds - The amount of funds missing from the account
-     *                              to pay for the user operation.
-     */
+    /// @inheritdoc IAccount
     function validateUserOp(
         PackedUserOperation calldata userOp,
         bytes32 userOpHash,

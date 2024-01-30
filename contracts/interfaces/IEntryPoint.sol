@@ -158,6 +158,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * Generate a request Id - unique identifier for this request.
      * The request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
      * @param userOp - The user operation to generate the request ID for.
+     * @return hash the hash of this UserOperation
      */
     function getUserOpHash(
         PackedUserOperation calldata userOp
@@ -203,6 +204,8 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @dev calling this method, the EntryPoint will make a delegatecall to the given data, and report (via revert) the result.
      *  The method always revert, so is only useful off-chain for dry run calls, in cases where state-override to replace
      *  actual EntryPoint code is less convenient.
+     * @param target a target contract to make a delegatecall from entrypoint
+     * @param data data to pass to target in a delegatecall
      */
     function delegateAndRevert(address target, bytes calldata data) external;
 }
