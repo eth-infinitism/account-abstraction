@@ -3,8 +3,6 @@ pragma solidity ^0.8.23;
 
 /* solhint-disable not-rely-on-time */
 
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-
 import "./IOracle.sol";
 
 /// @title Helper functions for dealing with various forms of price feed oracles.

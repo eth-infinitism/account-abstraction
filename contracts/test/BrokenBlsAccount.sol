@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import "../samples/SimpleAccount.sol";
 import "../samples/bls/IBLSAccount.sol";
+import "../core/Helpers.sol";
 
 /**
  * for testing: a BLS account that fails to return its public-key (completely ignores its publickey)

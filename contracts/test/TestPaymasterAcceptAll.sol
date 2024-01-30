@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "../core/BasePaymaster.sol";
+import "../core/Helpers.sol";
 
 /**
  * test paymaster, that pays for everything, without any check.

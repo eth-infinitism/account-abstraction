@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import "../SimpleAccount.sol";
 import "./IBLSAccount.sol";
+import "../../core/Helpers.sol";
 
 /**
  * Minimal BLS-based account that uses an aggregated signature.
