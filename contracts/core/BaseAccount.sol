@@ -18,12 +18,6 @@ abstract contract BaseAccount is IAccount {
     using UserOperationLib for PackedUserOperation;
 
     /**
-     * Return value in case of signature failure, with no time-range.
-     * Equivalent to _packValidationData(true,0,0).
-     */
-    uint256 internal constant SIG_VALIDATION_FAILED = 1;
-
-    /**
      * Return the account nonce.
      * This method returns the next sequential nonce.
      * For a nonce of a specific key, use `entrypoint.getNonce(account, key)`
@@ -66,8 +60,8 @@ abstract contract BaseAccount is IAccount {
      * @param userOpHash      - Convenient field: the hash of the request, to check the signature against.
      *                          (also hashes the entrypoint and chain id)
      * @return validationData - Signature and time-range of this operation.
-     *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
-     *                              otherwise, an address of an "authorizer" contract.
+     *                          <20-byte> aggregatorOrSigFail - 0 for valid signature, 1 to mark signature failure,
+     *                                    otherwise, an address of an aggregator contract.
      *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          If the account doesn't use time-range, it is enough to return

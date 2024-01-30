@@ -26,7 +26,7 @@ import "./utils/OracleHelper.sol";
 contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     struct TokenPaymasterConfig {
-        /// @notice The price markup percentage applied to the token price (1e6 = 100%)
+        /// @notice The price markup percentage applied to the token price (1e26 = 100%). Ranges from 1e26 to 2e26
         uint256 priceMarkup;
 
         /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
@@ -113,7 +113,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
     /// @param userOp The user operation data.
-    /// @param requiredPreFund The amount of tokens required for pre-funding.
+    /// @param requiredPreFund The maximum cost (in native token) the paymaster has to prefund.
     /// @return context The context containing the token amount and user sender address (if applicable).
     /// @return validationResult A uint256 value indicating the result of the validation (always 0 in this implementation).
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 requiredPreFund)
@@ -212,5 +212,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     receive() external payable {
         emit Received(msg.sender, msg.value);
+    }
+
+    function withdrawEth(address payable recipient, uint256 amount) external onlyOwner {
+        recipient.call{value: amount}("");
     }
 }

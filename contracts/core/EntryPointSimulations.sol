@@ -48,8 +48,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     ){
         UserOpInfo memory outOpInfo;
 
-        //initialize senderCreator(). we can't rely on constructor
-        initSenderCreator();
         _simulationOnlyValidations(userOp);
         (
             uint256 validationData,
@@ -68,23 +66,17 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             factoryInfo = _getStakeInfo(factory);
         }
 
-        ValidationData memory data = _intersectTimeRange(
-            validationData,
-            paymasterValidationData
-        );
-        address aggregator = data.aggregator;
-        bool sigFailed = aggregator == address(1);
+        address aggregator = address(uint160(validationData));
         ReturnInfo memory returnInfo = ReturnInfo(
             outOpInfo.preOpGas,
             outOpInfo.prefund,
-            sigFailed,
-            data.validAfter,
-            data.validUntil,
+            validationData,
+            paymasterValidationData,
             getMemoryBytesFromOffset(outOpInfo.contextOffset)
         );
 
         AggregatorStakeInfo memory aggregatorInfo = NOT_AGGREGATED;
-        if (aggregator != address(0) && aggregator != address(1)) {
+        if (uint160(aggregator) != SIG_VALIDATION_SUCCESS && uint160(aggregator) != SIG_VALIDATION_FAILED) {
             aggregatorInfo = AggregatorStakeInfo(
                 aggregator,
                 _getStakeInfo(aggregator)
@@ -115,10 +107,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             uint256 validationData,
             uint256 paymasterValidationData
         ) = _validatePrepayment(0, op, opInfo);
-        ValidationData memory data = _intersectTimeRange(
-            validationData,
-            paymasterValidationData
-        );
 
         uint256 paid = _executeUserOp(0, op, opInfo);
         bool targetSuccess;
@@ -129,8 +117,8 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         return ExecutionResult(
             opInfo.preOpGas,
             paid,
-            data.validAfter,
-            data.validUntil,
+            validationData,
+            paymasterValidationData,
             targetSuccess,
             targetResult
         );
@@ -140,8 +128,10 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         PackedUserOperation calldata userOp
     )
     internal
-    view
     {
+        //initialize senderCreator(). we can't rely on constructor
+        initSenderCreator();
+
         try
         this._validateSenderAndPaymaster(
             userOp.initCode,
@@ -188,12 +178,13 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // empiric test showed that without this wrapper, simulation depositTo costs less..
     function depositTo(address account) public override(IStakeManager, StakeManager) payable {
         unchecked{
-            uint g = gasleft();
-            uint x = block.number;
-            while (g - gasleft() < 120) {
-                x = x + block.number;
+        // silly code, to waste some gas to make sure depositTo is always little more
+        // expensive than on-chain call
+            uint x = 1;
+            while (x < 5) {
+                x++;
             }
+            StakeManager.depositTo(account);
         }
-        StakeManager.depositTo(account);
     }
 }

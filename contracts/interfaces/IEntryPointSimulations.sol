@@ -9,8 +9,8 @@ interface IEntryPointSimulations is IEntryPoint {
     struct ExecutionResult {
         uint256 preOpGas;
         uint256 paid;
-        uint48 validAfter;
-        uint48 validUntil;
+        uint256 accountValidationData;
+        uint256 paymasterValidationData;
         bool targetSuccess;
         bytes targetResult;
     }
