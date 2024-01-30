@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 import "../interfaces/IStakeManager.sol";
 
@@ -34,10 +34,7 @@ abstract contract StakeManager is IStakeManager {
         info.unstakeDelaySec = depositInfo.unstakeDelaySec;
     }
 
-    /**
-     * Return the deposit (for gas payment) of the account.
-     * @param account - The account to query.
-     */
+    /// @inheritdoc IStakeManager
     function balanceOf(address account) public view returns (uint256) {
         return deposits[account].deposit;
     }
@@ -50,6 +47,7 @@ abstract contract StakeManager is IStakeManager {
      * Increments an account's deposit.
      * @param account - The account to increment.
      * @param amount  - The amount to increment by.
+     * @return the updated deposit of this account
      */
     function _incrementDeposit(address account, uint256 amount) internal returns (uint256) {
         DepositInfo storage info = deposits[account];

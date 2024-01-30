@@ -8,9 +8,10 @@ import {
   VerifyingPaymaster__factory
 } from '../typechain'
 import {
+  AddressZero,
   createAccount,
   createAccountOwner, createAddress, decodeRevertReason,
-  deployEntryPoint, packPaymasterData
+  deployEntryPoint, packPaymasterData, parseValidationData
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, packUserOp, simulateValidation } from './UserOp'
 import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
@@ -101,7 +102,7 @@ describe('EntryPoint with VerifyingPaymaster', function () {
 
       it('should return signature error (no revert) on wrong signer signature', async () => {
         const ret = await simulateValidation(wrongSigUserOp, entryPoint.address)
-        expect(ret.returnInfo.sigFailed).to.be.true
+        expect(parseValidationData(ret.returnInfo.paymasterValidationData).aggregator).to.match(/0x0*1$/)
       })
 
       it('handleOp revert on signature failure in handleOps', async () => {
@@ -124,9 +125,12 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
       }, accountOwner, entryPoint)
       const res = await simulateValidation(userOp, entryPoint.address)
-      expect(res.returnInfo.sigFailed).to.be.false
-      expect(res.returnInfo.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
-      expect(res.returnInfo.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
+      const validationData = parseValidationData(res.returnInfo.paymasterValidationData)
+      expect(validationData).to.eql({
+        aggregator: AddressZero,
+        validAfter: parseInt(MOCK_VALID_AFTER),
+        validUntil: parseInt(MOCK_VALID_UNTIL)
+      })
     })
   })
 })
