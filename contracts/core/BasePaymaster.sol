@@ -73,8 +73,6 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
      *                        opReverted  - User op reverted. still has to pay for gas.
-     *                        postOpReverted - User op succeeded, but caused postOp (in mode=opSucceeded) to revert.
-     *                                         Now this is the 2nd call, after user's op was deliberately reverted.
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
      *                        and maxPriorityFee (and basefee)
