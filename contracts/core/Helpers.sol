@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable no-inline-assembly */
+
+
+ /*
+  * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
+  * must return this value in case of signature failure, instead of revert.
+  */
+uint256 constant SIG_VALIDATION_FAILED = 1;
+
+
+/*
+ * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
+ * return this value on success.
+ */
+uint256 constant SIG_VALIDATION_SUCCESS = 0;
+
 
 /**
  * Returned data from validateUserOp.
@@ -34,35 +49,6 @@ function _parseValidationData(
         validUntil = type(uint48).max;
     }
     uint48 validAfter = uint48(validationData >> (48 + 160));
-    return ValidationData(aggregator, validAfter, validUntil);
-}
-
-/**
- * Intersect account and paymaster ranges.
- * @param validationData          - The packed validation data of the account.
- * @param paymasterValidationData - The packed validation data of the paymaster.
- */
-function _intersectTimeRange(
-    uint256 validationData,
-    uint256 paymasterValidationData
-) pure returns (ValidationData memory) {
-    ValidationData memory accountValidationData = _parseValidationData(
-        validationData
-    );
-    ValidationData memory pmValidationData = _parseValidationData(
-        paymasterValidationData
-    );
-    address aggregator = accountValidationData.aggregator;
-    if (aggregator == address(0)) {
-        aggregator = pmValidationData.aggregator;
-    }
-    uint48 validAfter = accountValidationData.validAfter;
-    uint48 validUntil = accountValidationData.validUntil;
-    uint48 pmValidAfter = pmValidationData.validAfter;
-    uint48 pmValidUntil = pmValidationData.validUntil;
-
-    if (validAfter < pmValidAfter) validAfter = pmValidAfter;
-    if (validUntil > pmValidUntil) validUntil = pmValidUntil;
     return ValidationData(aggregator, validAfter, validUntil);
 }
 
