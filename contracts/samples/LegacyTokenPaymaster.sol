@@ -85,7 +85,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
             require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
-        return (abi.encode(userOp.sender), 0);
+        return (abi.encode(userOp.sender), SIG_VALIDATION_SUCCESS);
     }
 
     // when constructing an account, validate constructor code and parameters

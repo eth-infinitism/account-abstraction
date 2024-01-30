@@ -9,10 +9,6 @@ contract TestHelpers {
         return _parseValidationData(validationData);
     }
 
-    function intersectTimeRange(uint256 validationData, uint256 paymasterValidationData) public pure returns (ValidationData memory) {
-        return _intersectTimeRange(validationData, paymasterValidationData);
-    }
-
     function packValidationDataStruct(ValidationData memory data) public pure returns (uint256) {
         return _packValidationData(data);
     }

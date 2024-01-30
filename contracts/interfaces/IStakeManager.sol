@@ -37,8 +37,8 @@ interface IStakeManager {
      * @param stake           - Actual amount of ether staked for this entity.
      * @param unstakeDelaySec - Minimum delay to withdraw the stake.
      * @param withdrawTime    - First block timestamp where 'withdrawStake' will be callable, or zero if already locked.
-     * @dev Sizes were chosen so that (deposit,staked, stake) fit into one cell (used during handleOps)
-     *      and the rest fit into a 2nd cell.
+     * @dev Sizes were chosen so that deposit fits into one cell (used during handleOp)
+     *      and the rest fit into a 2nd cell (used during stake/unstake)
      *      - 112 bit allows for 10^15 eth
      *      - 48 bit for full timestamp
      *      - 32 bit allows 150 years for unstake delay

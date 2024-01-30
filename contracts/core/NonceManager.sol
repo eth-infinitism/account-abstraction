@@ -13,6 +13,7 @@ abstract contract NonceManager is INonceManager {
      */
     mapping(address => mapping(uint192 => uint256)) public nonceSequenceNumber;
 
+    /// @inheritdoc INonceManager
     function getNonce(address sender, uint192 key)
     public view override returns (uint256 nonce) {
         return nonceSequenceNumber[sender][key] | (uint256(key) << 64);
@@ -29,6 +30,8 @@ abstract contract NonceManager is INonceManager {
     /**
      * validate nonce uniqueness for this account.
      * called just after validateUserOp()
+     * @return true if the nonce was incremented successfully.
+     *         false if the current nonce doesn't match the given one.
      */
     function _validateAndUpdateNonce(address sender, uint256 nonce) internal returns (bool) {
 

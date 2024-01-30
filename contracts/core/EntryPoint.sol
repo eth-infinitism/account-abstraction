@@ -43,12 +43,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     uint256 private constant PENALTY_PERCENT = 10;
 
-    /**
-     * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
-     * must return this value in case of signature failure, instead of revert.
-     */
-    uint256 public constant SIG_VALIDATION_FAILED = 1;
-
     /// @inheritdoc OpenZeppelin.IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
@@ -87,35 +81,37 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
-        uint256 saveFreePtr;
-        assembly {
-            saveFreePtr := mload(0x40)
-        }
-        bytes calldata callData = userOp.callData;
-        bytes memory innerCall;
-        bytes4 methodSig;
-        assembly {
-            let len := callData.length
-            if gt(len,3) {
-                methodSig := calldataload(callData.offset)
-            }
-        }
-        if (methodSig == IAccountExecute.executeUserOp.selector) {
-            bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
-            innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
-        } else
-        {
-            innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
-        }
         bool success;
-        assembly {
-            success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
-            collected := mload(0)
-            mstore(0x40, saveFreePtr)
+        {
+            uint saveFreePtr;
+            assembly ("memory-safe") {
+                saveFreePtr := mload(0x40)
+            }
+            bytes calldata callData = userOp.callData;
+            bytes memory innerCall;
+            bytes4 methodSig;
+            assembly {
+                let len := callData.length
+                if gt(len, 3) {
+                    methodSig := calldataload(callData.offset)
+                }
+            }
+            if (methodSig == IAccountExecute.executeUserOp.selector) {
+                bytes memory executeUserOp = abi.encodeCall(IAccountExecute.executeUserOp, (userOp, opInfo.userOpHash));
+                innerCall = abi.encodeCall(this.innerHandleOp, (executeUserOp, opInfo, context));
+            } else
+            {
+                innerCall = abi.encodeCall(this.innerHandleOp, (callData, opInfo, context));
+            }
+            assembly ("memory-safe") {
+                success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
+                collected := mload(0)
+                mstore(0x40, saveFreePtr)
+            }
         }
         if (!success) {
             bytes32 innerRevertCode;
-            assembly {
+            assembly ("memory-safe") {
                 let len := returndatasize()
                 if eq(32,len) {
                     returndatacopy(0, 0, 32)
@@ -286,6 +282,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param callData - The callData to execute.
      * @param opInfo   - The UserOpInfo struct.
      * @param context  - The context bytes.
+     * @return actualGasCost - the actual cost in eth this UserOperation paid for gas
      */
     function innerHandleOp(
         bytes memory callData,
@@ -305,7 +302,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 mUserOp.paymasterPostOpGasLimit +
                 INNER_GAS_OVERHEAD
             ) {
-                assembly {
+                assembly ("memory-safe") {
                     mstore(0, INNER_OUT_OF_GAS)
                     revert(0, 32)
                 }
@@ -563,6 +560,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     /**
      * Parse validationData into its components.
      * @param validationData - The packed validation data (sigFailed, validAfter, validUntil).
+     * @return aggregator the aggregator of the validationData
+     * @return outOfTimeRange true if current time is outside the time range of this validationData.
      */
     function _getValidationData(
         uint256 validationData
@@ -686,11 +685,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
             // Calculating a penalty for unused execution gas
             {
-                uint256 executionGasLimit = mUserOp.callGasLimit;
-                // Note that 'verificationGasLimit' here is the limit given to the 'postOp' which is part of execution
-                if (context.length > 0){
-                    executionGasLimit += mUserOp.paymasterPostOpGasLimit;
-                }
+                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
                 if (executionGasLimit > executionGasUsed) {
@@ -757,7 +752,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     function getMemoryBytesFromOffset(
         uint256 offset
     ) internal pure returns (bytes memory data) {
-        assembly {
+        assembly ("memory-safe") {
             data := offset
         }
     }

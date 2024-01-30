@@ -14,7 +14,7 @@ library Exec {
         bytes memory data,
         uint256 txGas
     ) internal returns (bool success) {
-        assembly {
+        assembly ("memory-safe") {
             success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0)
         }
     }
@@ -24,7 +24,7 @@ library Exec {
         bytes memory data,
         uint256 txGas
     ) internal view returns (bool success) {
-        assembly {
+        assembly ("memory-safe") {
             success := staticcall(txGas, to, add(data, 0x20), mload(data), 0, 0)
         }
     }
@@ -34,14 +34,14 @@ library Exec {
         bytes memory data,
         uint256 txGas
     ) internal returns (bool success) {
-        assembly {
+        assembly ("memory-safe") {
             success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)
         }
     }
 
     // get returned data from last call or calldelegate
     function getReturnData(uint256 maxLen) internal pure returns (bytes memory returnData) {
-        assembly {
+        assembly ("memory-safe") {
             let len := returndatasize()
             if gt(len, maxLen) {
                 len := maxLen
@@ -56,7 +56,7 @@ library Exec {
 
     // revert with explicit byte array (probably reverted info from call)
     function revertWithData(bytes memory returnData) internal pure {
-        assembly {
+        assembly ("memory-safe") {
             revert(add(returnData, 32), mload(returnData))
         }
     }
