@@ -61,7 +61,7 @@ context('Token Paymaster', function () {
       maxOracleRoundAge: 0,
       nativeOracle: nativeAssetOracleAddress,
       nativeOracleReverse: false,
-      priceUpdateThreshold: 200_000, // +20%
+      priceUpdateThreshold: priceDenominator.mul(2).div(10), // +20%
       tokenOracle: tokenOracleAddress,
       tokenOracleReverse: false,
       tokenToNativeOracle: false
