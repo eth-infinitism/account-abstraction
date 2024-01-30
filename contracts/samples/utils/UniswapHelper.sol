@@ -79,26 +79,6 @@ abstract contract UniswapHelper {
         return amount * PRICE_DENOMINATOR / price;
     }
 
-    // turn ERC-20 tokens into wrapped ETH at market price
-    function swapToWeth(
-        address tokenIn,
-        address wethOut,
-        uint256 amountOut,
-        uint24 fee
-    ) internal returns (uint256 amountIn) {
-        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams(
-            tokenIn,
-            wethOut, //tokenOut
-            fee,
-            address(uniswap), //recipient - keep WETH at SwapRouter for withdrawal
-            block.timestamp, //deadline
-            amountOut,
-            type(uint256).max,
-            0
-        );
-        amountIn = uniswap.exactOutputSingle(params);
-    }
-
     function unwrapWeth(uint256 amount) internal {
         IPeripheryPayments(address(uniswap)).unwrapWETH9(amount, address(this));
     }

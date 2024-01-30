@@ -201,14 +201,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         }
     }
 
-    function getGasPrice(uint256 maxFeePerGas, uint256 maxPriorityFeePerGas) internal view returns (uint256) {
-        if (maxFeePerGas == maxPriorityFeePerGas) {
-            // legacy mode (for networks that don't support the 'basefee' opcode)
-            return maxFeePerGas;
-        }
-        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
-    }
-
     receive() external payable {
         emit Received(msg.sender, msg.value);
     }
