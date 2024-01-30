@@ -131,7 +131,7 @@ describe('EntryPointSimulations', function () {
       // (zero gas price so that it doesn't fail on prefund)
       const op = await fillSignAndPack({ sender: account1.address, maxFeePerGas: 0 }, accountOwner, entryPoint)
       const { returnInfo } = await simulateValidation(op, entryPoint.address)
-      expect(returnInfo.sigFailed).to.be.true
+      expect(returnInfo.accountValidationData).to.equal(1)
     })
 
     it('should revert if wallet not deployed (and no initCode)', async () => {

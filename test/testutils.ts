@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import {
   arrayify,
-  hexConcat,
+  hexConcat, hexDataSlice,
   hexlify,
   hexZeroPad,
   Interface,
@@ -319,4 +319,35 @@ export function packPaymasterData (paymaster: string, paymasterVerificationGasLi
 
 export function unpackAccountGasLimits (accountGasLimits: string): { validationGasLimit: number, callGasLimit: number } {
   return { validationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
+}
+
+export interface ValidationData {
+  aggregator: string
+  validAfter: number
+  validUntil: number
+}
+
+export const maxUint48 = (2 ** 48) - 1
+export function parseValidationData (validationData: BigNumberish): ValidationData {
+  const data = hexZeroPad(BigNumber.from(validationData).toHexString(), 32)
+
+  // string offsets start from left (msb)
+  const aggregator = hexDataSlice(data, 32 - 20)
+  let validUntil = parseInt(hexDataSlice(data, 32 - 26, 32 - 20))
+  if (validUntil === 0) {
+    validUntil = maxUint48
+  }
+  const validAfter = parseInt(hexDataSlice(data, 0, 6))
+
+  return {
+    aggregator,
+    validAfter,
+    validUntil
+  }
+}
+
+export function packValidationData (validationData: ValidationData): BigNumber {
+  return BigNumber.from(validationData.validAfter).shl(48)
+    .add(validationData.validUntil).shl(160)
+    .add(validationData.aggregator)
 }

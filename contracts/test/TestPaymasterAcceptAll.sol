@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 import "../core/BasePaymaster.sol";
 
@@ -21,6 +21,6 @@ contract TestPaymasterAcceptAll is BasePaymaster {
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         (userOp, userOpHash, maxCost);
-        return ("", 0);
+        return ("", SIG_VALIDATION_SUCCESS);
     }
 }
