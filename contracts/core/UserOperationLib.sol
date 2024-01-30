@@ -89,12 +89,12 @@ library UserOperationLib {
 
     function unpackMaxPriorityFeePerGas(PackedUserOperation calldata userOp)
     internal pure returns (uint256) {
-        return unpackHigh128(userOp.accountGasLimits);
+        return unpackHigh128(userOp.gasFees);
     }
 
     function unpackMaxFeePerGas(PackedUserOperation calldata userOp)
     internal pure returns (uint256) {
-        return unpackLow128(userOp.accountGasLimits);
+        return unpackLow128(userOp.gasFees);
     }
 
     function unpackVerificationGasLimit(PackedUserOperation calldata userOp)
