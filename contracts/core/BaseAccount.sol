@@ -18,12 +18,6 @@ abstract contract BaseAccount is IAccount {
     using UserOperationLib for PackedUserOperation;
 
     /**
-     * Return value in case of signature failure, with no time-range.
-     * Equivalent to _packValidationData(true,0,0).
-     */
-    uint256 internal constant SIG_VALIDATION_FAILED = 1;
-
-    /**
      * Return the account nonce.
      * This method returns the next sequential nonce.
      * For a nonce of a specific key, use `entrypoint.getNonce(account, key)`
