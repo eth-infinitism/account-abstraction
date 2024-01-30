@@ -167,17 +167,15 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * Gas and return values during simulation.
      * @param preOpGas         - The gas used for validation (including preValidationGas)
      * @param prefund          - The required prefund for this operation
-     * @param sigFailed        - ValidateUserOp's (or paymaster's) signature check failed
-     * @param validAfter       - First timestamp this UserOp is valid (merging account and paymaster time-range)
-     * @param validUntil       - Last timestamp this UserOp is valid (merging account and paymaster time-range)
+     * @param accountValidationData   - returned validationData from account.
+     * @param paymasterValidationData - return validationData from paymaster.
      * @param paymasterContext - Returned by validatePaymasterUserOp (to be passed into postOp)
      */
     struct ReturnInfo {
         uint256 preOpGas;
         uint256 prefund;
-        bool sigFailed;
-        uint48 validAfter;
-        uint48 validUntil;
+        uint256 accountValidationData;
+        uint256 paymasterValidationData;
         bytes paymasterContext;
     }
 
