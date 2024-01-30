@@ -13,8 +13,7 @@ interface IPaymaster {
         opSucceeded,
         // User op reverted. Still has to pay for gas.
         opReverted,
-        // User op succeeded, but caused postOp to revert.
-        // Only used internally in the EntryPoint - Paymasters will not be called again.
+        // Only used internally in the EntryPoint (cleanup after postOp reverts). Never calling paymaster with this value
         postOpReverted
     }
 
@@ -48,8 +47,6 @@ interface IPaymaster {
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
      *                        opReverted  - User op reverted. still has to pay for gas.
-     *                        postOpReverted - User op succeeded, but caused postOp (in mode=opSucceeded) to revert.
-     *                                         Now this is the 2nd call, after user's op was deliberately reverted.
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualGasCost - Actual gas used so far (without this postOp call).
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
