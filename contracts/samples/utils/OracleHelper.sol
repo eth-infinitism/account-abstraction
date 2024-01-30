@@ -26,7 +26,7 @@ abstract contract OracleHelper {
         /// @notice The Oracle contract used to fetch the latest token prices
         IOracle tokenOracle;
 
-        /// @notice The Oracle contract used to fetch the latest ETH prices
+        /// @notice The Oracle contract used to fetch the latest native asset prices
         IOracle nativeOracle;
 
         /// @notice If 'true' we will fetch price directly from tokenOracle
