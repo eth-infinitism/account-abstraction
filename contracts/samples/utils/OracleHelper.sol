@@ -110,7 +110,7 @@ abstract contract OracleHelper {
             oracleHelperConfig.tokenOracleReverse,
             oracleHelperConfig.nativeOracleReverse
         );
-        uint256 priceRatio = PRICE_DENOMINATOR * price / _cachedPrice;
+        uint256 priceRatio = PRICE_DENOMINATOR * newPrice / _cachedPrice;
         bool updateRequired = force ||
             priceRatio > PRICE_DENOMINATOR + priceUpdateThreshold ||
             priceRatio < PRICE_DENOMINATOR - priceUpdateThreshold;
