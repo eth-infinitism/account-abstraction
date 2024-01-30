@@ -41,7 +41,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);
 
-    event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
+    event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPriceWithMarkup);
 
     event Received(address indexed sender, uint256 value);
 
@@ -79,7 +79,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     _token,
     _wrappedNative,
     _uniswap,
-    10 ** _token.decimals(),
     _uniswapHelperConfig
     )
     {
@@ -184,7 +183,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 );
             }
 
-            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, _cachedPrice);
+            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPriceWithMarkup);
             refillEntryPointDeposit(_cachedPrice);
         }
     }
@@ -200,14 +199,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
             unwrapWeth(swappedWeth);
             entryPoint.depositTo{value: address(this).balance}(address(this));
         }
-    }
-
-    function getGasPrice(uint256 maxFeePerGas, uint256 maxPriorityFeePerGas) internal view returns (uint256) {
-        if (maxFeePerGas == maxPriorityFeePerGas) {
-            // legacy mode (for networks that don't support the 'basefee' opcode)
-            return maxFeePerGas;
-        }
-        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
     }
 
     receive() external payable {
