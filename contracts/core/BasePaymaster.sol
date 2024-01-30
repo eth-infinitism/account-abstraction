@@ -72,12 +72,12 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      *      it must also implement this method.
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
-     *                        opReverted  - User op reverted. still has to pay for gas.
+     *                        opReverted  - User op reverted. The paymaster still has to pay for gas.
+     *                        postOpReverted - never passed in a call to postOp().
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
      *                        and maxPriorityFee (and basefee)
      *                        It is not the same as tx.gasprice, which is what the bundler pays.
-
      */
     function _postOp(
         PostOpMode mode,

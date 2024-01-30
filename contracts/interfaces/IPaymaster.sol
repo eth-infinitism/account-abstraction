@@ -30,7 +30,7 @@ interface IPaymaster {
      * @return validationData - Signature and time-range of this operation, encoded the same as the return
      *                          value of validateUserOperation.
      *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
-     *                                                    otherwise, an address of an "authorizer" contract.
+     *                                                    other values are invalid for paymaster.
      *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
@@ -46,7 +46,8 @@ interface IPaymaster {
      * Must verify sender is the entryPoint.
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
-     *                        opReverted  - User op reverted. still has to pay for gas.
+     *                        opReverted  - User op reverted. The paymaster still has to pay for gas.
+     *                        postOpReverted - never passed in a call to postOp().
      * @param context       - The context value returned by validatePaymasterUserOp
      * @param actualGasCost - Actual gas used so far (without this postOp call).
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas

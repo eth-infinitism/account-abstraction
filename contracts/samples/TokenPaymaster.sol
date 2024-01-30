@@ -113,7 +113,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
     /// @param userOp The user operation data.
-    /// @param requiredPreFund The amount of tokens required for pre-funding.
+    /// @param requiredPreFund The maximum cost (in native token) the paymaster has to prefund.
     /// @return context The context containing the token amount and user sender address (if applicable).
     /// @return validationResult A uint256 value indicating the result of the validation (always 0 in this implementation).
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 requiredPreFund)
