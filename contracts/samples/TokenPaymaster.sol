@@ -206,6 +206,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     }
 
     function withdrawEth(address payable recipient, uint256 amount) external onlyOwner {
-        recipient.call{value: amount}("");
+        (bool success,) = recipient.call{value: amount}("");
+        require(success, "withdraw failed");
     }
 }

@@ -145,7 +145,11 @@ describe('TokenPaymaster', function () {
     const impersonatedSigner = await ethers.getImpersonatedSigner('0x1234567890123456789012345678901234567890')
     const paymasterDifferentSigner = TokenPaymaster__factory.connect(paymasterAddress, impersonatedSigner)
 
+    // should revert for non owner
     await expect(paymasterDifferentSigner.withdrawEth(paymasterOwner, amount)).to.be.revertedWith('OwnableUnauthorizedAccount')
+
+    // should revert if the transfer fails
+    await expect(paymaster.withdrawEth(recipient, BigNumber.from(amount).mul(2))).to.be.revertedWith('withdraw failed')
 
     const recipientBalanceBefore = await ethers.provider.getBalance(recipient)
     await paymaster.withdrawEth(recipient, balanceAfter)
