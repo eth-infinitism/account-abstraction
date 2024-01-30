@@ -23,6 +23,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  * Only one instance required on each chain.
  */
+
+/// @custom:security-contact https://bounty.ethereum.org
 contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard, OpenZeppelin.ERC165 {
 
     using UserOperationLib for PackedUserOperation;
@@ -35,19 +37,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     //compensate for innerHandleOps' emit message and deposit refund.
     // allow some slack for future gas price changes.
-    uint private constant INNER_GAS_OVERHEAD = 10000;
+    uint256 private constant INNER_GAS_OVERHEAD = 10000;
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     uint256 private constant PENALTY_PERCENT = 10;
-
-    /**
-     * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
-     * must return this value in case of signature failure, instead of revert.
-     */
-    uint256 public constant SIG_VALIDATION_FAILED = 1;
 
     /// @inheritdoc OpenZeppelin.IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
@@ -89,7 +85,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
         {
-            uint saveFreePtr;
+            uint256 saveFreePtr;
             assembly ("memory-safe") {
                 saveFreePtr := mload(0x40)
             }
@@ -288,6 +284,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param callData - The callData to execute.
      * @param opInfo   - The UserOpInfo struct.
      * @param context  - The context bytes.
+     * @return actualGasCost - the actual cost in eth this UserOperation paid for gas
      */
     function innerHandleOp(
         bytes memory callData,
@@ -565,6 +562,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     /**
      * Parse validationData into its components.
      * @param validationData - The packed validation data (sigFailed, validAfter, validUntil).
+     * @return aggregator the aggregator of the validationData
+     * @return outOfTimeRange true if current time is outside the time range of this validationData.
      */
     function _getValidationData(
         uint256 validationData
@@ -688,11 +687,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
             // Calculating a penalty for unused execution gas
             {
-                uint256 executionGasLimit = mUserOp.callGasLimit;
-                // Note that 'verificationGasLimit' here is the limit given to the 'postOp' which is part of execution
-                if (context.length > 0){
-                    executionGasLimit += mUserOp.paymasterPostOpGasLimit;
-                }
+                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
                 if (executionGasLimit > executionGasUsed) {

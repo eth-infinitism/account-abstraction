@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 import "./TestPaymasterAcceptAll.sol";
 /* solhint-disable no-empty-blocks */
@@ -17,7 +17,7 @@ contract TestPaymasterWithPostOp is TestPaymasterAcceptAll {
     internal virtual override view
     returns (bytes memory context, uint256 validationData) {
         // return a context, to force a call for postOp.
-        return ("1", 0);
+        return ("1", SIG_VALIDATION_SUCCESS);
     }
 
     function _postOp(PostOpMode, bytes calldata, uint256, uint256)
