@@ -208,10 +208,9 @@ describe('TokenPaymaster', function () {
     const refundTokens = decodedLogs[2].args.value
     const actualTokenChargeEvents = preChargeTokens.sub(refundTokens)
     const actualTokenCharge = decodedLogs[3].args.actualTokenCharge
-    const actualTokenPrice = decodedLogs[3].args.actualTokenPrice
+    const actualTokenPriceWithMarkup = decodedLogs[3].args.actualTokenPriceWithMarkup
     const actualGasCostPaymaster = decodedLogs[3].args.actualGasCost
     const actualGasCostEntryPoint = decodedLogs[4].args.actualGasCost
-    const expectedTokenPrice = initialPriceToken / initialPriceEther // ether is 5x the token => ether-per-token is 0.2
     const addedPostOpCost = BigNumber.from(op.maxFeePerGas).mul(40000)
 
     // note: as price is in ether-per-token, and we want more tokens, increasing it means dividing it by markup
@@ -224,7 +223,7 @@ describe('TokenPaymaster', function () {
     assert.equal(decodedLogs[4].args.success, true)
     assert.equal(actualTokenChargeEvents.toString(), actualTokenCharge.toString())
     assert.equal(actualTokenChargeEvents.toString(), expectedTokenCharge.toString())
-    assert.equal(actualTokenPrice / (priceDenominator as any), expectedTokenPrice)
+    assert.equal(actualTokenPriceWithMarkup.toString(), expectedTokenPriceWithMarkup.toString())
     assert.closeTo(postOpGasCost.div(tx.effectiveGasPrice).toNumber(), 50000, 20000)
     await ethers.provider.send('evm_revert', [snapshot])
   })
@@ -256,10 +255,11 @@ describe('TokenPaymaster', function () {
 
     const oldExpectedPrice = priceDenominator.mul(initialPriceToken).div(initialPriceEther)
     const newExpectedPrice = oldExpectedPrice.div(2) // ether DOUBLED in price relative to token
+    const oldExpectedPriceWithMarkup = oldExpectedPrice.mul(10).div(15)
+    const newExpectedPriceWithMarkup = oldExpectedPriceWithMarkup.div(2)
 
-    const actualTokenPrice = decodedLogs[4].args.actualTokenPrice
-    assert.equal(actualTokenPrice.toString(), newExpectedPrice.toString())
-
+    const actualTokenPriceWithMarkup = decodedLogs[4].args.actualTokenPriceWithMarkup
+    assert.equal(actualTokenPriceWithMarkup.toString(), newExpectedPriceWithMarkup.toString())
     await expect(tx).to
       .emit(paymaster, 'TokenPriceUpdated')
       .withArgs(newExpectedPrice, oldExpectedPrice, block.timestamp)
