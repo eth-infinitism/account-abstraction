@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable not-rely-on-time */
 
@@ -33,21 +33,16 @@ abstract contract UniswapHelper {
 
     UniswapHelperConfig private uniswapHelperConfig;
 
-    /// @notice The "10^(token.decimals)" value used for the price calculation
-    uint256 private immutable tokenDecimalPower;
-
     constructor(
         IERC20 _token,
         IERC20 _wrappedNative,
         ISwapRouter _uniswap,
-        uint256 _tokenDecimalPower,
         UniswapHelperConfig memory _uniswapHelperConfig
     ){
         _token.approve(address(_uniswap), type(uint256).max);
         token = _token;
         wrappedNative = _wrappedNative;
         uniswap = _uniswap;
-        tokenDecimalPower = _tokenDecimalPower;
         _setUniswapHelperConfiguration(_uniswapHelperConfig);
     }
 
@@ -82,26 +77,6 @@ abstract contract UniswapHelper {
 
     function weiToToken(uint256 amount, uint256 price) public pure returns (uint256) {
         return amount * PRICE_DENOMINATOR / price;
-    }
-
-    // turn ERC-20 tokens into wrapped ETH at market price
-    function swapToWeth(
-        address tokenIn,
-        address wethOut,
-        uint256 amountOut,
-        uint24 fee
-    ) internal returns (uint256 amountIn) {
-        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams(
-            tokenIn,
-            wethOut, //tokenOut
-            fee,
-            address(uniswap), //recipient - keep WETH at SwapRouter for withdrawal
-            block.timestamp, //deadline
-            amountOut,
-            type(uint256).max,
-            0
-        );
-        amountIn = uniswap.exactOutputSingle(params);
     }
 
     function unwrapWeth(uint256 amount) internal {

@@ -23,6 +23,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
  * Only one instance required on each chain.
  */
+
+/// @custom:security-contact https://bounty.ethereum.org
 contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard, OpenZeppelin.ERC165 {
 
     using UserOperationLib for PackedUserOperation;
@@ -35,7 +37,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     //compensate for innerHandleOps' emit message and deposit refund.
     // allow some slack for future gas price changes.
-    uint private constant INNER_GAS_OVERHEAD = 10000;
+    uint256 private constant INNER_GAS_OVERHEAD = 10000;
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
@@ -83,7 +85,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
         {
-            uint saveFreePtr;
+            uint256 saveFreePtr;
             assembly ("memory-safe") {
                 saveFreePtr := mload(0x40)
             }
@@ -282,6 +284,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * @param callData - The callData to execute.
      * @param opInfo   - The UserOpInfo struct.
      * @param context  - The context bytes.
+     * @return actualGasCost - the actual cost in eth this UserOperation paid for gas
      */
     function innerHandleOp(
         bytes memory callData,
@@ -558,6 +561,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     /**
      * Parse validationData into its components.
      * @param validationData - The packed validation data (sigFailed, validAfter, validUntil).
+     * @return aggregator the aggregator of the validationData
+     * @return outOfTimeRange true if current time is outside the time range of this validationData.
      */
     function _getValidationData(
         uint256 validationData

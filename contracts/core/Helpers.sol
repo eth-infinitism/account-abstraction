@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable no-inline-assembly */
 
@@ -20,7 +20,7 @@ uint256 constant SIG_VALIDATION_SUCCESS = 0;
 
 /**
  * Returned data from validateUserOp.
- * validateUserOp returns a uint256, with is created by `_packedValidationData` and
+ * validateUserOp returns a uint256, which is created by `_packedValidationData` and
  * parsed by `_parseValidationData`.
  * @param aggregator  - address(0) - The account validated the signature by itself.
  *                      address(1) - The account failed to validate the signature.

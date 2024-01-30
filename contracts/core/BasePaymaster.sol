@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable reason-string */
 
@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
-import "./Helpers.sol";
 import "./UserOperationLib.sol";
 /**
  * Helper class for creating a paymaster.
@@ -72,14 +71,13 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      *      it must also implement this method.
      * @param mode          - Enum with the following options:
      *                        opSucceeded - User operation succeeded.
-     *                        opReverted  - User op reverted. still has to pay for gas.
-     *                        postOpReverted - User op succeeded, but caused postOp (in mode=opSucceeded) to revert.
-     *                                         Now this is the 2nd call, after user's op was deliberately reverted.
+     *                        opReverted  - User op reverted. The paymaster still has to pay for gas.
+     *                        postOpReverted - never passed in a call to postOp().
      * @param context       - The context value returned by validatePaymasterUserOp
+     * @param actualGasCost - Actual gas used so far (without this postOp call).
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
      *                        and maxPriorityFee (and basefee)
      *                        It is not the same as tx.gasprice, which is what the bundler pays.
-
      */
     function _postOp(
         PostOpMode mode,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -31,12 +31,12 @@ contract BLSAccountFactory {
     function createAccount(uint256 salt, uint256[4] calldata aPublicKey) public returns (BLSAccount) {
 
         // the BLSSignatureAggregator depends on the public-key being the last 4 uint256 of msg.data.
-        uint slot;
+        uint256 slot;
         assembly {slot := aPublicKey}
         require(slot == msg.data.length - 128, "wrong pubkey offset");
 
         address addr = getAddress(salt, aPublicKey);
-        uint codeSize = addr.code.length;
+        uint256 codeSize = addr.code.length;
         if (codeSize > 0) {
             return BLSAccount(payable(addr));
         }
