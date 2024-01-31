@@ -26,7 +26,7 @@ import "./utils/OracleHelper.sol";
 contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     using UserOperationLib for PackedUserOperation;
-    
+
     struct TokenPaymasterConfig {
         /// @notice The price markup percentage applied to the token price (1e26 = 100%). Ranges from 1e26 to 2e26
         uint256 priceMarkup;
@@ -127,7 +127,9 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 "TPM: invalid data length"
             );
             uint256 maxFeePerGas = userOp.unpackMaxFeePerGas();
-            uint256 preChargeNative = requiredPreFund + (tokenPaymasterConfig.refundPostopCost * maxFeePerGas);
+            uint256 refundPostopCost = tokenPaymasterConfig.refundPostopCost;
+            require(refundPostopCost < userOp.unpackPostOpGasLimit(), "TPM: postOpGasLimit too low");
+            uint256 preChargeNative = requiredPreFund + (refundPostopCost * maxFeePerGas);
         // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
             if (dataLength == 32) {

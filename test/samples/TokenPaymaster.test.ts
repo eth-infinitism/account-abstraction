@@ -157,11 +157,32 @@ describe('TokenPaymaster', function () {
     assert.equal(recipientBalanceBefore.add(BigNumber.from(amount)).toString(), recipientBalanceAfter.toString())
   })
 
+  it('paymaster should reject if postOpGaSLimit is too low', async () => {
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    let op = await fillUserOp({
+      sender: account.address,
+      paymaster: paymasterAddress,
+      paymasterVerificationGasLimit: 3e5,
+      paymasterPostOpGasLimit: 4000, // too low
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const opPacked = packUserOp(op)
+    // await expect(
+    expect(await entryPoint.handleOps([opPacked], beneficiaryAddress, { gasLimit: 1e7 })
+      .catch(e => decodeRevertReason(e)))
+      .to.match(/TPM: postOpGasLimit too low/)
+
+    await ethers.provider.send('evm_revert', [snapshot])
+  })
+
   it('paymaster should reject if account does not have enough tokens or allowance', async () => {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
     let op = await fillUserOp({
       sender: account.address,
       paymaster: paymasterAddress,
+      paymasterVerificationGasLimit: 3e5,
+      paymasterPostOpGasLimit: 3e5,
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)

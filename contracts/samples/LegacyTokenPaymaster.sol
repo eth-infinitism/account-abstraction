@@ -21,6 +21,7 @@ import "../core/Helpers.sol";
  *   to whitelist the account and the called method ids.
  */
 contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
+    using UserOperationLib for PackedUserOperation;
 
     //calculated cost of the postOp
     uint256 constant public COST_OF_POST = 15000;
@@ -75,7 +76,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
     internal view override returns (bytes memory context, uint256 validationData) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
-        (,,uint256 postOpGasLimit) = UserOperationLib.unpackPaymasterStaticFields(userOp.paymasterAndData);
+        uint256 postOpGasLimit = userOp.unpackPostOpGasLimit();
         require( postOpGasLimit > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
