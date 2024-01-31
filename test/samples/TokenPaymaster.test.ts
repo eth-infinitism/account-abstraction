@@ -162,6 +162,8 @@ describe('TokenPaymaster', function () {
     let op = await fillUserOp({
       sender: account.address,
       paymaster: paymasterAddress,
+      paymasterVerificationGasLimit: 3e5,
+      paymasterPostOpGasLimit: 4000, // too low
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
