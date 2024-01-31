@@ -91,8 +91,7 @@ contract BLSSignatureAggregator is IAggregator {
                 keccak256(userOp.callData),
                 userOp.accountGasLimits,
                 userOp.preVerificationGas,
-                userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
+                userOp.gasFees,
                 keccak256(userOp.paymasterAndData)
             ));
     }

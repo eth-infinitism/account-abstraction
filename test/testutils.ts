@@ -304,9 +304,9 @@ export async function createAccount (
   }
 }
 
-export function packAccountGasLimits (validationGasLimit: BigNumberish, callGasLimit: BigNumberish): string {
+export function packAccountGasLimits (verificationGasLimit: BigNumberish, callGasLimit: BigNumberish): string {
   return ethers.utils.hexConcat([
-    hexZeroPad(hexlify(validationGasLimit, { hexPad: 'left' }), 16), hexZeroPad(hexlify(callGasLimit, { hexPad: 'left' }), 16)
+    hexZeroPad(hexlify(verificationGasLimit, { hexPad: 'left' }), 16), hexZeroPad(hexlify(callGasLimit, { hexPad: 'left' }), 16)
   ])
 }
 
@@ -317,8 +317,8 @@ export function packPaymasterData (paymaster: string, paymasterVerificationGasLi
   ])
 }
 
-export function unpackAccountGasLimits (accountGasLimits: string): { validationGasLimit: number, callGasLimit: number } {
-  return { validationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
+export function unpackAccountGasLimits (accountGasLimits: string): { verificationGasLimit: number, callGasLimit: number } {
+  return { verificationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
 }
 
 export interface ValidationData {

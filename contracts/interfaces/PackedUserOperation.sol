@@ -10,8 +10,7 @@ pragma solidity >=0.7.5;
  * @param accountGasLimits      - Packed gas limits for validateUserOp and gas limit passed to the callData method call.
  * @param preVerificationGas    - Gas not calculated by the handleOps method, but added to the gas paid.
  *                                Covers batch overhead.
- * @param maxFeePerGas          - Same as EIP-1559 gas parameter.
- * @param maxPriorityFeePerGas  - Same as EIP-1559 gas parameter.
+ * @param gasFees                - packed gas fields maxFeePerGas and maxPriorityFeePerGas - Same as EIP-1559 gas parameter.
  * @param paymasterAndData      - If set, this field holds the paymaster address, verification gas limit, postOp gas limit and paymaster-specific extra data
  *                                The paymaster will pay for the transaction instead of the sender.
  * @param signature             - Sender-verified signature over the entire request, the EntryPoint address and the chain ID.
@@ -23,8 +22,7 @@ struct PackedUserOperation {
     bytes callData;
     bytes32 accountGasLimits;
     uint256 preVerificationGas;
-    uint256 maxFeePerGas;
-    uint256 maxPriorityFeePerGas;
+    bytes32 gasFees;    //maxPriorityFee and maxFeePerGas;
     bytes paymasterAndData;
     bytes signature;
 }
