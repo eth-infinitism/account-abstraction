@@ -636,7 +636,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
             outOpInfo.prefund = requiredPreFund;
             outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
-            outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
+            outOpInfo.preOpGas = preGas - gasleft();
         }
     }
 
@@ -696,7 +696,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 }
             }
 
-            actualGasCost = actualGas * gasPrice;
+            actualGasCost = (actualGas + opInfo.mUserOp.preVerificationGas) * gasPrice;
             if (opInfo.prefund < actualGasCost) {
                 revert FailedOp(opIndex, "AA51 prefund below actualGasCost");
             }
