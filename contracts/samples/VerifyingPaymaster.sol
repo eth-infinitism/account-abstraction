@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable reason-string */
 /* solhint-disable no-inline-assembly */
 
 import "../core/BasePaymaster.sol";
 import "../core/UserOperationLib.sol";
+import "../core/Helpers.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 /**
@@ -52,8 +53,7 @@ contract VerifyingPaymaster is BasePaymaster {
                 userOp.accountGasLimits,
                 uint256(bytes32(userOp.paymasterAndData[PAYMASTER_VALIDATION_GAS_OFFSET : PAYMASTER_DATA_OFFSET])),
                 userOp.preVerificationGas,
-                userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
+                userOp.gasFees,
                 block.chainid,
                 address(this),
                 validUntil,

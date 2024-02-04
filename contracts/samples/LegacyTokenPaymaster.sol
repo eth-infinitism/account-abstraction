@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable reason-string */
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../core/BasePaymaster.sol";
 import "../core/UserOperationLib.sol";
+import "../core/Helpers.sol";
 
 /**
  * A sample paymaster that defines itself as a token to pay for gas.
@@ -20,6 +21,7 @@ import "../core/UserOperationLib.sol";
  *   to whitelist the account and the called method ids.
  */
 contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
+    using UserOperationLib for PackedUserOperation;
 
     //calculated cost of the postOp
     uint256 constant public COST_OF_POST = 15000;
@@ -32,7 +34,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
         _mint(address(this), 1);
 
         //owner is allowed to withdraw tokens from the paymaster's balance
-        _approve(address(this), msg.sender, type(uint).max);
+        _approve(address(this), msg.sender, type(uint256).max);
     }
 
 
@@ -55,7 +57,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
         _approve(address(this), owner(), 0);
         super.transferOwnership(newOwner);
         // new owner is allowed to withdraw tokens from the paymaster's balance
-        _approve(address(this), newOwner, type(uint).max);
+        _approve(address(this), newOwner, type(uint256).max);
     }
 
     //Note: this method assumes a fixed ratio of token-to-eth. subclass should override to supply oracle
@@ -74,7 +76,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
     internal view override returns (bytes memory context, uint256 validationData) {
         uint256 tokenPrefund = getTokenValueOfEth(requiredPreFund);
 
-        (,,uint256 postOpGasLimit) = UserOperationLib.unpackPaymasterStaticFields(userOp.paymasterAndData);
+        uint256 postOpGasLimit = userOp.unpackPostOpGasLimit();
         require( postOpGasLimit > COST_OF_POST, "TokenPaymaster: gas too low for postOp");
 
         if (userOp.initCode.length != 0) {
@@ -85,7 +87,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
             require(balanceOf(userOp.sender) >= tokenPrefund, "TokenPaymaster: no balance");
         }
 
-        return (abi.encode(userOp.sender), 0);
+        return (abi.encode(userOp.sender), SIG_VALIDATION_SUCCESS);
     }
 
     // when constructing an account, validate constructor code and parameters
@@ -102,7 +104,7 @@ contract LegacyTokenPaymaster is BasePaymaster, ERC20 {
      * the user's TX , back to the state it was before the transaction started (before the validatePaymasterUserOp),
      * and the transaction should succeed there.
      */
-    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost, uint actualUserOpFeePerGas) internal override {
+    function _postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost, uint256 actualUserOpFeePerGas) internal override {
         //we don't really care about the mode, we just pay the gas with the user's tokens.
         (mode);
         address sender = abi.decode(context, (address));

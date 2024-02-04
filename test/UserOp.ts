@@ -5,7 +5,14 @@ import {
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
-import { AddressZero, callDataCost, packAccountGasLimits, packPaymasterData, rethrow } from './testutils'
+import {
+  AddressZero,
+  callDataCost,
+  decodeRevertReason,
+  packAccountGasLimits,
+  packPaymasterData,
+  rethrow
+} from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
   EntryPoint, EntryPointSimulations__factory
@@ -20,6 +27,7 @@ import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSi
 
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
+  const gasFees = packAccountGasLimits(userOp.maxPriorityFeePerGas, userOp.maxFeePerGas)
   let paymasterAndData = '0x'
   if (userOp.paymaster.length >= 20 && userOp.paymaster !== AddressZero) {
     paymasterAndData = packPaymasterData(userOp.paymaster as string, userOp.paymasterVerificationGasLimit, userOp.paymasterPostOpGasLimit, userOp.paymasterData as string)
@@ -31,8 +39,7 @@ export function packUserOp (userOp: UserOperation): PackedUserOperation {
     accountGasLimits,
     initCode: userOp.initCode,
     preVerificationGas: userOp.preVerificationGas,
-    maxFeePerGas: userOp.maxFeePerGas,
-    maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+    gasFees,
     paymasterAndData,
     signature: userOp.signature
   }
@@ -42,19 +49,19 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
   if (forSignature) {
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes32', 'bytes32',
-        'bytes32', 'uint256', 'uint256', 'uint256',
+        'bytes32', 'uint256', 'bytes32',
         'bytes32'],
       [packedUserOp.sender, packedUserOp.nonce, keccak256(packedUserOp.initCode), keccak256(packedUserOp.callData),
-        packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
+        packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.gasFees,
         keccak256(packedUserOp.paymasterAndData)])
   } else {
     // for the purpose of calculating gas cost encode also signature (and no keccak of bytes)
     return defaultAbiCoder.encode(
       ['address', 'uint256', 'bytes', 'bytes',
-        'bytes32', 'uint256', 'uint256', 'uint256',
+        'bytes32', 'uint256', 'bytes32',
         'bytes', 'bytes'],
       [packedUserOp.sender, packedUserOp.nonce, packedUserOp.initCode, packedUserOp.callData,
-        packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.maxFeePerGas, packedUserOp.maxPriorityFeePerGas,
+        packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.gasFees,
         packedUserOp.paymasterAndData, packedUserOp.signature])
   }
 }
@@ -294,10 +301,9 @@ export async function simulateHandleOp (
     // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
     return res[0]
   } catch (error: any) {
-    const revertData = error?.data
-    if (revertData != null) {
-      // note: this line throws the revert reason instead of returning it
-      entryPointSimulations.decodeFunctionResult('simulateHandleOp', revertData)
+    const err = decodeRevertReason(error)
+    if (err != null) {
+      throw new Error(err)
     }
     throw error
   }

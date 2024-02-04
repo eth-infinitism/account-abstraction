@@ -232,8 +232,8 @@ export class GasChecker {
           callGasLimit: accountEst,
           verificationGasLimit: 1000000,
           paymaster: paymaster,
-          paymasterVerificationGasLimit: 30000,
-          paymasterPostOpGasLimit: 30000,
+          paymasterVerificationGasLimit: 50000,
+          paymasterPostOpGasLimit: 50000,
           preVerificationGas: 1
         }, accountOwner, GasCheckCollector.inst.entryPoint)
         // const packed = packUserOp(op, false)

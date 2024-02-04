@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-empty-blocks */
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
-import "./Helpers.sol";
 import "./UserOperationLib.sol";
 
 /**
@@ -16,12 +15,6 @@ import "./UserOperationLib.sol";
  */
 abstract contract BaseAccount is IAccount {
     using UserOperationLib for PackedUserOperation;
-
-    /**
-     * Return value in case of signature failure, with no time-range.
-     * Equivalent to _packValidationData(true,0,0).
-     */
-    uint256 internal constant SIG_VALIDATION_FAILED = 1;
 
     /**
      * Return the account nonce.
@@ -38,15 +31,7 @@ abstract contract BaseAccount is IAccount {
      */
     function entryPoint() public view virtual returns (IEntryPoint);
 
-    /**
-     * Validate user's signature and nonce.
-     * Subclass doesn't need to override this method. Instead,
-     * it should override the specific internal validation methods.
-     * @param userOp              - The user operation to validate.
-     * @param userOpHash          - The hash of the user operation.
-     * @param missingAccountFunds - The amount of funds missing from the account
-     *                              to pay for the user operation.
-     */
+    /// @inheritdoc IAccount
     function validateUserOp(
         PackedUserOperation calldata userOp,
         bytes32 userOpHash,
@@ -74,8 +59,8 @@ abstract contract BaseAccount is IAccount {
      * @param userOpHash      - Convenient field: the hash of the request, to check the signature against.
      *                          (also hashes the entrypoint and chain id)
      * @return validationData - Signature and time-range of this operation.
-     *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
-     *                              otherwise, an address of an "authorizer" contract.
+     *                          <20-byte> aggregatorOrSigFail - 0 for valid signature, 1 to mark signature failure,
+     *                                    otherwise, an address of an aggregator contract.
      *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          If the account doesn't use time-range, it is enough to return

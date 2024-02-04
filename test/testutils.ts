@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import {
   arrayify,
-  hexConcat,
+  hexConcat, hexDataSlice,
   hexlify,
   hexZeroPad,
   Interface,
@@ -304,9 +304,9 @@ export async function createAccount (
   }
 }
 
-export function packAccountGasLimits (validationGasLimit: BigNumberish, callGasLimit: BigNumberish): string {
+export function packAccountGasLimits (verificationGasLimit: BigNumberish, callGasLimit: BigNumberish): string {
   return ethers.utils.hexConcat([
-    hexZeroPad(hexlify(validationGasLimit, { hexPad: 'left' }), 16), hexZeroPad(hexlify(callGasLimit, { hexPad: 'left' }), 16)
+    hexZeroPad(hexlify(verificationGasLimit, { hexPad: 'left' }), 16), hexZeroPad(hexlify(callGasLimit, { hexPad: 'left' }), 16)
   ])
 }
 
@@ -317,6 +317,37 @@ export function packPaymasterData (paymaster: string, paymasterVerificationGasLi
   ])
 }
 
-export function unpackAccountGasLimits (accountGasLimits: string): { validationGasLimit: number, callGasLimit: number } {
-  return { validationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
+export function unpackAccountGasLimits (accountGasLimits: string): { verificationGasLimit: number, callGasLimit: number } {
+  return { verificationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
+}
+
+export interface ValidationData {
+  aggregator: string
+  validAfter: number
+  validUntil: number
+}
+
+export const maxUint48 = (2 ** 48) - 1
+export function parseValidationData (validationData: BigNumberish): ValidationData {
+  const data = hexZeroPad(BigNumber.from(validationData).toHexString(), 32)
+
+  // string offsets start from left (msb)
+  const aggregator = hexDataSlice(data, 32 - 20)
+  let validUntil = parseInt(hexDataSlice(data, 32 - 26, 32 - 20))
+  if (validUntil === 0) {
+    validUntil = maxUint48
+  }
+  const validAfter = parseInt(hexDataSlice(data, 0, 6))
+
+  return {
+    aggregator,
+    validAfter,
+    validUntil
+  }
+}
+
+export function packValidationData (validationData: ValidationData): BigNumber {
+  return BigNumber.from(validationData.validAfter).shl(48)
+    .add(validationData.validUntil).shl(160)
+    .add(validationData.aggregator)
 }

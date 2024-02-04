@@ -2,7 +2,7 @@
 
 /* solhint-disable one-contract-per-file */
 /* solhint-disable avoid-low-level-calls */
-pragma solidity ^0.8.15;
+pragma solidity ^0.8.23;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -50,7 +50,7 @@ contract TestExecAccountFactory {
 
     function createAccount(address owner, uint256 salt) public returns (address ret) {
         address addr = getAddress(owner, salt);
-        uint codeSize = addr.code.length;
+        uint256 codeSize = addr.code.length;
         if (codeSize > 0) {
             return addr;
         }

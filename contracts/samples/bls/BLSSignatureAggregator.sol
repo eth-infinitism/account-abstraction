@@ -1,6 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity >=0.8.4 <0.9.0;
-pragma abicoder v2;
+pragma solidity ^0.8.23;
 
 import "../../interfaces/IAggregator.sol";
 import "../../interfaces/IEntryPoint.sol";
@@ -27,6 +26,8 @@ contract BLSSignatureAggregator is IAggregator {
     }
 
     /**
+     * return the public key of this account.
+     * @param userOp the UserOperation that we need the account's public key for.
      * @return publicKey - the public key from a BLS keypair the Aggregator will use to verify this UserOp;
      *         normally public key will be queried from the deployed BLSAccount itself;
      *         the public key will be read from the 'initCode' if the account is not deployed yet;
@@ -44,7 +45,7 @@ contract BLSSignatureAggregator is IAggregator {
      * return the trailing 4 words of input data
      */
     function getTrailingPublicKey(bytes memory data) public pure returns (uint256[4] memory publicKey) {
-        uint len = data.length;
+        uint256 len = data.length;
         require(len > 32 * 4, "data too short for sig");
 
         /* solhint-disable-next-line no-inline-assembly */
@@ -64,7 +65,7 @@ contract BLSSignatureAggregator is IAggregator {
         require(signature.length == 64, "BLS: invalid signature");
         (uint256[2] memory blsSignature) = abi.decode(signature, (uint256[2]));
 
-        uint userOpsLen = userOps.length;
+        uint256 userOpsLen = userOps.length;
         uint256[4][] memory blsPublicKeys = new uint256[4][](userOpsLen);
         uint256[2][] memory messages = new uint256[2][](userOpsLen);
         for (uint256 i = 0; i < userOpsLen; i++) {
@@ -90,8 +91,7 @@ contract BLSSignatureAggregator is IAggregator {
                 keccak256(userOp.callData),
                 userOp.accountGasLimits,
                 userOp.preVerificationGas,
-                userOp.maxFeePerGas,
-                userOp.maxPriorityFeePerGas,
+                userOp.gasFees,
                 keccak256(userOp.paymasterAndData)
             ));
     }
@@ -109,6 +109,7 @@ contract BLSSignatureAggregator is IAggregator {
         bytes32 userOpHash = _getUserOpHash(userOp, publicKeyHash);
         return BLSOpen.hashToPoint(BLS_DOMAIN, abi.encodePacked(userOpHash));
     }
+
 
     function getUserOpHash(PackedUserOperation memory userOp) public view returns (bytes32) {
         bytes32 publicKeyHash = _getPublicKeyHash(getUserOpPublicKey(userOp));
@@ -150,7 +151,7 @@ contract BLSSignatureAggregator is IAggregator {
      */
     function aggregateSignatures(PackedUserOperation[] calldata userOps) external pure returns (bytes memory aggregatedSignature) {
         BLSHelper.XY[] memory points = new BLSHelper.XY[](userOps.length);
-        for (uint i = 0; i < points.length; i++) {
+        for (uint256 i = 0; i < points.length; i++) {
             (uint256 x, uint256 y) = abi.decode(userOps[i].signature, (uint256, uint256));
             points[i] = BLSHelper.XY(x, y);
         }
@@ -162,8 +163,9 @@ contract BLSSignatureAggregator is IAggregator {
      * allow staking for this aggregator
      * there is no limit on stake or delay, but it is not a problem, since it is a permissionless
      * signature aggregator, which doesn't support unstaking.
+     * @param unstakeDelaySec - the required unstaked delay
      */
-    function addStake(uint32 delay) external payable {
-        IEntryPoint(entryPoint).addStake{value : msg.value}(delay);
+    function addStake(uint32 unstakeDelaySec) external payable {
+        IEntryPoint(entryPoint).addStake{value : msg.value}(unstakeDelaySec);
     }
 }

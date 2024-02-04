@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.23;
 
 // Import the required libraries and contracts
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 import "../interfaces/IEntryPoint.sol";
 import "../core/BasePaymaster.sol";
-import "../core/UserOperationLib.sol";
+import "../core/Helpers.sol";
 import "./utils/UniswapHelper.sol";
 import "./utils/OracleHelper.sol";
 
@@ -25,8 +25,10 @@ import "./utils/OracleHelper.sol";
 /// @dev Inherits from BasePaymaster.
 contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
+    using UserOperationLib for PackedUserOperation;
+
     struct TokenPaymasterConfig {
-        /// @notice The price markup percentage applied to the token price (1e6 = 100%)
+        /// @notice The price markup percentage applied to the token price (1e26 = 100%). Ranges from 1e26 to 2e26
         uint256 priceMarkup;
 
         /// @notice Exchange tokens to native currency if the EntryPoint balance of this Paymaster falls below this value
@@ -41,7 +43,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     event ConfigUpdated(TokenPaymasterConfig tokenPaymasterConfig);
 
-    event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
+    event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPriceWithMarkup);
 
     event Received(address indexed sender, uint256 value);
 
@@ -79,7 +81,6 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     _token,
     _wrappedNative,
     _uniswap,
-    10 ** _token.decimals(),
     _uniswapHelperConfig
     )
     {
@@ -113,7 +114,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
 
     /// @notice Validates a paymaster user operation and calculates the required token amount for the transaction.
     /// @param userOp The user operation data.
-    /// @param requiredPreFund The amount of tokens required for pre-funding.
+    /// @param requiredPreFund The maximum cost (in native token) the paymaster has to prefund.
     /// @return context The context containing the token amount and user sender address (if applicable).
     /// @return validationResult A uint256 value indicating the result of the validation (always 0 in this implementation).
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 requiredPreFund)
@@ -121,17 +122,20 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     override
     returns (bytes memory context, uint256 validationResult) {unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
-            uint256 paymasterAndDataLength = userOp.paymasterAndData.length - PAYMASTER_DATA_OFFSET;
-            require(paymasterAndDataLength == 0 || paymasterAndDataLength == 32,
+            uint256 dataLength = userOp.paymasterAndData.length - PAYMASTER_DATA_OFFSET;
+            require(dataLength == 0 || dataLength == 32,
                 "TPM: invalid data length"
             );
-            uint256 preChargeNative = requiredPreFund + (tokenPaymasterConfig.refundPostopCost * userOp.maxFeePerGas);
-        // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+            uint256 maxFeePerGas = userOp.unpackMaxFeePerGas();
+            uint256 refundPostopCost = tokenPaymasterConfig.refundPostopCost;
+            require(refundPostopCost < userOp.unpackPostOpGasLimit(), "TPM: postOpGasLimit too low");
+            uint256 preChargeNative = requiredPreFund + (refundPostopCost * maxFeePerGas);
+        // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = cachedPrice * PRICE_DENOMINATOR / priceMarkup;
-            if (paymasterAndDataLength == 32) {
+            if (dataLength == 32) {
                 uint256 clientSuppliedPrice = uint256(bytes32(userOp.paymasterAndData[PAYMASTER_DATA_OFFSET : PAYMASTER_DATA_OFFSET + 32]));
                 if (clientSuppliedPrice < cachedPriceWithMarkup) {
-                    // note: smaller number means 'more ether per token'
+                    // note: smaller number means 'more native asset per token'
                     cachedPriceWithMarkup = clientSuppliedPrice;
                 }
             }
@@ -153,7 +157,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
     //      and maxPriorityFee (and basefee)
     //      It is not the same as tx.gasprice, which is what the bundler pays.
-    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint actualUserOpFeePerGas) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256 actualUserOpFeePerGas) internal override {
         unchecked {
             uint256 priceMarkup = tokenPaymasterConfig.priceMarkup;
             (
@@ -161,7 +165,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 address userOpSender
             ) = abi.decode(context, (uint256, address));
             uint256 _cachedPrice = updateCachedPrice(false);
-        // note: as price is in ether-per-token and we want more tokens increasing it means dividing it by markup
+        // note: as price is in native-asset-per-token and we want more tokens increasing it means dividing it by markup
             uint256 cachedPriceWithMarkup = _cachedPrice * PRICE_DENOMINATOR / priceMarkup;
         // Refund tokens based on actual gas cost
             uint256 actualChargeNative = actualGasCost + tokenPaymasterConfig.refundPostopCost * actualUserOpFeePerGas;
@@ -184,7 +188,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
                 );
             }
 
-            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, _cachedPrice);
+            emit UserOperationSponsored(userOpSender, actualTokenNeeded, actualGasCost, cachedPriceWithMarkup);
             refillEntryPointDeposit(_cachedPrice);
         }
     }
@@ -202,15 +206,12 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
         }
     }
 
-    function getGasPrice(uint256 maxFeePerGas, uint256 maxPriorityFeePerGas) internal view returns (uint256) {
-        if (maxFeePerGas == maxPriorityFeePerGas) {
-            // legacy mode (for networks that don't support the 'basefee' opcode)
-            return maxFeePerGas;
-        }
-        return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
-    }
-
     receive() external payable {
         emit Received(msg.sender, msg.value);
+    }
+
+    function withdrawEth(address payable recipient, uint256 amount) external onlyOwner {
+        (bool success,) = recipient.call{value: amount}("");
+        require(success, "withdraw failed");
     }
 }

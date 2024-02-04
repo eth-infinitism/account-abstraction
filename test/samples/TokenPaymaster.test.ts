@@ -67,6 +67,7 @@ describe('TokenPaymaster', function () {
   let factory: SimpleAccountFactory
   let paymasterAddress: string
   let paymaster: TokenPaymaster
+  let paymasterOwner: string
   let callData: string
   let token: TestERC20
   let weth: TestWrappedNativeToken
@@ -88,7 +89,7 @@ describe('TokenPaymaster', function () {
     tokenOracle = await new TestOracle2__factory(ethersSigner).deploy(initialPriceToken, 8)
     await weth.deposit({ value: parseEther('1') })
     await weth.transfer(testUniswap.address, parseEther('1'))
-    const owner = await ethersSigner.getAddress()
+    paymasterOwner = await ethersSigner.getAddress()
     const tokenPaymasterConfig: TokenPaymaster.TokenPaymasterConfigStruct = {
       priceMaxAge: 86400,
       refundPostopCost: 40000,
@@ -98,9 +99,10 @@ describe('TokenPaymaster', function () {
 
     const oracleHelperConfig: OracleHelperNamespace.OracleHelperConfigStruct = {
       cacheTimeToLive: 0,
+      maxOracleRoundAge: 0,
       nativeOracle: nativeAssetOracle.address,
       nativeOracleReverse: false,
-      priceUpdateThreshold: 200_000, // +20%
+      priceUpdateThreshold: priceDenominator.mul(12).div(100).toString(), // 20%
       tokenOracle: tokenOracle.address,
       tokenOracleReverse: false,
       tokenToNativeOracle: false
@@ -120,7 +122,7 @@ describe('TokenPaymaster', function () {
       tokenPaymasterConfig,
       oracleHelperConfig,
       uniswapHelperConfig,
-      owner
+      paymasterOwner
     )
     paymasterAddress = paymaster.address
 
@@ -132,11 +134,55 @@ describe('TokenPaymaster', function () {
     callData = await account.populateTransaction.execute(accountOwner.address, 0, '0x').then(tx => tx.data!)
   })
 
+  it('Only owner should withdraw eth from paymaster to destination', async function () {
+    const recipient = accountOwner.address
+    const amount = 2e18.toString()
+    const balanceBefore = await ethers.provider.getBalance(paymasterAddress)
+    await fund(paymasterAddress, '2')
+    const balanceAfter = await ethers.provider.getBalance(paymasterAddress)
+    assert.equal(balanceBefore.add(BigNumber.from(amount)).toString(), balanceAfter.toString())
+
+    const impersonatedSigner = await ethers.getImpersonatedSigner('0x1234567890123456789012345678901234567890')
+    const paymasterDifferentSigner = TokenPaymaster__factory.connect(paymasterAddress, impersonatedSigner)
+
+    // should revert for non owner
+    await expect(paymasterDifferentSigner.withdrawEth(paymasterOwner, amount)).to.be.revertedWith('OwnableUnauthorizedAccount')
+
+    // should revert if the transfer fails
+    await expect(paymaster.withdrawEth(recipient, BigNumber.from(amount).mul(2))).to.be.revertedWith('withdraw failed')
+
+    const recipientBalanceBefore = await ethers.provider.getBalance(recipient)
+    await paymaster.withdrawEth(recipient, balanceAfter)
+    const recipientBalanceAfter = await ethers.provider.getBalance(recipient)
+    assert.equal(recipientBalanceBefore.add(BigNumber.from(amount)).toString(), recipientBalanceAfter.toString())
+  })
+
+  it('paymaster should reject if postOpGaSLimit is too low', async () => {
+    const snapshot = await ethers.provider.send('evm_snapshot', [])
+    let op = await fillUserOp({
+      sender: account.address,
+      paymaster: paymasterAddress,
+      paymasterVerificationGasLimit: 3e5,
+      paymasterPostOpGasLimit: 4000, // too low
+      callData
+    }, entryPoint)
+    op = signUserOp(op, accountOwner, entryPoint.address, chainId)
+    const opPacked = packUserOp(op)
+    // await expect(
+    expect(await entryPoint.handleOps([opPacked], beneficiaryAddress, { gasLimit: 1e7 })
+      .catch(e => decodeRevertReason(e)))
+      .to.match(/TPM: postOpGasLimit too low/)
+
+    await ethers.provider.send('evm_revert', [snapshot])
+  })
+
   it('paymaster should reject if account does not have enough tokens or allowance', async () => {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
     let op = await fillUserOp({
       sender: account.address,
       paymaster: paymasterAddress,
+      paymasterVerificationGasLimit: 3e5,
+      paymasterPostOpGasLimit: 3e5,
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
@@ -187,10 +233,9 @@ describe('TokenPaymaster', function () {
     const refundTokens = decodedLogs[2].args.value
     const actualTokenChargeEvents = preChargeTokens.sub(refundTokens)
     const actualTokenCharge = decodedLogs[3].args.actualTokenCharge
-    const actualTokenPrice = decodedLogs[3].args.actualTokenPrice
+    const actualTokenPriceWithMarkup = decodedLogs[3].args.actualTokenPriceWithMarkup
     const actualGasCostPaymaster = decodedLogs[3].args.actualGasCost
     const actualGasCostEntryPoint = decodedLogs[4].args.actualGasCost
-    const expectedTokenPrice = initialPriceToken / initialPriceEther // ether is 5x the token => ether-per-token is 0.2
     const addedPostOpCost = BigNumber.from(op.maxFeePerGas).mul(40000)
 
     // note: as price is in ether-per-token, and we want more tokens, increasing it means dividing it by markup
@@ -203,7 +248,7 @@ describe('TokenPaymaster', function () {
     assert.equal(decodedLogs[4].args.success, true)
     assert.equal(actualTokenChargeEvents.toString(), actualTokenCharge.toString())
     assert.equal(actualTokenChargeEvents.toString(), expectedTokenCharge.toString())
-    assert.equal(actualTokenPrice / (priceDenominator as any), expectedTokenPrice)
+    assert.equal(actualTokenPriceWithMarkup.toString(), expectedTokenPriceWithMarkup.toString())
     assert.closeTo(postOpGasCost.div(tx.effectiveGasPrice).toNumber(), 50000, 20000)
     await ethers.provider.send('evm_revert', [snapshot])
   })
@@ -235,10 +280,11 @@ describe('TokenPaymaster', function () {
 
     const oldExpectedPrice = priceDenominator.mul(initialPriceToken).div(initialPriceEther)
     const newExpectedPrice = oldExpectedPrice.div(2) // ether DOUBLED in price relative to token
+    const oldExpectedPriceWithMarkup = oldExpectedPrice.mul(10).div(15)
+    const newExpectedPriceWithMarkup = oldExpectedPriceWithMarkup.div(2)
 
-    const actualTokenPrice = decodedLogs[4].args.actualTokenPrice
-    assert.equal(actualTokenPrice.toString(), newExpectedPrice.toString())
-
+    const actualTokenPriceWithMarkup = decodedLogs[4].args.actualTokenPriceWithMarkup
+    assert.equal(actualTokenPriceWithMarkup.toString(), newExpectedPriceWithMarkup.toString())
     await expect(tx).to
       .emit(paymaster, 'TokenPriceUpdated')
       .withArgs(newExpectedPrice, oldExpectedPrice, block.timestamp)
