@@ -45,7 +45,7 @@ import {
   HashZero,
   createAccount,
   getAggregatedAccountInitCode,
-  decodeRevertReason, parseValidationData
+  decodeRevertReason, parseValidationData, findMin, objdump
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
@@ -458,6 +458,46 @@ describe('EntryPoint', function () {
         }, wrongOwner, entryPoint)
         const beneficiaryAddress = createAddress()
         await expect(entryPoint.estimateGas.handleOps([op], beneficiaryAddress)).to.revertedWith('AA24 signature error')
+      })
+
+      it('should pay prefund and revert account if prefund is not enough', async function () {
+        const beneficiary = createAddress()
+
+        await entryPoint.depositTo(account.address, { value: parseEther('1') })
+        const snapshot = await ethers.provider.send('evm_snapshot', [])
+
+        async function createTestUserOp (params: Partial<UserOperation>): Promise<UserOperation> {
+          return fillAndSign({
+            sender: account.address,
+            callData: '0xdeaddead' + 'f'.repeat(0),
+            callGasLimit: 1000,
+            maxFeePerGas: 1,
+            maxPriorityFeePerGas: 1,
+            ...params
+          }, accountOwner, entryPoint)
+        }
+        async function testGas (params: Partial<UserOperation>): Promise<boolean> {
+          try {
+            await ethers.provider.send('evm_revert', [snapshot])
+            const rcpt = await entryPoint.handleOps([packUserOp(await createTestUserOp(params))], beneficiary).then(async r => r.wait())
+            if (rcpt?.events?.find(e => e.event === 'UserOperationDidntPay') != null) {
+              console.log('min', params, 'UserOperationDidntPay')
+              return false
+            }
+
+            console.log('min', params, 'ok')
+            return true
+          } catch (e) {
+            console.log('min', params, 'ex=', decodeRevertReason(e as Error))
+            return false
+          } finally {
+            await ethers.provider.send('evm_revert', [snapshot])
+          }
+        }
+        const minGas = await findMin(async gas => testGas({ verificationGasLimit: gas }), 0, 100000, 2)
+
+        const rcpt = await entryPoint.handleOps([packUserOp(await createTestUserOp({ verificationGasLimit: minGas - 1 }))], beneficiary).then(async r => r.wait())
+        expcet(rcpt.events.find(e => e.event === 'UserOperationEvent')).eql(1)
       })
 
       it('account should pay for tx', async function () {
