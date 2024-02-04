@@ -41,7 +41,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
-    bytes32 private constant INNER_REVERT_NO_PREFUND = hex"deadaa51";
+    bytes32 private constant INNER_REVERT_LOW_PREFUND = hex"deadaa51";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     uint256 private constant PENALTY_PERCENT = 10;
@@ -121,23 +121,19 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     innerRevertCode := mload(0)
                 }
             }
-            IPaymaster.PostOpMode postExecutionMode;
             // handleOps was called with gas limit too low. abort entire bundle.
             if (innerRevertCode == INNER_OUT_OF_GAS) {
                 //can only be caused by bundler (leaving not enough gas for inner call)
                 revert FailedOp(opIndex, "AA95 out of gas");
-            } else if (innerRevertCode == INNER_REVERT_NO_PREFUND) {
-                // inner call reverted on "prefund not enough".
-                postExecutionMode = IPaymaster.PostOpMode.didntPayPrefund;
-                emit UserOperationDidntPay(
+            } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
+                emit UserOperationPrefundTooLow(
                     opInfo.userOpHash,
                     opInfo.mUserOp.sender,
                     opInfo.mUserOp.nonce
                 );
                 uint256 actualGas1 = preGas - gasleft() + opInfo.preOpGas;
                 emit UserOperationEvent(
-
-                    opInfo.userOpHash ,
+                    opInfo.userOpHash,
                     opInfo.mUserOp.sender,
                     opInfo.mUserOp.paymaster,
                     opInfo.mUserOp.nonce,
@@ -147,7 +143,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 );
                 return opInfo.prefund;
             } else {
-                postExecutionMode = IPaymaster.PostOpMode.postOpReverted;
                 emit PostOpRevertReason(
                     opInfo.userOpHash,
                     opInfo.mUserOp.sender,
@@ -717,7 +712,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             actualGasCost = actualGas * gasPrice;
             if (opInfo.prefund < actualGasCost) {
                 assembly ("memory-safe") {
-                    mstore(0, INNER_REVERT_NO_PREFUND)
+                    mstore(0, INNER_REVERT_LOW_PREFUND)
                     revert(0, 32)
                 }
             }

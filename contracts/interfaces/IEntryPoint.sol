@@ -84,7 +84,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
      * @param sender       - The sender of this request.
      * @param nonce        - The nonce used in the request.
      */
-    event UserOperationDidntPay(
+    event UserOperationPrefundTooLow(
         bytes32 indexed userOpHash,
         address indexed sender,
         uint256 nonce

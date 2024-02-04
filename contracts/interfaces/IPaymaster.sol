@@ -14,9 +14,7 @@ interface IPaymaster {
         // User op reverted. Still has to pay for gas.
         opReverted,
         // Only used internally in the EntryPoint (cleanup after postOp reverts). Never calling paymaster with this value
-        postOpReverted,
-        // internal use: revert on prefund is not enough. inner call reverted, with no refunds
-        didntPayPrefund
+        postOpReverted
     }
 
     /**

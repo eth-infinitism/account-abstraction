@@ -45,7 +45,7 @@ import {
   HashZero,
   createAccount,
   getAggregatedAccountInitCode,
-  decodeRevertReason, parseValidationData, findMin, objdump
+  decodeRevertReason, parseValidationData, findUserOpWithMin
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
@@ -56,6 +56,7 @@ import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
+import { UserOperationEventEvent } from '../typechain/contracts/interfaces/IEntryPoint'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -461,43 +462,42 @@ describe('EntryPoint', function () {
       })
 
       it('should pay prefund and revert account if prefund is not enough', async function () {
+        this.timeout(50000)
         const beneficiary = createAddress()
-
         await entryPoint.depositTo(account.address, { value: parseEther('1') })
-        const snapshot = await ethers.provider.send('evm_snapshot', [])
 
-        async function createTestUserOp (params: Partial<UserOperation>): Promise<UserOperation> {
-          return fillAndSign({
-            sender: account.address,
-            callData: '0xdeaddead' + 'f'.repeat(0),
-            callGasLimit: 1000,
-            maxFeePerGas: 1,
-            maxPriorityFeePerGas: 1,
-            ...params
-          }, accountOwner, entryPoint)
-        }
-        async function testGas (params: Partial<UserOperation>): Promise<boolean> {
-          try {
-            await ethers.provider.send('evm_revert', [snapshot])
-            const rcpt = await entryPoint.handleOps([packUserOp(await createTestUserOp(params))], beneficiary).then(async r => r.wait())
-            if (rcpt?.events?.find(e => e.event === 'UserOperationDidntPay') != null) {
-              console.log('min', params, 'UserOperationDidntPay')
-              return false
-            }
+        const execCount = counter.interface.encodeFunctionData('count')
+        const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, execCount])
+        // find minimum callGasLimit:
+        const callGasLimit = await findUserOpWithMin(async (n: number) => fillAndSign({
+          sender: account.address,
+          callData,
+          callGasLimit: n,
+          maxFeePerGas: 1,
+          maxPriorityFeePerGas: 1,
+          verificationGasLimit: 200000
+        }, accountOwner, entryPoint), true, entryPoint, 5000, 100000, 2)
 
-            console.log('min', params, 'ok')
-            return true
-          } catch (e) {
-            console.log('min', params, 'ex=', decodeRevertReason(e as Error))
-            return false
-          } finally {
-            await ethers.provider.send('evm_revert', [snapshot])
-          }
-        }
-        const minGas = await findMin(async gas => testGas({ verificationGasLimit: gas }), 0, 100000, 2)
+        const createUserOpWithVGL = async (n: number): Promise<UserOperation> => fillAndSign({
+          sender: account.address,
+          callData,
+          callGasLimit: callGasLimit,
+          maxFeePerGas: 1,
+          maxPriorityFeePerGas: 1,
+          verificationGasLimit: n
+        }, accountOwner, entryPoint)
 
-        const rcpt = await entryPoint.handleOps([packUserOp(await createTestUserOp({ verificationGasLimit: minGas - 1 }))], beneficiary).then(async r => r.wait())
-        expcet(rcpt.events.find(e => e.event === 'UserOperationEvent')).eql(1)
+        const minGas = await findUserOpWithMin(createUserOpWithVGL, false, entryPoint, 0, 100000, 2)
+
+        // expect calldata to revert below minGas:
+        const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithVGL(minGas - 1))], beneficiary).then(async r => r.wait())
+        expect(rcpt.events?.map(ev => ev.event)).to.eql([
+          'BeforeExecution',
+          'UserOperationPrefundTooLow',
+          'UserOperationEvent'])
+        expect(await counter.counters(account.address)).to.eql(0, 'should revert account with prefund too low')
+        const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+        expect(userOpEvent).to.eql({ success: false })
       })
 
       it('account should pay for tx', async function () {

@@ -23,6 +23,8 @@ import { BytesLike, Hexable } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
+import { UserOperation } from './UserOperation'
+import { packUserOp } from './UserOp'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -371,5 +373,48 @@ export async function findMin (testFunc: (index: number) => Promise<boolean>, mi
     if (Math.abs(max - min) < delta) {
       return max
     }
+  }
+}
+
+/**
+ * find the lowest value that when creating a userop, still doesn't revert and
+ * doesn't emit UserOperationPrefundTooLow
+ * note: using eth_snapshot/eth_revert, since we actually submit calls to handleOps
+ * @param f function that return a signed userop, with parameter-under-test set to "n"
+ * @param min range minimum. the function is expected to return false
+ * @param max range maximum. the function is expected to be true
+ * @param entryPoint entrypoint for "fillAndSign" of userops
+ */
+export async function findUserOpWithMin (f: (n: number) => Promise<UserOperation>, expectExec: boolean, entryPoint: EntryPoint, min: number, max: number, delta = 2): Promise<number> {
+  const snap = await ethers.provider.send('evm_snapshot', [])
+  const beneficiary = ethers.provider.getSigner().getAddress()
+  try {
+    return await findMin(
+      async n => {
+        try {
+          await ethers.provider.send('evm_revert', [snap])
+
+          const userOp = await f(n)
+          const rcpt = await entryPoint.handleOps([packUserOp(userOp)], beneficiary).then(async r => r.wait())
+          if (rcpt?.events?.find(e => e.event === 'UserOperationPrefundTooLow') != null) {
+            console.log('min', n, 'UserOperationPrefundTooLow')
+            return false
+          }
+          if (expectExec) {
+            const useropEvent = rcpt?.events?.find(e => e.event === 'UserOperationEvent')
+            if (useropEvent?.args?.success !== true) {
+              return false
+            }
+          }
+          console.log('min', n, 'ok')
+          return true
+        } catch (e) {
+          console.log('min', n, 'ex=', decodeRevertReason(e as Error))
+          return false
+        }
+      }, min, max, delta
+    )
+  } finally {
+    await ethers.provider.send('evm_revert', [snap])
   }
 }
