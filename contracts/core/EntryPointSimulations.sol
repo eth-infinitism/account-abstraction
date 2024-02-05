@@ -151,7 +151,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
      * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
      * @param initCode         - The smart account constructor code.
      * @param sender           - The sender address.
-     * @param paymasterAndData - The paymaster address followed by the token address to use.
+     * @param paymasterAndData - The paymaster address (followed by other params, ignored by this method)
      */
     function _validateSenderAndPaymaster(
         bytes calldata initCode,
