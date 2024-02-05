@@ -1,5 +1,5 @@
 import './aa.init'
-import { BigNumber, Event, providers, Wallet } from 'ethers'
+import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   SimpleAccount,
