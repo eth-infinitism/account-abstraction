@@ -1,5 +1,5 @@
 import './aa.init'
-import { BigNumber, Event, Wallet } from 'ethers'
+import { BigNumber, Event, providers, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   SimpleAccount,
@@ -445,10 +445,17 @@ describe('EntryPoint', function () {
     describe('#handleOps', () => {
       let counter: TestCounter
       let accountExecFromEntryPoint: PopulatedTransaction
+      let snapshot: any
+
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         accountExecFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
+        snapshot = await ethers.provider.send('evm_snapshot', [])
+      })
+
+      after(async () => {
+        await ethers.provider.send('evm_revert', [snapshot])
       })
 
       it('should revert on signature failure', async () => {
@@ -463,14 +470,17 @@ describe('EntryPoint', function () {
 
       it('should pay prefund and revert account if prefund is not enough', async function () {
         this.timeout(50000)
+        console.log('block=', await ethers.provider.getBlockNumber())
         const beneficiary = createAddress()
         await entryPoint.depositTo(account.address, { value: parseEther('1') })
 
         const execCount = counter.interface.encodeFunctionData('count')
         const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, execCount])
+        let nonce = (await account.getNonce()).toNumber()
         // find minimum callGasLimit:
         const callGasLimit = await findUserOpWithMin(async (n: number) => fillAndSign({
           sender: account.address,
+          nonce: nonce++,
           callData,
           callGasLimit: n,
           maxFeePerGas: 1,
@@ -499,6 +509,7 @@ describe('EntryPoint', function () {
         expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
         const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
         expect(userOpEvent.args.success).to.eql(false)
+        console.log('block=', await ethers.provider.getBlockNumber())
       })
 
       it('account should pay for tx', async function () {
@@ -608,8 +619,14 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
 
         // "warmup" userop, for better gas calculation, below
-        await entryPoint.handleOps([await fillSignAndPack({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
-        await entryPoint.handleOps([await fillSignAndPack({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillSignAndPack({
+          sender: account.address,
+          callData: accountExec.data
+        }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillSignAndPack({
+          sender: account.address,
+          callData: accountExec.data
+        }, accountOwner, entryPoint)], beneficiaryAddress)
 
         const op1 = await fillSignAndPack({
           sender: account.address,
@@ -832,7 +849,7 @@ describe('EntryPoint', function () {
         const rcpt = await ret.wait()
         const hash = await entryPoint.getUserOpHash(createOp)
         await expect(ret).to.emit(entryPoint, 'AccountDeployed')
-          // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
           .withArgs(hash, createOp.sender, toChecksumAddress(createOp.initCode.toString().slice(0, 42)), AddressZero)
 
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
@@ -856,11 +873,11 @@ describe('EntryPoint', function () {
         return
       }
       /**
-       * attempt a batch:
-       * 1. create account1 + "initialize" (by calling counter.count())
-       * 2. account2.exec(counter.count()
-       *    (account created in advance)
-       */
+             * attempt a batch:
+             * 1. create account1 + "initialize" (by calling counter.count())
+             * 2. account2.exec(counter.count()
+             *    (account created in advance)
+             */
       let counter: TestCounter
       let accountExecCounterFromEntryPoint: PopulatedTransaction
       const beneficiaryAddress = createAddress()
@@ -1035,14 +1052,14 @@ describe('EntryPoint', function () {
         }).filter(ev => ev != null)
         // expected "SignatureAggregatorChanged" before every switch of aggregator
         expect(events).to.eql([
-          `agg(${aggregator.address})`,
-          `userOp(${userOp1.sender})`,
-          `userOp(${userOp2.sender})`,
-          `agg(${aggregator3.address})`,
-          `userOp(${userOp_agg3.sender})`,
-          `agg(${AddressZero})`,
-          `userOp(${userOp_noAgg.sender})`,
-          `agg(${AddressZero})`
+                    `agg(${aggregator.address})`,
+                    `userOp(${userOp1.sender})`,
+                    `userOp(${userOp2.sender})`,
+                    `agg(${aggregator3.address})`,
+                    `userOp(${userOp_agg3.sender})`,
+                    `agg(${AddressZero})`,
+                    `userOp(${userOp_noAgg.sender})`,
+                    `agg(${AddressZero})`
         ])
       })
 

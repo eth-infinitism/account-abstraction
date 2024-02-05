@@ -386,35 +386,39 @@ export async function findMin (testFunc: (index: number) => Promise<boolean>, mi
  * @param entryPoint entrypoint for "fillAndSign" of userops
  */
 export async function findUserOpWithMin (f: (n: number) => Promise<UserOperation>, expectExec: boolean, entryPoint: EntryPoint, min: number, max: number, delta = 2): Promise<number> {
-  const snap = await ethers.provider.send('evm_snapshot', [])
+  const snapshot = await ethers.provider.send('evm_snapshot', [])
   const beneficiary = ethers.provider.getSigner().getAddress()
   try {
     return await findMin(
       async n => {
         try {
-          await ethers.provider.send('evm_revert', [snap])
+          await ethers.provider.send('evm_revert', [snapshot])
 
           const userOp = await f(n)
           const rcpt = await entryPoint.handleOps([packUserOp(userOp)], beneficiary).then(async r => r.wait())
           if (rcpt?.events?.find(e => e.event === 'UserOperationPrefundTooLow') != null) {
-            console.log('min', n, 'UserOperationPrefundTooLow')
+            console.log('min', n, 'UserOperationPrefundTooLow', await ethers.provider.getBlockNumber(), snapshot)
+            await ethers.provider.send('evm_revert', [snapshot])
             return false
           }
           if (expectExec) {
             const useropEvent = rcpt?.events?.find(e => e.event === 'UserOperationEvent')
             if (useropEvent?.args?.success !== true) {
+              await ethers.provider.send('evm_revert', [snapshot])
               return false
             }
           }
-          console.log('min', n, 'ok')
+          console.log('min', n, 'ok', await ethers.provider.getBlockNumber(), snapshot)
+          await ethers.provider.send('evm_revert', [snapshot])
           return true
         } catch (e) {
-          console.log('min', n, 'ex=', decodeRevertReason(e as Error))
+          console.log('min', n, 'ex=', decodeRevertReason(e as Error), await ethers.provider.getBlockNumber(), snapshot)
+          await ethers.provider.send('evm_revert', [snapshot])
           return false
         }
       }, min, max, delta
     )
   } finally {
-    await ethers.provider.send('evm_revert', [snap])
+    await ethers.provider.send('evm_revert', [snapshot])
   }
 }
