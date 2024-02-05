@@ -488,6 +488,7 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
 
         const minGas = await findUserOpWithMin(createUserOpWithVGL, false, entryPoint, 0, 100000, 2)
+        const current = await counter.counters(account.address)
 
         // expect calldata to revert below minGas:
         const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithVGL(minGas - 1))], beneficiary).then(async r => r.wait())
@@ -495,9 +496,9 @@ describe('EntryPoint', function () {
           'BeforeExecution',
           'UserOperationPrefundTooLow',
           'UserOperationEvent'])
-        expect(await counter.counters(account.address)).to.eql(0, 'should revert account with prefund too low')
+        expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
         const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
-        expect(userOpEvent).to.eql({ success: false })
+        expect(userOpEvent.args.success).to.eql(false)
       })
 
       it('account should pay for tx', async function () {
