@@ -127,7 +127,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA95 out of gas");
             } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
                 uint256 actualGas1 = preGas - gasleft() + opInfo.preOpGas;
-                emitPrefundTooLow(actualGas1, opInfo);
+                emitPrefundTooLow(actualGas1, opInfo, true);
                 return opInfo.prefund;
             } else {
                 emit PostOpRevertReason(
@@ -148,21 +148,23 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
     }
 
-    function emitPrefundTooLow(uint256 actualGas, UserOpInfo memory opInfo) internal {
+    function emitPrefundTooLow(uint256 actualGas, UserOpInfo memory opInfo, bool emitUserOpEvent) internal {
         emit UserOperationPrefundTooLow(
             opInfo.userOpHash,
             opInfo.mUserOp.sender,
             opInfo.mUserOp.nonce
         );
-        emit UserOperationEvent(
-            opInfo.userOpHash,
-            opInfo.mUserOp.sender,
-            opInfo.mUserOp.paymaster,
-            opInfo.mUserOp.nonce,
-            false,
-            opInfo.prefund,
-            actualGas
-        );
+        if (emitUserOpEvent) {
+            emit UserOperationEvent(
+                opInfo.userOpHash,
+                opInfo.mUserOp.sender,
+                opInfo.mUserOp.paymaster,
+                opInfo.mUserOp.nonce,
+                false,
+                opInfo.prefund,
+                actualGas
+            );
+        }
     }
 
     /// @inheritdoc IEntryPoint
@@ -716,8 +718,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             actualGasCost = actualGas * gasPrice;
             if (opInfo.prefund < actualGasCost) {
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
-                    emitPrefundTooLow(actualGas, opInfo);
-                    return opInfo.prefund;
+                    emitPrefundTooLow(actualGas, opInfo, false);
+                    actualGasCost = opInfo.prefund;
                 } else {
                     assembly ("memory-safe") {
                         mstore(0, INNER_REVERT_LOW_PREFUND)
