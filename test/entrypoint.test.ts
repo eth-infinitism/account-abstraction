@@ -25,7 +25,9 @@ import {
   SimpleAccountFactory__factory,
   IStakeManager__factory,
   INonceManager__factory,
-  EntryPoint
+  EntryPoint,
+  TestPaymasterWithPostOp__factory,
+  TestPaymasterWithPostOp
 } from '../typechain'
 import {
   AddressZero,
@@ -468,48 +470,84 @@ describe('EntryPoint', function () {
         await expect(entryPoint.estimateGas.handleOps([op], beneficiaryAddress)).to.revertedWith('AA24 signature error')
       })
 
-      it('should pay prefund and revert account if prefund is not enough', async function () {
-        this.timeout(50000)
-        console.log('block=', await ethers.provider.getBlockNumber())
+      describe('should pay prefund and revert account if prefund is not enough', function () {
         const beneficiary = createAddress()
-        await entryPoint.depositTo(account.address, { value: parseEther('1') })
+        const maxFeePerGas = 1
+        const maxPriorityFeePerGas = 1
+        let callData: string
+        let nonce: number
+        let paymaster: TestPaymasterWithPostOp
+        let minCallGas: number
 
-        const execCount = counter.interface.encodeFunctionData('count')
-        const callData = account.interface.encodeFunctionData('execute', [counter.address, 0, execCount])
-        let nonce = (await account.getNonce()).toNumber()
-        // find minimum callGasLimit:
-        const callGasLimit = await findUserOpWithMin(async (n: number) => fillAndSign({
-          sender: account.address,
-          nonce: nonce++,
-          callData,
-          callGasLimit: n,
-          maxFeePerGas: 1,
-          maxPriorityFeePerGas: 1,
-          verificationGasLimit: 200000
-        }, accountOwner, entryPoint), true, entryPoint, 5000, 100000, 2)
+        async function createUserOpWithGas (vgl: number, pmVgl: number, cgl: number): Promise<UserOperation> {
+          return fillAndSign({
+            sender: account.address,
+            nonce,
+            callData,
+            callGasLimit: cgl,
+            paymaster: pmVgl > 0 ? paymaster.address : undefined,
+            paymasterVerificationGasLimit: pmVgl > 0 ? pmVgl : undefined,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+            verificationGasLimit: vgl
+          }, accountOwner, entryPoint)
+        }
 
-        const createUserOpWithVGL = async (n: number): Promise<UserOperation> => fillAndSign({
-          sender: account.address,
-          callData,
-          callGasLimit: callGasLimit,
-          maxFeePerGas: 1,
-          maxPriorityFeePerGas: 1,
-          verificationGasLimit: n
-        }, accountOwner, entryPoint)
+        this.timeout(50000)
+        before(async () => {
+          const execCount = counter.interface.encodeFunctionData('count')
+          callData = account.interface.encodeFunctionData('execute', [counter.address, 0, execCount])
+          nonce = (await account.getNonce()).toNumber()
+          paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
+          await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
+          await entryPoint.depositTo(account.address, { value: parseEther('1') })
 
-        const minGas = await findUserOpWithMin(createUserOpWithVGL, false, entryPoint, 0, 100000, 2)
-        const current = await counter.counters(account.address)
+          // find minimum callGasLimit:
+          minCallGas = await findUserOpWithMin(async (cgl: number) => createUserOpWithGas(5e5, 0, cgl), true, entryPoint, 1, 100000, 2)
+        })
 
-        // expect calldata to revert below minGas:
-        const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithVGL(minGas - 1))], beneficiary).then(async r => r.wait())
-        expect(rcpt.events?.map(ev => ev.event)).to.eql([
-          'BeforeExecution',
-          'UserOperationPrefundTooLow',
-          'UserOperationEvent'])
-        expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
-        const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
-        expect(userOpEvent.args.success).to.eql(false)
-        console.log('block=', await ethers.provider.getBlockNumber())
+        let snapshot: any
+        beforeEach(async () => {
+          snapshot = await ethers.provider.send('evm_snapshot', [])
+        })
+        afterEach(async () => {
+          await ethers.provider.send('evm_revert', [snapshot])
+        })
+
+        it('without paymaster', async function () {
+          const vgl = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 0, minCallGas), false, entryPoint, 5000, 100000, 2)
+          console.log('min vgl=', vgl)
+
+          const current = await counter.counters(account.address)
+          // expect calldata to revert below minGas:
+          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(vgl - 1, 0, minCallGas))], beneficiary).then(async r => r.wait())
+          expect(rcpt.events?.map(ev => ev.event)).to.eql([
+            'BeforeExecution',
+            'UserOperationPrefundTooLow',
+            'UserOperationEvent'])
+          expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
+          const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+          expect(userOpEvent.args.success).to.eql(false)
+        })
+
+        it('with paymaster', async function () {
+          const current = await counter.counters(account.address)
+
+          const minVerGas = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 1e5, minCallGas), false, entryPoint, 5000, 100000, 2)
+          const minPmVerGas = await findUserOpWithMin(async (pmVgl: number) => createUserOpWithGas(minVerGas, pmVgl, minCallGas), false, entryPoint, 1, 100000, 2)
+
+          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(minVerGas, minPmVerGas - 1, minCallGas))], beneficiary)
+            .then(async r => r.wait())
+            .catch((e: Error) => { throw new Error(decodeRevertReason(e, false) as any) })
+          expect(rcpt.events?.map(ev => ev.event)).to.eql([
+            'BeforeExecution',
+            'PostOpRevertReason',
+            'UserOperationPrefundTooLow',
+            'UserOperationEvent'])
+          expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
+          const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+          expect(userOpEvent.args.success).to.eql(false)
+        })
       })
 
       it('account should pay for tx', async function () {

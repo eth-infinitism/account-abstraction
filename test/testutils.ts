@@ -25,6 +25,9 @@ import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
 import { packUserOp } from './UserOp'
+import Debug from 'debug'
+
+const debug = Debug('aa.testutils')
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -170,7 +173,10 @@ const decodeRevertReasonContracts = new Interface([
 export function decodeRevertReason (data: string | Error, nullIfNoMatch = true): string | null {
   if (typeof data !== 'string') {
     const err = data as any
-    data = (err.data ?? err.error.data) as string
+    data = (err.data ?? err.error?.data) as string
+    if (typeof data !== 'string') {
+      return err.message
+    }
   }
   const methodSig = data.slice(0, 10)
   const dataParams = '0x' + data.slice(10)
@@ -386,39 +392,35 @@ export async function findMin (testFunc: (index: number) => Promise<boolean>, mi
  * @param entryPoint entrypoint for "fillAndSign" of userops
  */
 export async function findUserOpWithMin (f: (n: number) => Promise<UserOperation>, expectExec: boolean, entryPoint: EntryPoint, min: number, max: number, delta = 2): Promise<number> {
-  const snapshot = await ethers.provider.send('evm_snapshot', [])
   const beneficiary = ethers.provider.getSigner().getAddress()
-  try {
-    return await findMin(
-      async n => {
-        try {
-          await ethers.provider.send('evm_revert', [snapshot])
-
-          const userOp = await f(n)
-          const rcpt = await entryPoint.handleOps([packUserOp(userOp)], beneficiary).then(async r => r.wait())
-          if (rcpt?.events?.find(e => e.event === 'UserOperationPrefundTooLow') != null) {
-            console.log('min', n, 'UserOperationPrefundTooLow', await ethers.provider.getBlockNumber(), snapshot)
-            await ethers.provider.send('evm_revert', [snapshot])
-            return false
-          }
-          if (expectExec) {
-            const useropEvent = rcpt?.events?.find(e => e.event === 'UserOperationEvent')
-            if (useropEvent?.args?.success !== true) {
-              await ethers.provider.send('evm_revert', [snapshot])
-              return false
-            }
-          }
-          console.log('min', n, 'ok', await ethers.provider.getBlockNumber(), snapshot)
-          await ethers.provider.send('evm_revert', [snapshot])
-          return true
-        } catch (e) {
-          console.log('min', n, 'ex=', decodeRevertReason(e as Error), await ethers.provider.getBlockNumber(), snapshot)
-          await ethers.provider.send('evm_revert', [snapshot])
+  return await findMin(
+    async n => {
+      const snapshot = await ethers.provider.send('evm_snapshot', [])
+      try {
+        const userOp = await f(n)
+        const rcpt = await entryPoint.handleOps([packUserOp(userOp)], beneficiary, { gasLimit: 1e6 })
+          .then(async r => r.wait())
+        if (rcpt?.events?.find(e => e.event === 'UserOperationPrefundTooLow') != null) {
+          debug('min', n, 'UserOperationPrefundTooLow')
           return false
         }
-      }, min, max, delta
-    )
-  } finally {
-    await ethers.provider.send('evm_revert', [snapshot])
-  }
+        if (expectExec) {
+          const useropEvent = rcpt?.events?.find(e => e.event === 'UserOperationEvent')
+          if (useropEvent?.args?.success !== true) {
+            // console.log(rcpt?.events?.map((e: any) => ({ ev: e.event, ...objdump(e.args!) })))
+
+            debug('min', n, 'success=false')
+            return false
+          }
+        }
+        debug('min', n, 'ok')
+        return true
+      } catch (e) {
+        debug('min', n, 'ex=', decodeRevertReason(e as Error))
+        return false
+      } finally {
+        await ethers.provider.send('evm_revert', [snapshot])
+      }
+    }, min, max, delta
+  )
 }
