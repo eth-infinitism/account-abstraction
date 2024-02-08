@@ -127,8 +127,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA95 out of gas");
             } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
                 uint256 actualGas1 = preGas - gasleft() + opInfo.preOpGas;
+                uint256 prefund = opInfo.prefund;
                 emitPrefundTooLow(opInfo);
-                uint prefund = opInfo.prefund;
                 emitUserOperationEvent(opInfo, false, prefund, actualGas1);
                 return prefund;
             } else {
@@ -150,15 +150,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
     }
 
-    function emitPrefundTooLow(UserOpInfo memory opInfo) internal {
-        emit UserOperationPrefundTooLow(
-            opInfo.userOpHash,
-            opInfo.mUserOp.sender,
-            opInfo.mUserOp.nonce
-        );
-    }
-
-    function emitUserOperationEvent(UserOpInfo memory opInfo, bool success, uint actualGasCost, uint256 actualGas) internal virtual {
+    function emitUserOperationEvent(UserOpInfo memory opInfo, bool success, uint256 actualGasCost, uint256 actualGas) internal virtual {
         emit UserOperationEvent(
             opInfo.userOpHash,
             opInfo.mUserOp.sender,
@@ -167,6 +159,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             success,
             actualGasCost,
             actualGas
+        );
+    }
+
+    function emitPrefundTooLow(UserOpInfo memory opInfo) internal virtual {
+        emit UserOperationPrefundTooLow(
+            opInfo.userOpHash,
+            opInfo.mUserOp.sender,
+            opInfo.mUserOp.nonce
         );
     }
 
@@ -730,7 +730,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                         revert(0, 32)
                     }
                 }
-            } else{
+            } else {
                 uint256 refund = prefund - actualGasCost;
                 _incrementDeposit(refundAddress, refund);
                 bool success = mode == IPaymaster.PostOpMode.opSucceeded;
