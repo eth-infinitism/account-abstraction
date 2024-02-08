@@ -159,11 +159,12 @@ describe('TokenPaymaster', function () {
 
   it('paymaster should reject if postOpGaSLimit is too low', async () => {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
+    const config = await paymaster.tokenPaymasterConfig()
     let op = await fillUserOp({
       sender: account.address,
       paymaster: paymasterAddress,
       paymasterVerificationGasLimit: 3e5,
-      paymasterPostOpGasLimit: 4000, // too low
+      paymasterPostOpGasLimit: config.refundPostopCost - 1, // too low
       callData
     }, entryPoint)
     op = signUserOp(op, accountOwner, entryPoint.address, chainId)
