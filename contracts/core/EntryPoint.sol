@@ -127,8 +127,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA95 out of gas");
             } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
                 uint256 actualGas1 = preGas - gasleft() + opInfo.preOpGas;
-                emitPrefundTooLow(actualGas1, opInfo, true);
-                return opInfo.prefund;
+                emitPrefundTooLow(opInfo);
+                uint prefund = opInfo.prefund;
+                emitUserOperationEvent(opInfo, false, prefund, actualGas1);
+                return prefund;
             } else {
                 emit PostOpRevertReason(
                     opInfo.userOpHash,
@@ -148,23 +150,24 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         }
     }
 
-    function emitPrefundTooLow(uint256 actualGas, UserOpInfo memory opInfo, bool emitUserOpEvent) internal {
+    function emitPrefundTooLow(UserOpInfo memory opInfo) internal {
         emit UserOperationPrefundTooLow(
             opInfo.userOpHash,
             opInfo.mUserOp.sender,
             opInfo.mUserOp.nonce
         );
-        if (emitUserOpEvent) {
-            emit UserOperationEvent(
-                opInfo.userOpHash,
-                opInfo.mUserOp.sender,
-                opInfo.mUserOp.paymaster,
-                opInfo.mUserOp.nonce,
-                false,
-                opInfo.prefund,
-                actualGas
-            );
-        }
+    }
+
+    function emitUserOperationEvent(UserOpInfo memory opInfo, bool success, uint actualGasCost, uint256 actualGas) internal virtual {
+        emit UserOperationEvent(
+            opInfo.userOpHash,
+            opInfo.mUserOp.sender,
+            opInfo.mUserOp.paymaster,
+            opInfo.mUserOp.nonce,
+            success,
+            actualGasCost,
+            actualGas
+        );
     }
 
     /// @inheritdoc IEntryPoint
@@ -716,29 +719,23 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
 
             actualGasCost = actualGas * gasPrice;
-            if (opInfo.prefund < actualGasCost) {
+            uint256 prefund = opInfo.prefund;
+            if (prefund < actualGasCost) {
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
-                    emitPrefundTooLow(actualGas, opInfo, false);
-                    actualGasCost = opInfo.prefund;
+                    emitPrefundTooLow(opInfo);
+                    emitUserOperationEvent(opInfo, false, prefund, actualGas);
                 } else {
                     assembly ("memory-safe") {
                         mstore(0, INNER_REVERT_LOW_PREFUND)
                         revert(0, 32)
                     }
                 }
+            } else{
+                uint256 refund = prefund - actualGasCost;
+                _incrementDeposit(refundAddress, refund);
+                bool success = mode == IPaymaster.PostOpMode.opSucceeded;
+                emitUserOperationEvent(opInfo, success, actualGasCost, actualGas);
             }
-            uint256 refund = opInfo.prefund - actualGasCost;
-            _incrementDeposit(refundAddress, refund);
-            bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-            emit UserOperationEvent(
-                opInfo.userOpHash,
-                mUserOp.sender,
-                mUserOp.paymaster,
-                mUserOp.nonce,
-                success,
-                actualGasCost,
-                actualGas
-            );
         } // unchecked
     }
 
