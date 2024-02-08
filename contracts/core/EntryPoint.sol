@@ -120,16 +120,17 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     innerRevertCode := mload(0)
                 }
             }
-            // handleOps was called with gas limit too low. abort entire bundle.
             if (innerRevertCode == INNER_OUT_OF_GAS) {
+                // handleOps was called with gas limit too low. abort entire bundle.
                 //can only be caused by bundler (leaving not enough gas for inner call)
                 revert FailedOp(opIndex, "AA95 out of gas");
             } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
-                uint256 actualGas1 = preGas - gasleft() + opInfo.preOpGas;
-                uint256 prefund = opInfo.prefund;
+                // innerCall reverted on prefund too low. treat entire prefund as "gas cost"
+                uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+                uint256 actualGasCost = opInfo.prefund;
                 emitPrefundTooLow(opInfo);
-                emitUserOperationEvent(opInfo, false, prefund, actualGas1);
-                return prefund;
+                emitUserOperationEvent(opInfo, false, actualGasCost, actualGas);
+                collected = actualGasCost;
             } else {
                 emit PostOpRevertReason(
                     opInfo.userOpHash,
@@ -137,15 +138,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     opInfo.mUserOp.nonce,
                     Exec.getReturnData(REVERT_REASON_MAX_LEN)
                 );
-            }
 
-            uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-            collected = _postExecution(
-                IPaymaster.PostOpMode.postOpReverted,
-                opInfo,
-                context,
-                actualGas
-            );
+                uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+                collected = _postExecution(
+                    IPaymaster.PostOpMode.postOpReverted,
+                    opInfo,
+                    context,
+                    actualGas
+                );
+            }
         }
     }
 
