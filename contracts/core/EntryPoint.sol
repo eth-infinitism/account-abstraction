@@ -450,7 +450,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         )
     {
         unchecked {
-            uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address sender = mUserOp.sender;
             _createSenderIfNeeded(opIndex, opInfo, op.initCode);
@@ -478,10 +477,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
                 }
                 senderInfo.deposit = deposit - requiredPrefund;
-            }
-
-            if (preGas - gasleft() > verificationGasLimit) {
-                revert FailedOp(opIndex, "AA26 over verificationGasLimit");
             }
         }
     }
@@ -527,7 +522,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
             if (preGas - gasleft() > pmVerificationGasLimit) {
-                revert FailedOp(opIndex, "AA36 over verificationGasLimit");
+                revert FailedOp(opIndex, "AA36 over paymasterVerificationGasLimit");
             }
         }
     }
@@ -629,6 +624,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
+        }
+
+        unchecked {
+            if (preGas - gasleft() > verificationGasLimit) {
+                revert FailedOp(opIndex, "AA26 over verificationGasLimit");
+            }
         }
 
         bytes memory context;
