@@ -35,7 +35,6 @@ interface IEntryPointSimulations is IEntryPoint {
 
     /**
      * Simulate a call to account.validateUserOp and paymaster.validatePaymasterUserOp.
-     * @dev This method always reverts. Successful result is ValidationResult error. other errors are failures.
      * @dev The node must also verify it doesn't use banned opcodes, and that it doesn't reference storage
      *      outside the account's data.
      * @param userOp - The user operation to validate.
@@ -51,7 +50,6 @@ interface IEntryPointSimulations is IEntryPoint {
 
     /**
      * Simulate full execution of a UserOperation (including both validation and target execution)
-     * This method will always revert with "ExecutionResult".
      * It performs full validation of the UserOperation, but ignores signature error.
      * An optional target address is called after the userop succeeds,
      * and its value is returned (before the entire call is reverted).
