@@ -23,6 +23,8 @@ import { BytesLike, Hexable } from '@ethersproject/bytes'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
+import { UserOperation } from './UserOperation'
+import { packUserOp, simulateValidation } from './UserOp'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -168,8 +170,10 @@ const decodeRevertReasonContracts = new Interface([
 export function decodeRevertReason (data: string | Error, nullIfNoMatch = true): string | null {
   if (typeof data !== 'string') {
     const err = data as any
-    data = (err.data ?? err.error.data) as string
+    data = (err.data ?? err.error?.data) as string
+    if (typeof data !== 'string') throw err
   }
+
   const methodSig = data.slice(0, 10)
   const dataParams = '0x' + data.slice(10)
 
@@ -350,4 +354,86 @@ export function packValidationData (validationData: ValidationData): BigNumber {
   return BigNumber.from(validationData.validAfter).shl(48)
     .add(validationData.validUntil).shl(160)
     .add(validationData.aggregator)
+}
+
+// find the lowest number in the range min..max where testFunc returns true
+export async function findMin (testFunc: (index: number) => Promise<boolean>, min: number, max: number, delta = 5): Promise<number> {
+  if (await testFunc(min)) {
+    throw new Error(`increase range: function already true at ${min}`)
+  }
+  if (!await testFunc(max)) {
+    throw new Error(`no result: function is false for max value in ${min}..${max}`)
+  }
+  while (true) {
+    const avg = Math.floor((max + min) / 2)
+    if (await testFunc(avg)) {
+      max = avg
+    } else {
+      min = avg
+    }
+    // console.log('== ', min, '...', max, max - min)
+    if (Math.abs(max - min) < delta) {
+      return max
+    }
+  }
+}
+
+/**
+ * find the lowest value that when creating a userop, still doesn't revert and
+ * doesn't emit UserOperationPrefundTooLow
+ * note: using eth_snapshot/eth_revert, since we actually submit calls to handleOps
+ * @param f function that return a signed userop, with parameter-under-test set to "n"
+ * @param min range minimum. the function is expected to return false
+ * @param max range maximum. the function is expected to be true
+ * @param entryPoint entrypoint for "fillAndSign" of userops
+ */
+export async function findUserOpWithMin (f: (n: number) => Promise<UserOperation>, expectExec: boolean, entryPoint: EntryPoint, min: number, max: number, delta = 2): Promise<number> {
+  const beneficiary = ethers.provider.getSigner().getAddress()
+  return await findMin(
+    async n => {
+      const snapshot = await ethers.provider.send('evm_snapshot', [])
+      try {
+        const userOp = await f(n)
+        // console.log('== userop=', userOp)
+        const rcpt = await entryPoint.handleOps([packUserOp(userOp)], beneficiary, { gasLimit: 1e6 })
+          .then(async r => r.wait())
+        if (rcpt?.events?.find(e => e.event === 'UserOperationPrefundTooLow') != null) {
+          // console.log('min', n, 'UserOperationPrefundTooLow')
+          return false
+        }
+        if (expectExec) {
+          const useropEvent = rcpt?.events?.find(e => e.event === 'UserOperationEvent')
+          if (useropEvent?.args?.success !== true) {
+            // console.log(rcpt?.events?.map((e: any) => ({ ev: e.event, ...objdump(e.args!) })))
+
+            // console.log('min', n, 'success=false')
+            return false
+          }
+        }
+        // console.log('min', n, 'ok')
+        return true
+      } catch (e) {
+        // console.log('min', n, 'ex=', decodeRevertReason(e as Error))
+        return false
+      } finally {
+        await ethers.provider.send('evm_revert', [snapshot])
+      }
+    }, min, max, delta
+  )
+}
+
+export async function findSimulationUserOpWithMin (f: (n: number) => Promise<UserOperation>, entryPoint: EntryPoint, min: number, max: number, delta = 2): Promise<number> {
+  return await findMin(
+    async n => {
+      try {
+        const userOp = await f(n)
+        await simulateValidation(packUserOp(userOp), entryPoint.address)
+        // console.log('sim', n, 'ok')
+        return true
+      } catch (e) {
+        // console.log('sim', n, 'ex=', decodeRevertReason(e as Error))
+        return false
+      }
+    }, min, max, delta
+  )
 }
