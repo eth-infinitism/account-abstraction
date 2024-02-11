@@ -278,20 +278,9 @@ describe('EntryPointSimulations', function () {
       pmVgl = await findSimulationUserOpWithMin(async n => userOpWithGas(1e6, n), entryPoint, 1, 500000)
       vgl = await findSimulationUserOpWithMin(async n => userOpWithGas(n, pmVgl), entryPoint, 3000, 500000)
 
-      const packedUserOp = packUserOp(await userOpWithGas(vgl, pmVgl))
-      const hash = await entryPoint.getUserOpHash(packedUserOp)
+      const userOp = await userOpWithGas(vgl, pmVgl)
 
-      console.log('estimate validation', (await provider.estimateGas({
-        from: entryPoint.address,
-        to: account.address,
-        data: account.interface.encodeFunctionData('validateUserOp', [packedUserOp, hash, '0x1'])
-      })).sub(21000))
-      console.log('estimate paymaster validation', (await provider.estimateGas({
-        from: entryPoint.address,
-        to: paymaster.address,
-        data: paymaster.interface.encodeFunctionData('validatePaymasterUserOp', [packedUserOp, hash, '0x1'])
-      })).sub(21000))
-      await simulateValidation(packedUserOp, entryPoint.address)
+      await simulateValidation(packUserOp(userOp), entryPoint.address)
         .catch(e => { throw new Error(decodeRevertReason(e)!) })
     })
     describe('compare to execution', () => {
