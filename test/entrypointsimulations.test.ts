@@ -7,7 +7,9 @@ import {
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
   SimpleAccount__factory,
-  TestCounter__factory
+  TestCounter__factory,
+  TestPaymasterWithPostOp,
+  TestPaymasterWithPostOp__factory
 } from '../typechain'
 import {
   ONE_ETH,
@@ -17,12 +19,13 @@ import {
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance, deployEntryPoint
+  getBalance, deployEntryPoint, decodeRevertReason, findSimulationUserOpWithMin, findUserOpWithMin
 } from './testutils'
 
-import { fillSignAndPack, simulateHandleOp, simulateValidation } from './UserOp'
+import { fillAndSign, fillSignAndPack, packUserOp, simulateHandleOp, simulateValidation } from './UserOp'
 import { BigNumber, Wallet } from 'ethers'
-import { hexConcat } from 'ethers/lib/utils'
+import { hexConcat, parseEther } from 'ethers/lib/utils'
+import { UserOperation } from './UserOperation'
 
 const provider = ethers.provider
 describe('EntryPointSimulations', function () {
@@ -240,6 +243,72 @@ describe('EntryPointSimulations', function () {
       }, accountOwner, entryPoint)
       const error = await simulateValidation(op1, entryPoint.address).catch(e => e)
       expect(error.message).to.match(/initCode failed or OOG/, error)
+    })
+  })
+
+  describe('over-validation test', () => {
+    // coverage skews gas checks.
+    if (process.env.COVERAGE != null) {
+      return
+    }
+
+    let vgl: number
+    let pmVgl: number
+    let paymaster: TestPaymasterWithPostOp
+    let sender: string
+    let owner: Wallet
+    async function userOpWithGas (vgl: number, pmVgl = 0): Promise<UserOperation> {
+      return fillAndSign({
+        sender,
+        verificationGasLimit: vgl,
+        paymaster: pmVgl !== 0 ? paymaster.address : undefined,
+        paymasterVerificationGasLimit: pmVgl,
+        paymasterPostOpGasLimit: pmVgl,
+        maxFeePerGas: 1,
+        maxPriorityFeePerGas: 1
+      }, owner, entryPoint)
+    }
+    before(async () => {
+      owner = createAccountOwner()
+      paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
+      await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
+      const { proxy: account } = await createAccount(ethersSigner, owner.address, entryPoint.address)
+      sender = account.address
+      await fund(account)
+      pmVgl = await findSimulationUserOpWithMin(async n => userOpWithGas(1e6, n), entryPoint, 1, 500000)
+      vgl = await findSimulationUserOpWithMin(async n => userOpWithGas(n, pmVgl), entryPoint, 3000, 500000)
+
+      const userOp = await userOpWithGas(vgl, pmVgl)
+
+      await simulateValidation(packUserOp(userOp), entryPoint.address)
+        .catch(e => { throw new Error(decodeRevertReason(e)!) })
+    })
+    describe('compare to execution', () => {
+      let execVgl: number
+      let execPmVgl: number
+      const diff = 2000
+      before(async () => {
+        execPmVgl = await findUserOpWithMin(async n => userOpWithGas(1e6, n), false, entryPoint, 1, 500000)
+        execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
+      })
+      it('account verification simulation cost should be higher than execution', function () {
+        console.log('simulation account validation', vgl, 'above exec:', vgl - execVgl)
+        expect(vgl).to.be.within(execVgl + 1, execVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${vgl - execVgl}`)
+      })
+      it('paymaster verification simulation cost should be higher than execution', function () {
+        console.log('simulation paymaster validation', pmVgl, 'above exec:', pmVgl - execPmVgl)
+        expect(pmVgl).to.be.within(execPmVgl + 1, execPmVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${pmVgl - execPmVgl}`)
+      })
+    })
+    it('should revert with AA2x if verificationGasLimit is low', async function () {
+      expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
+        .catch(decodeRevertReason))
+        .to.match(/AA26/)
+    })
+    it('should revert with AA3x if paymasterVerificationGasLimit is low', async function () {
+      expect(await simulateValidation(packUserOp(await userOpWithGas(vgl, pmVgl - 1)), entryPoint.address)
+        .catch(decodeRevertReason))
+        .to.match(/AA36/)
     })
   })
 

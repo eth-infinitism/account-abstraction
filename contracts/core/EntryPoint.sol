@@ -466,7 +466,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 opIndex,
         PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
-        uint256 requiredPrefund
+        uint256 requiredPrefund,
+        uint256 verificationGasLimit
     )
         internal
         returns (
@@ -487,7 +488,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
             try
                 IAccount(sender).validateUserOp{
-                    gas: mUserOp.verificationGasLimit
+                    gas: verificationGasLimit
                 }(op, opInfo.userOpHash, missingAccountFunds)
             returns (uint256 _validationData) {
                 validationData = _validationData;
@@ -523,6 +524,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 requiredPreFund
     ) internal returns (bytes memory context, uint256 validationData) {
         unchecked {
+            uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address paymaster = mUserOp.paymaster;
             DepositInfo storage paymasterInfo = deposits[paymaster];
@@ -531,8 +533,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
             paymasterInfo.deposit = deposit - requiredPreFund;
+            uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
             try
-                IPaymaster(paymaster).validatePaymasterUserOp{gas: mUserOp.paymasterVerificationGasLimit}(
+                IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
                     op,
                     opInfo.userOpHash,
                     requiredPreFund
@@ -542,6 +545,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 validationData = _validationData;
             } catch {
                 revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+            }
+            if (preGas - gasleft() > pmVerificationGasLimit) {
+                revert FailedOp(opIndex, "AA36 over paymasterVerificationGasLimit");
             }
         }
     }
@@ -622,8 +628,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         // Validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow.
+        uint256 verificationGasLimit = mUserOp.verificationGasLimit;
         uint256 maxGasValues = mUserOp.preVerificationGas |
-            mUserOp.verificationGasLimit |
+            verificationGasLimit |
             mUserOp.callGasLimit |
             mUserOp.paymasterVerificationGasLimit |
             mUserOp.paymasterPostOpGasLimit |
@@ -636,11 +643,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             opIndex,
             userOp,
             outOpInfo,
-            requiredPreFund
+            requiredPreFund,
+            verificationGasLimit
         );
 
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
+        }
+
+        unchecked {
+            if (preGas - gasleft() > verificationGasLimit) {
+                revert FailedOp(opIndex, "AA26 over verificationGasLimit");
+            }
         }
 
         bytes memory context;
@@ -653,11 +667,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             );
         }
         unchecked {
-            uint256 gasUsed = preGas - gasleft();
-
-            if (mUserOp.verificationGasLimit + mUserOp.paymasterVerificationGasLimit < gasUsed) {
-                revert FailedOp(opIndex, "AA40 over verificationGasLimit");
-            }
             outOpInfo.prefund = requiredPreFund;
             outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
             outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
