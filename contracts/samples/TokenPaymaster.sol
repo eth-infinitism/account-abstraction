@@ -50,7 +50,7 @@ contract TokenPaymaster is BasePaymaster, UniswapHelper, OracleHelper {
     /// @notice All 'price' variables are multiplied by this value to avoid rounding up
     uint256 private constant PRICE_DENOMINATOR = 1e26;
 
-    TokenPaymasterConfig private tokenPaymasterConfig;
+    TokenPaymasterConfig public tokenPaymasterConfig;
 
     /// @notice Initializes the TokenPaymaster contract with the given parameters.
     /// @param _token The ERC20 token used for transaction fee payments.
