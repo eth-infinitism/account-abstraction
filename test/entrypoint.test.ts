@@ -25,7 +25,9 @@ import {
   SimpleAccountFactory__factory,
   IStakeManager__factory,
   INonceManager__factory,
-  EntryPoint
+  EntryPoint,
+  TestPaymasterWithPostOp__factory,
+  TestPaymasterWithPostOp
 } from '../typechain'
 import {
   AddressZero,
@@ -45,7 +47,7 @@ import {
   HashZero,
   createAccount,
   getAggregatedAccountInitCode,
-  decodeRevertReason, parseValidationData
+  decodeRevertReason, parseValidationData, findUserOpWithMin
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
@@ -56,6 +58,7 @@ import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
+import { UserOperationEventEvent } from '../typechain/contracts/interfaces/IEntryPoint'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -444,6 +447,7 @@ describe('EntryPoint', function () {
     describe('#handleOps', () => {
       let counter: TestCounter
       let accountExecFromEntryPoint: PopulatedTransaction
+
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
@@ -458,6 +462,85 @@ describe('EntryPoint', function () {
         }, wrongOwner, entryPoint)
         const beneficiaryAddress = createAddress()
         await expect(entryPoint.estimateGas.handleOps([op], beneficiaryAddress)).to.revertedWith('AA24 signature error')
+      })
+
+      describe('should pay prefund and revert account if prefund is not enough', function () {
+        const beneficiary = createAddress()
+        const maxFeePerGas = 1
+        const maxPriorityFeePerGas = 1
+        let callData: string
+        let nonce: number
+        let paymaster: TestPaymasterWithPostOp
+        let minCallGas: number
+
+        async function createUserOpWithGas (vgl: number, pmVgl: number, cgl: number): Promise<UserOperation> {
+          return fillAndSign({
+            sender: account.address,
+            nonce,
+            callData,
+            callGasLimit: cgl,
+            paymaster: pmVgl > 0 ? paymaster.address : undefined,
+            paymasterVerificationGasLimit: pmVgl > 0 ? pmVgl : undefined,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+            verificationGasLimit: vgl
+          }, accountOwner, entryPoint)
+        }
+
+        this.timeout(50000)
+        before(async () => {
+          const execCount = counter.interface.encodeFunctionData('count')
+          callData = account.interface.encodeFunctionData('execute', [counter.address, 0, execCount])
+          nonce = (await account.getNonce()).toNumber()
+          paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
+          await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
+          await entryPoint.depositTo(account.address, { value: parseEther('1') })
+
+          // find minimum callGasLimit:
+          minCallGas = await findUserOpWithMin(async (cgl: number) => createUserOpWithGas(5e5, 0, cgl), true, entryPoint, 1, 100000, 2)
+        })
+
+        let snapshot: any
+        beforeEach(async () => {
+          snapshot = await ethers.provider.send('evm_snapshot', [])
+        })
+        afterEach(async () => {
+          await ethers.provider.send('evm_revert', [snapshot])
+        })
+
+        it('without paymaster', async function () {
+          const vgl = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 0, minCallGas), false, entryPoint, 5000, 100000, 2)
+
+          const current = await counter.counters(account.address)
+          // expect calldata to revert below minGas:
+          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(vgl - 1, 0, minCallGas))], beneficiary).then(async r => r.wait())
+          expect(rcpt.events?.map(ev => ev.event)).to.eql([
+            'BeforeExecution',
+            'UserOperationPrefundTooLow',
+            'UserOperationEvent'])
+          expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
+          const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+          expect(userOpEvent.args.success).to.eql(false)
+        })
+
+        it('with paymaster', async function () {
+          const current = await counter.counters(account.address)
+
+          const minVerGas = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 1e5, minCallGas), false, entryPoint, 5000, 100000, 2)
+          const minPmVerGas = await findUserOpWithMin(async (pmVgl: number) => createUserOpWithGas(minVerGas, pmVgl, minCallGas), false, entryPoint, 1, 100000, 2)
+
+          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(minVerGas, minPmVerGas - 1, minCallGas))], beneficiary)
+            .then(async r => r.wait())
+            .catch((e: Error) => { throw new Error(decodeRevertReason(e, false) as any) })
+          expect(rcpt.events?.map(ev => ev.event)).to.eql([
+            'BeforeExecution',
+            'PostOpRevertReason',
+            'UserOperationPrefundTooLow',
+            'UserOperationEvent'])
+          expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
+          const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+          expect(userOpEvent.args.success).to.eql(false)
+        })
       })
 
       it('account should pay for tx', async function () {
@@ -791,7 +874,7 @@ describe('EntryPoint', function () {
         const rcpt = await ret.wait()
         const hash = await entryPoint.getUserOpHash(createOp)
         await expect(ret).to.emit(entryPoint, 'AccountDeployed')
-          // eslint-disable-next-line @typescript-eslint/no-base-to-string
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
           .withArgs(hash, createOp.sender, toChecksumAddress(createOp.initCode.toString().slice(0, 42)), AddressZero)
 
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
@@ -815,11 +898,11 @@ describe('EntryPoint', function () {
         return
       }
       /**
-       * attempt a batch:
-       * 1. create account1 + "initialize" (by calling counter.count())
-       * 2. account2.exec(counter.count()
-       *    (account created in advance)
-       */
+             * attempt a batch:
+             * 1. create account1 + "initialize" (by calling counter.count())
+             * 2. account2.exec(counter.count()
+             *    (account created in advance)
+             */
       let counter: TestCounter
       let accountExecCounterFromEntryPoint: PopulatedTransaction
       const beneficiaryAddress = createAddress()
@@ -994,14 +1077,14 @@ describe('EntryPoint', function () {
         }).filter(ev => ev != null)
         // expected "SignatureAggregatorChanged" before every switch of aggregator
         expect(events).to.eql([
-          `agg(${aggregator.address})`,
-          `userOp(${userOp1.sender})`,
-          `userOp(${userOp2.sender})`,
-          `agg(${aggregator3.address})`,
-          `userOp(${userOp_agg3.sender})`,
-          `agg(${AddressZero})`,
-          `userOp(${userOp_noAgg.sender})`,
-          `agg(${AddressZero})`
+                    `agg(${aggregator.address})`,
+                    `userOp(${userOp1.sender})`,
+                    `userOp(${userOp2.sender})`,
+                    `agg(${aggregator3.address})`,
+                    `userOp(${userOp_agg3.sender})`,
+                    `agg(${AddressZero})`,
+                    `userOp(${userOp_noAgg.sender})`,
+                    `agg(${AddressZero})`
         ])
       })
 
