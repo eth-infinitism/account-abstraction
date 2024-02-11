@@ -24,10 +24,7 @@ import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
-import { packUserOp } from './UserOp'
-import Debug from 'debug'
-
-const debug = Debug('aa.testutils')
+import { packUserOp, simulateValidation } from './UserOp'
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -174,9 +171,7 @@ export function decodeRevertReason (data: string | Error, nullIfNoMatch = true):
   if (typeof data !== 'string') {
     const err = data as any
     data = (err.data ?? err.error?.data) as string
-    if (typeof data !== 'string') {
-      return err.message
-    }
+    if (typeof data !== 'string') throw err
   }
 
   const methodSig = data.slice(0, 10)

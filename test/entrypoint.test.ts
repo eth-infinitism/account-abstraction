@@ -447,17 +447,11 @@ describe('EntryPoint', function () {
     describe('#handleOps', () => {
       let counter: TestCounter
       let accountExecFromEntryPoint: PopulatedTransaction
-      let snapshot: any
 
       before(async () => {
         counter = await new TestCounter__factory(ethersSigner).deploy()
         const count = await counter.populateTransaction.count()
         accountExecFromEntryPoint = await account.populateTransaction.execute(counter.address, 0, count.data!)
-        snapshot = await ethers.provider.send('evm_snapshot', [])
-      })
-
-      after(async () => {
-        await ethers.provider.send('evm_revert', [snapshot])
       })
 
       it('should revert on signature failure', async () => {
@@ -516,7 +510,6 @@ describe('EntryPoint', function () {
 
         it('without paymaster', async function () {
           const vgl = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 0, minCallGas), false, entryPoint, 5000, 100000, 2)
-          console.log('min vgl=', vgl)
 
           const current = await counter.counters(account.address)
           // expect calldata to revert below minGas:
@@ -657,14 +650,8 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
 
         // "warmup" userop, for better gas calculation, below
-        await entryPoint.handleOps([await fillSignAndPack({
-          sender: account.address,
-          callData: accountExec.data
-        }, accountOwner, entryPoint)], beneficiaryAddress)
-        await entryPoint.handleOps([await fillSignAndPack({
-          sender: account.address,
-          callData: accountExec.data
-        }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillSignAndPack({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps([await fillSignAndPack({ sender: account.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
 
         const op1 = await fillSignAndPack({
           sender: account.address,
