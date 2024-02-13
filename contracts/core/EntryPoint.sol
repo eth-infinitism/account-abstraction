@@ -731,8 +731,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             uint256 prefund = opInfo.prefund;
             if (prefund < actualGasCost) {
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
+                    actualGasCost = prefund;
                     emitPrefundTooLow(opInfo);
-                    emitUserOperationEvent(opInfo, false, prefund, actualGas);
+                    emitUserOperationEvent(opInfo, false, actualGasCost, actualGas);
                 } else {
                     assembly ("memory-safe") {
                         mstore(0, INNER_REVERT_LOW_PREFUND)
