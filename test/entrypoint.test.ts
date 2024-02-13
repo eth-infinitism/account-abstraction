@@ -513,13 +513,16 @@ describe('EntryPoint', function () {
 
           const current = await counter.counters(account.address)
           // expect calldata to revert below minGas:
+          const beneficiaryBalance = await ethers.provider.getBalance(beneficiary)
           const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(vgl - 1, 0, minCallGas))], beneficiary).then(async r => r.wait())
           expect(rcpt.events?.map(ev => ev.event)).to.eql([
             'BeforeExecution',
             'UserOperationPrefundTooLow',
             'UserOperationEvent'])
-          expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
           const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+          const collected = (await ethers.provider.getBalance(beneficiary)).sub(beneficiaryBalance)
+          expect(userOpEvent.args.actualGasCost).to.equal(collected)
+          expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
           expect(userOpEvent.args.success).to.eql(false)
         })
 
@@ -529,6 +532,7 @@ describe('EntryPoint', function () {
           const minVerGas = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 1e5, minCallGas), false, entryPoint, 5000, 100000, 2)
           const minPmVerGas = await findUserOpWithMin(async (pmVgl: number) => createUserOpWithGas(minVerGas, pmVgl, minCallGas), false, entryPoint, 1, 100000, 2)
 
+          const beneficiaryBalance = await ethers.provider.getBalance(beneficiary)
           const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(minVerGas, minPmVerGas - 1, minCallGas))], beneficiary)
             .then(async r => r.wait())
             .catch((e: Error) => { throw new Error(decodeRevertReason(e, false) as any) })
@@ -539,6 +543,8 @@ describe('EntryPoint', function () {
             'UserOperationEvent'])
           expect(await counter.counters(account.address)).to.eql(current, 'should revert account with prefund too low')
           const userOpEvent = rcpt.events?.find(e => e.event === 'UserOperationEvent') as UserOperationEventEvent
+          const collected = (await ethers.provider.getBalance(beneficiary)).sub(beneficiaryBalance)
+          expect(userOpEvent.args.actualGasCost).to.equal(collected)
           expect(userOpEvent.args.success).to.eql(false)
         })
       })
