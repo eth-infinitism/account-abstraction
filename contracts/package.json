@@ -1,8 +1,7 @@
 {
   "name": "@account-abstraction/contracts",
   "description": "Account Abstraction (EIP 4337) contracts",
-  "version": "0.6.0",
-  "main": "./dist/index.js",
+  "version": "0.7.0",
   "scripts": {
     "prepack": "../scripts/prepack-contracts-package.sh",
     "postpack": "../scripts/postpack-contracts-package.sh"
@@ -23,10 +22,8 @@
   "bugs": {
     "url": "https://github.com/eth-infinitism/account-abstraction/issues"
   },
-  "devDependencies": {
+  "dependencies": {
     "@openzeppelin/contracts": "^5.0.0",
-    "@nomiclabs/hardhat-ethers": "^2.0.2",
-    "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@uniswap/v3-periphery": "^1.4.3"
   }
 }

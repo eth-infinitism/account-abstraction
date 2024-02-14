@@ -7,12 +7,15 @@ const deploySimpleAccountFactory: DeployFunction = async function (hre: HardhatR
   const from = await provider.getSigner().getAddress()
   const network = await provider.getNetwork()
   // only deploy on local test network.
-  if (network.chainId !== 31337 && network.chainId !== 1337) {
+
+  const forceDeployFactory = process.argv.join(' ').match(/simple-account-factory/) != null
+
+  if (!forceDeployFactory && network.chainId !== 31337 && network.chainId !== 1337) {
     return
   }
 
   const entrypoint = await hre.deployments.get('EntryPoint')
-  const ret = await hre.deployments.deploy(
+  await hre.deployments.deploy(
     'SimpleAccountFactory', {
       from,
       args: [entrypoint.address],
@@ -20,7 +23,12 @@ const deploySimpleAccountFactory: DeployFunction = async function (hre: HardhatR
       log: true,
       deterministicDeployment: true
     })
-  console.log('==SimpleAccountFactory addr=', ret.address)
+
+  await hre.deployments.deploy('TestCounter', {
+    from,
+    deterministicDeployment: true,
+    log: true
+  })
 }
 
 export default deploySimpleAccountFactory
