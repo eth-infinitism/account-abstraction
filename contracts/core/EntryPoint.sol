@@ -40,6 +40,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     // Marker for inner call revert on out of gas
     bytes32 private constant INNER_OUT_OF_GAS = hex"deaddead";
+    bytes32 private constant INNER_REVERT_LOW_PREFUND = hex"deadaa51";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     uint256 private constant PENALTY_PERCENT = 10;
@@ -119,11 +120,17 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     innerRevertCode := mload(0)
                 }
             }
-            // handleOps was called with gas limit too low. abort entire bundle.
             if (innerRevertCode == INNER_OUT_OF_GAS) {
-                //report paymaster, since if it is not deliberately caused by the bundler,
-                // it must be a revert caused by paymaster.
+                // handleOps was called with gas limit too low. abort entire bundle.
+                //can only be caused by bundler (leaving not enough gas for inner call)
                 revert FailedOp(opIndex, "AA95 out of gas");
+            } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
+                // innerCall reverted on prefund too low. treat entire prefund as "gas cost"
+                uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+                uint256 actualGasCost = opInfo.prefund;
+                emitPrefundTooLow(opInfo);
+                emitUserOperationEvent(opInfo, false, actualGasCost, actualGas);
+                collected = actualGasCost;
             } else {
                 emit PostOpRevertReason(
                     opInfo.userOpHash,
@@ -131,17 +138,36 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                     opInfo.mUserOp.nonce,
                     Exec.getReturnData(REVERT_REASON_MAX_LEN)
                 );
-            }
 
-            uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-            collected = _postExecution(
-                opIndex,
-                IPaymaster.PostOpMode.postOpReverted,
-                opInfo,
-                context,
-                actualGas
-            );
+                uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
+                collected = _postExecution(
+                    IPaymaster.PostOpMode.postOpReverted,
+                    opInfo,
+                    context,
+                    actualGas
+                );
+            }
         }
+    }
+
+    function emitUserOperationEvent(UserOpInfo memory opInfo, bool success, uint256 actualGasCost, uint256 actualGas) internal virtual {
+        emit UserOperationEvent(
+            opInfo.userOpHash,
+            opInfo.mUserOp.sender,
+            opInfo.mUserOp.paymaster,
+            opInfo.mUserOp.nonce,
+            success,
+            actualGasCost,
+            actualGas
+        );
+    }
+
+    function emitPrefundTooLow(UserOpInfo memory opInfo) internal virtual {
+        emit UserOperationPrefundTooLow(
+            opInfo.userOpHash,
+            opInfo.mUserOp.sender,
+            opInfo.mUserOp.nonce
+        );
     }
 
     /// @inheritdoc IEntryPoint
@@ -329,8 +355,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         unchecked {
             uint256 actualGas = preGas - gasleft() + opInfo.preOpGas;
-            // Note: opIndex is ignored (relevant only if mode==postOpReverted, which is only possible outside of innerHandleOp)
-            return _postExecution(0, mode, opInfo, context, actualGas);
+            return _postExecution(mode, opInfo, context, actualGas);
         }
     }
 
@@ -441,7 +466,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 opIndex,
         PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
-        uint256 requiredPrefund
+        uint256 requiredPrefund,
+        uint256 verificationGasLimit
     )
         internal
         returns (
@@ -462,7 +488,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
             try
                 IAccount(sender).validateUserOp{
-                    gas: mUserOp.verificationGasLimit
+                    gas: verificationGasLimit
                 }(op, opInfo.userOpHash, missingAccountFunds)
             returns (uint256 _validationData) {
                 validationData = _validationData;
@@ -498,6 +524,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         uint256 requiredPreFund
     ) internal returns (bytes memory context, uint256 validationData) {
         unchecked {
+            uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address paymaster = mUserOp.paymaster;
             DepositInfo storage paymasterInfo = deposits[paymaster];
@@ -506,8 +533,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
             paymasterInfo.deposit = deposit - requiredPreFund;
+            uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
             try
-                IPaymaster(paymaster).validatePaymasterUserOp{gas: mUserOp.paymasterVerificationGasLimit}(
+                IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
                     op,
                     opInfo.userOpHash,
                     requiredPreFund
@@ -517,6 +545,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 validationData = _validationData;
             } catch {
                 revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+            }
+            if (preGas - gasleft() > pmVerificationGasLimit) {
+                revert FailedOp(opIndex, "AA36 over paymasterVerificationGasLimit");
             }
         }
     }
@@ -597,8 +628,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         // Validate all numeric values in userOp are well below 128 bit, so they can safely be added
         // and multiplied without causing overflow.
+        uint256 verificationGasLimit = mUserOp.verificationGasLimit;
         uint256 maxGasValues = mUserOp.preVerificationGas |
-            mUserOp.verificationGasLimit |
+            verificationGasLimit |
             mUserOp.callGasLimit |
             mUserOp.paymasterVerificationGasLimit |
             mUserOp.paymasterPostOpGasLimit |
@@ -611,11 +643,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             opIndex,
             userOp,
             outOpInfo,
-            requiredPreFund
+            requiredPreFund,
+            verificationGasLimit
         );
 
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
+        }
+
+        unchecked {
+            if (preGas - gasleft() > verificationGasLimit) {
+                revert FailedOp(opIndex, "AA26 over verificationGasLimit");
+            }
         }
 
         bytes memory context;
@@ -628,11 +667,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             );
         }
         unchecked {
-            uint256 gasUsed = preGas - gasleft();
-
-            if (mUserOp.verificationGasLimit + mUserOp.paymasterVerificationGasLimit < gasUsed) {
-                revert FailedOp(opIndex, "AA40 over verificationGasLimit");
-            }
             outOpInfo.prefund = requiredPreFund;
             outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
             outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
@@ -643,14 +677,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      * Process post-operation, called just after the callData is executed.
      * If a paymaster is defined and its validation returned a non-empty context, its postOp is called.
      * The excess amount is refunded to the account (or paymaster - if it was used in the request).
-     * @param opIndex   - Index in the batch.
      * @param mode      - Whether is called from innerHandleOp, or outside (postOpReverted).
      * @param opInfo    - UserOp fields and info collected during validation.
      * @param context   - The context returned in validatePaymasterUserOp.
      * @param actualGas - The gas used so far by this user operation.
      */
     function _postExecution(
-        uint256 opIndex,
         IPaymaster.PostOpMode mode,
         UserOpInfo memory opInfo,
         bytes memory context,
@@ -696,21 +728,24 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             }
 
             actualGasCost = actualGas * gasPrice;
-            if (opInfo.prefund < actualGasCost) {
-                revert FailedOp(opIndex, "AA51 prefund below actualGasCost");
+            uint256 prefund = opInfo.prefund;
+            if (prefund < actualGasCost) {
+                if (mode == IPaymaster.PostOpMode.postOpReverted) {
+                    actualGasCost = prefund;
+                    emitPrefundTooLow(opInfo);
+                    emitUserOperationEvent(opInfo, false, actualGasCost, actualGas);
+                } else {
+                    assembly ("memory-safe") {
+                        mstore(0, INNER_REVERT_LOW_PREFUND)
+                        revert(0, 32)
+                    }
+                }
+            } else {
+                uint256 refund = prefund - actualGasCost;
+                _incrementDeposit(refundAddress, refund);
+                bool success = mode == IPaymaster.PostOpMode.opSucceeded;
+                emitUserOperationEvent(opInfo, success, actualGasCost, actualGas);
             }
-            uint256 refund = opInfo.prefund - actualGasCost;
-            _incrementDeposit(refundAddress, refund);
-            bool success = mode == IPaymaster.PostOpMode.opSucceeded;
-            emit UserOperationEvent(
-                opInfo.userOpHash,
-                mUserOp.sender,
-                mUserOp.paymaster,
-                mUserOp.nonce,
-                success,
-                actualGasCost,
-                actualGas
-            );
         } // unchecked
     }
 

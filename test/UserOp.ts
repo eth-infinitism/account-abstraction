@@ -29,7 +29,7 @@ export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
   const gasFees = packAccountGasLimits(userOp.maxPriorityFeePerGas, userOp.maxFeePerGas)
   let paymasterAndData = '0x'
-  if (userOp.paymaster.length >= 20 && userOp.paymaster !== AddressZero) {
+  if (userOp.paymaster?.length >= 20 && userOp.paymaster !== AddressZero) {
     paymasterAndData = packPaymasterData(userOp.paymaster as string, userOp.paymasterVerificationGasLimit, userOp.paymasterPostOpGasLimit, userOp.paymasterData as string)
   }
   return {
