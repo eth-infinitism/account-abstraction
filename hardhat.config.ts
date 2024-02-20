@@ -8,6 +8,9 @@ import 'solidity-coverage'
 
 import * as fs from 'fs'
 
+const SALT = '0x90d8084deab30c2a37c45e8d47f49f2f7965183cb6990a98943ef94940681de3'
+process.env.SALT = process.env.SALT ?? SALT
+
 task('deploy', 'Deploy contracts')
   .addFlag('simpleAccountFactory', 'deploy sample factory (by default, enabled only on localhost)')
 
