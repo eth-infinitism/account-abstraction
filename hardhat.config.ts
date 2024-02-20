@@ -14,7 +14,7 @@ process.env.SALT = process.env.SALT ?? SALT
 task('deploy', 'Deploy contracts')
   .addFlag('simpleAccountFactory', 'deploy sample factory (by default, enabled only on localhost)')
 
-const mnemonicFileName = process.env.MNEMONIC_FILE
+const mnemonicFileName = process.env.MNEMONIC_FILE!
 let mnemonic = 'test '.repeat(11) + 'junk'
 if (fs.existsSync(mnemonicFileName)) { mnemonic = fs.readFileSync(mnemonicFileName, 'ascii') }
 

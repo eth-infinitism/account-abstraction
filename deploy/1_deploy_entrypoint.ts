@@ -6,7 +6,6 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
   const provider = ethers.provider
   const from = await provider.getSigner().getAddress()
 
-  console.log('from=', from, 'bal=', await provider.getBalance(from))
   const ret = await hre.deployments.deploy(
     'EntryPoint', {
       from,
