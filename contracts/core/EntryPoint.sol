@@ -114,9 +114,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         if (!success) {
             bytes32 innerRevertCode;
             assembly ("memory-safe") {
-                let len := returndatasize()
-                if eq(32,len) {
-                    returndatacopy(0, 0, 32)
+                if eq(32, returndatasize()) {
+                    returndatacopy(0, 0, returndatasize())
                     innerRevertCode := mload(0)
                 }
             }
