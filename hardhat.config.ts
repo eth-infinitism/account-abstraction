@@ -1,6 +1,6 @@
 import '@nomiclabs/hardhat-waffle'
 import '@typechain/hardhat'
-import { HardhatUserConfig } from 'hardhat/config'
+import { HardhatUserConfig, task } from 'hardhat/config'
 import 'hardhat-deploy'
 import '@nomiclabs/hardhat-etherscan'
 
@@ -8,7 +8,13 @@ import 'solidity-coverage'
 
 import * as fs from 'fs'
 
-const mnemonicFileName = process.env.MNEMONIC_FILE ?? `${process.env.HOME}/.secret/testnet-mnemonic.txt`
+const SALT = '0x90d8084deab30c2a37c45e8d47f49f2f7965183cb6990a98943ef94940681de3'
+process.env.SALT = process.env.SALT ?? SALT
+
+task('deploy', 'Deploy contracts')
+  .addFlag('simpleAccountFactory', 'deploy sample factory (by default, enabled only on localhost)')
+
+const mnemonicFileName = process.env.MNEMONIC_FILE!
 let mnemonic = 'test '.repeat(11) + 'junk'
 if (fs.existsSync(mnemonicFileName)) { mnemonic = fs.readFileSync(mnemonicFileName, 'ascii') }
 

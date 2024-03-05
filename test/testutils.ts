@@ -275,7 +275,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 
 export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
-  const addr = await create2factory.deploy(EntryPoint__factory.bytecode, 0, process.env.COVERAGE != null ? 20e6 : 8e6)
+  const addr = await create2factory.deploy(EntryPoint__factory.bytecode, process.env.SALT, process.env.COVERAGE != null ? 20e6 : 8e6)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 

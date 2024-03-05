@@ -5,7 +5,7 @@ import { Deferrable, resolveProperties } from '@ethersproject/properties'
 import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/providers'
 import { BigNumber, Bytes, ethers, Event, Signer } from 'ethers'
 import { clearInterval } from 'timers'
-import { getAccountAddress, getAccountInitCode } from '../test/testutils'
+import { decodeRevertReason, getAccountAddress, getAccountInitCode } from '../test/testutils'
 import { fillAndSign, getUserOpHash, packUserOp } from '../test/UserOp'
 import { PackedUserOperation, UserOperation } from '../test/UserOperation'
 import {
@@ -174,11 +174,18 @@ export function localUserOpSender (entryPointAddress: string, signer: Signer, be
     }
     const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGasLimit).add(userOp.callGasLimit)
     console.log('calc gaslimit=', gasLimit.toString())
-    const ret = await entryPoint.handleOps([packUserOp(userOp)], beneficiary ?? await signer.getAddress(), {
-      maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
-      maxFeePerGas: userOp.maxFeePerGas
-    })
-    await ret.wait()
+    try {
+      const ret = await entryPoint.handleOps([packUserOp(userOp)], beneficiary ?? await signer.getAddress(), {
+        maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+        maxFeePerGas: userOp.maxFeePerGas,
+        gasLimit: 1e6
+
+      })
+      await ret.wait()
+    } catch (e: any) {
+      console.log('decoded err=', decodeRevertReason(e))
+      throw e
+    }
     return undefined
   }
 }

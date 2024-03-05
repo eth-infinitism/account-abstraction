@@ -1,6 +1,6 @@
 {
   "name": "accountabstraction",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "ERC-4337 Account Abstraction Implementation",
   "scripts": {
     "clean": "rm -rf cache artifacts typechain typechain-types",
@@ -19,9 +19,7 @@
     "ci": "yarn compile && hardhat test && yarn run runop",
     "ci-gas-calc": "yarn gas-calc && yarn check-gas-reports",
     "check-gas-reports": "./scripts/check-gas-reports",
-    "runop": "hardhat run src/runop.ts ",
-    "runop-goerli": "AA_URL=https://account-abstraction-goerli.nethermind.io yarn runop --network goerli",
-    "runop3": "hardhat run src/runop3.ts "
+    "runop": "hardhat run src/runop.ts "
   },
   "keywords": [],
   "author": "",
