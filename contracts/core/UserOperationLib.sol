@@ -14,6 +14,7 @@ library UserOperationLib {
     uint256 public constant PAYMASTER_VALIDATION_GAS_OFFSET = 20;
     uint256 public constant PAYMASTER_POSTOP_GAS_OFFSET = 36;
     uint256 public constant PAYMASTER_DATA_OFFSET = 52;
+    uint256 public constant LOW_UINT128_MASK = uint256(type(uint128).max);
     /**
      * Get sender from user operation data.
      * @param userOp - The user operation data.
@@ -36,9 +37,9 @@ library UserOperationLib {
      */
     function gasPrice(
         PackedUserOperation calldata userOp
-    ) internal view returns (uint256) {
+    ) internal view returns (uint128) {
         unchecked {
-            (uint256 maxPriorityFeePerGas, uint256 maxFeePerGas) = unpackUints(userOp.gasFees);
+            (uint128 maxPriorityFeePerGas, uint128 maxFeePerGas) = unpackUints(userOp.gasFees);
             if (maxFeePerGas == maxPriorityFeePerGas) {
                 //legacy mode (for networks that don't support basefee opcode)
                 return maxFeePerGas;
@@ -56,70 +57,70 @@ library UserOperationLib {
     ) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
         uint256 nonce = userOp.nonce;
+        bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
         bytes32 hashInitCode = calldataKeccak(userOp.initCode);
         bytes32 hashCallData = calldataKeccak(userOp.callData);
         bytes32 accountGasLimits = userOp.accountGasLimits;
-        uint256 preVerificationGas = userOp.preVerificationGas;
         bytes32 gasFees = userOp.gasFees;
-        bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
+        uint128 preVerificationGas = userOp.preVerificationGas;
 
         return abi.encode(
             sender, nonce,
+            hashPaymasterAndData,
             hashInitCode, hashCallData,
-            accountGasLimits, preVerificationGas, gasFees,
-            hashPaymasterAndData
+            accountGasLimits, gasFees, preVerificationGas
         );
     }
 
     function unpackUints(
         bytes32 packed
-    ) internal pure returns (uint256 high128, uint256 low128) {
-        return (uint128(bytes16(packed)), uint128(uint256(packed)));
+    ) internal pure returns (uint128, uint128) {
+        return (unpackHigh128(packed), unpackLow128(packed));
     }
 
     //unpack just the high 128-bits from a packed value
-    function unpackHigh128(bytes32 packed) internal pure returns (uint256) {
-        return uint256(packed) >> 128;
+    function unpackHigh128(bytes32 packed) internal pure returns (uint128) {
+        return uint128(uint256(packed) >> 128);
     }
 
     // unpack just the low 128-bits from a packed value
-    function unpackLow128(bytes32 packed) internal pure returns (uint256) {
-        return uint128(uint256(packed));
+    function unpackLow128(bytes32 packed) internal pure returns (uint128) {
+        return uint128(uint256(packed) & LOW_UINT128_MASK);
     }
 
     function unpackMaxPriorityFeePerGas(PackedUserOperation calldata userOp)
-    internal pure returns (uint256) {
+    internal pure returns (uint128) {
         return unpackHigh128(userOp.gasFees);
     }
 
     function unpackMaxFeePerGas(PackedUserOperation calldata userOp)
-    internal pure returns (uint256) {
+    internal pure returns (uint128) {
         return unpackLow128(userOp.gasFees);
     }
 
     function unpackVerificationGasLimit(PackedUserOperation calldata userOp)
-    internal pure returns (uint256) {
+    internal pure returns (uint128) {
         return unpackHigh128(userOp.accountGasLimits);
     }
 
     function unpackCallGasLimit(PackedUserOperation calldata userOp)
-    internal pure returns (uint256) {
+    internal pure returns (uint128) {
         return unpackLow128(userOp.accountGasLimits);
     }
 
     function unpackPaymasterVerificationGasLimit(PackedUserOperation calldata userOp)
-    internal pure returns (uint256) {
+    internal pure returns (uint128) {
         return uint128(bytes16(userOp.paymasterAndData[PAYMASTER_VALIDATION_GAS_OFFSET : PAYMASTER_POSTOP_GAS_OFFSET]));
     }
 
     function unpackPostOpGasLimit(PackedUserOperation calldata userOp)
-    internal pure returns (uint256) {
+    internal pure returns (uint128) {
         return uint128(bytes16(userOp.paymasterAndData[PAYMASTER_POSTOP_GAS_OFFSET : PAYMASTER_DATA_OFFSET]));
     }
 
     function unpackPaymasterStaticFields(
         bytes calldata paymasterAndData
-    ) internal pure returns (address paymaster, uint256 validationGasLimit, uint256 postOpGasLimit) {
+    ) internal pure returns (address paymaster, uint128 validationGasLimit, uint128 postOpGasLimit) {
         return (
             address(bytes20(paymasterAndData[: PAYMASTER_VALIDATION_GAS_OFFSET])),
             uint128(bytes16(paymasterAndData[PAYMASTER_VALIDATION_GAS_OFFSET : PAYMASTER_POSTOP_GAS_OFFSET])),

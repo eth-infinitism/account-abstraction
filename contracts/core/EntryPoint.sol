@@ -80,7 +80,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     )
     internal
     returns
-    (uint256 collected) {
+    (uint128 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
@@ -284,15 +284,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      */
     struct MemoryUserOp {
         address sender;
-        uint256 nonce;
-        uint256 verificationGasLimit;
-        uint256 callGasLimit;
-        uint256 paymasterVerificationGasLimit;
-        uint256 paymasterPostOpGasLimit;
-        uint256 preVerificationGas;
         address paymaster;
-        uint256 maxFeePerGas;
-        uint256 maxPriorityFeePerGas;
+        uint256 nonce;
+        uint128 paymasterVerificationGasLimit;
+        uint128 paymasterPostOpGasLimit;
+        uint128 verificationGasLimit;
+        uint128 callGasLimit;
+        uint128 maxFeePerGas;
+        uint128 maxPriorityFeePerGas;
+        uint128 preVerificationGas;
     }
 
     struct UserOpInfo {
@@ -315,7 +315,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         bytes memory callData,
         UserOpInfo memory opInfo,
         bytes calldata context
-    ) external returns (uint256 actualGasCost) {
+    ) external returns (uint128 actualGasCost) {
         uint256 preGas = gasleft();
         require(msg.sender == address(this), "AA92 internal call only");
         MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -533,7 +533,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
             paymasterInfo.deposit = deposit - requiredPreFund;
-            uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
+            uint128 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
             try
                 IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
                     op,
@@ -686,13 +686,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
         IPaymaster.PostOpMode mode,
         UserOpInfo memory opInfo,
         bytes memory context,
-        uint256 actualGas
-    ) private returns (uint256 actualGasCost) {
+        uint128 actualGas
+    ) private returns (uint128 actualGasCost) {
         uint256 preGas = gasleft();
         unchecked {
             address refundAddress;
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
-            uint256 gasPrice = getUserOpGasPrice(mUserOp);
+            uint128 gasPrice = getUserOpGasPrice(mUserOp);
 
             address paymaster = mUserOp.paymaster;
             if (paymaster == address(0)) {
@@ -756,10 +756,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
      */
     function getUserOpGasPrice(
         MemoryUserOp memory mUserOp
-    ) internal view returns (uint256) {
+    ) internal view returns (uint128) {
         unchecked {
-            uint256 maxFeePerGas = mUserOp.maxFeePerGas;
-            uint256 maxPriorityFeePerGas = mUserOp.maxPriorityFeePerGas;
+            uint128 maxFeePerGas = mUserOp.maxFeePerGas;
+            uint128 maxPriorityFeePerGas = mUserOp.maxPriorityFeePerGas;
             if (maxFeePerGas == maxPriorityFeePerGas) {
                 //legacy mode (for networks that don't support basefee opcode)
                 return maxFeePerGas;
