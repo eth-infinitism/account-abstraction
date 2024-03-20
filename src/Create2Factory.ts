@@ -36,7 +36,7 @@ export class Create2Factory {
 
     const addr = Create2Factory.getDeployedAddress(initCode, salt)
     if (await this.provider.getCode(addr).then(code => code.length) > 2) {
-      return addr
+      return addr 0x12978f8Da2871101e15689E7c896A9Eea727cb1A
     }
 
     const deployTx = {
