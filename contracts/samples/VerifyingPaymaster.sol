@@ -66,8 +66,8 @@ contract VerifyingPaymaster is BasePaymaster {
      * verify our external signer signed this request.
      * the "paymasterAndData" is expected to be the paymaster and a signature over the entire request params
      * paymasterAndData[:20] : address(this)
-     * paymasterAndData[20:84] : abi.encode(validUntil, validAfter)
-     * paymasterAndData[84:] : signature
+     * paymasterAndData[52:116] : abi.encode(validUntil, validAfter)
+     * paymasterAndData[116:] : signature
      */
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32 /*userOpHash*/, uint256 requiredPreFund)
     internal view override returns (bytes memory context, uint256 validationData) {
