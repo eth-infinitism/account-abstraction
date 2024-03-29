@@ -53,7 +53,7 @@ interface IEntryPointSimulations is IEntryPoint {
      * It performs full validation of the UserOperation, but ignores signature error.
      * An optional target address is called after the userop succeeds,
      * and its value is returned (before the entire call is reverted).
-     * Note that in order to collect the the success/failure of the target call, it must be executed
+     * Note that in order to collect the success/failure of the target call, it must be executed
      * with trace enabled to track the emitted events.
      * @param op The UserOperation to simulate.
      * @param target         - If nonzero, a target address to call after userop simulation. If called,
