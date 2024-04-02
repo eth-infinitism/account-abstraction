@@ -63,7 +63,7 @@ describe('OracleHelper', function () {
     it('should figure out the correct price', async function () {
       await testEnv.paymaster.updateCachedPrice(true)
       const cachedPrice = await testEnv.paymaster.cachedPrice()
-      const tokensPerEtherCalculated = await testEnv.paymaster.weiToToken(parseEther('1'), cachedPrice)
+      const tokensPerEtherCalculated = await testEnv.paymaster.weiToToken(parseEther('1'), 18, cachedPrice)
       assert.equal(cachedPrice.toString(), testEnv.expectedPrice.toString(), 'price not right')
       assert.equal(tokensPerEtherCalculated.toString(), testEnv.expectedTokensPerEtherCalculated.toString(), 'tokens amount not right')
     })

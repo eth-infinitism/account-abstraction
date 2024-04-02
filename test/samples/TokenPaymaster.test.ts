@@ -1,5 +1,5 @@
 import { ContractReceipt, ContractTransaction, Wallet, utils, BigNumber } from 'ethers'
-import { hexlify, hexZeroPad, Interface, parseEther } from 'ethers/lib/utils'
+import { hexlify, hexZeroPad, Interface, parseEther, parseUnits } from 'ethers/lib/utils'
 import { assert, expect } from 'chai'
 import { ethers } from 'hardhat'
 
@@ -243,7 +243,7 @@ describe('TokenPaymaster', function () {
     const expectedTokenPriceWithMarkup = priceDenominator
       .mul(initialPriceToken).div(initialPriceEther) // expectedTokenPrice of 0.2 as BigNumber
       .mul(10).div(15) // added 150% priceMarkup
-    const expectedTokenCharge = actualGasCostPaymaster.add(addedPostOpCost).mul(priceDenominator).div(expectedTokenPriceWithMarkup)
+    const expectedTokenCharge = actualGasCostPaymaster.add(addedPostOpCost).mul(priceDenominator).div(expectedTokenPriceWithMarkup).div(BigNumber.from(10).pow(18 - 6)) // token decimals is 6
     const postOpGasCost = actualGasCostEntryPoint.sub(actualGasCostPaymaster)
     assert.equal(decodedLogs.length, 5)
     assert.equal(decodedLogs[4].args.success, true)
@@ -330,10 +330,14 @@ describe('TokenPaymaster', function () {
     const preChargeTokens = decodedLogs[0].args.value
     const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).add(BigNumber.from(op.paymasterVerificationGasLimit))).add(BigNumber.from(op.paymasterPostOpGasLimit)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
     const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
-    const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
+    const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens).div(BigNumber.from(10).pow(18 - 6)) // token decimals is 6
 
-    // TODO: div 1e10 to hide rounding errors. look into it - 1e10 is too much.
-    assert.equal(preChargeTokenPrice.div(1e10).toString(), overrideTokenPrice.div(1e10).toString())
+    // assert we didn't charge more than user allowed
+    assert.isTrue(overrideTokenPrice.lte(preChargeTokenPrice))
+
+    // assert the token amount is the most optimal that can be charged, which means if charging more token the price will be lower than the one supplied by the client
+    const tokenPriceIfCharingMore = requiredPrefund.mul(priceDenominator).div(preChargeTokens.add(1)).div(BigNumber.from(10).pow(18 - 6)) // token decimals is 6
+    assert.isTrue(tokenPriceIfCharingMore.lte(overrideTokenPrice))
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
@@ -375,9 +379,16 @@ describe('TokenPaymaster', function () {
     const preChargeTokens = decodedLogs[0].args.value
     const requiredGas = BigNumber.from(op.callGasLimit).add(BigNumber.from(op.verificationGasLimit).add(BigNumber.from(op.paymasterVerificationGasLimit))).add(BigNumber.from(op.paymasterPostOpGasLimit)).add(op.preVerificationGas).add(40000 /*  REFUND_POSTOP_COST */)
     const requiredPrefund = requiredGas.mul(op.maxFeePerGas)
-    const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens)
+    const preChargeTokenPrice = requiredPrefund.mul(priceDenominator).div(preChargeTokens).div(BigNumber.from(10).pow(18 - 6)) // token decimals is 6
+    const expectedPrice = currentCachedPrice.mul(10).div(15)
 
-    assert.equal(preChargeTokenPrice.toString(), currentCachedPrice.mul(10).div(15).toString())
+    // assert we didn't charge more than the amount calculated by the cached price
+    assert.isTrue(expectedPrice.lte(preChargeTokenPrice))
+
+    // assert the token amount is the most optimal that can be charged, which means if charging more token the price will be lower than the oracle price
+    const tokenPriceIfCharingMore = requiredPrefund.mul(priceDenominator).div(preChargeTokens.add(1)).div(BigNumber.from(10).pow(18 - 6)) // token decimals is 6
+    assert.isTrue(tokenPriceIfCharingMore.lte(expectedPrice))
+
     await ethers.provider.send('evm_revert', [snapshot])
   })
 
@@ -427,7 +438,7 @@ describe('TokenPaymaster', function () {
     const snapshot = await ethers.provider.send('evm_snapshot', [])
 
     // Make sure account has small amount of tokens
-    await token.transfer(account.address, parseEther('0.01'))
+    await token.transfer(account.address, parseUnits('0.01', 6))
     await token.sudoApprove(account.address, paymaster.address, ethers.constants.MaxUint256)
 
     // Ether price increased 100 times!
@@ -437,7 +448,7 @@ describe('TokenPaymaster', function () {
     await ethers.provider.send('evm_increaseTime', [200])
 
     // Withdraw most of the tokens the account hs inside the inner transaction
-    const withdrawTokensCall = await token.populateTransaction.transfer(token.address, parseEther('0.009')).then(tx => tx.data!)
+    const withdrawTokensCall = await token.populateTransaction.transfer(token.address, parseUnits('0.009', 6)).then(tx => tx.data!)
     const callData = await account.populateTransaction.execute(token.address, 0, withdrawTokensCall).then(tx => tx.data!)
 
     let op = await fillUserOp({
@@ -496,7 +507,7 @@ describe('TokenPaymaster', function () {
     assert.equal(decodedLogs[4].name, 'StubUniswapExchangeEvent')
     assert.equal(decodedLogs[8].name, 'Received')
     assert.equal(decodedLogs[9].name, 'Deposited')
-    const deFactoExchangeRate = decodedLogs[4].args.amountOut.toString() / decodedLogs[4].args.amountIn.toString()
+    const deFactoExchangeRate = decodedLogs[4].args.amountOut.toString() / decodedLogs[4].args.amountIn.toString() / 1e12
     const expectedPrice = initialPriceToken / initialPriceEther
     assert.closeTo(deFactoExchangeRate, expectedPrice, 0.001)
   })
