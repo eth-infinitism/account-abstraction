@@ -129,7 +129,11 @@ export class GasChecker {
         defaultAbiCoder.encode(['address'], [this.entryPoint().address])
       ]), 0, 2885201)
     console.log('factaddr', factoryAddress)
+    GasCheckCollector.inst.setContractName(factoryAddress, 'SimpleAccountFactory')
     const fact = SimpleAccountFactory__factory.connect(factoryAddress, ethersSigner)
+
+    const implAddress = await fact.accountImplementation()
+    GasCheckCollector.inst.setContractName(implAddress, 'SimpleAccount')
     // create accounts
     const creationOps: PackedUserOperation[] = []
     for (const n of range(count)) {
@@ -157,6 +161,7 @@ export class GasChecker {
       this.accounts[addr] = this.accountOwner
       // deploy if not already deployed.
       await fact.createAccount(this.accountOwner.address, salt)
+      GasCheckCollector.inst.setContractName(addr, 'ERC1967Proxy')
       const accountBalance = await GasCheckCollector.inst.entryPoint.balanceOf(addr)
       if (accountBalance.lte(minDepositOrBalance)) {
         await GasCheckCollector.inst.entryPoint.depositTo(addr, { value: minDepositOrBalance.mul(5) })
@@ -200,6 +205,7 @@ export class GasChecker {
           dest = account
         } else if (dest === 'random') {
           dest = createAddress()
+          GasCheckCollector.inst.setContractName(dest, '!EOA!')
           const destBalance = await getBalance(dest)
           if (destBalance.eq(0)) {
             console.log('dest replenish', dest)
@@ -276,8 +282,8 @@ export class GasChecker {
       count: info.count,
       gasUsed,
       accountEst,
-      title: info.title
-      // receipt: rcpt
+      title: info.title,
+      receipt: rcpt
     }
     if (info.diffLastGas) {
       ret1.gasDiff = gasDiff
@@ -305,6 +311,13 @@ export class GasCheckCollector {
   static initPromise?: Promise<GasCheckCollector>
 
   entryPoint: EntryPoint
+  createJsonResult: boolean = false
+  readonly contracts = new Map<string, string>()
+  readonly txHashes: string[] = []
+
+  setContractName (address: string, name: string): void {
+    this.contracts.set(address.toLowerCase(), name)
+  }
 
   static async init (): Promise<void> {
     if (this.inst == null) {
@@ -318,6 +331,7 @@ export class GasCheckCollector {
   async _init (entryPointAddressOrTest: string = 'test'): Promise<this> {
     console.log('signer=', await ethersSigner.getAddress())
     DefaultGasTestInfo.beneficiary = createAddress()
+    this.setContractName(DefaultGasTestInfo.beneficiary, '!EOA! (beneficiary)')
 
     const bal = await getBalance(ethersSigner.getAddress())
     if (bal.gt(parseEther('100000000'))) {
@@ -331,14 +345,16 @@ export class GasCheckCollector {
     } else {
       this.entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, ethersSigner)
     }
+    this.setContractName(this.entryPoint.address, 'EntryPoint')
 
     const tableHeaders = [
       'handleOps description         ',
       'count',
       'total gasUsed',
-      'per UserOp gas\n(delta for\none UserOp)',
+      // 'per UserOp gas\n(delta for\none UserOp)',
       // 'account.exec()\nestimateGas',
-      'per UserOp overhead\n(compared to\naccount.exec())'
+      // 'per UserOp overhead\n(compared to\naccount.exec())',
+      'transaction hash'
     ]
 
     this.initTable(tableHeaders)
@@ -390,7 +406,19 @@ export class GasCheckCollector {
 
     const tableOutput = table(this.tabRows, this.tableConfig)
     write(tableOutput)
+    if (this.createJsonResult) {
+      this.writeResultInJson()
+    }
     // process.exit(0)
+  }
+
+  writeResultInJson (): void {
+    const res = {
+      contracts: Object.fromEntries(this.contracts.entries()),
+      transactions: this.txHashes
+    }
+
+    fs.writeFileSync(`gas-checker-result-${Date.now()}.json`, JSON.stringify(res))
   }
 
   addRow (res: GasTestResult): void {
@@ -401,9 +429,12 @@ export class GasCheckCollector {
       res.title,
       res.count,
       gasUsed,
-      res.gasDiff ?? '',
+      // res.gasDiff ?? '',
       // res.accountEst,
-      perOp])
+      // perOp,
+      res.receipt?.transactionHash])
+
+    this.txHashes.push(res.receipt!.transactionHash)
   }
 }
 

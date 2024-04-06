@@ -17,7 +17,7 @@ import { BigNumber } from 'ethers'
 import { createAccountOwner } from '../test/testutils'
 // const ethersSigner = ethers.provider.getSigner()
 
-context('Token Paymaster', function () {
+context.skip('Token Paymaster', function () {
   this.timeout(60000)
   const g = new GasChecker()
 

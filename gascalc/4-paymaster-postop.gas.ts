@@ -7,7 +7,7 @@ import { hexValue } from '@ethersproject/bytes'
 
 const ethersSigner = ethers.provider.getSigner()
 
-context('Paymaster with PostOp', function () {
+context.skip('Paymaster with PostOp', function () {
   this.timeout(60000)
   const g = new GasChecker()
 
