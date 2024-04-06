@@ -1,16 +1,21 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
-import { defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat, parseEther } from 'ethers/lib/utils'
 import {
   AddressZero,
   checkForGeth,
-  createAddress,
   createAccountOwner,
-  deployEntryPoint, decodeRevertReason
+  createAddress,
+  decodeRevertReason,
+  deployEntryPoint
 } from '../test/testutils'
 import {
-  EntryPoint, EntryPoint__factory, SimpleAccountFactory,
-  SimpleAccountFactory__factory, SimpleAccount__factory
+  EntryPoint,
+  EntryPoint__factory,
+  SimpleAccount__factory,
+  SimpleAccountFactory,
+  SimpleAccountFactory__factory,
+  VerifyingPaymaster__factory
 } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
@@ -20,7 +25,7 @@ import { table, TableUserConfig } from 'table'
 import { Create2Factory } from '../src/Create2Factory'
 import * as fs from 'fs'
 import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
-import { PackedUserOperation } from '../test/UserOperation'
+import { PackedUserOperation, UserOperation } from '../test/UserOperation'
 import { expect } from 'chai'
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
@@ -42,6 +47,7 @@ interface GasTestInfo {
   title: string
   diffLastGas: boolean
   paymaster: string
+  verifyingPaymaster: boolean
   count: number
   // address, or 'random' or 'self' (for account itself)
   dest: string
@@ -198,8 +204,6 @@ export class GasChecker {
     const userOps = await Promise.all(range(info.count)
       .map(index => Object.entries(this.accounts)[index])
       .map(async ([account, accountOwner]) => {
-        const paymaster = info.paymaster
-
         let { dest, destValue, destCallData } = info
         if (dest === 'self') {
           dest = account
@@ -230,18 +234,28 @@ export class GasChecker {
         }
         // console.debug('== account est=', accountEst.toString())
         accountEst = est.accountEst
-        const op = await fillSignAndPack({
+        const userOpInput: Partial<UserOperation> = {
           sender: account,
           callData: accountExecFromEntryPoint,
           maxPriorityFeePerGas: info.gasPrice,
           maxFeePerGas: info.gasPrice,
           callGasLimit: accountEst,
           verificationGasLimit: 1000000,
-          paymaster: paymaster,
+          paymaster: info.paymaster,
           paymasterVerificationGasLimit: 50000,
           paymasterPostOpGasLimit: 50000,
           preVerificationGas: 1
-        }, accountOwner, GasCheckCollector.inst.entryPoint)
+        }
+        if (info.verifyingPaymaster) {
+          const MOCK_VALID_UNTIL = '0x00000000deadbeef'
+          const MOCK_VALID_AFTER = '0x0000000000001234'
+          const userOp1 = await fillUserOp(userOpInput, this.entryPoint())
+          const paymaster = VerifyingPaymaster__factory.connect(info.paymaster, ethersSigner)
+          const hash = await paymaster.getHash(packUserOp(userOp1), MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
+          const sig = await this.accountOwner.signMessage(arrayify(hash))
+          userOpInput.paymasterData = hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
+        }
+        const op = await fillSignAndPack(userOpInput, accountOwner, GasCheckCollector.inst.entryPoint)
         // const packed = packUserOp(op, false)
         // console.log('== packed cost=', callDataCost(packed), packed)
         return op

@@ -1,35 +1,45 @@
 import { parseEther } from 'ethers/lib/utils'
-import { TestPaymasterAcceptAll__factory } from '../typechain'
+import { VerifyingPaymaster, VerifyingPaymaster__factory } from '../typechain'
 import { ethers } from 'hardhat'
-import { GasChecker } from './GasChecker'
-import { Create2Factory } from '../src/Create2Factory'
-import { hexValue } from '@ethersproject/bytes'
+import { GasCheckCollector, GasChecker } from './GasChecker'
 
 const ethersSigner = ethers.provider.getSigner()
 
-context.skip('Minimal Paymaster', function () {
+context('Verifying Paymaster', function () {
   this.timeout(60000)
   const g = new GasChecker()
 
-  let paymasterAddress: string
+  let paymaster: VerifyingPaymaster
+
   before(async () => {
-    const paymasterInit = hexValue(new TestPaymasterAcceptAll__factory(ethersSigner).getDeployTransaction(g.entryPoint().address).data!)
-    paymasterAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(paymasterInit, 0)
-    const paymaster = TestPaymasterAcceptAll__factory.connect(paymasterAddress, ethersSigner)
+    // const paymasterInit = hexValue(new TestPaymasterAcceptAll__factory(ethersSigner).getDeployTransaction(g.entryPoint().address).data!)
+    const entryPointAddress = g.entryPoint().address
+    paymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(entryPointAddress, g.accountOwner.address)
+    GasCheckCollector.inst.setContractName(paymaster.address, 'VerifyingPaymaster')
+
     await paymaster.addStake(1, { value: 1 })
     await g.entryPoint().depositTo(paymaster.address, { value: parseEther('10') })
   })
-  it('simple paymaster', async function () {
-    await g.addTestRow({ title: 'simple paymaster', count: 1, paymaster: paymasterAddress, diffLastGas: false })
+
+  it('verifying paymaster', async function () {
+    await g.createAccounts1(2)
     await g.addTestRow({
-      title: 'simple paymaster with diff',
+      title: 'verifying paymaster',
+      count: 1,
+      paymaster: paymaster.address,
+      verifyingPaymaster: true,
+      diffLastGas: false
+    })
+    await g.addTestRow({
+      title: 'verifying paymaster with diff',
       count: 2,
-      paymaster: paymasterAddress,
+      paymaster: paymaster.address,
+      verifyingPaymaster: true,
       diffLastGas: true
     })
   })
 
-  it('simple paymaster 10', async function () {
+  it.skip('simple paymaster 10', async function () {
     if (g.skipLong()) this.skip()
 
     await g.addTestRow({ title: 'simple paymaster', count: 10, paymaster: paymasterAddress, diffLastGas: false })
