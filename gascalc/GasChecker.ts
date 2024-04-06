@@ -422,7 +422,8 @@ export class GasCheckCollector {
   }
 
   addRow (res: GasTestResult): void {
-    const gasUsed = res.gasDiff != null ? '' : res.gasUsed // hide "total gasUsed" if there is a diff
+    // const gasUsed = res.gasDiff != null ? '' : res.gasUsed // hide "total gasUsed" if there is a diff
+    const gasUsed = res.gasUsed
     const perOp = res.gasDiff != null ? res.gasDiff - res.accountEst : ''
 
     this.tabRows.push([
