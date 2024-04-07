@@ -42,6 +42,7 @@ interface GasTestInfo {
   diffLastGas: boolean
   paymaster: string
   skipAccountCreation: boolean
+  appendZerodevMode: boolean
   count: number
   // address, or 'random' or 'self' (for account itself)
   dest: string
@@ -247,6 +248,10 @@ export class GasChecker {
           paymasterAndData: paymaster,
           preVerificationGas: 1
         }, accountOwner, GasCheckCollector.inst.entryPoint)
+
+        if (info.appendZerodevMode) {
+          op.signature = '0x00000000' + op.signature.toString().replace('0x', '')
+        }
         // const packed = packUserOp(op, false)
         // console.log('== packed cost=', callDataCost(packed), packed)
         return op
@@ -412,7 +417,8 @@ export class GasCheckCollector {
   }
 
   addRow (res: GasTestResult): void {
-    const gasUsed = res.gasDiff != null ? '' : res.gasUsed // hide "total gasUsed" if there is a diff
+    // const gasUsed = res.gasDiff != null ? '' : res.gasUsed // hide "total gasUsed" if there is a diff
+    const gasUsed = res.gasUsed
     const perOp = res.gasDiff != null ? res.gasDiff - res.accountEst : ''
 
     this.tabRows.push([
