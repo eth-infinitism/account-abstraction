@@ -62,8 +62,8 @@ export async function getTokenBalance (token: IERC20, address: string): Promise<
 let counter = 0
 
 // create non-random account, so gas calculations are deterministic
-export function createAccountOwner (): Wallet {
-  const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
+export function createAccountOwner (index?: number): Wallet {
+  const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(index ?? ++counter))))
   return new ethers.Wallet(privateKey, ethers.provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }

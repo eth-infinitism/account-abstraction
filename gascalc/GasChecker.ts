@@ -41,6 +41,7 @@ interface GasTestInfo {
   title: string
   diffLastGas: boolean
   paymaster: string
+  skipAccountCreation: boolean
   count: number
   // address, or 'random' or 'self' (for account itself)
   dest: string
@@ -164,6 +165,11 @@ export class GasChecker {
     await this.entryPoint().handleOps(creationOps, ethersSigner.getAddress())
   }
 
+  async insertAccount (address: string, owner: Wallet): Promise<void> {
+    this.createdAccounts.add(address)
+    this.accounts[address] = owner
+  }
+
   /**
    * helper: run a test scenario, and add a table row
    * @param params - test parameters. missing values filled in from DefaultGasTestInfo
@@ -185,8 +191,10 @@ export class GasChecker {
 
     console.debug('== running test count=', info.count)
 
-    // fill accounts up to this code.
-    await this.createAccounts1(info.count)
+    if (!info.skipAccountCreation) {
+      // fill accounts up to this code.
+      await this.createAccounts1(info.count)
+    }
 
     let accountEst: number = 0
     const userOps = await Promise.all(range(info.count)
