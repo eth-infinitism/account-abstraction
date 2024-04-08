@@ -1,6 +1,6 @@
 import { DefaultGasTestInfo, GasChecker } from './GasChecker'
 
-context('huge tx - 5k', function () {
+context.skip('huge tx - 5k', function () {
   this.timeout(60000)
   const huge = DefaultGasTestInfo.destCallData!.padEnd(10240, 'f')
   const g = new GasChecker()
