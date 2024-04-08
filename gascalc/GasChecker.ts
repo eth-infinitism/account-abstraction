@@ -43,6 +43,8 @@ interface GasTestInfo {
   paymaster: string
   skipAccountCreation: boolean
   appendZerodevMode: boolean
+  factoryInfo?: (owner: string, salt: string) => Promise<{ factory: string, factoryData: string }>
+  execInfo?: (target: string, value: BigNumberish, data: string) => string
   count: number
   // address, or 'random' or 'self' (for account itself)
   dest: string
@@ -206,7 +208,19 @@ export class GasChecker {
     let accountEst: number = 0
     const userOps = await Promise.all(range(info.count)
       .map(index => Object.entries(this.accounts)[index])
-      .map(async ([account, accountOwner]) => {
+      .map(async ([account, accountOwner], index) => {
+        let initCode: string | undefined
+
+        if (params.factoryInfo != null) {
+          const f = await params.factoryInfo(accountOwner.address, index.toString())
+          const ret = await provider.call({ to: f.factory, data: f.factoryData })
+          account = defaultAbiCoder.decode(['address'], ret)[0]
+          // if ((await getBalance(account)).eq(0)) {
+          console.log('replenish initcode account', account)
+          await ethersSigner.sendTransaction({ to: account, value: parseEther('1') })
+          // }
+          initCode = hexConcat([f.factory, f.factoryData])
+        }
         const paymaster = info.paymaster
 
         let { dest, destValue, destCallData } = info
@@ -221,7 +235,9 @@ export class GasChecker {
             await ethersSigner.sendTransaction({ to: dest, value: 1 })
           }
         }
-        const accountExecFromEntryPoint = this.accountExec(dest, destValue, destCallData)
+        const accountExecFromEntryPoint = params.execInfo != null
+          ? params.execInfo(dest, destValue, destCallData)
+          : this.accountExec(dest, destValue, destCallData)
 
         // remove the "dest" from the key to the saved estimations
         // so we have a single estimation per method.
@@ -239,8 +255,10 @@ export class GasChecker {
         }
         // console.debug('== account est=', accountEst.toString())
         accountEst = est.accountEst
+
         const op = await fillAndSign({
           sender: account,
+          initCode,
           callData: accountExecFromEntryPoint,
           maxPriorityFeePerGas: info.gasPrice,
           maxFeePerGas: info.gasPrice,
