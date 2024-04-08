@@ -24,15 +24,16 @@ context.only('simple account', function () {
     'function executeBatch((address,uint256,bytes)[])',
     'function initialize(address,bytes)'
   ])
+
+  let globalSalt = 10000
   const factoryInfo = async (owner: string, salt: string): Promise<any> => {
     const initData = kernelFunctions.encodeFunctionData(
       'initialize', [ECDSAValidator, owner])
 
-    console.log('create factoryinfo for ', owner, 'salt=', salt)
+    console.log('create factoryinfo for ', owner, 'salt=', ++globalSalt)
     const ret = {
       factory: kernelLiteFactory,
-      // salt "0" was already created..
-      factoryData: kernelFunctions.encodeFunctionData('createAccount', [kernelLiteECDSA, initData, salt])
+      factoryData: kernelFunctions.encodeFunctionData('createAccount', [kernelLiteECDSA, initData, globalSalt.toString()])
     }
     console.log('factoryInfo= ', ret)
     return ret
@@ -71,12 +72,14 @@ context.only('simple account', function () {
       appendZerodevMode: true,
       diffLastGas: false
     })
-    // await g.addTestRow({
-    //   title: 'zd-kernel-lite - diff from previous',
-    //   count: 2,
-    //   skipAccountCreation: true,
-    //   appendZerodevMode: true,
-    //   diffLastGas: true
-    // })
+    await g.addTestRow({
+      title: 'zd-kernel-lite - diff from previous',
+      count: 2,
+      factoryInfo,
+      execInfo,
+      skipAccountCreation: true,
+      appendZerodevMode: true,
+      diffLastGas: true
+    })
   })
 })
