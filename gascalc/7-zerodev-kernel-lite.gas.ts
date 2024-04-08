@@ -18,6 +18,12 @@ context.only('simple account', function () {
     console.log('zerodevKernelOwner= ', zerodevKernelOwner.address)
     await g.insertAccount(zkLite0, zerodevKernelOwner)
     await g.insertAccount(zkLite1, zerodevKernelOwner)
+    GasCheckCollector.inst.setContractName(zkLite0, 'ERC1967Proxy')
+    GasCheckCollector.inst.setContractName(zkLite1, 'ERC1967Proxy')
+    // todo: read this from deployed
+    GasCheckCollector.inst.setContractName('0x0aB1A1Dfb7FAa89aCE93c489120F5a8b602B1a99', 'ECDSAValidator')
+    GasCheckCollector.inst.setContractName('0x3fb14a424e5beD8E6ba066913fDA7882Aa2E1A58', 'KernelLiteECDSA')
+    GasCheckCollector.inst.setContractName('0xB668C3f3D2155d8b37F9a6483d79570FC8659c52', 'KernelFactory')
 
     await ethers.provider.getSigner().sendTransaction({ to: zkLite0, value: 1e18.toString() })
     await ethers.provider.getSigner().sendTransaction({ to: zkLite1, value: 1e18.toString() })

@@ -103,7 +103,8 @@ export class GasChecker {
 
   // generate the "exec" calldata for this account
   accountExec (dest: string, value: BigNumberish, data: string): string {
-    return this.accountInterface.encodeFunctionData('execute', [dest, value, data])
+    // return this.accountInterface.encodeFunctionData('execute', [dest, value, data])
+    return this.accountInterface.encodeFunctionData('execute(address,uint256,bytes,uint8)', [dest, value, data, 0])
   }
 
   // generate the account "creation code"
