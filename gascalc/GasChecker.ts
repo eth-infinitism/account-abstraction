@@ -216,10 +216,15 @@ export class GasChecker {
           const ret = await provider.call({ to: f.factory, data: f.factoryData })
           account = defaultAbiCoder.decode(['address'], ret)[0]
           // if ((await getBalance(account)).eq(0)) {
-          console.log('replenish initcode account', account)
+          console.log('replenish new account', account)
           await ethersSigner.sendTransaction({ to: account, value: parseEther('1') })
           // }
-          initCode = hexConcat([f.factory, f.factoryData])
+          if (params.skipAccountCreation ?? false) {
+            // pre-create the account
+            await ethersSigner.sendTransaction({ to: f.factory, data: f.factoryData })
+          } else {
+            initCode = hexConcat([f.factory, f.factoryData])
+          }
         }
         const paymaster = info.paymaster
 

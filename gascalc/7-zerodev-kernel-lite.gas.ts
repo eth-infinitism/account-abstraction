@@ -6,7 +6,7 @@ import { BigNumberish } from 'ethers'
 import { defaultAbiCoder, Interface } from 'ethers/lib/utils'
 import { log } from 'console'
 // TODO: NOTE: Must be executed separately as otherwise test will reuse SimpleAccount
-context.only('simple account', function () {
+context('kernel account', function () {
   this.timeout(60000)
   const g = new GasChecker()
 
@@ -62,9 +62,29 @@ context.only('simple account', function () {
     await ethers.provider.getSigner().sendTransaction({ to: zkLite1, value: 1e18.toString() })
   })
 
-  it('simple 1', async function () {
+  it('kernel-lite-create', async function () {
     await g.addTestRow({
-      title: 'zd-kernel-lite',
+      title: 'zd-lite-create',
+      count: 1,
+      factoryInfo,
+      execInfo,
+      skipAccountCreation: false,
+      appendZerodevMode: true,
+      diffLastGas: false
+    })
+    await g.addTestRow({
+      title: 'zd-lite-create - diff',
+      count: 2,
+      factoryInfo,
+      execInfo,
+      skipAccountCreation: false,
+      appendZerodevMode: true,
+      diffLastGas: true
+    })
+  })
+  it('kernel-lite-no-create', async function () {
+    await g.addTestRow({
+      title: 'zd-lite',
       count: 1,
       factoryInfo,
       execInfo,
@@ -73,7 +93,7 @@ context.only('simple account', function () {
       diffLastGas: false
     })
     await g.addTestRow({
-      title: 'zd-kernel-lite - diff from previous',
+      title: 'zd-lite - diff',
       count: 2,
       factoryInfo,
       execInfo,
