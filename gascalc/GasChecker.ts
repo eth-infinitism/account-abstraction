@@ -1,6 +1,6 @@
 // calculate gas usage of different bundle sizes
 import '../test/aa.init'
-import { defaultAbiCoder, formatEther, hexConcat, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, formatEther, hexConcat, parseEther } from 'ethers/lib/utils'
 import {
   AddressZero,
   checkForGeth,
@@ -10,7 +10,7 @@ import {
 } from '../test/testutils'
 import {
   EntryPoint, EntryPoint__factory, SimpleAccountFactory,
-  SimpleAccountFactory__factory, SimpleAccount__factory
+  SimpleAccountFactory__factory, SimpleAccount__factory, VerifyingPaymaster, VerifyingPaymaster__factory
 } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
@@ -43,6 +43,7 @@ interface GasTestInfo {
   paymaster: string
   skipAccountCreation: boolean
   appendZerodevMode: boolean
+  verifyingPaymaster: boolean
   factoryInfo?: (owner: string, salt: string) => Promise<{ factory: string, factoryData: string }>
   execInfo?: (target: string, value: BigNumberish, data: string) => string
   count: number
@@ -105,8 +106,30 @@ export class GasChecker {
 
   // generate the "exec" calldata for this account
   accountExec (dest: string, value: BigNumberish, data: string): string {
-    // return this.accountInterface.encodeFunctionData('execute', [dest, value, data])
-    return this.accountInterface.encodeFunctionData('execute(address,uint256,bytes,uint8)', [dest, value, data, 0])
+    return this.accountInterface.encodeFunctionData('execute', [dest, value, data])
+    // return this.accountInterface.encodeFunctionData('execute(address,uint256,bytes,uint8)', [dest, value, data, 0])
+  }
+
+  factoryAddress: string|undefined
+  globalSalt = 10000
+  async simpleAccountFactoryInfo (owner: string, salt: string): Promise<any> {
+    if (this.factoryAddress == null) {
+      const create2Factory = new Create2Factory(this.entryPoint().provider)
+      this.factoryAddress = await create2Factory.deploy(
+        hexConcat([
+          SimpleAccountFactory__factory.bytecode,
+          defaultAbiCoder.encode(['address'], [this.entryPoint().address])
+        ]), 0, 2885201)
+    }
+    const fact = SimpleAccountFactory__factory.connect(this.factoryAddress, ethersSigner)
+
+    // console.log('create factoryinfo for ', owner, 'salt=', ++this.globalSalt)
+    const ret = {
+      factory: fact.address,
+      factoryData: fact.interface.encodeFunctionData('createAccount', [owner, (++this.globalSalt).toString()])
+    }
+    console.log('factoryInfo= ', ret)
+    return ret
   }
 
   // generate the account "creation code"
@@ -126,6 +149,7 @@ export class GasChecker {
    * @param count
    */
   async createAccounts1 (count: number): Promise<void> {
+    throw new Error('don\'t usecreateAccounts1')
     const create2Factory = new Create2Factory(this.entryPoint().provider)
     const factoryAddress = await create2Factory.deploy(
       hexConcat([
@@ -189,6 +213,18 @@ export class GasChecker {
     GasCheckCollector.inst.addRow(await this.runTest(params))
   }
 
+  verifyingPaymaster: VerifyingPaymaster|undefined
+  pmSigner: Wallet|undefined
+
+  async initPaymaster (): Promise<VerifyingPaymaster> {
+    if (this.verifyingPaymaster == null) {
+      this.pmSigner = createAccountOwner()
+      this.verifyingPaymaster = await new VerifyingPaymaster__factory(ethersSigner).deploy(this.entryPoint().address, this.pmSigner.address)
+      await this.entryPoint().depositTo(this.verifyingPaymaster.address, { value: parseEther('0.5') })
+    }
+    return this.verifyingPaymaster
+  }
+
   /**
    * run a single test scenario
    * @param params - test parameters. missing values filled in from DefaultGasTestInfo
@@ -197,36 +233,46 @@ export class GasChecker {
   async runTest (params: Partial<GasTestInfo>): Promise<GasTestResult> {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const info: GasTestInfo = { ...DefaultGasTestInfo, ...params } as GasTestInfo
+    // TODO: maybe better add it to defaultGasTestInfo ?
 
+    if (info.factoryInfo == null) {
+      info.factoryInfo = this.simpleAccountFactoryInfo.bind(this)
+    }
+    if (info.execInfo == null) {
+      info.execInfo = this.accountExec.bind(this)
+    }
     console.debug('== running test count=', info.count)
 
-    if (!info.skipAccountCreation) {
-      // fill accounts up to this code.
-      await this.createAccounts1(info.count)
-    }
+    // if (!info.skipAccountCreation) {
+    //   // fill accounts up to this code.
+    // await this.createAccounts1(info.count)
+    // }
 
     let accountEst: number = 0
     const userOps = await Promise.all(range(info.count)
-      .map(index => Object.entries(this.accounts)[index])
-      .map(async ([account, accountOwner], index) => {
+      .map(async index => {
+        let account = 'invalid'
+        // .map(index => Object.entries(this.accounts)[index])
+        // .map(async ([account, accountOwner], index) => {
         let initCode: string | undefined
-
-        if (params.factoryInfo != null) {
-          const f = await params.factoryInfo(accountOwner.address, index.toString())
+        const accountOwner = this.accountOwner
+        console.log('account before', account, 'info=', info.factoryInfo)
+        if (info.factoryInfo != null) {
+          const f = await info.factoryInfo(accountOwner.address, index.toString())
           const ret = await provider.call({ to: f.factory, data: f.factoryData })
           account = defaultAbiCoder.decode(['address'], ret)[0]
           // if ((await getBalance(account)).eq(0)) {
           console.log('replenish new account', account)
           await ethersSigner.sendTransaction({ to: account, value: parseEther('1') })
           // }
-          if (params.skipAccountCreation ?? false) {
-            // pre-create the account
+          if (info.skipAccountCreation ?? false) {
+            // pre-create the account before the test
             await ethersSigner.sendTransaction({ to: f.factory, data: f.factoryData })
           } else {
+            // create account as part of the UserOp.
             initCode = hexConcat([f.factory, f.factoryData])
           }
         }
-        const paymaster = info.paymaster
 
         let { dest, destValue, destCallData } = info
         if (dest === 'self') {
@@ -240,8 +286,8 @@ export class GasChecker {
             await ethersSigner.sendTransaction({ to: dest, value: 1 })
           }
         }
-        const accountExecFromEntryPoint = params.execInfo != null
-          ? params.execInfo(dest, destValue, destCallData)
+        const accountExecFromEntryPoint = info.execInfo != null
+          ? info.execInfo(dest, destValue, destCallData)
           : this.accountExec(dest, destValue, destCallData)
 
         // remove the "dest" from the key to the saved estimations
@@ -261,7 +307,8 @@ export class GasChecker {
         // console.debug('== account est=', accountEst.toString())
         accountEst = est.accountEst
 
-        const op = await fillAndSign({
+        console.log('== account', account, 'deposit=', await this.entryPoint().balanceOf(account))
+        const op1 = await fillUserOp({
           sender: account,
           initCode,
           callData: accountExecFromEntryPoint,
@@ -269,9 +316,24 @@ export class GasChecker {
           maxFeePerGas: info.gasPrice,
           callGasLimit: accountEst,
           verificationGasLimit: 1000000,
-          paymasterAndData: paymaster,
+          paymasterAndData: info.verifyingPaymaster
+            ? '0x1a3b1b07d3b56291b396f07f6860a8475b369f4300000000000000000000000000000000000000000000000000000000deadbeef00000000000000000000000000000000000000000000000000000000000012345ed020b1f5f615226124f277b5c49705ba7cc8cec8b594e136f988a5657eb8e11c5de83025d1c6ba0a1bd5c929a788a1441480b64b9a5ef2e8870f928bb13bc11c'
+            : info.paymaster,
           preVerificationGas: 1
-        }, accountOwner, GasCheckCollector.inst.entryPoint)
+        }, GasCheckCollector.inst.entryPoint)
+
+        if (info.verifyingPaymaster) {
+          const pm = await this.initPaymaster()
+          const MOCK_VALID_UNTIL = '0x00000000deadbeef'
+          const MOCK_VALID_AFTER = '0x0000000000001234'
+          const hash = await pm.getHash(op1, MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
+          const sig = await this.pmSigner!.signMessage(arrayify(hash))
+          op1.paymasterAndData = hexConcat([pm.address, defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
+        }
+
+        console.log('op1=', op1)
+        const op = await fillAndSign(op1, accountOwner, GasCheckCollector.inst.entryPoint)
+        console.log('op=', op)
 
         if (info.appendZerodevMode) {
           op.signature = '0x00000000' + op.signature.toString().replace('0x', '')

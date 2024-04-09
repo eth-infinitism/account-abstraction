@@ -4,7 +4,7 @@ import { ethers } from 'hardhat'
 import { TestERC20, TestERC20__factory } from '../typechain'
 
 // TODO: NOTE: Must be executed separately as otherwise test will reuse SimpleAccount
-context.only('ERC-20 Token related', function () {
+context('ERC-20 Token related', function () {
   let token: TestERC20
 
   before(async function () {

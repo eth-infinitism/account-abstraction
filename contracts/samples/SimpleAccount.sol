@@ -59,15 +59,6 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         _call(dest, value, func);
     }
 
-    enum Operation {
-        Call,
-        DelegateCall
-    }
-
-    function execute(address to, uint256 value, bytes memory data, Operation _operation) external payable {
-
-    }
-
     /**
      * execute a sequence of transactions
      */

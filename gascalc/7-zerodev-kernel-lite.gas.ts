@@ -68,6 +68,9 @@ context('kernel account', function () {
       count: 1,
       factoryInfo,
       execInfo,
+      dest: 'random',
+      destValue: 1,
+      destCallData: '0x',
       skipAccountCreation: false,
       appendZerodevMode: true,
       diffLastGas: false
@@ -77,6 +80,9 @@ context('kernel account', function () {
       count: 2,
       factoryInfo,
       execInfo,
+      dest: 'random',
+      destValue: 1,
+      destCallData: '0x',
       skipAccountCreation: false,
       appendZerodevMode: true,
       diffLastGas: true
@@ -88,6 +94,9 @@ context('kernel account', function () {
       count: 1,
       factoryInfo,
       execInfo,
+      dest: 'random',
+      destValue: 1,
+      destCallData: '0x',
       skipAccountCreation: true,
       appendZerodevMode: true,
       diffLastGas: false
@@ -97,6 +106,9 @@ context('kernel account', function () {
       count: 2,
       factoryInfo,
       execInfo,
+      dest: 'random',
+      destValue: 1,
+      destCallData: '0x',
       skipAccountCreation: true,
       appendZerodevMode: true,
       diffLastGas: true
