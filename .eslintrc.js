@@ -1,3 +1,4 @@
+0xd3f8e296be52c23f31709d07f87f0120e3bc7383
 module.exports = {
   env: {
     browser: true,
