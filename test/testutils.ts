@@ -105,7 +105,7 @@ export function getAccountInitCode (owner: string, factory: SimpleAccountFactory
   ])
 }
 
-export async function getAggregatedAccountInitCode (entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
+export async function getAggregatedAccountInitCode (factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
   // the test aggregated account doesn't check the owner...
   const owner = AddressZero
   return hexConcat([
