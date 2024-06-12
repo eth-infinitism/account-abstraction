@@ -113,7 +113,7 @@ describe('SimpleAccount', function () {
       entryPointEoa = accounts[2]
       const epAsSigner = await ethers.getSigner(entryPointEoa)
 
-      // cant use "SimpleAccountFactory", since it attempts to increment nonce first
+      // can't use "SimpleAccountFactory", since it attempts to increment nonce first
       const implementation = await new SimpleAccount__factory(ethersSigner).deploy(entryPointEoa)
       const proxy = await new ERC1967Proxy__factory(ethersSigner).deploy(implementation.address, '0x')
       account = SimpleAccount__factory.connect(proxy.address, epAsSigner)
