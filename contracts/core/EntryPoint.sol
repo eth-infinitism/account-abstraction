@@ -7,6 +7,7 @@ import "../interfaces/IAccount.sol";
 import "../interfaces/IAccountExecute.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
+import "../interfaces/IWalletFactory.sol";
 
 import "../utils/Exec.sol";
 import "./StakeManager.sol";
@@ -44,6 +45,19 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     uint256 private constant PENALTY_PERCENT = 10;
+
+    /// @notice Kinto Modification. Allow only wallets from the wallet factory.
+    address public walletFactory;
+
+    /**
+     *  @notice Kinto Modification. Allow only wallets from the wallet factory.
+     *  @dev Wallet factory can only be set once.
+     *  @param newWalletFactory A new wallet factory.
+     */
+    function setWalletFactory(address newWalletFactory) external {
+        require(walletFactory == address(0), "AA36 wallet factory already set");
+        walletFactory = newWalletFactory;
+    }
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
@@ -649,6 +663,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
 
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
             revert FailedOp(opIndex, "AA25 invalid account nonce");
+        }
+
+        try IWalletFactory(walletFactory).getWalletTimestamp(mUserOp.sender) returns (uint256 version) {
+            if (version == 0) {
+                revert FailedOp(opIndex, "AA35 invalid wallet");
+            }
+        } catch {
+            revert FailedOp(opIndex, "AA35 invalid wallet factory");
         }
 
         unchecked {
