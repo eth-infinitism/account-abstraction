@@ -14,7 +14,7 @@ interface IAccount {
      * @dev Must validate caller is the entryPoint.
      *      Must validate the signature and nonce
      * @param userOp              - The operation that is about to be executed.
-     * @param userOpHash          - Hash of the user's request data. can be used as the basis for signature.
+     * @param userOpHash          - Hash of the user's requested data. can be used as the basis for signature.
      * @param missingAccountFunds - Missing funds on the account's deposit in the entrypoint.
      *                              This is the minimum amount to transfer to the sender(entryPoint) to be
      *                              able to make the call. The excess is left as a deposit in the entrypoint
