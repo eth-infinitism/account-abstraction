@@ -9,7 +9,7 @@ import "./IOracle.sol";
 /// @notice Maintains a price cache and updates the current price if needed.
 /// In the best case scenario we have a direct oracle from the token to the native asset.
 /// Also support tokens that have no direct price oracle to the native asset.
-/// Sometimes oracles provide the price in the opposite direction of what we need in the moment.
+/// Sometimes oracles provide the price in the opposite direction of what we need at the moment.
 abstract contract OracleHelper {
 
     event TokenPriceUpdated(uint256 currentPrice, uint256 previousPrice, uint256 cachedPriceTimestamp);
