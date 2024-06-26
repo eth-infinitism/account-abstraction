@@ -34,7 +34,7 @@ interface IAggregator {
     /**
      * Aggregate multiple signatures into a single value.
      * This method is called off-chain to calculate the signature to pass with handleOps()
-     * bundler MAY use optimized custom code perform this aggregation.
+     * bundler MAY use optimized custom code to perform this aggregation.
      * @param userOps              - Array of UserOperations to collect the signatures from.
      * @return aggregatedSignature - The aggregated signature.
      */
