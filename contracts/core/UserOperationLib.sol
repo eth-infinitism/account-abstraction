@@ -7,7 +7,7 @@ import "../interfaces/PackedUserOperation.sol";
 import {calldataKeccak, min} from "./Helpers.sol";
 
 /**
- * Utility functions helpful when working with UserOperation structs.
+ * Utility functions are helpful when working with UserOperation structs.
  */
 library UserOperationLib {
 
