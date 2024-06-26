@@ -28,7 +28,7 @@ abstract contract UniswapHelper {
     /// @notice The ERC20 token used for transaction fee payments
     IERC20 public immutable token;
 
-    /// @notice The ERC-20 token that wraps the native asset for current chain
+    /// @notice The ERC-20 token that wraps the native asset for the current chain
     IERC20 public immutable wrappedNative;
 
     UniswapHelperConfig private uniswapHelperConfig;
