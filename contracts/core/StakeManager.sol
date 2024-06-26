@@ -67,7 +67,7 @@ abstract contract StakeManager is IStakeManager {
 
     /**
      * Add to the account's stake - amount and delay
-     * any pending unstake is first cancelled.
+     * any pending unstake is first canceled.
      * @param unstakeDelaySec The new lock duration before the deposit can be withdrawn.
      */
     function addStake(uint32 unstakeDelaySec) public payable {
