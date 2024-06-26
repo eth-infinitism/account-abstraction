@@ -178,7 +178,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     // empiric test showed that without this wrapper, simulation depositTo costs less..
     function depositTo(address account) public override(IStakeManager, StakeManager) payable {
         unchecked{
-        // silly code, to waste some gas to make sure depositTo is always little more
+        // silly code, to waste some gas to make sure depositTo is always a little more
         // expensive than on-chain call
             uint256 x = 1;
             while (x < 5) {

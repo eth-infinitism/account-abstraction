@@ -119,7 +119,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     }
 
     /**
-     * Return current paymaster's deposit on the entryPoint.
+     * Return the current paymaster's deposit on the entryPoint.
      */
     function getDeposit() public view returns (uint256) {
         return entryPoint.balanceOf(address(this));
