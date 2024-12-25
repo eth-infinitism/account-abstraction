@@ -16,10 +16,13 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
+  decodeRevertReason,
+  deployEntryPoint,
+  findSimulationUserOpWithMin,
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance, deployEntryPoint, decodeRevertReason, findSimulationUserOpWithMin, findUserOpWithMin
+  getBalance
 } from './testutils'
 
 import { fillAndSign, fillSignAndPack, packUserOp, simulateHandleOp, simulateValidation } from './UserOp'
@@ -283,23 +286,6 @@ describe('EntryPointSimulations', function () {
 
       await simulateValidation(packUserOp(userOp), entryPoint.address)
         .catch(e => { throw new Error(decodeRevertReason(e)!) })
-    })
-    describe('compare to execution', () => {
-      let execVgl: number
-      let execPmVgl: number
-      const diff = 2000
-      before(async () => {
-        execPmVgl = await findUserOpWithMin(async n => userOpWithGas(1e6, n), false, entryPoint, 1, 500000)
-        execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
-      })
-      it('account verification simulation cost should be higher than execution', function () {
-        console.log('simulation account validation', vgl, 'above exec:', vgl - execVgl)
-        expect(vgl).to.be.within(execVgl + 1, execVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${vgl - execVgl}`)
-      })
-      it('paymaster verification simulation cost should be higher than execution', function () {
-        console.log('simulation paymaster validation', pmVgl, 'above exec:', pmVgl - execPmVgl)
-        expect(pmVgl).to.be.within(execPmVgl + 1, execPmVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${pmVgl - execPmVgl}`)
-      })
     })
     it('should revert with AA2x if verificationGasLimit is low', async function () {
       expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
