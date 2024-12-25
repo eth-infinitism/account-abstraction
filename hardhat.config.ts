@@ -35,9 +35,8 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
 
 const config: HardhatUserConfig = {
   solidity: {
-    // duplicated because this part is used by 'hardhat coverage'
     compilers: [{
-      version: '0.8.24',
+      version: '0.8.28',
       settings: {
         evmVersion: 'cancun',
         viaIR: true,
