@@ -250,39 +250,31 @@ describe('EntryPointSimulations', function () {
     })
   })
 
-  describe('over-validation test', () => {
-    // coverage skews gas checks.
-    if (process.env.COVERAGE != null) {
-      return
-    }
+  // parameterize this test on paymaster true/false:
+  for (const withPaymaster of ['with', 'without']) {
+    describe(`over-validation test ${withPaymaster} paymaster`, () => {
+      // coverage skews gas checks.
+      if (process.env.COVERAGE != null) {
+        return
+      }
 
-    let vgl: number
-    let pmVgl: number
-    let paymaster: TestPaymasterWithPostOp
-    let sender: string
-    let owner: Wallet
-    async function userOpWithGas (vgl: number, pmVgl = 0): Promise<UserOperation> {
-      return fillAndSign({
-        sender,
-        verificationGasLimit: vgl,
-        paymaster: pmVgl !== 0 ? paymaster.address : undefined,
-        paymasterVerificationGasLimit: pmVgl,
-        paymasterPostOpGasLimit: pmVgl,
-        maxFeePerGas: 1,
-        maxPriorityFeePerGas: 1
-      }, owner, entryPoint)
-    }
-    before(async () => {
-      owner = createAccountOwner()
-      paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
-      await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
-      const { proxy: account } = await createAccount(ethersSigner, owner.address, entryPoint.address)
-      sender = account.address
-      await fund(account)
-      pmVgl = await findSimulationUserOpWithMin(async n => userOpWithGas(1e6, n), entryPoint, 1, 500000)
-      vgl = await findSimulationUserOpWithMin(async n => userOpWithGas(n, pmVgl), entryPoint, 3000, 500000)
+      let vgl: number
+      let pmVgl: number
+      let paymaster: TestPaymasterWithPostOp
+      let sender: string
+      let owner: Wallet
 
-      const userOp = await userOpWithGas(vgl, pmVgl)
+      async function userOpWithGas (vgl: number, pmVgl = 0): Promise<UserOperation> {
+        return fillAndSign({
+          sender,
+          verificationGasLimit: vgl,
+          paymaster: pmVgl !== 0 ? paymaster.address : undefined,
+          paymasterVerificationGasLimit: pmVgl,
+          paymasterPostOpGasLimit: pmVgl,
+          maxFeePerGas: 1,
+          maxPriorityFeePerGas: 1
+        }, owner, entryPoint)
+      }
 
       await simulateValidation(packUserOp(userOp), entryPoint.address)
         .catch(e => { throw new Error(decodeRevertReason(e)!) })
