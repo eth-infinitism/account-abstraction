@@ -276,20 +276,37 @@ describe('EntryPointSimulations', function () {
         }, owner, entryPoint)
       }
 
-      await simulateValidation(packUserOp(userOp), entryPoint.address)
-        .catch(e => { throw new Error(decodeRevertReason(e)!) })
+      before(async () => {
+        owner = createAccountOwner()
+        paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
+        await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
+        const { proxy: account } = await createAccount(ethersSigner, owner.address, entryPoint.address)
+        sender = account.address
+        await fund(account)
+        pmVgl = withPaymaster === 'without' ? 0 : await findSimulationUserOpWithMin(async n => userOpWithGas(1e6, n), entryPoint, 1, 500000)
+        vgl = await findSimulationUserOpWithMin(async n => userOpWithGas(n, pmVgl), entryPoint, 3000, 500000)
+
+        const userOp = await userOpWithGas(vgl, pmVgl)
+
+        await simulateValidation(packUserOp(userOp), entryPoint.address)
+          .catch(e => {
+            throw new Error(decodeRevertReason(e)!)
+          })
+      })
+      it('should revert with AA2x if verificationGasLimit is low', async function () {
+        expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
+          .catch(decodeRevertReason))
+          .to.match(/AA26/)
+      })
+      if (withPaymaster === 'with') {
+        it('should revert with AA3x if paymasterVerificationGasLimit is low', async function () {
+          expect(await simulateValidation(packUserOp(await userOpWithGas(vgl, pmVgl - 1)), entryPoint.address)
+            .catch(decodeRevertReason))
+            .to.match(/AA36/)
+        })
+      }
     })
-    it('should revert with AA2x if verificationGasLimit is low', async function () {
-      expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
-        .catch(decodeRevertReason))
-        .to.match(/AA26/)
-    })
-    it('should revert with AA3x if paymasterVerificationGasLimit is low', async function () {
-      expect(await simulateValidation(packUserOp(await userOpWithGas(vgl, pmVgl - 1)), entryPoint.address)
-        .catch(decodeRevertReason))
-        .to.match(/AA36/)
-    })
-  })
+  }
 
   describe('#simulateHandleOp', () => {
     it('should simulate creation', async () => {
