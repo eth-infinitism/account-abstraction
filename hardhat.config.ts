@@ -30,7 +30,7 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
   // return getNetwork1(`wss://${name}.infura.io/ws/v3/${process.env.INFURA_ID}`)
 }
 
-const optimizedComilerSettings = {
+const optimizedCompilerSettings = {
   version: '0.8.23',
   settings: {
     optimizer: { enabled: true, runs: 1000000 },
@@ -50,8 +50,9 @@ const config: HardhatUserConfig = {
       }
     }],
     overrides: {
-      'contracts/core/EntryPoint.sol': optimizedComilerSettings,
-      'contracts/samples/SimpleAccount.sol': optimizedComilerSettings
+      'contracts/core/EntryPoint.sol': optimizedCompilerSettings,
+      'contracts/core/EntryPointSimulations.sol': optimizedCompilerSettings,
+      'contracts/samples/SimpleAccount.sol': optimizedCompilerSettings
     }
   },
   networks: {

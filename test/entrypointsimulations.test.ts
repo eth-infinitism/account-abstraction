@@ -64,6 +64,7 @@ describe('EntryPointSimulations', function () {
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
       const diff = simCost.sub(epCost).toNumber()
       const max = 350
+      console.log(`validate ${message} cost ${simCost.toNumber()} should be slightly above ep cost ${epCost.toNumber()} actual diff=${diff}`)
       expect(diff).to.be.within(0, max,
         `${message} cost ${simCost.toNumber()} should be (up to ${max}) above ep cost ${epCost.toNumber()}`)
     }
@@ -294,7 +295,7 @@ describe('EntryPointSimulations', function () {
       describe(`compare to execution ${withPaymaster} paymaster`, () => {
         let execVgl: number
         let execPmVgl: number
-        const diff = 2000
+        const diff = 500
         before(async () => {
           execPmVgl = withPaymaster === 'without' ? 0 : await findUserOpWithMin(async n => userOpWithGas(1e6, n), false, entryPoint, 1, 500000)
           execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
