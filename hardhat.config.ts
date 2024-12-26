@@ -41,7 +41,7 @@ const config: HardhatUserConfig = {
         evmVersion: 'cancun',
         viaIR: true,
         optimizer: { enabled: true, runs: 1000000 }
-      },
+      }
     }],
     overrides: {
       'contracts/core/EntryPointSimulations.sol': {
@@ -56,7 +56,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: true
     },
     dev: { url: 'http://localhost:8545' },
     // github action starts localgeth service, for gas calculations
