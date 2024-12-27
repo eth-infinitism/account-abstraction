@@ -10,7 +10,7 @@
     "lint:js": "eslint -f unix .",
     "lint-fix": "eslint -f unix . --fix",
     "lint:sol": "solhint -f unix \"contracts/**/*.sol\" --max-warnings 0",
-    "gas-calc": "./scripts/gascalc",
+    "gas-calc": "yarn compile && ./scripts/gascalc",
     "mocha-gascalc": "TS_NODE_TRANSPILE_ONLY=1 npx ts-mocha --bail gascalc/*",
     "test": "./scripts/hh-wrapper test",
     "coverage": "COVERAGE=1 hardhat coverage",

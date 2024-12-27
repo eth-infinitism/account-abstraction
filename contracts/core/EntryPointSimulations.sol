@@ -13,8 +13,6 @@ import "../interfaces/IEntryPointSimulations.sol";
  * This contract should never be deployed on-chain and is only used as a parameter for the "eth_call" request.
  */
 contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
-    // solhint-disable-next-line var-name-mixedcase
-    AggregatorStakeInfo private NOT_AGGREGATED = AggregatorStakeInfo(address(0), StakeInfo(0, 0));
 
     SenderCreator private _senderCreator;
 
@@ -75,7 +73,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             getMemoryBytesFromOffset(outOpInfo.contextOffset)
         );
 
-        AggregatorStakeInfo memory aggregatorInfo = NOT_AGGREGATED;
+        AggregatorStakeInfo memory aggregatorInfo; // = NOT_AGGREGATED;
         if (uint160(aggregator) != SIG_VALIDATION_SUCCESS && uint160(aggregator) != SIG_VALIDATION_FAILED) {
             aggregatorInfo = AggregatorStakeInfo(
                 aggregator,
@@ -187,4 +185,10 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             StakeManager.depositTo(account);
         }
     }
+
+    //slightly stricter gas limit than the real EntryPoint
+    function _getVerificationGasLimit(uint256 verificationGasLimit) internal pure virtual override returns (uint256) {
+        return verificationGasLimit - 300;
+    }
+
 }

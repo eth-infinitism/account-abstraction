@@ -30,6 +30,14 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
   // return getNetwork1(`wss://${name}.infura.io/ws/v3/${process.env.INFURA_ID}`)
 }
 
+const optimizedCompilerSettings = {
+  version: '0.8.28',
+  settings: {
+    optimizer: { enabled: true, runs: 1000000 },
+    viaIR: true
+  }
+}
+
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
@@ -44,14 +52,9 @@ const config: HardhatUserConfig = {
       }
     }],
     overrides: {
-      'contracts/core/EntryPointSimulations.sol': {
-        version: '0.8.28',
-        settings: {
-          evmVersion: 'cancun',
-          viaIR: false,
-          optimizer: { enabled: true, runs: 100 }
-        }
-      }
+      'contracts/core/EntryPoint.sol': optimizedCompilerSettings,
+      'contracts/core/EntryPointSimulations.sol': optimizedCompilerSettings,
+      'contracts/samples/SimpleAccount.sol': optimizedCompilerSettings
     }
   },
   networks: {
