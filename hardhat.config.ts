@@ -59,9 +59,6 @@ const config: HardhatUserConfig = {
     }
   },
   networks: {
-    hardhat: {
-      allowUnlimitedContractSize: true
-    },
     dev: { url: 'http://localhost:8545' },
     // github action starts localgeth service, for gas calculations
     localgeth: { url: 'http://localgeth:8545' },
