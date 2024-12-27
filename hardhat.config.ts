@@ -33,6 +33,7 @@ function getNetwork (name: string): { url: string, accounts: { mnemonic: string 
 const optimizedCompilerSettings = {
   version: '0.8.28',
   settings: {
+    evmVersion: 'cancun',
     optimizer: { enabled: true, runs: 1000000 },
     viaIR: true
   }
