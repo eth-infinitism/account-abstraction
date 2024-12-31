@@ -17,6 +17,7 @@ import "./UserOperationLib.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+//import "hardhat/console.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
@@ -695,12 +696,22 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
             uint256 gasPrice = getUserOpGasPrice(mUserOp);
 
             address paymaster = mUserOp.paymaster;
+            // Calculating a penalty for unused execution gas
+            {
+                uint256 executionGasUsed = actualGas - opInfo.preOpGas;
+                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
+                actualGas += _getUnusedGasPenalty(executionGasUsed, mUserOp.callGasLimit);
+//                console.log("unused execution gas penalty", _getUnusedGasPenalty(executionGasUsed, mUserOp.callGasLimit));
+            }
+            uint256 postOpUnusedGasPenalty;
             if (paymaster == address(0)) {
                 refundAddress = mUserOp.sender;
             } else {
                 refundAddress = paymaster;
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
+//                    console.log("actual gas and cost that paymaster gets", actualGas, actualGasCost);
+                    uint256 postOpPreGas = gasleft();
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         try IPaymaster(paymaster).postOp{
                             gas: mUserOp.paymasterPostOpGasLimit
@@ -711,23 +722,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
                             revert PostOpReverted(reason);
                         }
                     }
+                    uint256 postOpGasUsed = postOpPreGas - gasleft();
+                    postOpUnusedGasPenalty = _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit);
+//                    console.log("unused postOp gas penalty", _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit));
                 }
             }
-            actualGas += preGas - gasleft();
-
-            // Calculating a penalty for unused execution gas
-            {
-                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
-                uint256 executionGasUsed = actualGas - opInfo.preOpGas;
-                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
-                if (executionGasLimit > executionGasUsed) {
-                    uint256 unusedGas = executionGasLimit - executionGasUsed;
-                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
-                    actualGas += unusedGasPenalty;
-                }
-            }
-
+            // Calculating a penalty for unused postOp gas
+            actualGas += preGas - gasleft() + postOpUnusedGasPenalty;
             actualGasCost = actualGas * gasPrice;
+//            console.log("True actual gas and cost for tx", actualGas, actualGasCost);
             uint256 prefund = opInfo.prefund;
             if (prefund < actualGasCost) {
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
@@ -796,5 +799,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuard,
     function delegateAndRevert(address target, bytes calldata data) external {
         (bool success, bytes memory ret) = target.delegatecall(data);
         revert DelegateAndRevert(success, ret);
+    }
+
+    function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) pure internal returns (uint256) {
+        if (gasLimit > gasUsed) {
+            uint256 unusedGas = gasLimit - gasUsed;
+            uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+            return unusedGasPenalty;
+        }
+        return 0;
+
     }
 }

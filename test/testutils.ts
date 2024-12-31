@@ -86,7 +86,7 @@ export function callDataCost (data: string): number {
     .reduce((sum, x) => sum + x)
 }
 
-export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumberish }> {
+export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoint, beneficiaryAddress?: string): Promise<{ actualGasCost: BigNumber }> {
   const actualGas = await rcpt.gasUsed
   const logs = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), rcpt.blockHash)
   const { actualGasCost, actualGasUsed } = logs[0].args
@@ -330,6 +330,10 @@ export function packPaymasterData (paymaster: string, paymasterVerificationGasLi
 
 export function unpackAccountGasLimits (accountGasLimits: string): { verificationGasLimit: number, callGasLimit: number } {
   return { verificationGasLimit: parseInt(accountGasLimits.slice(2, 34), 16), callGasLimit: parseInt(accountGasLimits.slice(34), 16) }
+}
+
+export function unpackAccountGasFees (accountGasFees: string): { maxPriorityFeePerGas: number, maxFeePerGas: number } {
+  return { maxPriorityFeePerGas: parseInt(accountGasFees.slice(2, 34), 16), maxFeePerGas: parseInt(accountGasFees.slice(34), 16) }
 }
 
 export interface ValidationData {
