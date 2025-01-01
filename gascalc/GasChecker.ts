@@ -13,7 +13,7 @@ import {
 } from '../typechain'
 import { BigNumberish, Wallet } from 'ethers'
 import hre from 'hardhat'
-import { fillSignAndPack, fillUserOp, packUserOp, signUserOp } from '../test/UserOp'
+import { fillSignAndPack, fillUserOp, initUserOpHashParams, packUserOp, signUserOp } from '../test/UserOp'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import { table, TableUserConfig } from 'table'
 import { Create2Factory } from '../src/Create2Factory'
@@ -343,6 +343,8 @@ export class GasCheckCollector {
     } else {
       this.entryPoint = EntryPoint__factory.connect(entryPointAddressOrTest, globalSigner)
     }
+
+    await initUserOpHashParams(this.entryPoint)
 
     const tableHeaders = [
       'handleOps description         ',

@@ -47,6 +47,11 @@ library UserOperationLib {
         }
     }
 
+    bytes32 internal constant _PACKED_USER_OPERATION =
+    keccak256(
+        "PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)"
+    );
+
     /**
      * Pack the user operation data into bytes for hashing.
      * @param userOp - The user operation data.
@@ -131,7 +136,7 @@ library UserOperationLib {
      * Hash the user operation data.
      * @param userOp - The user operation data.
      */
-    function hash(
+    function hash1(
         PackedUserOperation calldata userOp
     ) internal pure returns (bytes32) {
         return keccak256(encode(userOp));
