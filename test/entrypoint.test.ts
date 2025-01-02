@@ -99,10 +99,6 @@ describe('EntryPoint', function () {
 
     // sanity: validate helper functions
     const sampleOp = await fillAndSign({ sender: account.address }, accountOwner, entryPoint)
-    console.log('epaddr=', entryPoint.address)
-    console.log('hash=', await entryPoint.getDomainSeparatorV4())
-    console.log('typehash=', await entryPoint.getPackedUserOpTypeHash())
-    expect(await entryPoint.getPackedUserOpTypeHash()).to.eql('0x29a0bca4af4be3421398da00295e58e6d7de38cb492214754cb6a47507dd6f8e')
 
     const packedOp = packUserOp(sampleOp)
     expect(getUserOpHash(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(packedOp))

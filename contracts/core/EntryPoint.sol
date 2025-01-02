@@ -374,13 +374,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     /// @inheritdoc IEntryPoint
     function getUserOpHash(
         PackedUserOperation calldata userOp
-    ) public view returns (bytes32) {
-        return _hashTypedDataV4(
-            keccak256(abi.encodePacked(
-                UserOperationLib._PACKED_USER_OPERATION,
-                userOp.encode()
-            ))
-        );
+    ) public view returns (bytes32 ret) {
+        //match encoding in ./test/UserOp.ts:82 (getUserOpHash)
+        ret = keccak256(userOp.encode());
+        //wrap by EIP712 "domainSeparator":
+//        ret = _hashTypedDataV4(ret);
     }
 
     /**

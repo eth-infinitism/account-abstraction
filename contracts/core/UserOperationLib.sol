@@ -69,6 +69,7 @@ library UserOperationLib {
         bytes32 hashPaymasterAndData = calldataKeccak(userOp.paymasterAndData);
 
         return abi.encode(
+            UserOperationLib._PACKED_USER_OPERATION,
             sender, nonce,
             hashInitCode, hashCallData,
             accountGasLimits, preVerificationGas, gasFees,

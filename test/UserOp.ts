@@ -15,7 +15,7 @@ import {
 } from './testutils'
 import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
 import {
-  EntryPoint, EntryPointSimulations__factory, IEntryPoint
+  EntryPoint, EntryPointSimulations__factory
 } from '../typechain'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { Create2Factory } from '../src/Create2Factory'
@@ -69,7 +69,7 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
 let domainSeparator: string | undefined
 let packedUserOpTypeHash: string | undefined
 
-export async function initUserOpHashParams (ep: IEntryPoint): Promise<void> {
+export async function initUserOpHashParams (ep: EntryPoint): Promise<void> {
   domainSeparator = await ep.getDomainSeparatorV4()
   packedUserOpTypeHash = await ep.getPackedUserOpTypeHash()
 }
@@ -79,16 +79,13 @@ export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: n
     throw new Error('must call initUserOpHashParams(ep)')
   }
   const packed = hexConcat([packedUserOpTypeHash, encodeUserOp(op, true)])
-  return keccak256(hexConcat([
-    '0x1901',
-    domainSeparator,
-    keccak256(packed)
-  ]))
-  // const userOpHash = keccak256(encodeUserOp(op, true))
-  // const enc = defaultAbiCoder.encode(
-  //   ['bytes32', 'address', 'uint256'],
-  //   [userOpHash, entryPoint, chainId])
-  // return keccak256(enc)
+  // match implementation in ./contracts/core/EntryPoint.sol:382:
+  return keccak256(packed)
+  // return keccak256(hexConcat([
+  //   '0x1901',
+  //   domainSeparator,
+  //   keccak256(packed)
+  // ]))
 }
 
 export const DefaultsForUserOp: UserOperation = {
