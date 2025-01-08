@@ -1329,47 +1329,6 @@ describe('EntryPoint', function () {
 
       describe('without postOp', () => {
         it('paymaster should pay for tx including unused gas penalty', async function () {
-          // await testPaymasterAcceptAll.deposit({ value: ONE_ETH })
-          // const unpackedOp = {
-          //   callGasLimit: 1e5,
-          //   paymaster: testPaymasterAcceptAll.address,
-          //   paymasterVerificationGasLimit: 1e6,
-          //   callData: accountExecFromEntryPoint.data,
-          //   initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory)
-          // }
-          // const op = await fillSignAndPack( unpackedOp, account2Owner, entryPoint)
-          // const beneficiaryAddress = createAddress()
-          //
-          // // Take snapshot before
-          // const snap = await ethers.provider.send('evm_snapshot', [])
-          // // Check paymaster deposit before
-          // const paymasterDepositBefore = await entryPoint.balanceOf(testPaymasterAcceptAll.address)
-          // expect(paymasterDepositBefore).to.be.equal(ONE_ETH)
-          //
-          // // Send tx, check paymaster deposit after, calculate paymasterPaid
-          // const rcpt = await entryPoint.handleOps([op], beneficiaryAddress).then(async t => t.wait())
-          //
-          // const { actualGasCost: actualGasCostFirstCall } = await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
-          // let paymasterDepositAfter = await entryPoint.balanceOf(testPaymasterAcceptAll.address)
-          // let paymasterPaid = paymasterDepositBefore.sub(paymasterDepositAfter)
-          // expect(paymasterPaid).to.eql(actualGasCostFirstCall)
-          //
-          // // Revert to snapshot
-          // await ethers.provider.send('evm_revert', [snap])
-          // // Sanity check paymaster deposit
-          // expect(paymasterDepositBefore).to.be.equal(await entryPoint.balanceOf(testPaymasterAcceptAll.address))
-          //
-          // // Send modified tx with unusedGas increase in callGasLimit, check that paymaster paid =~ `amountPaid` + X/10
-          // const accountUnusedGas = BigNumber.from(1e6)
-          // const opWithUnusedGas = await fillSignAndPack({
-          //   ...unpackedOp,
-          //   callGasLimit: unpackedOp.callGasLimit + accountUnusedGas.toNumber()
-          // }, account2Owner, entryPoint)
-          // const unusedGasCostPenalty = accountUnusedGas.mul(BigNumber.from(unpackAccountGasFees(opWithUnusedGas.gasFees as string).maxFeePerGas)).mul(PENALTY_PERCENTAGE).div(100)
-          // await entryPoint.handleOps([opWithUnusedGas], beneficiaryAddress).then(async t => t.wait())
-          // paymasterDepositAfter = await entryPoint.balanceOf(testPaymasterAcceptAll.address)
-          // paymasterPaid = paymasterDepositBefore.sub(paymasterDepositAfter)
-          // expect(paymasterPaid).to.closeTo(actualGasCostFirstCall.add(unusedGasCostPenalty), paymasterPaid.div(100).toNumber())
           const snap = await ethers.provider.send('evm_snapshot', [])
           await testPaymasterActualGasCost(false)
           await ethers.provider.send('evm_revert', [snap])
