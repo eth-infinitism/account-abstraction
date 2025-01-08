@@ -23,7 +23,7 @@
     "url": "https://github.com/eth-infinitism/account-abstraction/issues"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.0",
+    "@openzeppelin/contracts": "^5.1.0",
     "@uniswap/v3-periphery": "^1.4.3"
   }
 }

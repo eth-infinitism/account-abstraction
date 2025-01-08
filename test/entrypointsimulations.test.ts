@@ -64,6 +64,7 @@ describe('EntryPointSimulations', function () {
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
       const diff = simCost.sub(epCost).toNumber()
       const max = 350
+      console.log(`validate ${message} cost ${simCost.toNumber()} should be slightly above ep cost ${epCost.toNumber()} actual diff=${diff}`)
       expect(diff).to.be.within(0, max,
         `${message} cost ${simCost.toNumber()} should be (up to ${max}) above ep cost ${epCost.toNumber()}`)
     }
@@ -247,71 +248,84 @@ describe('EntryPointSimulations', function () {
     })
   })
 
-  describe('over-validation test', () => {
-    // coverage skews gas checks.
-    if (process.env.COVERAGE != null) {
-      return
-    }
+  // parameterize this test on paymaster true/false:
+  for (const withPaymaster of ['with', 'without']) {
+    describe(`over-validation test ${withPaymaster} paymaster`, () => {
+      // coverage skews gas checks.
+      if (process.env.COVERAGE != null) {
+        return
+      }
 
-    let vgl: number
-    let pmVgl: number
-    let paymaster: TestPaymasterWithPostOp
-    let sender: string
-    let owner: Wallet
-    async function userOpWithGas (vgl: number, pmVgl = 0): Promise<UserOperation> {
-      return fillAndSign({
-        sender,
-        verificationGasLimit: vgl,
-        paymaster: pmVgl !== 0 ? paymaster.address : undefined,
-        paymasterVerificationGasLimit: pmVgl,
-        paymasterPostOpGasLimit: pmVgl,
-        maxFeePerGas: 1,
-        maxPriorityFeePerGas: 1
-      }, owner, entryPoint)
-    }
-    before(async () => {
-      owner = createAccountOwner()
-      paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
-      await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
-      const { proxy: account } = await createAccount(ethersSigner, owner.address, entryPoint.address)
-      sender = account.address
-      await fund(account)
-      pmVgl = await findSimulationUserOpWithMin(async n => userOpWithGas(1e6, n), entryPoint, 1, 500000)
-      vgl = await findSimulationUserOpWithMin(async n => userOpWithGas(n, pmVgl), entryPoint, 3000, 500000)
+      let vgl: number
+      let pmVgl: number
+      let paymaster: TestPaymasterWithPostOp
+      let sender: string
+      let owner: Wallet
 
-      const userOp = await userOpWithGas(vgl, pmVgl)
+      async function userOpWithGas (vgl: number, pmVgl = 0): Promise<UserOperation> {
+        return fillAndSign({
+          sender,
+          verificationGasLimit: vgl,
+          paymaster: pmVgl !== 0 ? paymaster.address : undefined,
+          paymasterVerificationGasLimit: pmVgl,
+          paymasterPostOpGasLimit: pmVgl,
+          maxFeePerGas: 1,
+          maxPriorityFeePerGas: 1
+        }, owner, entryPoint)
+      }
 
-      await simulateValidation(packUserOp(userOp), entryPoint.address)
-        .catch(e => { throw new Error(decodeRevertReason(e)!) })
-    })
-    describe('compare to execution', () => {
-      let execVgl: number
-      let execPmVgl: number
-      const diff = 2000
       before(async () => {
-        execPmVgl = await findUserOpWithMin(async n => userOpWithGas(1e6, n), false, entryPoint, 1, 500000)
-        execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
+        owner = createAccountOwner()
+        paymaster = await new TestPaymasterWithPostOp__factory(ethersSigner).deploy(entryPoint.address)
+        await entryPoint.depositTo(paymaster.address, { value: parseEther('1') })
+        const { proxy: account } = await createAccount(ethersSigner, owner.address, entryPoint.address)
+        sender = account.address
+        await fund(account)
+        pmVgl = withPaymaster === 'without' ? 0 : await findSimulationUserOpWithMin(async n => userOpWithGas(1e6, n), entryPoint, 1, 500000)
+        vgl = await findSimulationUserOpWithMin(async n => userOpWithGas(n, pmVgl), entryPoint, 3000, 500000)
+
+        const userOp = await userOpWithGas(vgl, pmVgl)
+
+        await simulateValidation(packUserOp(userOp), entryPoint.address)
+          .catch(e => {
+            throw new Error(decodeRevertReason(e)!)
+          })
       })
-      it('account verification simulation cost should be higher than execution', function () {
-        console.log('simulation account validation', vgl, 'above exec:', vgl - execVgl)
-        expect(vgl).to.be.within(execVgl + 1, execVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${vgl - execVgl}`)
+
+      describe(`compare to execution ${withPaymaster} paymaster`, () => {
+        let execVgl: number
+        let execPmVgl: number
+        const diff = 500
+        before(async () => {
+          execPmVgl = withPaymaster === 'without' ? 0 : await findUserOpWithMin(async n => userOpWithGas(1e6, n), false, entryPoint, 1, 500000)
+          execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
+        })
+        it(`account verification simulation cost should be higher than execution ${withPaymaster} paymaster`, function () {
+          console.log('simulation account validation', vgl, 'above exec:', vgl - execVgl)
+          expect(vgl).to.be.within(execVgl + 1, execVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${vgl - execVgl}`)
+        })
+        if (withPaymaster === 'with') {
+          it('paymaster verification simulation cost should be higher than execution', function () {
+            console.log('simulation paymaster validation', pmVgl, 'above exec:', pmVgl - execPmVgl)
+            expect(pmVgl).to.be.within(execPmVgl + 1, execPmVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${pmVgl - execPmVgl}`)
+          })
+        }
       })
-      it('paymaster verification simulation cost should be higher than execution', function () {
-        console.log('simulation paymaster validation', pmVgl, 'above exec:', pmVgl - execPmVgl)
-        expect(pmVgl).to.be.within(execPmVgl + 1, execPmVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${pmVgl - execPmVgl}`)
+
+      it('should revert with AA2x if verificationGasLimit is low', async function () {
+        expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
+          .catch(decodeRevertReason))
+          .to.match(/AA26/)
       })
+      if (withPaymaster === 'with') {
+        it('should revert with AA3x if paymasterVerificationGasLimit is low', async function () {
+          expect(await simulateValidation(packUserOp(await userOpWithGas(vgl, pmVgl - 1)), entryPoint.address)
+            .catch(decodeRevertReason))
+            .to.match(/AA36/)
+        })
+      }
     })
-    it('should revert with AA2x if verificationGasLimit is low', async function () {
-      expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
-        .catch(decodeRevertReason))
-        .to.match(/AA26/)
-    })
-    it('should revert with AA3x if paymasterVerificationGasLimit is low', async function () {
-      expect(await simulateValidation(packUserOp(await userOpWithGas(vgl, pmVgl - 1)), entryPoint.address)
-        .catch(decodeRevertReason))
-        .to.match(/AA36/)
-    })
-  })
+  }
 
   describe('#simulateHandleOp', () => {
     it('should simulate creation', async () => {
