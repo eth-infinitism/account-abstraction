@@ -28,7 +28,7 @@ import {
   TestRevertAccount__factory,
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
-  TestWarmColdAccount__factory, TestPaymasterUnusedGasPenalty, TestPaymasterUnusedGasPenalty__factory
+  TestWarmColdAccount__factory
 } from '../typechain'
 import {
   AddressZero,
