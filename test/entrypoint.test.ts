@@ -1,5 +1,5 @@
 import './aa.init'
-import { BigNumber, Event, utils, Wallet } from 'ethers'
+import { BigNumber, Event, Wallet } from 'ethers'
 import { expect } from 'chai'
 import {
   EntryPoint,
@@ -12,8 +12,8 @@ import {
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
   TestAggregatedAccount,
-  TestAggregatedAccountFactory__factory,
   TestAggregatedAccount__factory,
+  TestAggregatedAccountFactory__factory,
   TestCounter,
   TestCounter__factory,
   TestExpirePaymaster,
@@ -32,23 +32,26 @@ import {
 } from '../typechain'
 import {
   AddressZero,
-  createAccountOwner,
-  fund,
+  calcGasUsage,
   checkForGeth,
+  createAccount,
+  createAccountOwner,
+  createAddress,
+  decodeRevertReason,
+  deployEntryPoint,
+  findUserOpWithMin,
+  fund,
+  getAccountAddress,
+  getAccountInitCode,
+  getAggregatedAccountInitCode,
+  getBalance,
+  HashZero,
+  ONE_ETH,
+  parseValidationData,
   rethrow,
   tostr,
-  getAccountInitCode,
-  calcGasUsage,
-  ONE_ETH,
   TWO_ETH,
-  deployEntryPoint,
-  getBalance,
-  createAddress,
-  getAccountAddress,
-  HashZero,
-  createAccount,
-  getAggregatedAccountInitCode,
-  decodeRevertReason, parseValidationData, findUserOpWithMin, unpackAccountGasFees
+  unpackAccountGasFees
 } from './testutils'
 import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
@@ -217,7 +220,8 @@ describe('EntryPoint', function () {
     describe('with deposit', () => {
       let simpleAccount: SimpleAccount
       before(async () => {
-        ({ proxy: simpleAccount } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address, simpleAccountFactory))
+        ({ proxy: simpleAccount } = await createAccount(ethersSigner, await ethersSigner.getAddress(), entryPoint.address,
+          simpleAccountFactory))
         await simpleAccount.addDeposit({ value: ONE_ETH })
         expect(await getBalance(simpleAccount.address)).to.equal(0)
         expect(await simpleAccount.getDeposit()).to.eql(ONE_ETH)
@@ -511,12 +515,14 @@ describe('EntryPoint', function () {
         })
 
         it('without paymaster', async function () {
-          const vgl = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 0, minCallGas), false, entryPoint, 5000, 100000, 2)
+          const vgl = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 0, minCallGas), false, entryPoint, 5000,
+            100000, 2)
 
           const current = await counter.counters(simpleAccount.address)
           // expect calldata to revert below minGas:
           const beneficiaryBalance = await ethers.provider.getBalance(beneficiary)
-          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(vgl - 1, 0, minCallGas))], beneficiary).then(async r => r.wait())
+          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(vgl - 1, 0, minCallGas))], beneficiary).then(
+            async r => r.wait())
           expect(rcpt.events?.map(ev => ev.event)).to.eql([
             'BeforeExecution',
             'UserOperationPrefundTooLow',
@@ -531,11 +537,14 @@ describe('EntryPoint', function () {
         it('with paymaster', async function () {
           const current = await counter.counters(simpleAccount.address)
 
-          const minVerGas = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 1e5, minCallGas), false, entryPoint, 5000, 100000, 2)
-          const minPmVerGas = await findUserOpWithMin(async (pmVgl: number) => createUserOpWithGas(minVerGas, pmVgl, minCallGas), false, entryPoint, 1, 100000, 2)
+          const minVerGas = await findUserOpWithMin(async (vgl: number) => createUserOpWithGas(vgl, 1e5, minCallGas), false, entryPoint,
+            5000, 100000, 2)
+          const minPmVerGas = await findUserOpWithMin(async (pmVgl: number) => createUserOpWithGas(minVerGas, pmVgl, minCallGas), false,
+            entryPoint, 1, 100000, 2)
 
           const beneficiaryBalance = await ethers.provider.getBalance(beneficiary)
-          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(minVerGas, minPmVerGas - 1, minCallGas))], beneficiary)
+          const rcpt = await entryPoint.handleOps([packUserOp(await createUserOpWithGas(minVerGas, minPmVerGas - 1, minCallGas))],
+            beneficiary)
             .then(async r => r.wait())
             .catch((e: Error) => { throw new Error(decodeRevertReason(e, false) as any) })
           expect(rcpt.events?.map(ev => ev.event)).to.eql([
@@ -658,8 +667,12 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
 
         // "warmup" userop, for better gas calculation, below
-        await entryPoint.handleOps([await fillSignAndPack({ sender: simpleAccount.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
-        await entryPoint.handleOps([await fillSignAndPack({ sender: simpleAccount.address, callData: accountExec.data }, accountOwner, entryPoint)], beneficiaryAddress)
+        await entryPoint.handleOps(
+          [await fillSignAndPack({ sender: simpleAccount.address, callData: accountExec.data }, accountOwner, entryPoint)],
+          beneficiaryAddress)
+        await entryPoint.handleOps(
+          [await fillSignAndPack({ sender: simpleAccount.address, callData: accountExec.data }, accountOwner, entryPoint)],
+          beneficiaryAddress)
 
         const op1 = await fillSignAndPack({
           sender: simpleAccount.address,
@@ -812,7 +825,8 @@ describe('EntryPoint', function () {
         const error = rcpt.events?.find(ev => ev.event === 'UserOperationRevertReason')
         // console.log(rcpt.events!.map(e => ({ ev: e.event, ...objdump(e.args!) })))
 
-        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('ReentrancyGuardReentrantCall()', 'execution of handleOps inside a UserOp should revert')
+        expect(decodeRevertReason(error?.args?.revertReason)).to.eql('ReentrancyGuardReentrantCall()',
+          'execution of handleOps inside a UserOp should revert')
       })
       it('should report failure on insufficient verificationGas after creation', async () => {
         const op0 = await fillSignAndPack({
@@ -889,7 +903,7 @@ describe('EntryPoint', function () {
         const rcpt = await ret.wait()
         const hash = await entryPoint.getUserOpHash(createOp)
         await expect(ret).to.emit(entryPoint, 'AccountDeployed')
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string
+          // eslint-disable-next-line @typescript-eslint/no-base-to-string
           .withArgs(hash, createOp.sender, toChecksumAddress(createOp.initCode.toString().slice(0, 42)), AddressZero)
 
         await calcGasUsage(rcpt!, entryPoint, beneficiaryAddress)
@@ -913,11 +927,11 @@ describe('EntryPoint', function () {
         return
       }
       /**
-             * attempt a batch:
-             * 1. create account1 + "initialize" (by calling counter.count())
-             * 2. account2.exec(counter.count()
-             *    (account created in advance)
-             */
+       * attempt a batch:
+       * 1. create account1 + "initialize" (by calling counter.count())
+       * 2. account2.exec(counter.count()
+       *    (account created in advance)
+       */
       let counter: TestCounter
       let accountExecCounterFromEntryPoint: PopulatedTransaction
       const beneficiaryAddress = createAddress()
@@ -1092,14 +1106,14 @@ describe('EntryPoint', function () {
         }).filter(ev => ev != null)
         // expected "SignatureAggregatorChanged" before every switch of aggregator
         expect(events).to.eql([
-                    `agg(${aggregator.address})`,
-                    `userOp(${userOp1.sender})`,
-                    `userOp(${userOp2.sender})`,
-                    `agg(${aggregator3.address})`,
-                    `userOp(${userOp_agg3.sender})`,
-                    `agg(${AddressZero})`,
-                    `userOp(${userOp_noAgg.sender})`,
-                    `agg(${AddressZero})`
+          `agg(${aggregator.address})`,
+          `userOp(${userOp1.sender})`,
+          `userOp(${userOp2.sender})`,
+          `agg(${aggregator3.address})`,
+          `userOp(${userOp_agg3.sender})`,
+          `agg(${AddressZero})`,
+          `userOp(${userOp_noAgg.sender})`,
+          `agg(${AddressZero})`
         ])
       })
 
@@ -1240,8 +1254,8 @@ describe('EntryPoint', function () {
         expect(logs1[0].args.success).to.be.false
       })
 
-      async function testPaymasterActualGasCost(withPostOp: boolean) {
-        let paymaster = withPostOp ? testPaymasterWithPostOp : testPaymasterAcceptAll
+      async function testPaymasterActualGasCost (withPostOp: boolean): Promise<void> {
+        const paymaster = withPostOp ? testPaymasterWithPostOp : testPaymasterAcceptAll
         await paymaster.deposit({ value: ONE_ETH })
         const unpackedOp = {
           maxFeePerGas: 1,
@@ -1253,7 +1267,7 @@ describe('EntryPoint', function () {
           initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
           paymasterPostOpGasLimit: withPostOp ? 1e4 : undefined
         }
-        const op = await fillSignAndPack( unpackedOp, account2Owner, entryPoint)
+        const op = await fillSignAndPack(unpackedOp, account2Owner, entryPoint)
         const beneficiaryAddress = createAddress()
 
         // Take snapshot before
@@ -1282,7 +1296,7 @@ describe('EntryPoint', function () {
         const opWithUnusedGas = await fillSignAndPack({
           ...unpackedOp,
           callGasLimit: unpackedOp.callGasLimit + unusedGas.toNumber(),
-          paymasterPostOpGasLimit: withPostOp ? unpackedOp.paymasterPostOpGasLimit! + unusedGas.toNumber(): undefined
+          paymasterPostOpGasLimit: withPostOp ? unpackedOp.paymasterPostOpGasLimit! + unusedGas.toNumber() : undefined
         }, account2Owner, entryPoint)
 
         const maxFeePerGas = BigNumber.from(unpackAccountGasFees(opWithUnusedGas.gasFees as string).maxFeePerGas)
@@ -1304,14 +1318,15 @@ describe('EntryPoint', function () {
         if (withPostOp) {
           // Check that the paymaster sees the correct actualGasUsed value in the postOp
           // @ts-ignore
-          const res = await paymaster.queryFilter(paymaster.filters.postOpActualGasCost(), rcpt2.blockHash)
+          const res = await paymaster.queryFilter(paymaster.filters.PostOpActualGasCost(), rcpt2.blockHash)
           const actualGasCostWithoutPostOp = res[0].args.actualGasCost
           const { actualGasCost: actualGasCostSecondCall } = await calcGasUsage(rcpt2, entryPoint, beneficiaryAddress)
           expect(paymasterPaid).to.eql(actualGasCostSecondCall)
-          expect(paymasterPaid.sub((unusedGasCostPenalty.div(2)))).to.be.closeTo(actualGasCostWithoutPostOp, actualGasCostWithoutPostOp.div(100))
+          expect(paymasterPaid.sub((unusedGasCostPenalty.div(2)))).to.be.closeTo(actualGasCostWithoutPostOp,
+            actualGasCostWithoutPostOp.div(100))
         }
-
       }
+
       describe('without postOp', () => {
         it('paymaster should pay for tx including unused gas penalty', async function () {
           // await testPaymasterAcceptAll.deposit({ value: ONE_ETH })
@@ -1358,9 +1373,7 @@ describe('EntryPoint', function () {
           const snap = await ethers.provider.send('evm_snapshot', [])
           await testPaymasterActualGasCost(false)
           await ethers.provider.send('evm_revert', [snap])
-
         })
-
       })
       describe('with postOp', () => {
         it('paymaster should pay for tx including unused execution and postOp gas penalties', async function () {

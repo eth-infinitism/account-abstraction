@@ -9,7 +9,7 @@ import "./TestPaymasterAcceptAll.sol";
  * explicitly returns a context, to test cost (for entrypoint) to call postOp
  */
 contract TestPaymasterWithPostOp is TestPaymasterAcceptAll {
-    event postOpActualGasCost(uint256 actualGasCost);
+    event PostOpActualGasCost(uint256 actualGasCost);
 
     constructor(IEntryPoint _entryPoint) TestPaymasterAcceptAll(_entryPoint) {
     }
@@ -23,6 +23,6 @@ contract TestPaymasterWithPostOp is TestPaymasterAcceptAll {
 
     function _postOp(PostOpMode, bytes calldata, uint256 actualGasCost, uint256)
     internal override {
-        emit postOpActualGasCost(actualGasCost);
+        emit PostOpActualGasCost(actualGasCost);
     }
 }
