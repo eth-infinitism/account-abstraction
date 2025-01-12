@@ -17,6 +17,7 @@ import "./UserOperationLib.sol";
 
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+//import "hardhat/console.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
@@ -43,7 +44,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     bytes32 private constant INNER_REVERT_LOW_PREFUND = hex"deadaa51";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
+    // Penalty charged for either unused execution gas or postOp gas
     uint256 private constant PENALTY_PERCENT = 10;
+    // Threshold below which no penalty would be charged
+    uint256 private constant PENALTY_GAS_THRESHOLD = 4e4;
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
@@ -715,7 +719,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                 refundAddress = paymaster;
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
-//                    console.log("actual gas and cost that paymaster gets", actualGas, actualGasCost);
                     uint256 postOpPreGas = gasleft();
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         try IPaymaster(paymaster).postOp{
@@ -735,7 +738,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             // Calculating a penalty for unused postOp gas
             actualGas += preGas - gasleft() + postOpUnusedGasPenalty;
             actualGasCost = actualGas * gasPrice;
-//            console.log("True actual gas and cost for tx", actualGas, actualGasCost);
             uint256 prefund = opInfo.prefund;
             if (prefund < actualGasCost) {
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
@@ -807,7 +809,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     }
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
-        if (gasLimit > gasUsed) {
+        if (gasLimit > gasUsed && gasLimit - gasUsed > PENALTY_GAS_THRESHOLD) {
             uint256 unusedGas = gasLimit - gasUsed;
             uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
             return unusedGasPenalty;
