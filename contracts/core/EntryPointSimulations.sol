@@ -16,7 +16,8 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     SenderCreator private _senderCreator;
 
-    bytes32 private _non_immutable_domainSeparatorV4;
+    //non-immutable, as EntryPointSimulations is used with state-override, without a constructor
+    bytes32 private __domainSeparatorV4;
 
     function initSenderCreator() internal virtual {
         //this is the address of the first contract created with CREATE by this address.
@@ -208,11 +209,11 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     //can't rely on "immutable" (constructor-initialized) variables" in simulation
     function initDomainSeparator() internal {
-        _non_immutable_domainSeparatorV4 = __buildDomainSeparator();
+        __domainSeparatorV4 = __buildDomainSeparator();
     }
 
     function getDomainSeparatorV4() public override view returns (bytes32) {
-        return _non_immutable_domainSeparatorV4;
+        return __domainSeparatorV4;
     }
 
 }
