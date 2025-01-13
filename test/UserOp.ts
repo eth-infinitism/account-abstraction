@@ -78,25 +78,11 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
   }
 }
 
-let domainSeparator: string | undefined
-let packedUserOpTypeHash: string | undefined
-
-export async function initUserOpHashParams (ep: EntryPoint): Promise<void> {
-  domainSeparator = await ep.getDomainSeparatorV4()
-  packedUserOpTypeHash = await ep.getPackedUserOpTypeHash()
-}
-
 export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: number): string {
-  if (domainSeparator == null || packedUserOpTypeHash == null) {
-    throw new Error('must call initUserOpHashParams(ep)')
-  }
   const packed = encodeUserOp(op, true)
-  // console.log('offchain: ep addr=', entryPoint, 'domain=', domainSeparator)
-  // console.log('offchain: packed hash=', keccak256(packed))
-  // return keccak256(packed)
   return keccak256(hexConcat([
     '0x1901',
-    domainSeparator,
+    getDomainSeparator(entryPoint, chainId),
     keccak256(packed)
   ]))
 }
@@ -236,12 +222,26 @@ export async function fillAndPack (op: Partial<UserOperation>, entryPoint?: Entr
   return packUserOp(await fillUserOp(op, entryPoint, getNonceFunction))
 }
 
-export function getErc4337TypedDataDomain (entryPoint: EntryPoint, chainId: number): TypedDataDomain {
+export function getDomainSeparator (entryPoint: string, chainId: number): string {
+  const domainData = getErc4337TypedDataDomain(entryPoint, chainId)
+  console.log('data=', domainData)
+  return keccak256(defaultAbiCoder.encode(
+    ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
+    [
+      keccak256(Buffer.from('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')),
+      keccak256(Buffer.from(domainData.name!)),
+      keccak256(Buffer.from(domainData.version!)),
+      domainData.chainId,
+      domainData.verifyingContract
+    ]))
+}
+
+export function getErc4337TypedDataDomain (entryPoint: string, chainId: number): TypedDataDomain {
   return {
     name: DOMAIN_NAME,
     version: DOMAIN_VERSION,
     chainId: chainId,
-    verifyingContract: entryPoint.address
+    verifyingContract: entryPoint
   }
 }
 
@@ -269,7 +269,7 @@ export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | 
 
   const packedUserOp = packUserOp(op2)
 
-  const signature = await typedSigner._signTypedData(getErc4337TypedDataDomain(entryPoint!, chainId), getErc4337TypedDataTypes(), packedUserOp) // .catch(e => e.toString())
+  const signature = await typedSigner._signTypedData(getErc4337TypedDataDomain(entryPoint!.address, chainId), getErc4337TypedDataTypes(), packedUserOp) // .catch(e => e.toString())
 
   return {
     ...op2,

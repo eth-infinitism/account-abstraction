@@ -55,7 +55,6 @@ import {
   fillAndSign,
   fillSignAndPack,
   getUserOpHash,
-  initUserOpHashParams,
   packUserOp,
   simulateValidation
 } from './UserOp'
@@ -94,8 +93,6 @@ describe('EntryPoint', function () {
       accountFactory: simpleAccountFactory
     } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address))
     await fund(account)
-
-    await initUserOpHashParams(entryPoint)
 
     // sanity: validate helper functions
     const sampleOp = await fillAndSign({ sender: account.address }, accountOwner, entryPoint)
