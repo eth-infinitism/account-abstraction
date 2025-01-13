@@ -31,7 +31,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     SenderCreator private immutable _senderCreator = new SenderCreator();
 
-    constructor() EIP712("ERC4337", "v0.8") {
+    string constant internal DOMAIN_NAME = "ERC4337";
+    string constant internal DOMAIN_VERSION = "1";
+
+    constructor() EIP712(DOMAIN_NAME, DOMAIN_VERSION)  {
     }
 
     function senderCreator() public view virtual returns (ISenderCreator) {
@@ -364,10 +367,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     }
 
     function getPackedUserOpTypeHash() public pure returns (bytes32) {
-        return UserOperationLib._PACKED_USER_OPERATION;
+        return UserOperationLib.PACKED_USEROP_TYPEHASH;
     }
 
-    function getDomainSeparatorV4() public view returns (bytes32) {
+    function getDomainSeparatorV4() public virtual view returns (bytes32) {
         return _domainSeparatorV4();
     }
 
@@ -375,10 +378,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function getUserOpHash(
         PackedUserOperation calldata userOp
     ) public view returns (bytes32 ret) {
-        //match encoding in ./test/UserOp.ts:82 (getUserOpHash)
-        ret = keccak256(userOp.encode());
+        bytes32 hash = keccak256(userOp.encode());
         //wrap by EIP712 "domainSeparator":
-//        ret = _hashTypedDataV4(ret);
+        ret = MessageHashUtils.toTypedDataHash(getDomainSeparatorV4(), hash);
     }
 
     /**

@@ -37,8 +37,7 @@ contract TestExpiryAccount is SimpleAccount {
     /// implement template method of BaseAccount
     function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
     internal override view returns (uint256 validationData) {
-        bytes32 hash = MessageHashUtils.toEthSignedMessageHash(userOpHash);
-        address signer = ECDSA.recover(hash,userOp.signature);
+        address signer = ECDSA.recover(userOpHash,userOp.signature);
         uint48 _until = ownerUntil[signer];
         uint48 _after = ownerAfter[signer];
 

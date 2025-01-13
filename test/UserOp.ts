@@ -5,6 +5,7 @@ import {
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
+import { TypedDataSigner, TypedDataDomain, TypedDataField } from '@ethersproject/abstract-signer'
 import {
   AddressZero,
   callDataCost,
@@ -13,7 +14,7 @@ import {
   packPaymasterData,
   rethrow
 } from './testutils'
-import { ecsign, toRpcSig, keccak256 as keccak256_buffer } from 'ethereumjs-util'
+import { ecsign, toRpcSig } from 'ethereumjs-util'
 import {
   EntryPoint, EntryPointSimulations__factory
 } from '../typechain'
@@ -24,6 +25,13 @@ import { TransactionRequest } from '@ethersproject/abstract-provider'
 import EntryPointSimulationsJson from '../artifacts/contracts/core/EntryPointSimulations.sol/EntryPointSimulations.json'
 import { ethers } from 'hardhat'
 import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSimulations'
+
+// Matched to domain name, version from EntryPoint.sol:
+const DOMAIN_NAME = 'ERC4337'
+const DOMAIN_VERSION = '1'
+
+// Matched to UserOperationLib.sol:
+const PACKED_USEROP_TYPEHASH = keccak256(Buffer.from('PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)'))
 
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
@@ -48,19 +56,23 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
   const packedUserOp = packUserOp(userOp)
   if (forSignature) {
     return defaultAbiCoder.encode(
-      ['address', 'uint256', 'bytes32', 'bytes32',
+      ['bytes32',
+        'address', 'uint256', 'bytes32', 'bytes32',
         'bytes32', 'uint256', 'bytes32',
         'bytes32'],
-      [packedUserOp.sender, packedUserOp.nonce, keccak256(packedUserOp.initCode), keccak256(packedUserOp.callData),
+      [PACKED_USEROP_TYPEHASH,
+        packedUserOp.sender, packedUserOp.nonce, keccak256(packedUserOp.initCode), keccak256(packedUserOp.callData),
         packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.gasFees,
         keccak256(packedUserOp.paymasterAndData)])
   } else {
     // for the purpose of calculating gas cost encode also signature (and no keccak of bytes)
     return defaultAbiCoder.encode(
-      ['address', 'uint256', 'bytes', 'bytes',
+      ['bytes32',
+        'address', 'uint256', 'bytes', 'bytes',
         'bytes32', 'uint256', 'bytes32',
         'bytes', 'bytes'],
-      [packedUserOp.sender, packedUserOp.nonce, packedUserOp.initCode, packedUserOp.callData,
+      [PACKED_USEROP_TYPEHASH,
+        packedUserOp.sender, packedUserOp.nonce, packedUserOp.initCode, packedUserOp.callData,
         packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.gasFees,
         packedUserOp.paymasterAndData, packedUserOp.signature])
   }
@@ -78,14 +90,15 @@ export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: n
   if (domainSeparator == null || packedUserOpTypeHash == null) {
     throw new Error('must call initUserOpHashParams(ep)')
   }
-  const packed = hexConcat([packedUserOpTypeHash, encodeUserOp(op, true)])
-  // match implementation in ./contracts/core/EntryPoint.sol:382:
-  return keccak256(packed)
-  // return keccak256(hexConcat([
-  //   '0x1901',
-  //   domainSeparator,
-  //   keccak256(packed)
-  // ]))
+  const packed = encodeUserOp(op, true)
+  // console.log('offchain: ep addr=', entryPoint, 'domain=', domainSeparator)
+  // console.log('offchain: packed hash=', keccak256(packed))
+  // return keccak256(packed)
+  return keccak256(hexConcat([
+    '0x1901',
+    domainSeparator,
+    keccak256(packed)
+  ]))
 }
 
 export const DefaultsForUserOp: UserOperation = {
@@ -107,14 +120,10 @@ export const DefaultsForUserOp: UserOperation = {
 
 export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
   const message = getUserOpHash(op, entryPoint, chainId)
-  const msg1 = Buffer.concat([
-    Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
-    Buffer.from(arrayify(message))
-  ])
 
-  const sig = ecsign(keccak256_buffer(msg1), Buffer.from(arrayify(signer.privateKey)))
-  // that's equivalent of:  await signer.signMessage(message);
-  // (but without "async"
+  const sig = ecsign(Buffer.from(arrayify(message)), Buffer.from(arrayify(signer.privateKey)))
+  // that's equivalent of:  await signer.signTypedData(domain, types, packUserOp(op));
+  // (but without "async")
   const signedMessage1 = toRpcSig(sig.v, sig.r, sig.s)
   return {
     ...op,
@@ -227,20 +236,41 @@ export async function fillAndPack (op: Partial<UserOperation>, entryPoint?: Entr
   return packUserOp(await fillUserOp(op, entryPoint, getNonceFunction))
 }
 
+export function getErc4337TypedDataDomain (entryPoint: EntryPoint, chainId: number): TypedDataDomain {
+  return {
+    name: DOMAIN_NAME,
+    version: DOMAIN_VERSION,
+    chainId: chainId,
+    verifyingContract: entryPoint.address
+  }
+}
+
+export function getErc4337TypedDataTypes (): { [type: string]: TypedDataField[] } {
+  return {
+    PackedUserOperation: [
+      { name: 'sender', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'initCode', type: 'bytes' },
+      { name: 'callData', type: 'bytes' },
+      { name: 'accountGasLimits', type: 'bytes32' },
+      { name: 'preVerificationGas', type: 'uint256' },
+      { name: 'gasFees', type: 'bytes32' },
+      { name: 'paymasterAndData', type: 'bytes' }
+    ]
+  }
+}
 export async function fillAndSign (op: Partial<UserOperation>, signer: Wallet | Signer, entryPoint?: EntryPoint, getNonceFunction = 'getNonce'): Promise<UserOperation> {
   const provider = entryPoint?.provider
   const op2 = await fillUserOp(op, entryPoint, getNonceFunction)
 
   const chainId = await provider!.getNetwork().then(net => net.chainId)
-  const message = arrayify(getUserOpHash(op2, entryPoint!.address, chainId))
 
-  let signature
-  try {
-    signature = await signer.signMessage(message)
-  } catch (err: any) {
-    // attempt to use 'eth_sign' instead of 'personal_sign' which is not supported by Foundry Anvil
-    signature = await (signer as any)._legacySignMessage(message)
-  }
+  const typedSigner: TypedDataSigner = signer as any
+
+  const packedUserOp = packUserOp(op2)
+
+  const signature = await typedSigner._signTypedData(getErc4337TypedDataDomain(entryPoint!, chainId), getErc4337TypedDataTypes(), packedUserOp) // .catch(e => e.toString())
+
   return {
     ...op2,
     signature
