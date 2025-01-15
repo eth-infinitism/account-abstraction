@@ -137,7 +137,7 @@ library UserOperationLib {
      * Hash the user operation data.
      * @param userOp - The user operation data.
      */
-    function hash1(
+    function hash(
         PackedUserOperation calldata userOp
     ) internal pure returns (bytes32) {
         return keccak256(encode(userOp));
