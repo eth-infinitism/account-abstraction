@@ -16,7 +16,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     SenderCreator private _senderCreator;
 
-    //non-immutable, as EntryPointSimulations is used with state-override, without a constructor
     bytes32 private __domainSeparatorV4;
 
     function initSenderCreator() internal virtual {
