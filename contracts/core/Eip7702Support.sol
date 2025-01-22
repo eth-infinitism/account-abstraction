@@ -42,7 +42,7 @@ using UserOperationLib for PackedUserOperation;
  **/
     function _getEip7702Delegate(address sender) view returns (address) {
         uint256 senderCode;
-        assembly {
+        assembly ("memory-safe") {
             extcodecopy(sender, 0, 0, 32)
             senderCode := mload(0)
         }
