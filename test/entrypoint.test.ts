@@ -51,22 +51,23 @@ import {
   decodeRevertReason, parseValidationData, findUserOpWithMin
 } from './testutils'
 import {
-  DefaultsForUserOp,
+  DefaultsForUserOp, EIP7702_PREFIX,
   fillAndSign,
-  fillSignAndPack,
-  getUserOpHash,
+  fillSignAndPack, fillUserOpDefaults,
+  getUserOpHash, getUserOpHashWithEip7702,
   packUserOp,
   simulateValidation
 } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { arrayify, defaultAbiCoder, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
 import { UserOperationEventEvent } from '../typechain/contracts/interfaces/IEntryPoint'
+import { before } from 'mocha'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -99,6 +100,67 @@ describe('EntryPoint', function () {
 
     const packedOp = packUserOp(sampleOp)
     expect(getUserOpHash(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(packedOp))
+  })
+
+  // use stateOverride to "inject" 7702 delegate code to check the generated UserOpHash
+  describe('userOpHash with eip-7702 account', () => {
+    const userop = fillUserOpDefaults({
+      sender: createAddress(),
+      nonce: 1,
+      callData: '0xdead',
+      callGasLimit: 2,
+      verificationGasLimit: 3,
+      maxFeePerGas: 4
+    })
+    let chainId: number
+
+    const mockDelegate = createAddress()
+
+    const deployedDelegateCode = hexConcat([EIP7702_PREFIX, mockDelegate])
+
+    before(async () => {
+      chainId = await ethers.provider.getNetwork().then(net => net.chainId)
+    })
+
+    it('calculate userophash with normal account', async () => {
+      expect(getUserOpHash(userop, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(packUserOp(userop)))
+    })
+
+    describe('#getUserOpHashWith7702', () => {
+      it('#getUserOpHashWith7702 just delegate', async () => {
+        const hash = getUserOpHash({ ...userop, initCode: mockDelegate }, entryPoint.address, chainId)
+        expect(getUserOpHashWithEip7702({ ...userop, initCode: EIP7702_PREFIX }, entryPoint.address, chainId, deployedDelegateCode)).to.eql(hash)
+      })
+      it('#getUserOpHashWith7702 with initcode', async () => {
+        const hash = getUserOpHash({ ...userop, initCode: mockDelegate + 'b1ab1a' }, entryPoint.address, chainId)
+        expect(getUserOpHashWithEip7702({ ...userop, initCode: '0xef0100'.padEnd(42, '0') + 'b1ab1a' }, entryPoint.address, chainId, deployedDelegateCode)).to.eql(hash)
+      })
+    })
+
+    describe('entryPoint getUserOpHash', () => {
+      it('should return the same hash as calculated locally', async () => {
+        // call entryPoint.getUserOpHash, but use state-override to run it with specific code (e.g. delegate) on the sender's code.
+        async function callGetUserOpHashWithCode (userop: UserOperation, senderCode?: any): Promise<string> {
+          const stateOverride = senderCode == null
+            ? null
+            : {
+                [userop.sender]: {
+                  code: senderCode
+                }
+              }
+          return await ethers.provider.send('eth_call', [
+            {
+              to: entryPoint.address,
+              data: entryPoint.interface.encodeFunctionData('getUserOpHash', [packUserOp(userop)])
+            }, 'latest', stateOverride
+          ])
+        }
+
+        userop.initCode = EIP7702_PREFIX
+        expect(await callGetUserOpHashWithCode(userop, deployedDelegateCode)).to.eql(
+          getUserOpHashWithEip7702(userop, entryPoint.address, chainId, deployedDelegateCode))
+      })
+    })
   })
 
   describe('Stake Management', () => {

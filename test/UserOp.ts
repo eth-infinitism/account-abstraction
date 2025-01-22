@@ -1,7 +1,7 @@
 import {
   arrayify,
-  defaultAbiCoder, hexConcat,
-  hexDataSlice,
+  defaultAbiCoder, hexConcat, hexDataLength,
+  hexDataSlice, hexlify,
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
@@ -32,6 +32,8 @@ const DOMAIN_VERSION = '1'
 
 // Matched to UserOperationLib.sol:
 const PACKED_USEROP_TYPEHASH = keccak256(Buffer.from('PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)'))
+
+export const EIP7702_PREFIX = '0xef0100'
 
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
@@ -85,6 +87,27 @@ export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: n
     getDomainSeparator(entryPoint, chainId),
     keccak256(packed)
   ]))
+}
+
+// calculate UserOpHash, given "sender" contract code.
+// (only used if initCode starts with prefix)
+export function getUserOpHashWithEip7702 (op: UserOperation, entryPoint: string, chainId: number, senderCode: string): string {
+  let initCode = hexlify(op.initCode)
+  if (initCode.startsWith(EIP7702_PREFIX)) {
+    const delegate = hexDataSlice(senderCode, 3, 23)
+    if (hexDataLength(initCode) < 20) {
+      // its only prefix:
+      initCode = delegate
+    } else {
+      // replace address in initCode with delegate
+      initCode = hexConcat([delegate, hexDataSlice(initCode, 20)])
+    }
+    op = {
+      ...op,
+      initCode: initCode
+    }
+  }
+  return getUserOpHash(op, entryPoint, chainId)
 }
 
 export const DefaultsForUserOp: UserOperation = {
@@ -224,7 +247,6 @@ export async function fillAndPack (op: Partial<UserOperation>, entryPoint?: Entr
 
 export function getDomainSeparator (entryPoint: string, chainId: number): string {
   const domainData = getErc4337TypedDataDomain(entryPoint, chainId)
-  console.log('data=', domainData)
   return keccak256(defaultAbiCoder.encode(
     ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
     [
