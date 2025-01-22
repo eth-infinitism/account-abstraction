@@ -8,7 +8,7 @@ contract TestUtil {
     using UserOperationLib for PackedUserOperation;
 
     function encodeUserOp(PackedUserOperation calldata op) external pure returns (bytes memory){
-        return op.encode();
+        return op.encode(0);
     }
 
 }

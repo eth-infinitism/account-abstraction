@@ -379,7 +379,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function getUserOpHash(
         PackedUserOperation calldata userOp
     ) public view returns (bytes32) {
-        bytes memory overrideInitCode = _getEip7702InitCodeOverride(userOp);
+        bytes32 overrideInitCode = _getEip7702InitCodeOverride(userOp);
         return
             MessageHashUtils.toTypedDataHash(getDomainSeparatorV4(), userOp.hash(overrideInitCode));
     }

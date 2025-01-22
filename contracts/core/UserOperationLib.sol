@@ -69,11 +69,11 @@ library UserOperationLib {
      */
     function encode(
         PackedUserOperation calldata userOp,
-        bytes memory overrideInitCode
+        bytes32 overrideInitCode
     ) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
         uint256 nonce = userOp.nonce;
-        bytes32 hashInitCode = overrideInitCode.length==0 ? calldataKeccak(userOp.initCode) : keccak256(overrideInitCode);
+        bytes32 hashInitCode = overrideInitCode==0 ? calldataKeccak(userOp.initCode) : overrideInitCode;
         bytes32 hashCallData = calldataKeccak(userOp.callData);
         bytes32 accountGasLimits = userOp.accountGasLimits;
         uint256 preVerificationGas = userOp.preVerificationGas;
@@ -152,7 +152,7 @@ library UserOperationLib {
      */
     function hash(
         PackedUserOperation calldata userOp,
-        bytes memory overrideInitCode
+        bytes32 overrideInitCode
     ) internal pure returns (bytes32) {
         return keccak256(encode(userOp, overrideInitCode));
     }

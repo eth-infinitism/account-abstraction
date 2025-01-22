@@ -10,25 +10,26 @@ uint256 constant EIP7702_PREFIX = 0xef0100;
 using UserOperationLib for PackedUserOperation;
 
     //get alternate InitCode (just for hashing) when using EIP-7702
-    function _getEip7702InitCodeOverride(PackedUserOperation calldata userOp) view returns (bytes memory) {
+    function _getEip7702InitCodeOverride(PackedUserOperation calldata userOp) view returns (bytes32) {
         bytes calldata initCode = userOp.initCode;
         if (! _isEip7702InitCode(initCode)) {
-            return "";
+            return 0;
         }
         address delegate = _getEip7702Delegate(userOp.getSender());
         if (initCode.length < 20)
-            return abi.encodePacked(delegate);
+            return keccak256(abi.encodePacked(delegate));
         else
-            return abi.encodePacked(delegate, initCode[20 :]);
+            return keccak256(abi.encodePacked(delegate, initCode[20 :]));
     }
 
 
     function _isEip7702InitCode(bytes calldata initCode) pure returns (bool) {
+
         if (initCode.length < 3) {
             return false;
         }
         uint256 initCodeStart;
-        assembly {
+        assembly ("memory-safe") {
             initCodeStart := calldataload(initCode.offset)
         }
         // make sure first 20 bytes of initCode are "0xff0100" (padded with zeros)
@@ -42,6 +43,7 @@ using UserOperationLib for PackedUserOperation;
  **/
     function _getEip7702Delegate(address sender) view returns (address) {
         uint256 senderCode;
+
         assembly ("memory-safe") {
             extcodecopy(sender, 0, 0, 32)
             senderCode := mload(0)
