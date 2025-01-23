@@ -444,3 +444,20 @@ export async function findSimulationUserOpWithMin (f: (n: number) => Promise<Use
     }, min, max, delta
   )
 }
+
+// call entryPoint.getUserOpHash, but use state-override to run it with specific code (e.g. eip-7702 delegate) on the sender's code.
+export async function callGetUserOpHashWithCode (entryPoint: EntryPoint, userop: UserOperation, senderCode: any): Promise<string> {
+  const stateOverride = senderCode == null
+    ? null
+    : {
+        [userop.sender]: {
+          code: senderCode
+        }
+      }
+  return await ethers.provider.send('eth_call', [
+    {
+      to: entryPoint.address,
+      data: entryPoint.interface.encodeFunctionData('getUserOpHash', [packUserOp(userop)])
+    }, 'latest', stateOverride
+  ])
+}

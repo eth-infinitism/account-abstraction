@@ -48,7 +48,7 @@ import {
   HashZero,
   createAccount,
   getAggregatedAccountInitCode,
-  decodeRevertReason, parseValidationData, findUserOpWithMin
+  decodeRevertReason, parseValidationData, findUserOpWithMin, callGetUserOpHashWithCode
 } from './testutils'
 import {
   DefaultsForUserOp, EIP7702_PREFIX,
@@ -139,26 +139,24 @@ describe('EntryPoint', function () {
 
     describe('entryPoint getUserOpHash', () => {
       it('should return the same hash as calculated locally', async () => {
-        // call entryPoint.getUserOpHash, but use state-override to run it with specific code (e.g. delegate) on the sender's code.
-        async function callGetUserOpHashWithCode (userop: UserOperation, senderCode?: any): Promise<string> {
-          const stateOverride = senderCode == null
-            ? null
-            : {
-                [userop.sender]: {
-                  code: senderCode
-                }
-              }
-          return await ethers.provider.send('eth_call', [
-            {
-              to: entryPoint.address,
-              data: entryPoint.interface.encodeFunctionData('getUserOpHash', [packUserOp(userop)])
-            }, 'latest', stateOverride
-          ])
-        }
+        const op1 = { ...userop, initCode: EIP7702_PREFIX }
+        expect(await callGetUserOpHashWithCode(entryPoint, op1, deployedDelegateCode)).to.eql(
+          getUserOpHashWithEip7702(op1, entryPoint.address, chainId, deployedDelegateCode))
+      })
 
-        userop.initCode = EIP7702_PREFIX
-        expect(await callGetUserOpHashWithCode(userop, deployedDelegateCode)).to.eql(
-          getUserOpHashWithEip7702(userop, entryPoint.address, chainId, deployedDelegateCode))
+      it('should fail getUserOpHash marked for eip-7702, without a delegate', async () => {
+        const op1 = { ...userop, initCode: EIP7702_PREFIX }
+        await expect(callGetUserOpHashWithCode(entryPoint, op1, '0x608000')).to.revertedWith('not an EIP-7702 delegate')
+      })
+
+      it('should allow initCode with EIP7702_PREFIX tailed with zeros only, ', async () => {
+        const op_zero_tail = { ...userop, initCode: EIP7702_PREFIX + '00'.repeat(10) }
+        expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
+          getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, deployedDelegateCode))
+
+        op_zero_tail.initCode = EIP7702_PREFIX + '00'.repeat(30)
+        expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
+          getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, deployedDelegateCode))
       })
     })
   })
