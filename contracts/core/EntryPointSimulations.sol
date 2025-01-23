@@ -16,10 +16,14 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     SenderCreator private _senderCreator;
 
+    bytes32 private __domainSeparatorV4;
+
     function initSenderCreator() internal virtual {
         //this is the address of the first contract created with CREATE by this address.
         address createdObj = address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", address(this), hex"01")))));
         _senderCreator = SenderCreator(createdObj);
+
+        initDomainSeparator();
     }
 
     function senderCreator() public view virtual override(EntryPoint, IEntryPoint) returns (ISenderCreator) {
@@ -189,6 +193,26 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     //slightly stricter gas limit than the real EntryPoint
     function _getVerificationGasLimit(uint256 verificationGasLimit) internal pure virtual override returns (uint256) {
         return verificationGasLimit - 300;
+    }
+
+
+    //copied from EIP712.sol
+    bytes32 private constant TYPE_HASH =
+    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    function __buildDomainSeparator() private view returns (bytes32) {
+        bytes32 _hashedName = keccak256(bytes(DOMAIN_NAME));
+        bytes32 _hashedVersion = keccak256(bytes(DOMAIN_VERSION));
+        return keccak256(abi.encode(TYPE_HASH, _hashedName, _hashedVersion, block.chainid, address(this)));
+    }
+
+    //can't rely on "immutable" (constructor-initialized) variables" in simulation
+    function initDomainSeparator() internal {
+        __domainSeparatorV4 = __buildDomainSeparator();
+    }
+
+    function getDomainSeparatorV4() public override view returns (bytes32) {
+        return __domainSeparatorV4;
     }
 
 }
