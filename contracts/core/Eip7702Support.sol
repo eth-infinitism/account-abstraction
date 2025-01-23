@@ -29,6 +29,7 @@ using UserOperationLib for PackedUserOperation;
             return false;
         }
         uint256 initCodeStart;
+        // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             initCodeStart := calldataload(initCode.offset)
         }
@@ -44,6 +45,7 @@ using UserOperationLib for PackedUserOperation;
     function _getEip7702Delegate(address sender) view returns (address) {
         uint256 senderCode;
 
+        // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             extcodecopy(sender, 0, 0, 32)
             senderCode := mload(0)

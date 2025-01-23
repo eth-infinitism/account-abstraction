@@ -54,7 +54,8 @@ contract SenderCreator is ISenderCreator {
     ) external {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
         bytes memory initCallData = initCode[20 :];
+        // solhint-disable-next-line avoid-low-level-calls
         bool success = Exec.call(sender, 0, initCallData, gasleft());
-        require(success, "AA13: EIP7702 sender initialization failed");
+        require(success, "AA13 EIP7702 sender init failed");
     }
 }
