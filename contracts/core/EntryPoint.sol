@@ -444,8 +444,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
             if ( _isEip7702InitCode(initCode) ) {
-                // validate it is an EIP7702 account
-                _getEip7702Delegate(sender);
+                //already validated it is an EIP-7702 delegate (and hence, already has code)
                 senderCreator().initEip7702Sender(sender, initCode[20:]);
                 return;
             }
