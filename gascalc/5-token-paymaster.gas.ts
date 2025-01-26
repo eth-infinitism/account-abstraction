@@ -15,7 +15,9 @@ import {
 } from '../typechain/contracts/samples/TokenPaymaster'
 import { BigNumber } from 'ethers'
 import { createAccountOwner } from '../test/testutils'
-// const ethersSigner = ethers.provider.getSigner()
+import Debug from 'debug'
+
+const debug = Debug('aa.gascheck-tpm')
 
 context('Token Paymaster', function () {
   this.timeout(60000)
@@ -98,7 +100,7 @@ context('Token Paymaster', function () {
       await token.sudoApprove(address, paymaster.address, ethers.constants.MaxUint256)
     }
 
-    console.log('==addresses:', {
+    debug('==addresses:', {
       ethersSigner: await ethersSigner.getAddress(),
       paymasterAddress,
       nativeAssetOracleAddress,

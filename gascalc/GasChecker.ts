@@ -21,6 +21,9 @@ import * as fs from 'fs'
 import { SimpleAccountInterface } from '../typechain/contracts/samples/SimpleAccount'
 import { PackedUserOperation } from '../test/UserOperation'
 import { expect } from 'chai'
+import Debug from 'debug'
+
+const debug = Debug('aa.gascheck')
 
 const gasCheckerLogFile = './reports/gas-checker.txt'
 
@@ -129,7 +132,7 @@ export class GasChecker {
         SimpleAccountFactory__factory.bytecode,
         defaultAbiCoder.encode(['address'], [this.entryPoint().address])
       ]), 0, 2885201)
-    console.log('factaddr', factoryAddress)
+    debug('factaddr', factoryAddress)
     const fact = SimpleAccountFactory__factory.connect(factoryAddress, globalSigner)
     // create accounts
     const creationOps: PackedUserOperation[] = []
@@ -187,7 +190,7 @@ export class GasChecker {
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
     const info: GasTestInfo = { ...DefaultGasTestInfo, ...params } as GasTestInfo
 
-    console.debug('== running test count=', info.count)
+    debug('== running test count=', info.count)
 
     // fill accounts up to this code.
     await this.createAccounts1(info.count)
@@ -205,7 +208,7 @@ export class GasChecker {
           dest = createAddress()
           const destBalance = await getBalance(dest)
           if (destBalance.eq(0)) {
-            console.log('dest replenish', dest)
+            debug('dest replenish', dest)
             await globalSigner.sendTransaction({ to: dest, value: 1 })
           }
         }
@@ -245,8 +248,6 @@ export class GasChecker {
             paymasterPostOpGasLimit: 50000,
             preVerificationGas: 1
           }, accountOwner, GasCheckCollector.inst.entryPoint)
-          // const packed = packUserOp(op, false)
-          // console.log('== packed cost=', callDataCost(packed), packed)
           return op
         } finally {
           this.locked = false
@@ -254,7 +255,7 @@ export class GasChecker {
       }))
 
     const txdata = GasCheckCollector.inst.entryPoint.interface.encodeFunctionData('handleOps', [userOps, info.beneficiary])
-    console.log('=== encoded data=', txdata.length)
+    debug('=== encoded data=', txdata.length)
     const gasEst = await GasCheckCollector.inst.entryPoint.estimateGas.handleOps(
       userOps, info.beneficiary, {}
     ).catch(e => {
@@ -278,19 +279,18 @@ export class GasChecker {
     const countSuccessOps = rcpt.events?.filter(e => e.event === 'UserOperationEvent' && e.args?.success).length
 
     rcpt.events?.filter(e => e.event?.match(/PostOpRevertReason|UserOperationRevertReason/)).find(e => {
-      // console.log(e.event, e.args)
       throw new Error(`${e.event}(${decodeRevertReason(e.args?.revertReason)})`)
     })
     // check for failure with no revert reason (e.g. OOG)
     expect(countSuccessOps).to.eq(userOps.length, 'Some UserOps failed to execute (with no revert reason)')
 
-    console.debug('count', info.count, 'gasUsed', gasUsed)
+    debug('count', info.count, 'gasUsed', gasUsed)
     const gasDiff = gasUsed - lastGasUsed
     if (info.diffLastGas) {
-      console.debug('\tgas diff=', gasDiff)
+      debug('\tgas diff=', gasDiff)
     }
     lastGasUsed = gasUsed
-    console.debug('handleOps tx.hash=', rcpt.transactionHash)
+    debug('handleOps tx.hash=', rcpt.transactionHash)
     const ret1: GasTestResult = {
       count: info.count,
       gasUsed,
@@ -301,7 +301,7 @@ export class GasChecker {
     if (info.diffLastGas) {
       ret1.gasDiff = gasDiff
     }
-    console.debug(ret1)
+    debug(ret1)
     return ret1
   }
 
@@ -335,7 +335,7 @@ export class GasCheckCollector {
   }
 
   async _init (entryPointAddressOrTest: string = 'test'): Promise<this> {
-    console.log('signer=', await globalSigner.getAddress())
+    debug('signer=', await globalSigner.getAddress())
     DefaultGasTestInfo.beneficiary = createAddress()
 
     if (entryPointAddressOrTest === 'test') {
@@ -366,7 +366,7 @@ export class GasCheckCollector {
    * (we stream the table, so can't learn the content length)
    */
   initTable (tableHeaders: string[]): void {
-    console.log('inittable')
+    debug('inittable')
 
     // multiline header - check the length of the longest line.
     // function columnWidth (header: string): number {
