@@ -224,7 +224,6 @@ export async function fillAndPack (op: Partial<UserOperation>, entryPoint?: Entr
 
 export function getDomainSeparator (entryPoint: string, chainId: number): string {
   const domainData = getErc4337TypedDataDomain(entryPoint, chainId)
-  console.log('data=', domainData)
   return keccak256(defaultAbiCoder.encode(
     ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
     [

@@ -52,7 +52,6 @@ describe('EntryPoint with VerifyingPaymaster', function () {
           defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG
         ])
       )
-      console.log(paymasterAndData)
       const res = await paymaster.parsePaymasterAndData(paymasterAndData)
       // console.log('MOCK_VALID_UNTIL, MOCK_VALID_AFTER', MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
       // console.log('validUntil after', res.validUntil, res.validAfter)

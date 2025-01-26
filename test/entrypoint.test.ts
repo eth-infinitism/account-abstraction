@@ -68,6 +68,10 @@ import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
 import { UserOperationEventEvent } from '../typechain/contracts/interfaces/IEntryPoint'
 
+import Debug from 'debug'
+
+const debug = Debug('entrypoint.test')
+
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
   let simpleAccountFactory: SimpleAccountFactory
@@ -296,7 +300,7 @@ describe('EntryPoint', function () {
       try {
         await simulateValidation(userOpPacked, entryPoint.address, { gasLimit: 1e6 })
 
-        console.log('after first simulation')
+        debug('after first simulation')
         await ethers.provider.send('evm_mine', [])
         await expect(simulateValidation(userOpPacked, entryPoint.address, { gasLimit: 1e6 }))
           .to.revertedWith('Revert after first validation')
@@ -568,7 +572,7 @@ describe('EntryPoint', function () {
         const beneficiaryAddress = createAddress()
         const countBefore = await counter.counters(account.address)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        debug('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
 
         // must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
@@ -579,7 +583,6 @@ describe('EntryPoint', function () {
 
         const countAfter = await counter.counters(account.address)
         expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
       })
@@ -599,9 +602,8 @@ describe('EntryPoint', function () {
         }, accountOwner, entryPoint)
         const beneficiaryAddress = createAddress()
         const offsetBefore = await counter.offset()
-        console.log('  == offset before', offsetBefore)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        debug('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
 
         // must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
@@ -610,13 +612,12 @@ describe('EntryPoint', function () {
           gasLimit: 13e5
         }).then(async t => await t.wait())
 
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
+        debug('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
 
         // check that the state of the counter contract is updated
         // this ensures that the `callGasLimit` is high enough
         // therefore this value can be used as a reference in the test below
-        console.log('  == offset after', await counter.offset())
         expect(await counter.offset()).to.equal(offsetBefore.add(iterations))
       })
 
@@ -633,9 +634,9 @@ describe('EntryPoint', function () {
         const inititalAccountBalance = await getBalance(account.address)
         const beneficiaryAddress = createAddress()
         const offsetBefore = await counter.offset()
-        console.log('  == offset before', offsetBefore)
+        debug('  == offset before', offsetBefore)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        debug('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
 
         // must specify at least on of maxFeePerGas, gasLimit
         // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
@@ -703,7 +704,6 @@ describe('EntryPoint', function () {
         const expectedGasPenalty = (veryBigCallGasLimit - callGasLimit.toNumber()) * 0.1
         const actualGasPenalty = gasUsed2 - gasUsed1
 
-        console.log(actualGasPenalty / expectedGasPenalty)
         expect(actualGasPenalty).to.be.closeTo(expectedGasPenalty, expectedGasPenalty * 0.001)
       })
 
@@ -741,7 +741,7 @@ describe('EntryPoint', function () {
 
         const countBefore = await counter.counters(account.address)
         // for estimateGas, must specify maxFeePerGas, otherwise our gas check fails
-        console.log('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
+        debug('  == est gas=', await entryPoint.estimateGas.handleOps([op], beneficiaryAddress, { maxFeePerGas: 1e9 }).then(tostr))
 
         const balBefore = await getBalance(account.address)
         const depositBefore = await entryPoint.balanceOf(account.address)
@@ -754,7 +754,7 @@ describe('EntryPoint', function () {
 
         const countAfter = await counter.counters(account.address)
         expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
+        debug('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
 
         const balAfter = await getBalance(account.address)
         const depositAfter = await entryPoint.balanceOf(account.address)
@@ -799,7 +799,7 @@ describe('EntryPoint', function () {
         const countAfter = await counter.counters(account.address)
         expect(countAfter.toNumber()).to.equal(countBefore.toNumber() + 1)
 
-        console.log('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
+        debug('rcpt.gasUsed=', rcpt.gasUsed.toString(), rcpt.transactionHash)
         await calcGasUsage(rcpt, entryPoint, beneficiaryAddress)
       })
 
@@ -1317,9 +1317,8 @@ describe('EntryPoint', function () {
             sender: account.address
           }, expiredOwner, entryPoint)
           const ret = await simulateValidation(userOp, entryPoint.address)
-          console.log(ret.returnInfo.accountValidationData.toHexString())
+          //console.log(ret.returnInfo.accountValidationData.toHexString())
           const validationData = parseValidationData(ret.returnInfo.accountValidationData)
-          console.log('validationdata=', validationData)
           expect(validationData.validUntil).eql(now - 60)
           expect(validationData.validAfter).to.eql(123)
         })
