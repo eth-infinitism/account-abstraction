@@ -50,7 +50,14 @@ import {
   getAggregatedAccountInitCode,
   decodeRevertReason, parseValidationData, findUserOpWithMin
 } from './testutils'
-import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
+import {
+  DefaultsForUserOp,
+  fillAndSign,
+  fillSignAndPack,
+  getUserOpHash,
+  packUserOp,
+  simulateValidation
+} from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
@@ -89,6 +96,7 @@ describe('EntryPoint', function () {
 
     // sanity: validate helper functions
     const sampleOp = await fillAndSign({ sender: account.address }, accountOwner, entryPoint)
+
     const packedOp = packUserOp(sampleOp)
     expect(getUserOpHash(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(packedOp))
   })
