@@ -1317,7 +1317,7 @@ describe('EntryPoint', function () {
             sender: account.address
           }, expiredOwner, entryPoint)
           const ret = await simulateValidation(userOp, entryPoint.address)
-          //console.log(ret.returnInfo.accountValidationData.toHexString())
+          // console.log(ret.returnInfo.accountValidationData.toHexString())
           const validationData = parseValidationData(ret.returnInfo.accountValidationData)
           expect(validationData.validUntil).eql(now - 60)
           expect(validationData.validAfter).to.eql(123)

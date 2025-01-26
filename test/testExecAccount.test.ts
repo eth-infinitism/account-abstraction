@@ -5,7 +5,7 @@ import {
   TestExecAccount__factory,
   TestExecAccountFactory__factory
 } from '../typechain'
-import { createAccountOwner, deployEntryPoint, fund, objdump } from './testutils'
+import { createAccountOwner, deployEntryPoint, fund } from './testutils'
 import { fillSignAndPack } from './UserOp'
 import { Signer, Wallet } from 'ethers'
 import { ethers } from 'hardhat'

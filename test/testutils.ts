@@ -28,7 +28,7 @@ import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
 import { packUserOp, simulateValidation } from './UserOp'
-import Debug from "debug";
+import Debug from 'debug'
 
 const debug = Debug('testutils')
 

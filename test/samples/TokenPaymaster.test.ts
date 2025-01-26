@@ -30,7 +30,7 @@ import {
   createAccountOwner,
   decodeRevertReason,
   deployEntryPoint,
-  fund, objdump
+  fund
 } from '../testutils'
 
 import { fillUserOp, packUserOp, signUserOp } from '../UserOp'
