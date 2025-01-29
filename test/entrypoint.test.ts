@@ -12,12 +12,10 @@ import {
   SimpleAccountFactory,
   SimpleAccountFactory__factory,
   TestAggregatedAccount,
-  TestAggregatedAccountFactory__factory,
   TestAggregatedAccount__factory,
+  TestAggregatedAccountFactory__factory,
   TestCounter,
   TestCounter__factory,
-  TestEip7702DelegateAccount,
-  TestEip7702DelegateAccount__factory,
   TestExpirePaymaster,
   TestExpirePaymaster__factory,
   TestExpiryAccount,
@@ -30,52 +28,41 @@ import {
   TestRevertAccount__factory,
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
-  TestUtil,
-  TestUtil__factory,
   TestWarmColdAccount__factory
 } from '../typechain'
 import {
   AddressZero,
-  createAccountOwner,
-  fund,
+  calcGasUsage,
   checkForGeth,
+  createAccount,
+  createAccountOwner,
+  createAddress,
+  decodeRevertReason,
+  deployEntryPoint,
+  findUserOpWithMin,
+  fund,
+  getAccountAddress,
+  getAccountInitCode,
+  getAggregatedAccountInitCode,
+  getBalance,
+  HashZero,
+  ONE_ETH,
+  parseValidationData,
   rethrow,
   tostr,
-  getAccountInitCode,
-  calcGasUsage,
-  ONE_ETH,
-  TWO_ETH,
-  deployEntryPoint,
-  getBalance,
-  createAddress,
-  getAccountAddress,
-  HashZero,
-  createAccount,
-  getAggregatedAccountInitCode,
-  decodeRevertReason, parseValidationData, findUserOpWithMin, callGetUserOpHashWithCode
+  TWO_ETH
 } from './testutils'
-import {
-
-  DefaultsForUserOp, EIP7702_PREFIX,
-  fillAndSign,
-  fillSignAndPack, fillUserOpDefaults,
-  getUserOpHash, getUserOpHashWithEip7702,
-  packUserOp,
-  simulateValidation
-} from './UserOp'
+import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
-import { arrayify, defaultAbiCoder, hexConcat, hexZeroPad, parseEther } from 'ethers/lib/utils'
+import { arrayify, defaultAbiCoder, hexZeroPad, parseEther } from 'ethers/lib/utils'
 import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
 import { UserOperationEventEvent } from '../typechain/contracts/interfaces/IEntryPoint'
 import { before } from 'mocha'
-import { GethExecutable } from './GethExecutable'
-import { JsonRpcProvider } from '@ethersproject/providers'
-import { getEip7702AuthorizationSigner, gethHex, signEip7702Authorization } from './eip7702helpers'
 
 describe('EntryPoint', function () {
   let entryPoint: EntryPoint
@@ -108,221 +95,6 @@ describe('EntryPoint', function () {
 
     const packedOp = packUserOp(sampleOp)
     expect(getUserOpHash(sampleOp, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(packedOp))
-  })
-
-  // use stateOverride to "inject" 7702 delegate code to check the generated UserOpHash
-  describe('userOpHash with eip-7702 account', () => {
-    const userop = fillUserOpDefaults({
-      sender: createAddress(),
-      nonce: 1,
-      callData: '0xdead',
-      callGasLimit: 2,
-      verificationGasLimit: 3,
-      maxFeePerGas: 4
-    })
-    let chainId: number
-
-    const mockDelegate = createAddress()
-
-    const deployedDelegateCode = hexConcat(['0xef0100', mockDelegate])
-
-    before(async () => {
-      chainId = await ethers.provider.getNetwork().then(net => net.chainId)
-    })
-
-    describe('#_isEip7702InitCode', () => {
-      let testUtil: TestUtil
-      before(async () => {
-        testUtil = await new TestUtil__factory(ethersSigner).deploy()
-      });
-
-      [1, 10, 20, 30].forEach(pad =>
-        it(`should accept initCode with zero pad ${pad}`, async () => {
-          expect(await testUtil._isEip7702InitCode(EIP7702_PREFIX + '00'.repeat(pad))).to.be.true
-        })
-      )
-
-      it('should accept initCode with just prefix', async () => {
-        expect(await testUtil._isEip7702InitCode(EIP7702_PREFIX)).to.be.true
-      })
-
-      it('should not accept EIP7702 if first 20 bytes contain non-zero', async () => {
-        const addr = EIP7702_PREFIX + '0'.repeat(40 - EIP7702_PREFIX.length) + '01'
-        expect(addr.length).to.eql(42)
-        expect(await testUtil._isEip7702InitCode(addr)).to.be.false
-      })
-    })
-
-    describe('check 7702 utility functions helpers', () => {
-      // sample valid auth:
-      const authSigner = new Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80')
-      // created using "cast call --auth"
-      const authorizationList = [
-        {
-          chainId: '0x539',
-          address: '0x5fbdb2315678afecb367f032d93f642f64180aa3',
-          nonce: '0x2',
-          yParity: '0x0',
-          r: '0x8812962756107260d0c7934e0ea656ede2f953f2250a406d34be2605499134b4',
-          s: '0x43a2f470a01de2b68f4e9b31d7bef91188f1ab81fb95c732958398b17c7af8f6'
-        }
-      ]
-      it('#getEip7702AuthorizationSigner', async () => {
-        const auth = authorizationList[0]
-        const signer = getEip7702AuthorizationSigner(auth)
-        expect(signer).to.eql(authSigner.address)
-      })
-
-      it('#signEip7702Authorization', () => {
-        // deliberately remove previous signature...
-        const authToSign = { address: createAddress(), nonce: 12345, chainId: '0x0' }
-        const signed = signEip7702Authorization(authSigner, authToSign)
-        expect(getEip7702AuthorizationSigner(signed)).to.eql(authSigner.address)
-      })
-    })
-
-    it('calculate userophash with normal account', async () => {
-      expect(getUserOpHash(userop, entryPoint.address, chainId)).to.eql(await entryPoint.getUserOpHash(packUserOp(userop)))
-    })
-
-    describe('#getUserOpHashWith7702', () => {
-      it('#getUserOpHashWith7702 just delegate', async () => {
-        const hash = getUserOpHash({ ...userop, initCode: mockDelegate }, entryPoint.address, chainId)
-        expect(getUserOpHashWithEip7702({
-          ...userop,
-          initCode: EIP7702_PREFIX
-        }, entryPoint.address, chainId, mockDelegate)).to.eql(hash)
-      })
-      it('#getUserOpHashWith7702 with initcode', async () => {
-        const hash = getUserOpHash({ ...userop, initCode: mockDelegate + 'b1ab1a' }, entryPoint.address, chainId)
-        expect(getUserOpHashWithEip7702({
-          ...userop,
-          initCode: '0xef0100'.padEnd(42, '0') + 'b1ab1a'
-        }, entryPoint.address, chainId, mockDelegate)).to.eql(hash)
-      })
-    })
-
-    describe('entryPoint getUserOpHash', () => {
-      it('should return the same hash as calculated locally', async () => {
-        const op1 = { ...userop, initCode: EIP7702_PREFIX }
-        expect(await callGetUserOpHashWithCode(entryPoint, op1, deployedDelegateCode)).to.eql(
-          getUserOpHashWithEip7702(op1, entryPoint.address, chainId, mockDelegate))
-      })
-
-      it('should fail getUserOpHash marked for eip-7702, without a delegate', async () => {
-        const op1 = { ...userop, initCode: EIP7702_PREFIX }
-        await expect(callGetUserOpHashWithCode(entryPoint, op1, '0x' + '00'.repeat(23)).catch(e => { throw e.error ?? e.message })).to.revertedWith('not an EIP-7702 delegate')
-      })
-
-      it('should allow initCode with EIP7702_PREFIX tailed with zeros only, ', async () => {
-        const op_zero_tail = { ...userop, initCode: EIP7702_PREFIX + '00'.repeat(10) }
-        expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
-          getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, mockDelegate))
-
-        op_zero_tail.initCode = EIP7702_PREFIX + '00'.repeat(30)
-        expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
-          getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, mockDelegate))
-      })
-
-      describe('test with geth', () => {
-        if (process.env.COVERAGE != null) {
-          return
-        }
-
-        let geth: GethExecutable
-        let prov: JsonRpcProvider
-        let delegate: TestEip7702DelegateAccount
-        let gethFrom: string
-        const beneficiary = createAddress()
-        const eoa = createAccountOwner()
-        let entryPoint: EntryPoint
-
-        before(async () => {
-          this.timeout(20000)
-
-          geth = new GethExecutable()
-          await geth.init()
-          prov = new JsonRpcProvider(geth.rpcUrl())
-          entryPoint = await deployEntryPoint(prov)
-          delegate = await new TestEip7702DelegateAccount__factory(prov.getSigner()).deploy(entryPoint.address)
-          console.log('delegate addr=', delegate.address, 'len=', await prov.getCode(delegate.address).then(code => code.length))
-          gethFrom = (await prov.send('eth_accounts', []))[0]
-          await prov.send('eth_sendTransaction', [{ from: gethFrom, to: eoa.address, value: gethHex(parseEther('1')) }])
-        })
-
-        it('should fail without sender delegate', async () => {
-          const eip7702userOp = await fillSignAndPack({
-            sender: eoa.address,
-            nonce: 0,
-            initCode: EIP7702_PREFIX // not init function, just delegate
-          }, eoa, entryPoint, { eip7702delegate: delegate.address })
-          const handleOpCall = {
-            from: gethFrom,
-            to: entryPoint.address,
-            data: entryPoint.interface.encodeFunctionData('handleOps', [[eip7702userOp], beneficiary]),
-            gasLimit: 1000000
-            // authorizationList: [eip7702tuple]
-          }
-          expect(await prov.send('eth_call', [handleOpCall]).catch(e => {
-            return e.error
-          })).to.match(/not an EIP-7702 delegate|sender has no code/)
-        })
-
-        it('should succeed with authorizationList', async () => {
-          const eip7702userOp = await fillAndSign({
-            sender: eoa.address,
-            nonce: 0,
-            initCode: EIP7702_PREFIX // not init function, just delegate
-          }, eoa, entryPoint, { eip7702delegate: delegate.address })
-          const eip7702tuple = signEip7702Authorization(eoa, {
-            address: delegate.address,
-            nonce: await prov.getTransactionCount(eoa.address),
-            chainId: await prov.getNetwork().then(net => net.chainId)
-          })
-
-          const handleOpCall = {
-            from: gethFrom,
-            to: entryPoint.address,
-            data: entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(eip7702userOp)], beneficiary]),
-            gasLimit: 1000000,
-            authorizationList: [eip7702tuple]
-          }
-
-          await prov.send('eth_call', [handleOpCall]).catch(e => {
-            throw Error(decodeRevertReason(e)!)
-          })
-        })
-
-        // skip until auth works.
-        it('should succeed and call initcode', async () => {
-          const eip7702userOp = await fillSignAndPack({
-            sender: eoa.address,
-            nonce: 0,
-            initCode: hexConcat([EIP7702_PREFIX + '0'.repeat(42 - EIP7702_PREFIX.length), delegate.interface.encodeFunctionData('testInit')])
-          }, eoa, entryPoint, { eip7702delegate: delegate.address })
-
-          const eip7702tuple = signEip7702Authorization(eoa, {
-            address: delegate.address,
-            nonce: await prov.getTransactionCount(eoa.address),
-            chainId: await prov.getNetwork().then(net => net.chainId)
-          })
-          const handleOpCall = {
-            from: gethFrom,
-            to: entryPoint.address,
-            data: entryPoint.interface.encodeFunctionData('handleOps', [[eip7702userOp], beneficiary]),
-            gasLimit: 1000000,
-            authorizationList: [eip7702tuple]
-          }
-          await prov.send('eth_call', [handleOpCall]).catch(e => {
-            throw Error(decodeRevertReason(e)!)
-          })
-        })
-
-        after(async () => {
-          geth.done()
-        })
-      })
-    })
   })
 
   describe('Stake Management', () => {
