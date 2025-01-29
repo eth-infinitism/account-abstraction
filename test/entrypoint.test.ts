@@ -225,6 +225,10 @@ describe('EntryPoint', function () {
       })
 
       describe('test with geth', () => {
+        if (process.env.COVERAGE != null) {
+          return
+        }
+
         let geth: GethExecutable
         let prov: JsonRpcProvider
         let delegate: TestEip7702DelegateAccount

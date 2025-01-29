@@ -7,7 +7,7 @@ const port = 54321
 export const gethLauncher = {
   name: 'geth',
   exec: './scripts/geth.sh',
-  args: `--http --http.api personal,eth,net,web3,debug --rpc.allow-unprotected-txs --allow-insecure-unlock --dev --http.port=${port}`
+  args: `--http --http.api personal,eth,net,web3,debug --rpc.allow-unprotected-txs --allow-insecure-unlock --dev --http.addr 0.0.0.0 --http.port=${port}`
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
