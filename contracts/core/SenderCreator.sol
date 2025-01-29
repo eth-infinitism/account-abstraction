@@ -3,6 +3,7 @@ pragma solidity ^0.8.23;
 
 import "../interfaces/ISenderCreator.sol";
 import "../utils/Exec.sol";
+import {IEntryPoint} from "../interfaces/IEntryPoint.sol";
 
 /**
  * Helper contract for EntryPoint, to call userOp.initCode from a "neutral" address,
@@ -50,12 +51,14 @@ contract SenderCreator is ISenderCreator {
     // caller (EntryPoint) already verified it is an EIP-7702 account.
     function initEip7702Sender(
         address sender,
-        bytes calldata initCode
+        bytes calldata initCallData
     ) external {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
-        bytes memory initCallData = initCode[20 :];
         // solhint-disable-next-line avoid-low-level-calls
         bool success = Exec.call(sender, 0, initCallData, gasleft());
-        require(success, "AA13 EIP7702 sender init failed");
+        if (!success) {
+            bytes memory result = Exec.getReturnData(2048);
+            revert IEntryPoint.FailedOpWithRevert(0,"AA13 EIP7702 sender init failed", result);
+        }
     }
 }

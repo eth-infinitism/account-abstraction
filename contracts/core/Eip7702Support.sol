@@ -7,16 +7,16 @@ import "../core/UserOperationLib.sol";
 // EIP-7702 code prefix. Also, we use this prefix as a marker in the initCode. To specify this account is EIP-7702.
 uint256 constant EIP7702_PREFIX = 0xef0100;
 
-using UserOperationLib for PackedUserOperation;
+    using UserOperationLib for PackedUserOperation;
 
-    //get alternate InitCode (just for hashing) when using EIP-7702
-    function _getEip7702InitCodeOverride(PackedUserOperation calldata userOp) view returns (bytes32) {
+//get alternate InitCodeHash (just for UserOp hash) when using EIP-7702
+    function _getEip7702InitCodeHashOverride(PackedUserOperation calldata userOp) view returns (bytes32) {
         bytes calldata initCode = userOp.initCode;
-        if (! _isEip7702InitCode(initCode)) {
+        if (!_isEip7702InitCode(initCode)) {
             return 0;
         }
         address delegate = _getEip7702Delegate(userOp.getSender());
-        if (initCode.length < 20)
+        if (initCode.length <= 20)
             return keccak256(abi.encodePacked(delegate));
         else
             return keccak256(abi.encodePacked(delegate, initCode[20 :]));
@@ -25,7 +25,7 @@ using UserOperationLib for PackedUserOperation;
 
     function _isEip7702InitCode(bytes calldata initCode) pure returns (bool) {
 
-        if (initCode.length < 3) {
+        if (initCode.length < 2) {
             return false;
         }
         uint256 initCodeStart;
@@ -43,6 +43,7 @@ using UserOperationLib for PackedUserOperation;
  * requires EXTCODECOPY pr: https://github.com/ethereum/EIPs/pull/9248 (not yet merged or implemented)
  **/
     function _getEip7702Delegate(address sender) view returns (address) {
+
         uint256 senderCode;
 
         // solhint-disable-next-line no-inline-assembly
@@ -53,6 +54,12 @@ using UserOperationLib for PackedUserOperation;
         // senderCode is the first 32 bytes of the sender's code
         // If it is an EIP-7702 delegate, then top 24 bits are the EIP7702_PREFIX
         // next 160 bytes are the delegate address
-        require(senderCode >> (256 - 24) == EIP7702_PREFIX, "not an EIP-7702 delegate");
+        if (senderCode >> (256 - 24) != EIP7702_PREFIX) {
+            // instead of just "not an EIP-7702 delegate", if some info.
+            require(sender.code.length > 0, "sender has no code");
+            //temp: sanity check for current EIP-7702 implementation.
+            require(sender.code.length == 23, "EIP-7702 delegate-length");
+            revert("not an EIP-7702 delegate");
+        }
         return address(uint160(senderCode >> (256 - 160 - 24)));
     }

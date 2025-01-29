@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 import "../interfaces/PackedUserOperation.sol";
-import "../core/UserOperationLib.sol";
+import "../core/Eip7702Support.sol";
 
 contract TestUtil {
     using UserOperationLib for PackedUserOperation;
@@ -11,4 +11,7 @@ contract TestUtil {
         return op.encode(0);
     }
 
+    function _isEip7702InitCode(bytes calldata initCode) external pure returns (bool) {
+        return _isEip7702InitCode(initCode);
+    }
 }

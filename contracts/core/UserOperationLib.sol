@@ -65,15 +65,15 @@ library UserOperationLib {
     /**
      * Pack the user operation data into bytes for hashing.
      * @param userOp - The user operation data.
-     * @param overrideInitCode - If set, encode this instead of the initCode field in the userOp.
+     * @param overrideInitCodeHash - If set, encode this instead of the initCode field in the userOp.
      */
     function encode(
         PackedUserOperation calldata userOp,
-        bytes32 overrideInitCode
+        bytes32 overrideInitCodeHash
     ) internal pure returns (bytes memory ret) {
         address sender = getSender(userOp);
         uint256 nonce = userOp.nonce;
-        bytes32 hashInitCode = overrideInitCode==0 ? calldataKeccak(userOp.initCode) : overrideInitCode;
+        bytes32 hashInitCode = overrideInitCodeHash != 0 ? overrideInitCodeHash : calldataKeccak(userOp.initCode);
         bytes32 hashCallData = calldataKeccak(userOp.callData);
         bytes32 accountGasLimits = userOp.accountGasLimits;
         uint256 preVerificationGas = userOp.preVerificationGas;
@@ -148,12 +148,12 @@ library UserOperationLib {
     /**
      * Hash the user operation data.
      * @param userOp - The user operation data.
-     * @param overrideInitCode - If set, the initCode will be replaced with this value just for hashing.
+     * @param overrideInitCodeHash - If set, the initCode hash will be replaced with this value just for UserOp hashing.
      */
     function hash(
         PackedUserOperation calldata userOp,
-        bytes32 overrideInitCode
+        bytes32 overrideInitCodeHash
     ) internal pure returns (bytes32) {
-        return keccak256(encode(userOp, overrideInitCode));
+        return keccak256(encode(userOp, overrideInitCodeHash));
     }
 }
