@@ -1267,7 +1267,7 @@ describe('EntryPoint', function () {
         const unpackedOp = {
           maxFeePerGas: 1,
           maxPriorityFeePerGas: 1,
-          callGasLimit: 5e4,
+          callGasLimit: 5e5,
           paymaster: paymaster.address,
           paymasterVerificationGasLimit: 1e6,
           callData: accountExecFromEntryPoint.data,

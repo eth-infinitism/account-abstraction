@@ -721,7 +721,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
                 actualGas += _getUnusedGasPenalty(executionGasUsed, mUserOp.callGasLimit);
-//                console.log("unused execution gas penalty", _getUnusedGasPenalty(executionGasUsed, mUserOp.callGasLimit));
             }
             uint256 postOpUnusedGasPenalty;
             if (paymaster == address(0)) {
@@ -730,7 +729,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                 refundAddress = paymaster;
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
-//                    console.log("actual gas and cost that paymaster gets", actualGas, actualGasCost);
                     uint256 postOpPreGas = gasleft();
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         try IPaymaster(paymaster).postOp{
@@ -744,13 +742,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     }
                     uint256 postOpGasUsed = postOpPreGas - gasleft();
                     postOpUnusedGasPenalty = _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit);
-//                    console.log("unused postOp gas penalty", _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit));
                 }
             }
             // Calculating a penalty for unused postOp gas
             actualGas += preGas - gasleft() + postOpUnusedGasPenalty;
             actualGasCost = actualGas * gasPrice;
-//            console.log("True actual gas and cost for tx", actualGas, actualGasCost);
             uint256 prefund = opInfo.prefund;
             if (prefund < actualGasCost) {
                 if (mode == IPaymaster.PostOpMode.postOpReverted) {
