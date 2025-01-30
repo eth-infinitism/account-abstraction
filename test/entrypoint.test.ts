@@ -53,7 +53,14 @@ import {
   TWO_ETH,
   unpackAccountGasFees
 } from './testutils'
-import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
+import {
+  DefaultsForUserOp,
+  fillAndSign,
+  fillSignAndPack,
+  getUserOpHash,
+  packUserOp,
+  simulateValidation
+} from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'

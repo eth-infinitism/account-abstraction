@@ -8,18 +8,18 @@ import "./PackedUserOperation.sol";
  */
 interface IAggregator {
     /**
-     * Validate aggregated signature.
-     * Revert if the aggregated signature does not match the given list of operations.
-     * @param userOps   - Array of UserOperations to validate the signature for.
+     * Validate an aggregated signature.
+     * Reverts if the aggregated signature does not match the given list of operations.
+     * @param userOps   - An array of UserOperations to validate the signature for.
      * @param signature - The aggregated signature.
      */
     function validateSignatures(
         PackedUserOperation[] calldata userOps,
         bytes calldata signature
-    ) external view;
+    ) external;
 
     /**
-     * Validate signature of a single userOp.
+     * Validate the signature of a single userOp.
      * This method should be called by bundler after EntryPointSimulation.simulateValidation() returns
      * the aggregator this account uses.
      * First it validates the signature over the userOp. Then it returns data to be used when creating the handleOps.
@@ -34,8 +34,8 @@ interface IAggregator {
     /**
      * Aggregate multiple signatures into a single value.
      * This method is called off-chain to calculate the signature to pass with handleOps()
-     * bundler MAY use optimized custom code perform this aggregation.
-     * @param userOps              - Array of UserOperations to collect the signatures from.
+     * bundler MAY use optimized custom code to perform this aggregation.
+     * @param userOps              - An array of UserOperations to collect the signatures from.
      * @return aggregatedSignature - The aggregated signature.
      */
     function aggregateSignatures(
