@@ -51,7 +51,8 @@ describe('EntryPoint EIP-7702 tests', function () {
 
     const deployedDelegateCode = hexConcat(['0xef0100', mockDelegate])
 
-    before(async () => {
+    before(async function() {
+      this.timeout(20000)
       chainId = await ethers.provider.getNetwork().then(net => net.chainId)
       entryPoint = await deployEntryPoint()
     })
