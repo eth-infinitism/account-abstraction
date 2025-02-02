@@ -227,7 +227,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             //address(1) is special marker of "signature error"
             require(
                 address(aggregator) != address(1),
-                "AA96 invalid aggregator"
+                FailedOp(totalOps, "AA96 invalid aggregator")
             );
 
             if (address(aggregator) != address(0)) {
@@ -669,7 +669,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             mUserOp.paymasterPostOpGasLimit |
             mUserOp.maxFeePerGas |
             mUserOp.maxPriorityFeePerGas;
-        require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
+        require(maxGasValues <= type(uint120).max, FailedOp(opIndex, "AA94 gas values overflow"));
 
         uint256 requiredPreFund = _getRequiredPrefund(mUserOp);
         validationData = _validateAccountPrepayment(
