@@ -481,8 +481,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 opIndex,
         PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
-        uint256 requiredPrefund,
-        uint256 verificationGasLimit
+        uint256 requiredPrefund
     )
         internal
         returns (
@@ -501,7 +500,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     ? 0
                     : requiredPrefund - bal;
             }
-            validationData = _callValidateUserOp(verificationGasLimit, sender, op, opInfo.userOpHash, missingAccountFunds);
+            validationData = _callValidateUserOp(op, opInfo, missingAccountFunds);
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
                 uint256 deposit = senderInfo.deposit;
@@ -515,18 +514,19 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     // call sender.validateUserOp
     // handle
-    function _callValidateUserOp(uint256 gasLimit, address sender, PackedUserOperation  calldata op, bytes32 userOpHash, uint256 missingAccountFunds)
+    function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds)
     internal returns (uint256 validationData) {
         uint256 saveFreePtr;
         assembly ("memory-safe") {
             saveFreePtr := mload(0x40)
         }
         //return sender.validateUserOp{gas: gas}(op, userOpHash, missingAccountFunds);
-        bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, userOpHash, missingAccountFunds));
-        bool success;
+        bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
+        uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
+        address sender = opInfo.mUserOp.sender;
         uint256 dataSize;
         assembly ("memory-safe"){
-            success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
+            let success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
             dataSize := mul(returndatasize(), success)
             validationData := mload(0)
             mstore(0x40, saveFreePtr)
@@ -674,8 +674,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             opIndex,
             userOp,
             outOpInfo,
-            requiredPreFund,
-            verificationGasLimit
+            requiredPreFund
         );
 
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
