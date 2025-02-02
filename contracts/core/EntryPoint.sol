@@ -500,7 +500,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     ? 0
                     : requiredPrefund - bal;
             }
-            validationData = _callValidateUserOp(op, opInfo, missingAccountFunds);
+            validationData = _callValidateUserOp(op, opInfo, missingAccountFunds, opIndex);
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
                 uint256 deposit = senderInfo.deposit;
@@ -512,15 +512,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
-    // call sender.validateUserOp
-    // handle
-    function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds)
+    // call sender.validateUserOp()
+    // handle wrong output size with FailedOp
+    function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds, uint256 opIndex)
     internal returns (uint256 validationData) {
         uint256 saveFreePtr;
         assembly ("memory-safe") {
             saveFreePtr := mload(0x40)
         }
-        //return sender.validateUserOp{gas: gas}(op, userOpHash, missingAccountFunds);
         bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
         uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
         address sender = opInfo.mUserOp.sender;
@@ -532,8 +531,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             mstore(0x40, saveFreePtr)
         }
         if (dataSize != 32) {
-            require(sender.code.length > 0, "AA20 account not deployed");
-            revert FailedOpWithRevert(0, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+            if(sender.code.length == 0) {
+                revert FailedOp(opIndex, "AA20 account not deployed");
+            } else {
+                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+            }
         }
     }
 
