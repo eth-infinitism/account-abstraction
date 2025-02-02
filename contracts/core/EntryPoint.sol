@@ -501,15 +501,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     ? 0
                     : requiredPrefund - bal;
             }
-            try
-                IAccount(sender).validateUserOp{
-                    gas: verificationGasLimit
-                }(op, opInfo.userOpHash, missingAccountFunds)
-            returns (uint256 _validationData) {
-                validationData = _validationData;
-            } catch {
-                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
-            }
+            validationData = _callValidateUserOp(verificationGasLimit, sender, op, opInfo.userOpHash, missingAccountFunds);
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
                 uint256 deposit = senderInfo.deposit;
@@ -518,6 +510,30 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                 }
                 senderInfo.deposit = deposit - requiredPrefund;
             }
+        }
+    }
+
+    // call sender.validateUserOp
+    // handle
+    function _callValidateUserOp(uint256 gasLimit, address sender, PackedUserOperation  calldata op, bytes32 userOpHash, uint256 missingAccountFunds)
+    internal returns (uint256 validationData) {
+        uint256 saveFreePtr;
+        assembly ("memory-safe") {
+            saveFreePtr := mload(0x40)
+        }
+        //return sender.validateUserOp{gas: gas}(op, userOpHash, missingAccountFunds);
+        bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, userOpHash, missingAccountFunds));
+        bool success;
+        uint256 dataSize;
+        assembly ("memory-safe"){
+            success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
+            dataSize := mul(returndatasize(), success)
+            validationData := mload(0)
+            mstore(0x40, saveFreePtr)
+        }
+        if (dataSize != 32) {
+            require(sender.code.length > 0, "AA20 account not deployed");
+            revert FailedOpWithRevert(0, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
         }
     }
 

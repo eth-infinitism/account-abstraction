@@ -28,7 +28,8 @@ import {
   TestRevertAccount__factory,
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  SimpleAccount__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -54,6 +55,7 @@ import {
   DefaultsForUserOp,
   fillAndSign,
   fillSignAndPack,
+  fillUserOp,
   getUserOpHash,
   packUserOp,
   simulateValidation
@@ -647,6 +649,37 @@ describe('EntryPoint', function () {
 
         // Make sure that the user did not pay for the transaction
         expect(await getBalance(account.address)).to.eq(inititalAccountBalance)
+      })
+
+      it('should fail with AA20 if account not deployed', async () => {
+        const userop = await fillUserOp({
+          sender: createAddress(),
+          nonce: 0
+        }, entryPoint)
+        const beneficiary = createAddress()
+        await expect(entryPoint.handleOps([packUserOp(userop)], beneficiary)).to.revertedWith('AA20 account not deployed')
+      })
+
+      it('should fail with AA23 if account reverts', async () => {
+        const userop = await fillUserOp({
+          sender: entryPoint.address, // existing but not a real account
+          nonce: 0
+        }, entryPoint)
+        const beneficiary = createAddress()
+        await expect(entryPoint.handleOps([packUserOp(userop)], beneficiary).catch(rethrow())).to.be
+          .revertedWith('FailedOpWithRevert(0,"AA23 reverted",)')
+      })
+
+      it('should fail with AA23 (and original error) if account reverts', async () => {
+        // deploy an account with broken entrypoint, so it always reverts with "not from EntryPoint"
+        const revertingAccount = await new SimpleAccount__factory(ethersSigner).deploy(createAddress())
+        const userop = await fillUserOp({
+          sender: revertingAccount.address,
+          nonce: 0
+        }, entryPoint)
+        const beneficiary = createAddress()
+        await expect(entryPoint.handleOps([packUserOp(userop)], beneficiary).catch(rethrow())).to.be
+          .revertedWith('FailedOpWithRevert(0,"AA23 reverted",Error(account: not from EntryPoint)')
       })
 
       it('account should pay a penalty for requiring too much gas and leaving it unused', async function () {
