@@ -818,12 +818,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     }
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
-        if (gasLimit <= gasUsed) {
-            return 0;
+        unchecked {
+            if (gasLimit <= gasUsed) {
+                return 0;
+            }
+            uint256 unusedGas = gasLimit - gasUsed;
+            uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+            return unusedGasPenalty;
         }
-        uint256 unusedGas = gasLimit - gasUsed;
-        uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
-        return unusedGasPenalty;
-
     }
 }
