@@ -740,11 +740,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                             revert PostOpReverted(reason);
                         }
                     }
+                    // Calculating a penalty for unused postOp gas
                     uint256 postOpGasUsed = postOpPreGas - gasleft();
                     postOpUnusedGasPenalty = _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit);
                 }
             }
-            // Calculating a penalty for unused postOp gas
             actualGas += preGas - gasleft() + postOpUnusedGasPenalty;
             actualGasCost = actualGas * gasPrice;
             uint256 prefund = opInfo.prefund;
@@ -818,12 +818,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     }
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
-        if (gasLimit > gasUsed) {
-            uint256 unusedGas = gasLimit - gasUsed;
-            uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
-            return unusedGasPenalty;
+        if (gasLimit <= gasUsed) {
+            return 0;
         }
-        return 0;
+        uint256 unusedGas = gasLimit - gasUsed;
+        uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+        return unusedGasPenalty;
 
     }
 }
