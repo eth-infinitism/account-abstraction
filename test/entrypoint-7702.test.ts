@@ -51,7 +51,7 @@ describe('EntryPoint EIP-7702 tests', function () {
 
     const deployedDelegateCode = hexConcat(['0xef0100', mockDelegate])
 
-    before(async function() {
+    before(async function () {
       this.timeout(20000)
       chainId = await ethers.provider.getNetwork().then(net => net.chainId)
       entryPoint = await deployEntryPoint()
@@ -65,18 +65,18 @@ describe('EntryPoint EIP-7702 tests', function () {
 
       [1, 10, 20, 30].forEach(pad =>
         it(`should accept initCode with zero pad ${pad}`, async () => {
-          expect(await testUtil._isEip7702InitCode(EIP7702_PREFIX + '00'.repeat(pad))).to.be.true
+          expect(await testUtil.isEip7702InitCode(EIP7702_PREFIX + '00'.repeat(pad))).to.be.true
         })
       )
 
       it('should accept initCode with just prefix', async () => {
-        expect(await testUtil._isEip7702InitCode(EIP7702_PREFIX)).to.be.true
+        expect(await testUtil.isEip7702InitCode(EIP7702_PREFIX)).to.be.true
       })
 
       it('should not accept EIP7702 if first 20 bytes contain non-zero', async () => {
         const addr = EIP7702_PREFIX + '0'.repeat(40 - EIP7702_PREFIX.length) + '01'
         expect(addr.length).to.eql(42)
-        expect(await testUtil._isEip7702InitCode(addr)).to.be.false
+        expect(await testUtil.isEip7702InitCode(addr)).to.be.false
       })
     })
 
