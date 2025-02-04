@@ -92,10 +92,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
         {
-            uint256 saveFreePtr;
-            assembly ("memory-safe") {
-                saveFreePtr := mload(0x40)
-            }
+            uint256 saveFreePtr = getFreePtr();
             bytes calldata callData = userOp.callData;
             bytes memory innerCall;
             bytes4 methodSig;
@@ -115,8 +112,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             assembly ("memory-safe") {
                 success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
                 collected := mload(0)
-                mstore(0x40, saveFreePtr)
             }
+            restoreFreePtr(saveFreePtr);
         }
         if (!success) {
             bytes32 innerRevertCode;
@@ -516,10 +513,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     // handle wrong output size with FailedOp
     function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds, uint256 opIndex)
     internal returns (uint256 validationData) {
-        uint256 saveFreePtr;
-        assembly ("memory-safe") {
-            saveFreePtr := mload(0x40)
-        }
+        uint256 saveFreePtr = getFreePtr();
         bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
         uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
         address sender = opInfo.mUserOp.sender;
@@ -528,8 +522,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             let success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
             dataSize := mul(returndatasize(), success)
             validationData := mload(0)
-            mstore(0x40, saveFreePtr)
         }
+        restoreFreePtr(saveFreePtr);
         if (dataSize != 32) {
             if(sender.code.length == 0) {
                 revert FailedOp(opIndex, "AA20 account not deployed");
@@ -789,7 +783,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     /**
      * The gas price this UserOp agrees to pay.
-     * Relayer/block builder might submit the TX with higher priorityFee, but the user should not.
+     * Relayer/block builder might submit the TX with higher priorityFee, but the user should not be affected.
      * @param mUserOp - The userOp to get the gas price from.
      */
     function getUserOpGasPrice(
@@ -804,6 +798,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
         }
+    }
+
+    /// @inheritdoc IEntryPoint
+    function delegateAndRevert(address target, bytes calldata data) external {
+        (bool success, bytes memory ret) = target.delegatecall(data);
+        revert DelegateAndRevert(success, ret);
     }
 
     /**
@@ -830,9 +830,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
-    /// @inheritdoc IEntryPoint
-    function delegateAndRevert(address target, bytes calldata data) external {
-        (bool success, bytes memory ret) = target.delegatecall(data);
-        revert DelegateAndRevert(success, ret);
+    // safe free memory pointer.
+    function getFreePtr() internal pure returns (uint256 ptr) {
+        assembly ("memory-safe") {
+            ptr := mload(0x40)
+        }
+    }
+
+    // restore free memory pointer.
+    // no allocated memory since saveFreePtr was called is allowed to be accessed after this call.
+    function restoreFreePtr(uint256 ptr) internal pure {
+        assembly ("memory-safe") {
+            mstore(0x40, ptr)
+        }
     }
 }
