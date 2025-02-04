@@ -102,7 +102,10 @@ export class Create2Factory {
       to: Create2Factory.factoryDeployer,
       value: BigNumber.from(Create2Factory.factoryDeploymentFee)
     })
-    await this.provider.sendTransaction(Create2Factory.factoryTx)
+    // (with latest geth, can't tx.wait on the very first tx: reverts with "transaction indexing is in progress")
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    await this.provider.sendTransaction(Create2Factory.factoryTx).then(async tx => tx.wait())
     if (!await this._isFactoryDeployed()) {
       throw new Error('fatal: failed to deploy deterministic deployer')
     }
