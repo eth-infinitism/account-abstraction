@@ -14,4 +14,4 @@ cd contracts
 rm -rf artifacts
 
 mkdir -p artifacts
-cp `find  ../artifacts/contracts -type f | grep -v -E 'test|Test|dbg|bls|IOracle'` artifacts/
+cp `find  ../artifacts/contracts -type f | grep -v -E 'test|Test|dbg|bls|IOracle|v06'` artifacts/
