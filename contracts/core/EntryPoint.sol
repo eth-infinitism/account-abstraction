@@ -224,7 +224,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             //address(1) is special marker of "signature error"
             require(
                 address(aggregator) != address(1),
-                FailedOp(totalOps, "AA96 invalid aggregator")
+                FailedOp(totalOps + i, "AA96 invalid aggregator")
             );
 
             if (address(aggregator) != address(0)) {
