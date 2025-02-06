@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
@@ -35,11 +35,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+      - uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
@@ -50,25 +52,30 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+      - uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
       - run: yarn install
+      - run: yarn depcheck
       - run: yarn lint
 
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - uses: actions/checkout@v1
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+      - uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
