@@ -103,7 +103,7 @@ export class Create2Factory {
       to: Create2Factory.factoryDeployer,
       value: BigNumber.from(Create2Factory.factoryDeploymentFee)
     })
-    // first tx.. can't "wait" for it.
+    // (with latest geth, can't tx.wait on the very first tx: reverts with "transaction indexing is in progress")
     await new Promise(resolve => setTimeout(resolve, 100))
 
     await this.provider.sendTransaction(Create2Factory.factoryTx).then(async tx => tx.wait())

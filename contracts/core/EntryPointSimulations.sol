@@ -192,7 +192,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     //slightly stricter gas limit than the real EntryPoint
     function _getVerificationGasLimit(uint256 verificationGasLimit) internal pure virtual override returns (uint256) {
-        return verificationGasLimit - 300;
+        return verificationGasLimit - 500;
     }
 
 

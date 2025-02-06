@@ -725,12 +725,20 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             uint256 gasPrice = getUserOpGasPrice(mUserOp);
 
             address paymaster = mUserOp.paymaster;
+            // Calculating a penalty for unused execution gas
+            {
+                uint256 executionGasUsed = actualGas - opInfo.preOpGas;
+                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
+                actualGas += _getUnusedGasPenalty(executionGasUsed, mUserOp.callGasLimit);
+            }
+            uint256 postOpUnusedGasPenalty;
             if (paymaster == address(0)) {
                 refundAddress = mUserOp.sender;
             } else {
                 refundAddress = paymaster;
                 if (context.length > 0) {
                     actualGasCost = actualGas * gasPrice;
+                    uint256 postOpPreGas = gasleft();
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         try IPaymaster(paymaster).postOp{
                             gas: mUserOp.paymasterPostOpGasLimit
@@ -741,22 +749,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                             revert PostOpReverted(reason);
                         }
                     }
+                    // Calculating a penalty for unused postOp gas
+                    uint256 postOpGasUsed = postOpPreGas - gasleft();
+                    postOpUnusedGasPenalty = _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit);
                 }
             }
-            actualGas += preGas - gasleft();
-
-            // Calculating a penalty for unused execution gas
-            {
-                uint256 executionGasLimit = mUserOp.callGasLimit + mUserOp.paymasterPostOpGasLimit;
-                uint256 executionGasUsed = actualGas - opInfo.preOpGas;
-                // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
-                if (executionGasLimit > executionGasUsed) {
-                    uint256 unusedGas = executionGasLimit - executionGasUsed;
-                    uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
-                    actualGas += unusedGasPenalty;
-                }
-            }
-
+            actualGas += preGas - gasleft() + postOpUnusedGasPenalty;
             actualGasCost = actualGas * gasPrice;
             uint256 prefund = opInfo.prefund;
             if (prefund < actualGasCost) {
@@ -826,5 +824,16 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function delegateAndRevert(address target, bytes calldata data) external {
         (bool success, bytes memory ret) = target.delegatecall(data);
         revert DelegateAndRevert(success, ret);
+    }
+
+    function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
+        unchecked {
+            if (gasLimit <= gasUsed) {
+                return 0;
+            }
+            uint256 unusedGas = gasLimit - gasUsed;
+            uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+            return unusedGasPenalty;
+        }
     }
 }

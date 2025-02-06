@@ -5,7 +5,7 @@ import {
   TestExecAccount__factory,
   TestExecAccountFactory__factory
 } from '../typechain'
-import { createAccountOwner, deployEntryPoint, fund, objdump } from './testutils'
+import { createAccountOwner, deployEntryPoint, fund } from './testutils'
 import { fillSignAndPack } from './UserOp'
 import { Signer, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
@@ -49,7 +49,6 @@ describe('IAccountExecute', () => {
       await account.queryFilter(account.filters.Executed())
 
     expect(e.length).to.eq(1, "didn't call inner execUserOp (no Executed event)")
-    console.log(e[0].event, objdump(e[0].args))
     // validate we retrieved the return value of the called "entryPoint()" function:
     expect(hexStripZeros(e[0].args.innerCallRet)).to.eq(hexStripZeros(entryPoint.address))
   })
