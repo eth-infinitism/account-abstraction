@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 
 import { EIP7702Account, EIP7702Account__factory, EntryPoint, TestPaymasterAcceptAll__factory } from '../typechain'
-import { createAccountOwner, createAddress, deployEntryPoint, fund } from './testutils'
+import { createAccountOwner, createAddress, deployEntryPoint } from './testutils'
 import { fillAndSign, packUserOp } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { signEip7702Authorization } from './eip7702helpers'

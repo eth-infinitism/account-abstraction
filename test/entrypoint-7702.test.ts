@@ -16,7 +16,6 @@ import {
   deployEntryPoint
 } from './testutils'
 import {
-  asyncSignUserOp,
   EIP7702_PREFIX,
   fillAndSign,
   fillSignAndPack,
