@@ -75,35 +75,36 @@ describe('EIP7702Account', function () {
     })
   })
 
-  describe('use EntryPoint without paymaster', () => {
-    const eoa = createAccountOwner()
+  it('should be able to use EntryPoint without paymaster', async () => {
     const addr1 = createAddress()
+    const eoa = createAccountOwner(geth.provider)
+    const callData = eip7702delegate.interface.encodeFunctionData('execute', [[{ target: addr1, value: 1, data: '0x' }]])
+    const userop = await fillAndSign({
+      sender: eoa.address,
+      // initCode: '0xef01',
+      nonce: 0,
+      callData
+    }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
 
-    it('init', async () => {
-      const callData = eip7702delegate.interface.encodeFunctionData('execute', [[{ target: addr1, value: 1, data: '0x' }]])
-      const userop = await fillAndSign({
-        sender: eoa.address,
-        // initCode: '0xef01',
-        nonce: 0,
-        callData
-      }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
-
-      const auth = signEip7702Authorization(eoa, { chainId: 0, nonce: 0, address: eip7702delegate.address })
-      const beneficiary = createAddress()
-      await geth.sendTx({
-        to: entryPoint.address,
-        data: '0x',
-        gas: 1000000,
-        authorizationList: [auth]
-      })
-      console.log('delpoyed eoa code=', await geth.provider.getCode(eoa.address))
-      const handleOps = entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(userop)], beneficiary])
-      const tx = {
-        to: entryPoint.address,
-        data: handleOps
-        // authorizationList: [auth]
-      }
-      await geth.sendTx(tx)
+    const auth = signEip7702Authorization(eoa, { chainId: 0, nonce: 0, address: eip7702delegate.address })
+    const beneficiary = createAddress()
+    await geth.sendTx({
+      to: entryPoint.address,
+      data: '0x',
+      gas: 1000000,
+      authorizationList: [auth]
     })
+    const handleOps = entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(userop)], beneficiary])
+    const tx = {
+      to: entryPoint.address,
+      data: handleOps,
+      gas: 1e6
+      // authorizationList: [auth]
+    }
+    await geth.sendTx(tx)
+  })
+
+  it('should use EntryPoint with paymaster', () => {
+
   })
 })
