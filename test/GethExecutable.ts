@@ -3,21 +3,21 @@ import Debug from 'debug'
 import { BigNumber, BigNumberish } from 'ethers'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { isBigNumber } from 'hardhat/common'
+import { decodeRevertReason } from './testutils'
 
 const debug = Debug('aa.geth')
 
-const port = 54321
 export const gethLauncher = {
   name: 'geth',
   exec: './scripts/geth.sh',
-  args: `--http --http.api personal,eth,net,web3,debug --rpc.allow-unprotected-txs --allow-insecure-unlock --dev --http.addr 0.0.0.0 --http.port=${port}`
+  args: 'PORT --http --http.api personal,eth,net,web3,debug --rpc.allow-unprotected-txs --allow-insecure-unlock --dev --http.addr 0.0.0.0'
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const anvilLauncher = {
   name: 'anvil',
   exec: './scripts/anvil.sh',
-  args: `--hardfork prague --port=${port}`
+  args: '--hardfork prague --port=PORT'
 }
 
 interface Eip7702Transaction {
@@ -31,6 +31,7 @@ interface Eip7702Transaction {
 export class GethExecutable {
   gethFrom: string
   provider: JsonRpcProvider
+  port = Math.floor(5000 + Math.random() * 10000)
 
   constructor (private readonly impl = gethLauncher) {
   }
@@ -40,7 +41,7 @@ export class GethExecutable {
   markerString = /HTTP server started|Listening on/
 
   rpcUrl (): string {
-    return `http://localhost:${port}`
+    return `http://localhost:${this.port}`
   }
 
   async init (): Promise<void> {
@@ -49,7 +50,7 @@ export class GethExecutable {
     this.gethFrom = (await this.provider.send('eth_accounts', []))[0]
   }
 
-  async sendTx (tx: Eip7702Transaction): Promise<void> {
+  async sendTx (tx: Eip7702Transaction): Promise<string> {
     // todo: geth is strict on values (e.g. leading hex zero digits not allowed)
     // might need to add more cleanups here..
     const tx1 = {
@@ -65,10 +66,15 @@ export class GethExecutable {
         tx1[key] = tx1[key].replace(/0x0\B/, '0x')
       }
     }
-    await this.provider.send('eth_sendTransaction', [tx1]).catch(e => {
-      // console.log(e)
-      throw new Error(e.error.message)
+    // console.log('tx=', await geth.provider.getTransactionReceipt(hash))
+
+    const hash = await this.provider.send('eth_sendTransaction', [tx1]).catch(e => {
+      throw new Error(decodeRevertReason(e.error.data) ?? e.error.message)
     })
+    while (await this.provider.getTransactionReceipt(hash) == null) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    return hash
   }
 
   // equivalent to provider.call, but supports 7702 authorization
@@ -83,8 +89,9 @@ export class GethExecutable {
 
   async initProcess (): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log('spawning: ', this.impl.exec, this.impl.args)
-      this.gethProcess = spawn(this.impl.exec, this.impl.args.split(' '))
+      const args = this.impl.args.replace(/PORT/, this.port.toString())
+      console.log('spawning: ', this.impl.exec, args)
+      this.gethProcess = spawn(this.impl.exec, args.split(' '))
 
       let allData = ''
       if (this.gethProcess != null) {

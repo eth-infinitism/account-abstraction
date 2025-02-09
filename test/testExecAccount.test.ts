@@ -50,6 +50,6 @@ describe('IAccountExecute', () => {
 
     expect(e.length).to.eq(1, "didn't call inner execUserOp (no Executed event)")
     // validate we retrieved the return value of the called "entryPoint()" function:
-    expect(hexStripZeros(e[0].args.innerCallRet)).to.eq(hexStripZeros(entryPoint.address))
+    expect(hexStripZeros(e[0].args.innerCallRet)).to.eq(hexStripZeros(entryPoint.address).toLowerCase())
   })
 })

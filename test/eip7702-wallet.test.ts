@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 
-import { EIP7702Account, EIP7702Account__factory, EntryPoint } from '../typechain'
-import { createAccountOwner, createAddress, deployEntryPoint } from './testutils'
+import { EIP7702Account, EIP7702Account__factory, EntryPoint, TestPaymasterAcceptAll__factory } from '../typechain'
+import { createAccountOwner, createAddress, deployEntryPoint, fund } from './testutils'
 import { fillAndSign, packUserOp } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { signEip7702Authorization } from './eip7702helpers'
@@ -21,6 +21,7 @@ describe('EIP7702Account', function () {
     entryPoint = await deployEntryPoint(geth.provider)
 
     eip7702delegate = await new EIP7702Account__factory(geth.provider.getSigner()).deploy()
+    expect(await eip7702delegate.entryPoint()).to.equal(entryPoint.address, 'fix entryPoint in EIP7702Account')
     console.log('set eip7702delegate=', eip7702delegate.address)
   })
 
@@ -33,7 +34,7 @@ describe('EIP7702Account', function () {
     before(async () => {
       eoa = createAccountOwner(geth.provider)
 
-      const auth = signEip7702Authorization(eoa, {
+      const auth = await signEip7702Authorization(eoa, {
         chainId: 0,
         nonce: 0,
         address: eip7702delegate.address
@@ -45,9 +46,7 @@ describe('EIP7702Account', function () {
         gas: 1e6,
         authorizationList: [auth]
       }
-      // console.log('tx=', tx)
       await geth.sendTx(tx)
-
       expect(await geth.provider.getBalance(eoa.address)).to.equal(sendVal)
       expect(await geth.provider.getCode(eoa.address)).to.equal(hexConcat(['0xef0100', eip7702delegate.address]))
     })
@@ -69,7 +68,7 @@ describe('EIP7702Account', function () {
         target: addr1, value: 1, data: '0x'
       }, {
         target: addr2, value: 2, data: '0x'
-      }])
+      }]).then(async tx => tx.wait())
       expect(await geth.provider.getBalance(addr1)).to.equal(1)
       expect(await geth.provider.getBalance(addr2)).to.equal(2)
     })
@@ -78,16 +77,23 @@ describe('EIP7702Account', function () {
   it('should be able to use EntryPoint without paymaster', async () => {
     const addr1 = createAddress()
     const eoa = createAccountOwner(geth.provider)
-    const callData = eip7702delegate.interface.encodeFunctionData('execute', [[{ target: addr1, value: 1, data: '0x' }]])
+
+    const callData = eip7702delegate.interface.encodeFunctionData('execute', [[{
+      target: addr1,
+      value: 1,
+      data: '0x'
+    }]])
     const userop = await fillAndSign({
       sender: eoa.address,
-      // initCode: '0xef01',
+      initCode: '0xef01',
       nonce: 0,
       callData
     }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
 
-    const auth = signEip7702Authorization(eoa, { chainId: 0, nonce: 0, address: eip7702delegate.address })
+    await geth.sendTx({ to: eoa.address, value: parseEther('1') })
+    const auth = await signEip7702Authorization(eoa, { chainId: 0, nonce: 0, address: eip7702delegate.address })
     const beneficiary = createAddress()
+    // submit separate tx with tuple: geth's estimateGas doesn't work, and its easier to detect thrown errors..
     await geth.sendTx({
       to: entryPoint.address,
       data: '0x',
@@ -97,14 +103,44 @@ describe('EIP7702Account', function () {
     const handleOps = entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(userop)], beneficiary])
     const tx = {
       to: entryPoint.address,
-      data: handleOps,
-      gas: 1e6
-      // authorizationList: [auth]
+      data: handleOps
     }
     await geth.sendTx(tx)
   })
 
-  it('should use EntryPoint with paymaster', () => {
+  it('should use EntryPoint with paymaster', async () => {
+    const addr1 = createAddress()
+    const eoa = createAccountOwner(geth.provider)
+    const paymaster = await new TestPaymasterAcceptAll__factory(geth.provider.getSigner()).deploy(entryPoint.address)
+    await paymaster.deposit({ value: parseEther('1') })
+    const callData = eip7702delegate.interface.encodeFunctionData('execute', [[{
+      target: addr1,
+      value: 1,
+      data: '0x'
+    }]])
+    const userop = await fillAndSign({
+      sender: eoa.address,
+      paymaster: paymaster.address,
+      initCode: '0xef01',
+      nonce: 0,
+      callData
+    }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
 
+    const auth = await signEip7702Authorization(eoa, { chainId: 0, nonce: 0, address: eip7702delegate.address })
+    const beneficiary = createAddress()
+    console.log('delegate=', eip7702delegate.address)
+    // submit separate tx with tuple: geth's estimateGas doesn't work, and its easier to detect thrown errors..
+    await geth.sendTx({
+      to: entryPoint.address,
+      data: '0x',
+      gas: 1000000,
+      authorizationList: [auth]
+    })
+    const handleOps = entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(userop)], beneficiary])
+    const tx = {
+      to: entryPoint.address,
+      data: handleOps
+    }
+    await geth.sendTx(tx)
   })
 })

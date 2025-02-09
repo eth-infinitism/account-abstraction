@@ -16,6 +16,7 @@ import {
   deployEntryPoint
 } from './testutils'
 import {
+  asyncSignUserOp,
   EIP7702_PREFIX,
   fillAndSign,
   fillSignAndPack,
@@ -99,10 +100,10 @@ describe('EntryPoint EIP-7702 tests', function () {
         expect(signer).to.eql(authSigner.address)
       })
 
-      it('#signEip7702Authorization', () => {
+      it('#signEip7702Authorization', async () => {
         // deliberately remove previous signature...
         const authToSign = { address: createAddress(), nonce: 12345, chainId: '0x0' }
-        const signed = signEip7702Authorization(authSigner, authToSign)
+        const signed = await signEip7702Authorization(authSigner, authToSign)
         expect(getEip7702AuthorizationSigner(signed)).to.eql(authSigner.address)
       })
     })
@@ -158,17 +159,17 @@ describe('EntryPoint EIP-7702 tests', function () {
         let geth: GethExecutable
         let delegate: TestEip7702DelegateAccount
         const beneficiary = createAddress()
-        const eoa = createAccountOwner()
+        let eoa: Wallet
         let entryPoint: EntryPoint
 
         before(async () => {
           this.timeout(20000)
-
           geth = new GethExecutable()
           await geth.init()
+          eoa = createAccountOwner(geth.provider)
           entryPoint = await deployEntryPoint(geth.provider)
           delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy(entryPoint.address)
-          console.log('delegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
+          console.log('\tdelegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
           await geth.sendTx({ to: eoa.address, value: gethHex(parseEther('1')) })
         })
 
@@ -195,7 +196,7 @@ describe('EntryPoint EIP-7702 tests', function () {
             nonce: 0,
             initCode: EIP7702_PREFIX // not init function, just delegate
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
-          const eip7702tuple = signEip7702Authorization(eoa, {
+          const eip7702tuple = await signEip7702Authorization(eoa, {
             address: delegate.address,
             nonce: await geth.provider.getTransactionCount(eoa.address),
             chainId: await geth.provider.getNetwork().then(net => net.chainId)
@@ -221,9 +222,9 @@ describe('EntryPoint EIP-7702 tests', function () {
             initCode: hexConcat([EIP7702_PREFIX + '0'.repeat(42 - EIP7702_PREFIX.length), delegate.interface.encodeFunctionData('testInit')])
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
 
-          const eip7702tuple = signEip7702Authorization(eoa, {
+          const eip7702tuple = await signEip7702Authorization(eoa, {
             address: delegate.address,
-            nonce: await geth.provider.getTransactionCount(eoa.address),
+            // nonce: await geth.provider.getTransactionCount(eoa.address),
             chainId: await geth.provider.getNetwork().then(net => net.chainId)
           })
           const handleOpCall = {

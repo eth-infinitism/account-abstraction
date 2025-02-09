@@ -11,7 +11,7 @@ const EIP7702_MAGIC = '0x05'
 export interface UnsignedEIP7702Authorization {
   chainId: BigNumberish
   address: string
-  nonce: BigNumberish
+  nonce?: BigNumberish
 }
 
 export interface EIP7702Authorization extends UnsignedEIP7702Authorization {
@@ -59,13 +59,14 @@ export function gethHex (n: BigNumberish): string {
   return BigNumber.from(n).toHexString().replace(/0x0(.)/, '0x$1')
 }
 
-export function signEip7702Authorization (signer: Wallet, authorization: UnsignedEIP7702Authorization, chainId?: number): EIP7702Authorization {
-  const dataToSign = toBuffer(eip7702DataToSign(authorization))
+export async function signEip7702Authorization (signer: Wallet, authorization: UnsignedEIP7702Authorization): Promise<EIP7702Authorization> {
+  const nonce = authorization.nonce ?? await signer.getTransactionCount()
+  const dataToSign = toBuffer(eip7702DataToSign({ nonce, ...authorization }))
   const sig = ecsign(dataToSign, arrayify(signer.privateKey) as any)
   return {
-    address: authorization.address!,
-    chainId: gethHex(authorization.chainId!),
-    nonce: gethHex(authorization.nonce!),
+    address: authorization.address,
+    chainId: gethHex(authorization.chainId),
+    nonce: gethHex(nonce),
     yParity: gethHex(sig.v - 27),
     r: gethHex(sig.r),
     s: gethHex(sig.s)

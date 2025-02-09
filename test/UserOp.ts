@@ -193,32 +193,49 @@ export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: Entry
   const getNonceFunction = options?.getNonceFunction ?? 'getNonce'
   const op1 = { ...op }
   const provider = entryPoint?.provider
-  if (op1.initCode != null && !isEip7702UserOp(op1 as UserOperation)) {
-    const initAddr = hexDataSlice(op1.initCode!, 0, 20)
-    const initCallData = hexDataSlice(op1.initCode!, 20)
-    if (op1.nonce == null) op1.nonce = 0
-    if (op1.sender == null) {
-      // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
-      if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
-        const ctr = hexDataSlice(initCallData, 32)
-        const salt = hexDataSlice(initCallData, 0, 32)
-        op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
-      } else {
-        // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
-        if (provider == null) throw new Error('no entrypoint/provider')
-        op1.sender = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs.sender)
+  if (op1.initCode != null) {
+    if (isEip7702UserOp(op1 as UserOperation)) {
+      if (provider == null) {
+        throw new Error('must have provider to check eip7702 delegate')
       }
-    }
-    if (op1.verificationGasLimit == null) {
-      if (provider == null) throw new Error('no entrypoint/provider')
-      const senderCreator = await entryPoint?.senderCreator()
-      const initEstimate = await provider.estimateGas({
-        from: senderCreator,
-        to: initAddr,
-        data: initCallData,
-        gasLimit: 10e6
-      })
-      op1.verificationGasLimit = BigNumber.from(DefaultsForUserOp.verificationGasLimit).add(initEstimate)
+      const code = await provider.getCode(op1.sender!)
+      if (code.length === 2) {
+        if (options?.eip7702delegate == null) {
+          throw new Error('must have eip7702delegate')
+        }
+      } else if (code.length !== 23 * 2 + 2) {
+        throw new Error('sender is not an eip7702 delegate')
+      }
+      if (op1.nonce == null) {
+        op1.nonce = await provider.getTransactionCount(op1.sender!)
+      }
+    } else {
+      const initAddr = hexDataSlice(op1.initCode!, 0, 20)
+      const initCallData = hexDataSlice(op1.initCode!, 20)
+      if (op1.nonce == null) op1.nonce = 0
+      if (op1.sender == null) {
+        // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
+        if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
+          const ctr = hexDataSlice(initCallData, 32)
+          const salt = hexDataSlice(initCallData, 0, 32)
+          op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
+        } else {
+          // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
+          if (provider == null) throw new Error('no entrypoint/provider')
+          op1.sender = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs.sender)
+        }
+      }
+      if (op1.verificationGasLimit == null) {
+        if (provider == null) throw new Error('no entrypoint/provider')
+        const senderCreator = await entryPoint?.senderCreator()
+        const initEstimate = await provider.estimateGas({
+          from: senderCreator,
+          to: initAddr,
+          data: initCallData,
+          gasLimit: 10e6
+        })
+        op1.verificationGasLimit = BigNumber.from(DefaultsForUserOp.verificationGasLimit).add(initEstimate)
+      }
     }
   }
   if (op1.nonce == null) {
