@@ -28,7 +28,6 @@ import { ethers } from 'hardhat'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { before } from 'mocha'
 import { GethExecutable } from './GethExecutable'
-import { JsonRpcProvider } from '@ethersproject/providers'
 import { getEip7702AuthorizationSigner, gethHex, signEip7702Authorization } from './eip7702helpers'
 
 describe('EntryPoint EIP-7702 tests', function () {
@@ -157,9 +156,7 @@ describe('EntryPoint EIP-7702 tests', function () {
         }
 
         let geth: GethExecutable
-        let prov: JsonRpcProvider
         let delegate: TestEip7702DelegateAccount
-        let gethFrom: string
         const beneficiary = createAddress()
         const eoa = createAccountOwner()
         let entryPoint: EntryPoint
@@ -169,12 +166,10 @@ describe('EntryPoint EIP-7702 tests', function () {
 
           geth = new GethExecutable()
           await geth.init()
-          prov = new JsonRpcProvider(geth.rpcUrl())
-          entryPoint = await deployEntryPoint(prov)
-          delegate = await new TestEip7702DelegateAccount__factory(prov.getSigner()).deploy(entryPoint.address)
-          console.log('delegate addr=', delegate.address, 'len=', await prov.getCode(delegate.address).then(code => code.length))
-          gethFrom = (await prov.send('eth_accounts', []))[0]
-          await prov.send('eth_sendTransaction', [{ from: gethFrom, to: eoa.address, value: gethHex(parseEther('1')) }])
+          entryPoint = await deployEntryPoint(geth.provider)
+          delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy(entryPoint.address)
+          console.log('delegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
+          await geth.sendTx({ to: eoa.address, value: gethHex(parseEther('1')) })
         })
 
         it('should fail without sender delegate', async () => {
@@ -184,13 +179,12 @@ describe('EntryPoint EIP-7702 tests', function () {
             initCode: EIP7702_PREFIX // not init function, just delegate
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
           const handleOpCall = {
-            from: gethFrom,
             to: entryPoint.address,
             data: entryPoint.interface.encodeFunctionData('handleOps', [[eip7702userOp], beneficiary]),
             gasLimit: 1000000
             // authorizationList: [eip7702tuple]
           }
-          expect(await prov.send('eth_call', [handleOpCall]).catch(e => {
+          expect(await geth.call(handleOpCall).catch(e => {
             return e.error
           })).to.match(/not an EIP-7702 delegate|sender has no code/)
         })
@@ -203,19 +197,18 @@ describe('EntryPoint EIP-7702 tests', function () {
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
           const eip7702tuple = signEip7702Authorization(eoa, {
             address: delegate.address,
-            nonce: await prov.getTransactionCount(eoa.address),
-            chainId: await prov.getNetwork().then(net => net.chainId)
+            nonce: await geth.provider.getTransactionCount(eoa.address),
+            chainId: await geth.provider.getNetwork().then(net => net.chainId)
           })
 
           const handleOpCall = {
-            from: gethFrom,
             to: entryPoint.address,
             data: entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(eip7702userOp)], beneficiary]),
             gasLimit: 1000000,
             authorizationList: [eip7702tuple]
           }
 
-          await prov.send('eth_call', [handleOpCall]).catch(e => {
+          await geth.call(handleOpCall).catch(e => {
             throw Error(decodeRevertReason(e)!)
           })
         })
@@ -230,17 +223,16 @@ describe('EntryPoint EIP-7702 tests', function () {
 
           const eip7702tuple = signEip7702Authorization(eoa, {
             address: delegate.address,
-            nonce: await prov.getTransactionCount(eoa.address),
-            chainId: await prov.getNetwork().then(net => net.chainId)
+            nonce: await geth.provider.getTransactionCount(eoa.address),
+            chainId: await geth.provider.getNetwork().then(net => net.chainId)
           })
           const handleOpCall = {
-            from: gethFrom,
             to: entryPoint.address,
             data: entryPoint.interface.encodeFunctionData('handleOps', [[eip7702userOp], beneficiary]),
             gasLimit: 1000000,
             authorizationList: [eip7702tuple]
           }
-          await prov.send('eth_call', [handleOpCall]).catch(e => {
+          await geth.call(handleOpCall).catch(e => {
             throw Error(decodeRevertReason(e)!)
           })
         })

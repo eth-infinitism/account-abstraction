@@ -8,10 +8,13 @@ import { tostr } from './testutils'
 
 const EIP7702_MAGIC = '0x05'
 
-export interface EIP7702Authorization {
+export interface UnsignedEIP7702Authorization {
   chainId: BigNumberish
   address: string
   nonce: BigNumberish
+}
+
+export interface EIP7702Authorization extends UnsignedEIP7702Authorization {
   yParity: BigNumberish
   r: BigNumberish
   s: BigNumberish
@@ -29,7 +32,7 @@ export function toRlpHex (s: any): PrefixedHexString {
   return ret as PrefixedHexString
 }
 
-export function eip7702DataToSign (authorization: Partial<EIP7702Authorization>): PrefixedHexString {
+export function eip7702DataToSign (authorization: UnsignedEIP7702Authorization): PrefixedHexString {
   const rlpData = [
     toRlpHex(authorization.chainId),
     toRlpHex(authorization.address),
@@ -56,7 +59,7 @@ export function gethHex (n: BigNumberish): string {
   return BigNumber.from(n).toHexString().replace(/0x0(.)/, '0x$1')
 }
 
-export function signEip7702Authorization (signer: Wallet, authorization: Partial<EIP7702Authorization>, chainId?: number): EIP7702Authorization {
+export function signEip7702Authorization (signer: Wallet, authorization: UnsignedEIP7702Authorization, chainId?: number): EIP7702Authorization {
   const dataToSign = toBuffer(eip7702DataToSign(authorization))
   const sig = ecsign(dataToSign, arrayify(signer.privateKey) as any)
   return {

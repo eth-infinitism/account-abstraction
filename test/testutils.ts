@@ -22,7 +22,7 @@ import {
   TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory, TestERC20__factory
 } from '../typechain'
 import { BytesLike, Hexable } from '@ethersproject/bytes'
-import { JsonRpcProvider } from '@ethersproject/providers'
+import { JsonRpcProvider, Provider } from '@ethersproject/providers'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
@@ -73,9 +73,9 @@ export async function getTokenBalance (token: IERC20, address: string): Promise<
 let counter = 0
 
 // create non-random account, so gas calculations are deterministic
-export function createAccountOwner (): Wallet {
+export function createAccountOwner (provider: Provider = ethers.provider): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
-  return new ethers.Wallet(privateKey, ethers.provider)
+  return new ethers.Wallet(privateKey, provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
