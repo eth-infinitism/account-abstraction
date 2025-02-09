@@ -215,4 +215,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         return __domainSeparatorV4;
     }
 
+    function supportsInterface(bytes4) public view virtual override returns (bool) {
+        return false;
+    }
 }

@@ -520,8 +520,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 dataSize;
         assembly ("memory-safe"){
             let success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
-            dataSize := mul(returndatasize(), success)
-            validationData := mload(0)
+            if success {
+                // ignore returndatasize, in case of revert
+                dataSize := returndatasize()
+                validationData := mload(0)
+            }
         }
         restoreFreePtr(saveFreePtr);
         if (dataSize != 32) {

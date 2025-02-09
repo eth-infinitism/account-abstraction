@@ -295,7 +295,7 @@ describe('EntryPointSimulations', function () {
       describe(`compare to execution ${withPaymaster} paymaster`, () => {
         let execVgl: number
         let execPmVgl: number
-        const diff = 500
+        const diff = 600
         before(async () => {
           execPmVgl = withPaymaster === 'without' ? 0 : await findUserOpWithMin(async n => userOpWithGas(1e6, n), false, entryPoint, 1, 500000)
           execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
