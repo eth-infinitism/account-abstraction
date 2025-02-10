@@ -518,16 +518,17 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
         address sender = opInfo.mUserOp.sender;
         uint256 dataSize;
+        bool success;
         assembly ("memory-safe"){
-            let success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
-            if success {
-                // ignore returndatasize, in case of revert
-                dataSize := returndatasize()
-                validationData := mload(0)
+            success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
+            validationData := mload(0)
+            // any return data size other than 32 is considered failure
+            if iszero(eq(returndatasize(), 32)) {
+                success := 0
             }
         }
         restoreFreePtr(saveFreePtr);
-        if (dataSize != 32) {
+        if (!success) {
             if(sender.code.length == 0) {
                 revert FailedOp(opIndex, "AA20 account not deployed");
             } else {
