@@ -55,16 +55,6 @@ library UserOperationLib {
     /**
      * Pack the user operation data into bytes for hashing.
      * @param userOp - The user operation data.
-     */
-    function encode(
-        PackedUserOperation calldata userOp
-    ) internal pure returns (bytes memory ret) {
-        return encode(userOp, "");
-    }
-
-    /**
-     * Pack the user operation data into bytes for hashing.
-     * @param userOp - The user operation data.
      * @param overrideInitCodeHash - If set, encode this instead of the initCode field in the userOp.
      */
     function encode(

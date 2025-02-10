@@ -19,7 +19,7 @@ contract EIP7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC721
 
     // temporary address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
-        return IEntryPoint(0x690953a7e55E6cd6bD7192708bA1bBA0a511161D);
+        return IEntryPoint(0x6F4F5099a64044D69EB7419d66760fD4106fcE3C);
     }
 
     /**

@@ -7,18 +7,15 @@ import { decodeRevertReason } from './testutils'
 
 const debug = Debug('aa.geth')
 
-export const gethLauncher = {
-  name: 'geth',
-  exec: './scripts/geth.sh',
-  args: 'PORT --http --http.api personal,eth,net,web3,debug --rpc.allow-unprotected-txs --allow-insecure-unlock --dev --http.addr 0.0.0.0'
+// launcher scripts for executables.
+// should use "trap" to kill launched process on exit.
+// executed with single parameter: port to listen
+const launchers = {
+  geth: './scripts/geth.sh',
+  anvil: './scripts/anvil.sh'
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const anvilLauncher = {
-  name: 'anvil',
-  exec: './scripts/anvil.sh',
-  args: '--hardfork prague --port=PORT'
-}
+export type LauncherName = keyof typeof launchers
 
 interface Eip7702Transaction {
   to: string
@@ -33,7 +30,9 @@ export class GethExecutable {
   provider: JsonRpcProvider
   port = Math.floor(5000 + Math.random() * 10000)
 
-  constructor (private readonly impl = gethLauncher) {
+  impl: string
+  constructor (private readonly implName: LauncherName = 'geth') {
+    this.impl = launchers[implName]
   }
 
   private gethProcess: ChildProcess | null = null
@@ -89,9 +88,8 @@ export class GethExecutable {
 
   async initProcess (): Promise<void> {
     return new Promise((resolve, reject) => {
-      const args = this.impl.args.replace(/PORT/, this.port.toString())
-      console.log('spawning: ', this.impl.exec, args)
-      this.gethProcess = spawn(this.impl.exec, args.split(' '))
+      console.log('spawning: ', this.impl, this.port)
+      this.gethProcess = spawn(this.impl, [this.port.toString()])
 
       let allData = ''
       if (this.gethProcess != null) {
@@ -120,7 +118,7 @@ export class GethExecutable {
         })
 
         this.gethProcess.on('exit', (code: number | null) => {
-          console.log(`${this.impl.name} process exited with code ${code}`)
+          console.log(`${this.impl}: process exited with code ${code}`)
         })
       } else {
         reject(new Error('Failed to start geth process'))

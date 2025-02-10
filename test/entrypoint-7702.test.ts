@@ -151,6 +151,7 @@ describe('EntryPoint EIP-7702 tests', function () {
       })
 
       describe('test with geth', () => {
+        // can't deploy coverage "entrypoint" on geth (contract too large)
         if (process.env.COVERAGE != null) {
           return
         }

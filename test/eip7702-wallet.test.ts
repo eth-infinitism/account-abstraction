@@ -9,6 +9,11 @@ import { GethExecutable } from './GethExecutable'
 import { Wallet } from 'ethers'
 
 describe('EIP7702Account', function () {
+  // can't deploy coverage "entrypoint" on geth (contract too large)
+  if (process.env.COVERAGE != null) {
+    return
+  }
+
   let entryPoint: EntryPoint
 
   let eip7702delegate: EIP7702Account
