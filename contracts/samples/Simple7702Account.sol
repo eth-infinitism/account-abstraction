@@ -12,10 +12,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../core/BaseAccount.sol";
 
 /**
- * EIP7702Account
+ * Simple7702Account.sol
  * A minimal account to be used with EIP-7702 (for batching) and ERC-4337 (for gas sponsoring)
  */
-contract EIP7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC721Holder {
+contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC721Holder {
 
     // temporary address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
@@ -56,12 +56,6 @@ contract EIP7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC721
 
         for (uint256 i = 0; i < calls.length; i++) {
             Call calldata call = calls[i];
-//            if (!Exec.call(gasleft(), call.target, call.value, call.data)) {
-//                assembly {
-//                    returndatacopy(0, 0, returndatasize())
-//                    revert(0, returndatasize())
-//                }
-//            }
             (bool ok, bytes memory ret) = call.target.call{value: call.value}(call.data);
             if (!ok) {
                 // solhint-disable-next-line no-inline-assembly

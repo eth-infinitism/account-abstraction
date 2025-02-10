@@ -1,6 +1,6 @@
 import { expect } from 'chai'
 
-import { EIP7702Account, EIP7702Account__factory, EntryPoint, TestPaymasterAcceptAll__factory } from '../typechain'
+import { Simple7702Account, Simple7702Account__factory, EntryPoint, TestPaymasterAcceptAll__factory } from '../typechain'
 import { createAccountOwner, createAddress, deployEntryPoint } from './testutils'
 import { fillAndSign, packUserOp } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
@@ -8,7 +8,7 @@ import { signEip7702Authorization } from './eip7702helpers'
 import { GethExecutable } from './GethExecutable'
 import { Wallet } from 'ethers'
 
-describe('EIP7702Account', function () {
+describe('Simple7702Account.sol', function () {
   // can't deploy coverage "entrypoint" on geth (contract too large)
   if (process.env.COVERAGE != null) {
     return
@@ -16,7 +16,7 @@ describe('EIP7702Account', function () {
 
   let entryPoint: EntryPoint
 
-  let eip7702delegate: EIP7702Account
+  let eip7702delegate: Simple7702Account
   let geth: GethExecutable
 
   before(async function () {
@@ -25,8 +25,8 @@ describe('EIP7702Account', function () {
 
     entryPoint = await deployEntryPoint(geth.provider)
 
-    eip7702delegate = await new EIP7702Account__factory(geth.provider.getSigner()).deploy()
-    expect(await eip7702delegate.entryPoint()).to.equal(entryPoint.address, 'fix entryPoint in EIP7702Account')
+    eip7702delegate = await new Simple7702Account__factory(geth.provider.getSigner()).deploy()
+    expect(await eip7702delegate.entryPoint()).to.equal(entryPoint.address, 'fix entryPoint in Simple7702Account.sol')
     console.log('set eip7702delegate=', eip7702delegate.address)
   })
 
@@ -57,13 +57,13 @@ describe('EIP7702Account', function () {
     })
 
     it('should fail call from another account', async () => {
-      const wallet1 = EIP7702Account__factory.connect(eoa.address, geth.provider.getSigner())
+      const wallet1 = Simple7702Account__factory.connect(eoa.address, geth.provider.getSigner())
       await expect(wallet1.execute([])).to.revertedWith('not from self or EntryPoint')
     })
 
     it('should succeed sending a batch', async () => {
       // submit a batch
-      const wallet2 = EIP7702Account__factory.connect(eoa.address, eoa)
+      const wallet2 = Simple7702Account__factory.connect(eoa.address, eoa)
       console.log('eoa balance=', await geth.provider.getBalance(eoa.address))
 
       const addr1 = createAddress()
