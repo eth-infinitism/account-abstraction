@@ -64,7 +64,7 @@ describe('EntryPointSimulations', function () {
     function costInRange (simCost: BigNumber, epCost: BigNumber, message: string): void {
       const diff = simCost.sub(epCost).toNumber()
       const max = 350
-      console.log(`validate ${message} cost ${simCost.toNumber()} should be slightly above ep cost ${epCost.toNumber()} actual diff=${diff}`)
+      console.log(`\tvalidate ${message} cost ${simCost.toNumber()} should be slightly above ep cost ${epCost.toNumber()} actual diff=${diff}`)
       expect(diff).to.be.within(0, max,
         `${message} cost ${simCost.toNumber()} should be (up to ${max}) above ep cost ${epCost.toNumber()}`)
     }
@@ -301,12 +301,12 @@ describe('EntryPointSimulations', function () {
           execVgl = await findUserOpWithMin(async n => userOpWithGas(n, execPmVgl), false, entryPoint, 1, 500000)
         })
         it(`account verification simulation cost should be higher than execution ${withPaymaster} paymaster`, function () {
-          console.log('simulation account validation', vgl, 'above exec:', vgl - execVgl)
+          console.log('\tsimulation account validation', vgl, 'above exec:', vgl - execVgl)
           expect(vgl).to.be.within(execVgl + 1, execVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${vgl - execVgl}`)
         })
         if (withPaymaster === 'with') {
           it('paymaster verification simulation cost should be higher than execution', function () {
-            console.log('simulation paymaster validation', pmVgl, 'above exec:', pmVgl - execPmVgl)
+            console.log('\tsimulation paymaster validation', pmVgl, 'above exec:', pmVgl - execPmVgl)
             expect(pmVgl).to.be.within(execPmVgl + 1, execPmVgl + diff, `expected simulation verificationGas to be 1..${diff} above actual, but was ${pmVgl - execPmVgl}`)
           })
         }

@@ -5,18 +5,19 @@ pragma solidity ^0.8.23;
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IAccountExecute.sol";
-import "../interfaces/IPaymaster.sol";
 import "../interfaces/IEntryPoint.sol";
+import "../interfaces/IPaymaster.sol";
 
 import "../utils/Exec.sol";
-import "./StakeManager.sol";
-import "./SenderCreator.sol";
 import "./Helpers.sol";
 import "./NonceManager.sol";
+import "./SenderCreator.sol";
+import "./StakeManager.sol";
 import "./UserOperationLib.sol";
 
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 /*
  * Account-Abstraction (EIP-4337) singleton EntryPoint implementation.
@@ -24,11 +25,17 @@ import "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
  */
 
 /// @custom:security-contact https://bounty.ethereum.org
-contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardTransient, ERC165 {
+contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardTransient, ERC165, EIP712 {
 
     using UserOperationLib for PackedUserOperation;
 
     SenderCreator private immutable _senderCreator = new SenderCreator();
+
+    string constant internal DOMAIN_NAME = "ERC4337";
+    string constant internal DOMAIN_VERSION = "1";
+
+    constructor() EIP712(DOMAIN_NAME, DOMAIN_VERSION)  {
+    }
 
     function senderCreator() public view virtual returns (ISenderCreator) {
         return _senderCreator;
@@ -362,12 +369,20 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
+    function getPackedUserOpTypeHash() public pure returns (bytes32) {
+        return UserOperationLib.PACKED_USEROP_TYPEHASH;
+    }
+
+    function getDomainSeparatorV4() public virtual view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
     /// @inheritdoc IEntryPoint
     function getUserOpHash(
         PackedUserOperation calldata userOp
     ) public view returns (bytes32) {
         return
-            keccak256(abi.encode(userOp.hash(), address(this), block.chainid));
+            MessageHashUtils.toTypedDataHash(getDomainSeparatorV4(), userOp.hash());
     }
 
     /**
@@ -728,11 +743,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                             revert PostOpReverted(reason);
                         }
                     }
+                    // Calculating a penalty for unused postOp gas
                     uint256 postOpGasUsed = postOpPreGas - gasleft();
                     postOpUnusedGasPenalty = _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit);
                 }
             }
-            // Calculating a penalty for unused postOp gas
             actualGas += preGas - gasleft() + postOpUnusedGasPenalty;
             actualGasCost = actualGas * gasPrice;
             uint256 prefund = opInfo.prefund;
@@ -806,12 +821,13 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     }
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
-        if (gasLimit > gasUsed && gasLimit - gasUsed > PENALTY_GAS_THRESHOLD) {
+        unchecked {
+            if (gasLimit <= gasUsed || gasLimit - gasUsed <= PENALTY_GAS_THRESHOLD) {
+                return 0;
+            }
             uint256 unusedGas = gasLimit - gasUsed;
             uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
             return unusedGasPenalty;
         }
-        return 0;
-
     }
 }

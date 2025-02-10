@@ -1,5 +1,5 @@
 import { parseEther } from 'ethers/lib/utils'
-import { TestPaymasterWithPostOp__factory } from '../typechain'
+import { GasCalcPaymasterWithPostOp__factory } from '../typechain'
 import { ethers } from 'hardhat'
 import { GasChecker } from './GasChecker'
 import { Create2Factory } from '../src/Create2Factory'
@@ -14,9 +14,9 @@ context('Paymaster with PostOp', function () {
   let paymasterAddress: string
 
   before(async () => {
-    const paymasterInit = hexValue(new TestPaymasterWithPostOp__factory(ethersSigner).getDeployTransaction(g.entryPoint().address).data!)
+    const paymasterInit = hexValue(new GasCalcPaymasterWithPostOp__factory(ethersSigner).getDeployTransaction(g.entryPoint().address).data!)
     paymasterAddress = await new Create2Factory(ethers.provider, ethersSigner).deploy(paymasterInit, 0)
-    const paymaster = TestPaymasterWithPostOp__factory.connect(paymasterAddress, ethersSigner)
+    const paymaster = GasCalcPaymasterWithPostOp__factory.connect(paymasterAddress, ethersSigner)
     await paymaster.addStake(1, { value: 1 })
     await g.entryPoint().depositTo(paymaster.address, { value: parseEther('10') })
   })

@@ -28,6 +28,9 @@ import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
 import { packUserOp, simulateValidation } from './UserOp'
+import Debug from 'debug'
+
+const debug = Debug('testutils')
 
 export const AddressZero = ethers.constants.AddressZero
 export const HashZero = ethers.constants.HashZero
@@ -220,7 +223,7 @@ export async function checkForGeth (): Promise<void> {
 
   currentNode = await provider.request({ method: 'web3_clientVersion' })
 
-  console.log('node version:', currentNode)
+  debug('node version:', currentNode)
   // NOTE: must run geth with params:
   // --http.api personal,eth,net,web3
   // --allow-insecure-unlock
