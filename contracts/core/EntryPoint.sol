@@ -517,7 +517,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
         uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
         address sender = opInfo.mUserOp.sender;
-        uint256 dataSize;
         bool success;
         assembly ("memory-safe"){
             success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
