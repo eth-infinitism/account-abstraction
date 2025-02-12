@@ -1,11 +1,13 @@
 pragma solidity ^0.8;
+// SPDX-License-Identifier: MIT
+// solhint-disable no-inline-assembly
 
 import "../interfaces/PackedUserOperation.sol";
 import "../core/UserOperationLib.sol";
-// SPDX-License-Identifier: MIT
+
 
 // EIP-7702 code prefix. Also, we use this prefix as a marker in the initCode. To specify this account is EIP-7702.
-uint256 constant EIP7702_PREFIX = 0xef0100;
+bytes3 constant EIP7702_PREFIX = 0xef0100;
 
     using UserOperationLib for PackedUserOperation;
 
@@ -28,14 +30,13 @@ uint256 constant EIP7702_PREFIX = 0xef0100;
         if (initCode.length < 2) {
             return false;
         }
-        uint256 initCodeStart;
-        // solhint-disable-next-line no-inline-assembly
+        bytes20 initCodeStart;
+        // non-empty calldata bytes are always zero-padded to 32-bytes, so can be safely casted to "bytes20"
         assembly ("memory-safe") {
             initCodeStart := calldataload(initCode.offset)
         }
         // make sure first 20 bytes of initCode are "0xff0100" (padded with zeros)
-        // initCode can be shorter (e.g. only 3), but then it is already zero-padded.
-        return (initCodeStart >> (256 - 160)) == ((EIP7702_PREFIX << (160 - 24)));
+        return initCodeStart == bytes20(EIP7702_PREFIX);
     }
 
 /**
@@ -44,22 +45,18 @@ uint256 constant EIP7702_PREFIX = 0xef0100;
  **/
     function _getEip7702Delegate(address sender) view returns (address) {
 
-        uint256 senderCode;
+        bytes32 senderCode;
 
-        // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
-            extcodecopy(sender, 0, 0, 32)
+            extcodecopy(sender, 0, 0, 23)
             senderCode := mload(0)
         }
-        // senderCode is the first 32 bytes of the sender's code
-        // If it is an EIP-7702 delegate, then top 24 bits are the EIP7702_PREFIX
-        // next 160 bytes are the delegate address
-        if (senderCode >> (256 - 24) != EIP7702_PREFIX) {
+        // To be a valid EIP-7702 delegate, the first 3 bytes are EIP7702_PREFIX
+        // followed by the delegate address
+        if (bytes3(senderCode) != EIP7702_PREFIX) {
             // instead of just "not an EIP-7702 delegate", if some info.
             require(sender.code.length > 0, "sender has no code");
-            //temp: sanity check for current EIP-7702 implementation.
-            require(sender.code.length == 23, "EIP-7702 delegate-length");
             revert("not an EIP-7702 delegate");
         }
-        return address(uint160(senderCode >> (256 - 160 - 24)));
+        return address(bytes20(senderCode << 24));
     }
