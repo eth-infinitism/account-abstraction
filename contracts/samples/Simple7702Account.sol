@@ -73,8 +73,6 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
             id == type(IERC721Receiver).interfaceId;
     }
 
-    //deliberately return the same signature as returned by the EOA itself: This way,
-    // ERC-1271 can be used regardless if the account currently has this code or not.
     function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
         return ECDSA.recover(hash, signature) == address(this) ? this.isValidSignature.selector : bytes4(0);
     }
