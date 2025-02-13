@@ -5,7 +5,6 @@ pragma solidity ^0.8;
 import "../interfaces/PackedUserOperation.sol";
 import "../core/UserOperationLib.sol";
 
-
 // EIP-7702 code prefix. Also, we use this prefix as a marker in the initCode. To specify this account is EIP-7702.
 bytes3 constant EIP7702_PREFIX = 0xef0100;
 
@@ -24,7 +23,7 @@ bytes3 constant EIP7702_PREFIX = 0xef0100;
             return keccak256(abi.encodePacked(delegate, initCode[20 :]));
     }
 
-
+// check if this initCode is EIP-7702: starts with EIP7702_PREFIX.
     function _isEip7702InitCode(bytes calldata initCode) pure returns (bool) {
 
         if (initCode.length < 2) {
@@ -41,7 +40,7 @@ bytes3 constant EIP7702_PREFIX = 0xef0100;
 
 /**
  * get the EIP-7702 delegate from contract code.
- * requires EXTCODECOPY pr: https://github.com/ethereum/EIPs/pull/9248 (not yet merged or implemented)
+ * must only be used if _isEip7702InitCode(initCode) is true.
  **/
     function _getEip7702Delegate(address sender) view returns (address) {
 
