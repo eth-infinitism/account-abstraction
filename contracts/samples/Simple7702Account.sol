@@ -19,7 +19,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
 
     // temporary address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
-        return IEntryPoint(0xe5fDb4B271ef97F075cFDB9713f8cff6Dbf5F325);
+        return IEntryPoint(0x85fF6c675397CF96412c217e405F2175c249a6B2);
     }
 
     /**
@@ -75,6 +75,10 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
 
     function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
         return ECDSA.recover(hash, signature) == address(this) ? this.isValidSignature.selector : bytes4(0);
+    }
+
+    // accept incoming calls (with our without value), to mimic an EOA.
+    fallback() external payable {
     }
 
     receive() external payable {
