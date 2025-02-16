@@ -16,7 +16,7 @@ import {
   deployEntryPoint
 } from './testutils'
 import {
-  EIP7702_PREFIX,
+  INITCODE_EIP7702_MARKER,
   fillAndSign,
   fillSignAndPack,
   fillUserOpDefaults,
@@ -64,16 +64,16 @@ describe('EntryPoint EIP-7702 tests', function () {
 
       [1, 10, 20, 30].forEach(pad =>
         it(`should accept initCode with zero pad ${pad}`, async () => {
-          expect(await testUtil.isEip7702InitCode(EIP7702_PREFIX + '00'.repeat(pad))).to.be.true
+          expect(await testUtil.isEip7702InitCode(INITCODE_EIP7702_MARKER + '00'.repeat(pad))).to.be.true
         })
       )
 
       it('should accept initCode with just prefix', async () => {
-        expect(await testUtil.isEip7702InitCode(EIP7702_PREFIX)).to.be.true
+        expect(await testUtil.isEip7702InitCode(INITCODE_EIP7702_MARKER)).to.be.true
       })
 
       it('should not accept EIP7702 if first 20 bytes contain non-zero', async () => {
-        const addr = EIP7702_PREFIX + '0'.repeat(40 - EIP7702_PREFIX.length) + '01'
+        const addr = INITCODE_EIP7702_MARKER + '0'.repeat(40 - INITCODE_EIP7702_MARKER.length) + '01'
         expect(addr.length).to.eql(42)
         expect(await testUtil.isEip7702InitCode(addr)).to.be.false
       })
@@ -116,36 +116,36 @@ describe('EntryPoint EIP-7702 tests', function () {
         const hash = getUserOpHash({ ...userop, initCode: mockDelegate }, entryPoint.address, chainId)
         expect(getUserOpHashWithEip7702({
           ...userop,
-          initCode: EIP7702_PREFIX
+          initCode: INITCODE_EIP7702_MARKER
         }, entryPoint.address, chainId, mockDelegate)).to.eql(hash)
       })
       it('#getUserOpHashWith7702 with initcode', async () => {
         const hash = getUserOpHash({ ...userop, initCode: mockDelegate + 'b1ab1a' }, entryPoint.address, chainId)
         expect(getUserOpHashWithEip7702({
           ...userop,
-          initCode: '0xef0100'.padEnd(42, '0') + 'b1ab1a'
+          initCode: INITCODE_EIP7702_MARKER.padEnd(42, '0') + 'b1ab1a'
         }, entryPoint.address, chainId, mockDelegate)).to.eql(hash)
       })
     })
 
     describe('entryPoint getUserOpHash', () => {
       it('should return the same hash as calculated locally', async () => {
-        const op1 = { ...userop, initCode: EIP7702_PREFIX }
+        const op1 = { ...userop, initCode: INITCODE_EIP7702_MARKER }
         expect(await callGetUserOpHashWithCode(entryPoint, op1, deployedDelegateCode)).to.eql(
           getUserOpHashWithEip7702(op1, entryPoint.address, chainId, mockDelegate))
       })
 
       it('should fail getUserOpHash marked for eip-7702, without a delegate', async () => {
-        const op1 = { ...userop, initCode: EIP7702_PREFIX }
+        const op1 = { ...userop, initCode: INITCODE_EIP7702_MARKER }
         await expect(callGetUserOpHashWithCode(entryPoint, op1, '0x' + '00'.repeat(23)).catch(e => { throw e.error ?? e.message })).to.revertedWith('not an EIP-7702 delegate')
       })
 
-      it('should allow initCode with EIP7702_PREFIX tailed with zeros only, ', async () => {
-        const op_zero_tail = { ...userop, initCode: EIP7702_PREFIX + '00'.repeat(10) }
+      it('should allow initCode with INITCODE_EIP7702_MARKER tailed with zeros only, ', async () => {
+        const op_zero_tail = { ...userop, initCode: INITCODE_EIP7702_MARKER + '00'.repeat(10) }
         expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
           getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, mockDelegate))
 
-        op_zero_tail.initCode = EIP7702_PREFIX + '00'.repeat(30)
+        op_zero_tail.initCode = INITCODE_EIP7702_MARKER + '00'.repeat(30)
         expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
           getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, mockDelegate))
       })
@@ -177,7 +177,7 @@ describe('EntryPoint EIP-7702 tests', function () {
           const eip7702userOp = await fillSignAndPack({
             sender: eoa.address,
             nonce: 0,
-            initCode: EIP7702_PREFIX // not init function, just delegate
+            initCode: INITCODE_EIP7702_MARKER // not init function, just delegate
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
           const handleOpCall = {
             to: entryPoint.address,
@@ -194,7 +194,7 @@ describe('EntryPoint EIP-7702 tests', function () {
           const eip7702userOp = await fillAndSign({
             sender: eoa.address,
             nonce: 0,
-            initCode: EIP7702_PREFIX // not init function, just delegate
+            initCode: INITCODE_EIP7702_MARKER // not init function, just delegate
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
           const eip7702tuple = await signEip7702Authorization(eoa, {
             address: delegate.address,
@@ -219,7 +219,7 @@ describe('EntryPoint EIP-7702 tests', function () {
           const eip7702userOp = await fillSignAndPack({
             sender: eoa.address,
             nonce: 0,
-            initCode: hexConcat([EIP7702_PREFIX + '0'.repeat(42 - EIP7702_PREFIX.length), delegate.interface.encodeFunctionData('testInit')])
+            initCode: hexConcat([INITCODE_EIP7702_MARKER + '0'.repeat(42 - INITCODE_EIP7702_MARKER.length), delegate.interface.encodeFunctionData('testInit')])
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
 
           const eip7702tuple = await signEip7702Authorization(eoa, {

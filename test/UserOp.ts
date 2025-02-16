@@ -33,7 +33,7 @@ const DOMAIN_VERSION = '1'
 // Matched to UserOperationLib.sol:
 const PACKED_USEROP_TYPEHASH = keccak256(Buffer.from('PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)'))
 
-export const EIP7702_PREFIX = '0xef01'
+export const INITCODE_EIP7702_MARKER = '0x7702'
 
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
@@ -90,12 +90,12 @@ export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: n
 }
 
 export function isEip7702UserOp (op: UserOperation): boolean {
-  return op.initCode != null && hexlify(op.initCode).startsWith(EIP7702_PREFIX)
+  return op.initCode != null && hexlify(op.initCode).startsWith(INITCODE_EIP7702_MARKER)
 }
 
 export function updateUserOpForEip7702Hash (op: UserOperation, delegate: string): UserOperation {
   if (!isEip7702UserOp(op)) {
-    throw new Error('initCode should start with EIP7702_PREFIX')
+    throw new Error('initCode should start with INITCODE_EIP7702_MARKER')
   }
   let initCode = hexlify(op.initCode)
   if (hexDataLength(initCode) < 20) {
