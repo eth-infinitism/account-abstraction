@@ -31,10 +31,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         bytes32 userOpHash
     ) internal virtual override returns (uint256 validationData) {
 
-        if (address(this) != ECDSA.recover(userOpHash, userOp.signature)) {
-            return SIG_VALIDATION_FAILED;
-        }
-        return 0;
+        return _checkSignature(userOpHash, userOp.signature) ? 0 : SIG_VALIDATION_FAILED;
     }
 
     function _requireFromSelfOrEntryPoint() internal view virtual {
@@ -59,7 +56,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
             (bool ok, bytes memory ret) = call.target.call{value: call.value}(call.data);
             if (!ok) {
                 // solhint-disable-next-line no-inline-assembly
-                assembly { revert(add(ret, 32), mload(ret)) }
+                assembly {revert(add(ret, 32), mload(ret))}
             }
         }
     }
@@ -74,7 +71,11 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
     }
 
     function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
-        return ECDSA.recover(hash, signature) == address(this) ? this.isValidSignature.selector : bytes4(0);
+        return _checkSignature(hash, signature) ? this.isValidSignature.selector : bytes4(0);
+    }
+
+    function _checkSignature(bytes32 hash, bytes memory signature) internal view returns (bool) {
+        return ECDSA.recover(hash, signature) == address(this);
     }
 
     // accept incoming calls (with our without value), to mimic an EOA.
