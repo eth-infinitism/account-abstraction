@@ -28,9 +28,19 @@ import {
   TestRevertAccount__factory,
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  SimpleAccount__factory
 } from '../typechain'
-import { DefaultsForUserOp, fillAndSign, fillSignAndPack, getUserOpHash, packUserOp, simulateValidation } from './UserOp'
+
+import {
+  DefaultsForUserOp,
+  fillAndSign,
+  fillSignAndPack,
+  fillUserOp,
+  getUserOpHash,
+  packUserOp,
+  simulateValidation
+} from './UserOp'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
@@ -40,9 +50,6 @@ import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
 import { UserOperationEventEvent } from '../typechain/contracts/interfaces/IEntryPoint'
-import { before } from 'mocha'
-
-import Debug from 'debug'
 import {
   AddressZero,
   calcGasUsage,
@@ -66,6 +73,7 @@ import {
   TWO_ETH,
   unpackAccountGasFees
 } from './testutils'
+import Debug from 'debug'
 
 const debug = Debug('entrypoint.test')
 
@@ -654,6 +662,37 @@ describe('EntryPoint', function () {
 
         // Make sure that the user did not pay for the transaction
         expect(await getBalance(simpleAccount.address)).to.eq(inititalAccountBalance)
+      })
+
+      it('should fail with AA20 if account not deployed', async () => {
+        const userop = await fillUserOp({
+          sender: createAddress(),
+          nonce: 0
+        }, entryPoint)
+        const beneficiary = createAddress()
+        await expect(entryPoint.handleOps([packUserOp(userop)], beneficiary)).to.revertedWith('AA20 account not deployed')
+      })
+
+      it('should fail with AA23 if account reverts', async () => {
+        const userop = await fillUserOp({
+          sender: entryPoint.address, // existing but not a real account
+          nonce: 0
+        }, entryPoint)
+        const beneficiary = createAddress()
+        await expect(entryPoint.handleOps([packUserOp(userop)], beneficiary).catch(rethrow())).to.be
+          .revertedWith('FailedOpWithRevert(0,"AA23 reverted",)')
+      })
+
+      it('should fail with AA23 (and original error) if account reverts', async () => {
+        // deploy an account with broken entrypoint, so it always reverts with "not from EntryPoint"
+        const revertingAccount = await new SimpleAccount__factory(ethersSigner).deploy(createAddress())
+        const userop = await fillUserOp({
+          sender: revertingAccount.address,
+          nonce: 0
+        }, entryPoint)
+        const beneficiary = createAddress()
+        await expect(entryPoint.handleOps([packUserOp(userop)], beneficiary).catch(rethrow())).to.be
+          .revertedWith('FailedOpWithRevert(0,"AA23 reverted",Error(account: not from EntryPoint)')
       })
 
       it('account should pay a penalty for unused gas only above threshold', async function () {

@@ -96,10 +96,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
         {
-            uint256 saveFreePtr;
-            assembly ("memory-safe") {
-                saveFreePtr := mload(0x40)
-            }
+            uint256 saveFreePtr = getFreePtr();
             bytes calldata callData = userOp.callData;
             bytes memory innerCall;
             bytes4 methodSig;
@@ -119,8 +116,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             assembly ("memory-safe") {
                 success := call(gas(), address(), 0, add(innerCall, 0x20), mload(innerCall), 0, 32)
                 collected := mload(0)
-                mstore(0x40, saveFreePtr)
             }
+            restoreFreePtr(saveFreePtr);
         }
         if (!success) {
             bytes32 innerRevertCode;
@@ -231,7 +228,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             //address(1) is special marker of "signature error"
             require(
                 address(aggregator) != address(1),
-                "AA96 invalid aggregator"
+                FailedOp(totalOps + i, "AA96 invalid aggregator")
             );
 
             if (address(aggregator) != address(0)) {
@@ -493,8 +490,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 opIndex,
         PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
-        uint256 requiredPrefund,
-        uint256 verificationGasLimit
+        uint256 requiredPrefund
     )
         internal
         returns (
@@ -513,15 +509,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     ? 0
                     : requiredPrefund - bal;
             }
-            try
-                IAccount(sender).validateUserOp{
-                    gas: verificationGasLimit
-                }(op, opInfo.userOpHash, missingAccountFunds)
-            returns (uint256 _validationData) {
-                validationData = _validationData;
-            } catch {
-                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
-            }
+            validationData = _callValidateUserOp(op, opInfo, missingAccountFunds, opIndex);
             if (paymaster == address(0)) {
                 DepositInfo storage senderInfo = deposits[sender];
                 uint256 deposit = senderInfo.deposit;
@@ -529,6 +517,33 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
                 }
                 senderInfo.deposit = deposit - requiredPrefund;
+            }
+        }
+    }
+
+    // call sender.validateUserOp()
+    // handle wrong output size with FailedOp
+    function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds, uint256 opIndex)
+    internal returns (uint256 validationData) {
+        uint256 saveFreePtr = getFreePtr();
+        bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
+        uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
+        address sender = opInfo.mUserOp.sender;
+        bool success;
+        assembly ("memory-safe"){
+            success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
+            validationData := mload(0)
+            // any return data size other than 32 is considered failure
+            if iszero(eq(returndatasize(), 32)) {
+                success := 0
+            }
+        }
+        restoreFreePtr(saveFreePtr);
+        if (!success) {
+            if(sender.code.length == 0) {
+                revert FailedOp(opIndex, "AA20 account not deployed");
+            } else {
+                revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
         }
     }
@@ -663,15 +678,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             mUserOp.paymasterPostOpGasLimit |
             mUserOp.maxFeePerGas |
             mUserOp.maxPriorityFeePerGas;
-        require(maxGasValues <= type(uint120).max, "AA94 gas values overflow");
+        require(maxGasValues <= type(uint120).max, FailedOp(opIndex, "AA94 gas values overflow"));
 
         uint256 requiredPreFund = _getRequiredPrefund(mUserOp);
         validationData = _validateAccountPrepayment(
             opIndex,
             userOp,
             outOpInfo,
-            requiredPreFund,
-            verificationGasLimit
+            requiredPreFund
         );
 
         if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
@@ -782,7 +796,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     /**
      * The gas price this UserOp agrees to pay.
-     * Relayer/block builder might submit the TX with higher priorityFee, but the user should not.
+     * Relayer/block builder might submit the TX with higher priorityFee, but the user should not be affected.
      * @param mUserOp - The userOp to get the gas price from.
      */
     function getUserOpGasPrice(
@@ -797,6 +811,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
         }
+    }
+
+    /// @inheritdoc IEntryPoint
+    function delegateAndRevert(address target, bytes calldata data) external {
+        (bool success, bytes memory ret) = target.delegatecall(data);
+        revert DelegateAndRevert(success, ret);
     }
 
     /**
@@ -823,10 +843,19 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
-    /// @inheritdoc IEntryPoint
-    function delegateAndRevert(address target, bytes calldata data) external {
-        (bool success, bytes memory ret) = target.delegatecall(data);
-        revert DelegateAndRevert(success, ret);
+    // safe free memory pointer.
+    function getFreePtr() internal pure returns (uint256 ptr) {
+        assembly ("memory-safe") {
+            ptr := mload(0x40)
+        }
+    }
+
+    // restore free memory pointer.
+    // no allocated memory since saveFreePtr was called is allowed to be accessed after this call.
+    function restoreFreePtr(uint256 ptr) internal pure {
+        assembly ("memory-safe") {
+            mstore(0x40, ptr)
+        }
     }
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
