@@ -40,11 +40,14 @@ library Exec {
     }
 
     // get returned data from last call or calldelegate
+    // maxLen - maximum length of data to return, or zero, for the full length
     function getReturnData(uint256 maxLen) internal pure returns (bytes memory returnData) {
         assembly ("memory-safe") {
             let len := returndatasize()
-            if gt(len, maxLen) {
-                len := maxLen
+            if iszero(iszero(maxLen)) {
+                if gt(len, maxLen) {
+                    len := maxLen
+                }
             }
             let ptr := mload(0x40)
             mstore(0x40, add(ptr, add(len, 0x20)))
@@ -61,10 +64,8 @@ library Exec {
         }
     }
 
-    function callAndRevert(address to, bytes memory data, uint256 maxLen) internal {
-        bool success = call(to,0,data,gasleft());
-        if (!success) {
-            revertWithData(getReturnData(maxLen));
-        }
+    //propagate revert data from last call
+    function revertWithReturnData() internal pure {
+        revertWithData(getReturnData(0));
     }
 }

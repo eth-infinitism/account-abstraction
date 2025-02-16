@@ -26,13 +26,17 @@ contract TestEip7702DelegateAccount is BaseAccount {
         require(msg.sender == address(this) || msg.sender == address(entryPoint()), "account: not Owner or EntryPoint");
     }
 
+     function _onlyOwner() internal view virtual override {
+         require(msg.sender == address(this), "only owner");
+     }
+
     /**
      * execute a transaction (called directly from owner, or by entryPoint)
      * @param dest destination address to call
      * @param value the value to pass in this call
      * @param func the calldata to pass in this call
      */
-    function execute(address dest, uint256 value, bytes calldata func) external {
+    function execute(address dest, uint256 value, bytes calldata func) virtual override external {
         _requireFromEntryPointOrOwner();
         (bool success,) = dest.call{value: value}(func);
         require(success, "call failed");

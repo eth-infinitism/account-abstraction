@@ -26,11 +26,6 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
 
     event SimpleAccountInitialized(IEntryPoint indexed entryPoint, address indexed owner);
 
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
-    }
-
     /// @inheritdoc BaseAccount
     function entryPoint() public view virtual override returns (IEntryPoint) {
         return _entryPoint;
@@ -44,41 +39,9 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         _disableInitializers();
     }
 
-    function _onlyOwner() internal view {
+    function _onlyOwner() internal view override {
         //directly from EOA owner, or through the account itself (which gets redirected through execute())
         require(msg.sender == owner || msg.sender == address(this), "only owner");
-    }
-
-    /**
-     * execute a transaction (called directly from owner, or by entryPoint)
-     * @param dest destination address to call
-     * @param value the value to pass in this call
-     * @param func the calldata to pass in this call
-     */
-    function execute(address dest, uint256 value, bytes calldata func) external {
-        _requireFromEntryPointOrOwner();
-        _call(dest, value, func);
-    }
-
-    /**
-     * execute a sequence of transactions
-     * @dev to reduce gas consumption for trivial case (no value), use a zero-length array to mean zero value
-     * @param dest an array of destination addresses
-     * @param value an array of values to pass to each call. can be zero-length for no-value calls
-     * @param func an array of calldata to pass to each call
-     */
-    function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
-        _requireFromEntryPointOrOwner();
-        require(dest.length == func.length && (value.length == 0 || value.length == func.length), "wrong array lengths");
-        if (value.length == 0) {
-            for (uint256 i = 0; i < dest.length; i++) {
-                _call(dest[i], 0, func[i]);
-            }
-        } else {
-            for (uint256 i = 0; i < dest.length; i++) {
-                _call(dest[i], value[i], func[i]);
-            }
-        }
     }
 
     /**
@@ -97,7 +60,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     }
 
     // Require the function call went through EntryPoint or owner
-    function _requireFromEntryPointOrOwner() internal view {
+    function _requireForExecute() internal view override virtual {
         require(msg.sender == address(entryPoint()) || msg.sender == owner, "account: not Owner or EntryPoint");
     }
 
@@ -109,38 +72,6 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
         if (owner != ECDSA.recover(userOpHash, userOp.signature))
             return SIG_VALIDATION_FAILED;
         return SIG_VALIDATION_SUCCESS;
-    }
-
-    function _call(address target, uint256 value, bytes memory data) internal {
-        (bool success, bytes memory result) = target.call{value: value}(data);
-        if (!success) {
-            assembly {
-                revert(add(result, 32), mload(result))
-            }
-        }
-    }
-
-    /**
-     * check current account deposit in the entryPoint
-     */
-    function getDeposit() public view returns (uint256) {
-        return entryPoint().balanceOf(address(this));
-    }
-
-    /**
-     * deposit more funds for this account in the entryPoint
-     */
-    function addDeposit() public payable {
-        entryPoint().depositTo{value: msg.value}(address(this));
-    }
-
-    /**
-     * withdraw value from the account's deposit
-     * @param withdrawAddress target to send to
-     * @param amount to withdraw
-     */
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
-        entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
     function _authorizeUpgrade(address newImplementation) internal view override {
