@@ -15,8 +15,9 @@ services:
   localgeth:
     ports: [ '8545:8545' ]
     image: ethereum/client-go:release-1.14
+    # image: dtr22/geth7702
     command: |
-          --verbosity 2
+          --verbosity 1
           --http -http.addr 0.0.0.0 --http.api 'eth,net,web3,debug' --http.port 8545 
           --http.vhosts '*,localhost,host.docker.internal'
           --dev --rpc.allow-unprotected-txs 

@@ -1,8 +1,8 @@
 module.exports = {
   skipFiles: [
     "test",
-    "samples/bls/lib",
-    "utils/Exec.sol"
+    "utils/Exec.sol",
+    "samples"
   ],
   configureYulOptimizer: true,
 };

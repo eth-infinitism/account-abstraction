@@ -22,13 +22,14 @@ import {
   TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory, TestERC20__factory
 } from '../typechain'
 import { BytesLike, Hexable } from '@ethersproject/bytes'
-import { JsonRpcProvider } from '@ethersproject/providers'
+import { JsonRpcProvider, Provider } from '@ethersproject/providers'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
 import { packUserOp, simulateValidation } from './UserOp'
 import Debug from 'debug'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 const debug = Debug('testutils')
 
@@ -73,9 +74,9 @@ export async function getTokenBalance (token: IERC20, address: string): Promise<
 let counter = 0
 
 // create non-random account, so gas calculations are deterministic
-export function createAccountOwner (): Wallet {
+export function createAccountOwner (provider: Provider = ethers.provider): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
-  return new ethers.Wallet(privateKey, ethers.provider)
+  return new ethers.Wallet(privateKey, provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
@@ -281,7 +282,7 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
 
 export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
-  const addr = await create2factory.deploy(EntryPoint__factory.bytecode, process.env.SALT, process.env.COVERAGE != null ? 20e6 : 8e6)
+  const addr = toChecksumAddress(await create2factory.deploy(EntryPoint__factory.bytecode, process.env.SALT, process.env.COVERAGE != null ? 20e6 : 8e6))
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 
@@ -450,4 +451,21 @@ export async function findSimulationUserOpWithMin (f: (n: number) => Promise<Use
       }
     }, min, max, delta
   )
+}
+
+// call entryPoint.getUserOpHash, but use state-override to run it with specific code (e.g. eip-7702 delegate) on the sender's code.
+export async function callGetUserOpHashWithCode (entryPoint: EntryPoint, userop: UserOperation, senderCode: any): Promise<string> {
+  const stateOverride = senderCode == null
+    ? null
+    : {
+        [userop.sender]: {
+          code: senderCode
+        }
+      }
+  return await ethers.provider.send('eth_call', [
+    {
+      to: entryPoint.address,
+      data: entryPoint.interface.encodeFunctionData('getUserOpHash', [packUserOp(userop)])
+    }, 'latest', stateOverride
+  ])
 }
