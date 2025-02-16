@@ -28,7 +28,7 @@ library Eip7702Support {
             return keccak256(abi.encodePacked(delegate, initCode[20 :]));
     }
 
-    // check if this initCode is EIP-7702: starts with EIP7702_PREFIX.
+    // check if this initCode is EIP-7702: starts with INITCODE_EIP7702_MARKER.
     function _isEip7702InitCode(bytes calldata initCode) internal pure returns (bool) {
 
         if (initCode.length < 2) {
