@@ -51,7 +51,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     bytes32 private constant INNER_REVERT_LOW_PREFUND = hex"deadaa51";
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
+    // Penalty charged for either unused execution gas or postOp gas
     uint256 private constant PENALTY_PERCENT = 10;
+    // Threshold below which no penalty would be charged
+    uint256 private constant PENALTY_GAS_THRESHOLD = 4e4;
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
@@ -828,7 +831,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
         unchecked {
-            if (gasLimit <= gasUsed) {
+            if (gasLimit <= gasUsed || gasLimit - gasUsed <= PENALTY_GAS_THRESHOLD) {
                 return 0;
             }
             uint256 unusedGas = gasLimit - gasUsed;
