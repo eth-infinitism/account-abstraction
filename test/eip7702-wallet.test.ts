@@ -2,7 +2,7 @@ import { expect } from 'chai'
 
 import { Simple7702Account, Simple7702Account__factory, EntryPoint, TestPaymasterAcceptAll__factory } from '../typechain'
 import { createAccountOwner, createAddress, deployEntryPoint } from './testutils'
-import { fillAndSign, packUserOp } from './UserOp'
+import { fillAndSign, INITCODE_EIP7702_MARKER, packUserOp } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { signEip7702Authorization } from './eip7702helpers'
 import { GethExecutable } from './GethExecutable'
@@ -90,7 +90,7 @@ describe('Simple7702Account.sol', function () {
     }]])
     const userop = await fillAndSign({
       sender: eoa.address,
-      initCode: '0xef01',
+      initCode: INITCODE_EIP7702_MARKER,
       nonce: 0,
       callData
     }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
@@ -126,7 +126,7 @@ describe('Simple7702Account.sol', function () {
     const userop = await fillAndSign({
       sender: eoa.address,
       paymaster: paymaster.address,
-      initCode: '0xef01',
+      initCode: INITCODE_EIP7702_MARKER,
       nonce: 0,
       callData
     }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
