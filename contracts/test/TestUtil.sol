@@ -12,6 +12,6 @@ contract TestUtil {
     }
 
     function isEip7702InitCode(bytes calldata initCode) external pure returns (bool) {
-        return _isEip7702InitCode(initCode);
+        return Eip7702Support._isEip7702InitCode(initCode);
     }
 }

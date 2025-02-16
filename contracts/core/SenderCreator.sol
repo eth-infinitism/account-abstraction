@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.23;
+/* solhint-disable avoid-low-level-calls */
+/* solhint-disable no-inline-assembly */
 
 import "../interfaces/ISenderCreator.sol";
+import "../interfaces/IEntryPoint.sol";
 import "../utils/Exec.sol";
-import {IEntryPoint} from "../interfaces/IEntryPoint.sol";
 
 /**
  * Helper contract for EntryPoint, to call userOp.initCode from a "neutral" address,
@@ -16,6 +18,8 @@ contract SenderCreator is ISenderCreator {
         entryPoint = msg.sender;
     }
 
+    uint256 private constant REVERT_REASON_MAX_LEN = 2048;
+
     /**
      * Call the "initCode" factory to create and return the sender account address.
      * @param initCode - The initCode value from a UserOp. contains 20 bytes of factory address,
@@ -26,11 +30,10 @@ contract SenderCreator is ISenderCreator {
         bytes calldata initCode
     ) external returns (address sender) {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
-        address factory = address(bytes20(initCode[0:20]));
+        address factory = address(bytes20(initCode[0 : 20]));
 
-        bytes memory initCallData = initCode[20:];
+        bytes memory initCallData = initCode[20 :];
         bool success;
-        /* solhint-disable no-inline-assembly */
         assembly ("memory-safe") {
             success := call(
                 gas(),
@@ -47,18 +50,17 @@ contract SenderCreator is ISenderCreator {
         }
     }
 
-    // use initCode to initialize an EIP-7702 account
+    // use initCallData to initialize an EIP-7702 account
     // caller (EntryPoint) already verified it is an EIP-7702 account.
     function initEip7702Sender(
         address sender,
         bytes calldata initCallData
     ) external {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
-        // solhint-disable-next-line avoid-low-level-calls
         bool success = Exec.call(sender, 0, initCallData, gasleft());
         if (!success) {
-            bytes memory result = Exec.getReturnData(2048);
-            revert IEntryPoint.FailedOpWithRevert(0,"AA13 EIP7702 sender init failed", result);
+            bytes memory result = Exec.getReturnData(REVERT_REASON_MAX_LEN);
+            revert IEntryPoint.FailedOpWithRevert(0, "AA13 EIP7702 sender init failed", result);
         }
     }
 }

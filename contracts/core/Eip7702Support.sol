@@ -5,13 +5,18 @@ pragma solidity ^0.8;
 import "../interfaces/PackedUserOperation.sol";
 import "../core/UserOperationLib.sol";
 
-// EIP-7702 code prefix. Also, we use this prefix as a marker in the initCode. To specify this account is EIP-7702.
-bytes3 constant EIP7702_PREFIX = 0xef0100;
+library Eip7702Support {
+
+    // EIP-7702 code prefix. Also, we use this prefix as a marker in the initCode. To specify this account is EIP-7702.
+    bytes3 internal constant EIP7702_PREFIX = 0xef0100;
+
+    // EIP-7702 initCode marker. To specify this account is EIP-7702.
+    bytes2 internal constant INITCODE_EIP7702_MARKER = 0x7702;
 
     using UserOperationLib for PackedUserOperation;
 
-//get alternate InitCodeHash (just for UserOp hash) when using EIP-7702
-    function _getEip7702InitCodeHashOverride(PackedUserOperation calldata userOp) view returns (bytes32) {
+    //get alternate InitCodeHash (just for UserOp hash) when using EIP-7702
+    function _getEip7702InitCodeHashOverride(PackedUserOperation calldata userOp) internal view returns (bytes32) {
         bytes calldata initCode = userOp.initCode;
         if (!_isEip7702InitCode(initCode)) {
             return 0;
@@ -23,8 +28,8 @@ bytes3 constant EIP7702_PREFIX = 0xef0100;
             return keccak256(abi.encodePacked(delegate, initCode[20 :]));
     }
 
-// check if this initCode is EIP-7702: starts with EIP7702_PREFIX.
-    function _isEip7702InitCode(bytes calldata initCode) pure returns (bool) {
+    // check if this initCode is EIP-7702: starts with EIP7702_PREFIX.
+    function _isEip7702InitCode(bytes calldata initCode) internal pure returns (bool) {
 
         if (initCode.length < 2) {
             return false;
@@ -34,15 +39,15 @@ bytes3 constant EIP7702_PREFIX = 0xef0100;
         assembly ("memory-safe") {
             initCodeStart := calldataload(initCode.offset)
         }
-        // make sure first 20 bytes of initCode are "0xff0100" (padded with zeros)
-        return initCodeStart == bytes20(EIP7702_PREFIX);
+        // make sure first 20 bytes of initCode are "0x7702" (padded with zeros)
+        return initCodeStart == bytes20(INITCODE_EIP7702_MARKER);
     }
 
-/**
- * get the EIP-7702 delegate from contract code.
- * must only be used if _isEip7702InitCode(initCode) is true.
- **/
-    function _getEip7702Delegate(address sender) view returns (address) {
+    /**
+     * get the EIP-7702 delegate from contract code.
+     * must only be used if _isEip7702InitCode(initCode) is true.
+     */
+    function _getEip7702Delegate(address sender) internal view returns (address) {
 
         bytes32 senderCode;
 
@@ -59,3 +64,4 @@ bytes3 constant EIP7702_PREFIX = 0xef0100;
         }
         return address(bytes20(senderCode << 24));
     }
+}

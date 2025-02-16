@@ -379,7 +379,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function getUserOpHash(
         PackedUserOperation calldata userOp
     ) public view returns (bytes32) {
-        bytes32 overrideInitCodeHash = _getEip7702InitCodeHashOverride(userOp);
+        bytes32 overrideInitCodeHash = Eip7702Support._getEip7702InitCodeHashOverride(userOp);
         return
             MessageHashUtils.toTypedDataHash(getDomainSeparatorV4(), userOp.hash(overrideInitCodeHash));
     }
@@ -443,7 +443,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     ) internal {
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
-            if ( _isEip7702InitCode(initCode) ) {
+            if ( Eip7702Support._isEip7702InitCode(initCode) ) {
                 if (initCode.length>20 ) {
                     //already validated it is an EIP-7702 delegate (and hence, already has code)
                     senderCreator().initEip7702Sender(sender, initCode[20:]);
