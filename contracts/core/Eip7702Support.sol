@@ -7,10 +7,10 @@ import "../core/UserOperationLib.sol";
 
 library Eip7702Support {
 
-    // EIP-7702 code prefix. Also, we use this prefix as a marker in the initCode. To specify this account is EIP-7702.
+    // EIP-7702 code prefix before delegate address.
     bytes3 internal constant EIP7702_PREFIX = 0xef0100;
 
-    // EIP-7702 initCode marker. To specify this account is EIP-7702.
+    // EIP-7702 initCode marker, to specify this account is EIP-7702.
     bytes2 internal constant INITCODE_EIP7702_MARKER = 0x7702;
 
     using UserOperationLib for PackedUserOperation;
