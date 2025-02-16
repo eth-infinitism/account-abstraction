@@ -42,6 +42,18 @@ abstract contract BaseAccount is IAccount {
     function entryPoint() public view virtual returns (IEntryPoint);
 
     /**
+     * execute a single call from the account.
+     */
+    function execute(address target, uint256 value, bytes calldata data) virtual external {
+        _requireForExecute();
+
+        bool ok = Exec.call(target, value, data, gasleft());
+        if (!ok) {
+            Exec.revertWithReturnData();
+        }
+    }
+
+    /**
      * execute a batch of calls.
      * revert on the first call that fails.
      * If the batch reverts, and it contains more than a single call, then wrap the revert with ExecuteError,
@@ -54,28 +66,13 @@ abstract contract BaseAccount is IAccount {
             Call calldata call = calls[i];
             bool ok = Exec.call(call.target, call.value, call.data, gasleft());
             if (!ok) {
-                _revertResult(i, calls.length==1);
+                if (calls.length == 1) {
+                    Exec.revertWithReturnData();
+                } else {
+                    revert ExecuteError(i, Exec.getReturnData(0));
+                }
+
             }
-        }
-    }
-
-    function _revertResult(uint256 index, bool singleCall) internal pure {
-        if (singleCall) {
-            Exec.revertWithReturnData();
-        } else {
-            revert ExecuteError(index, Exec.getReturnData(0));
-        }
-    }
-
-    /**
-     * execute a single call from the account.
-     */
-    function execute(address target, uint256 value, bytes calldata data) virtual external {
-        _requireForExecute();
-
-        bool ok = Exec.call(target, value, data, gasleft());
-        if (!ok) {
-            Exec.revertWithReturnData();
         }
     }
 
