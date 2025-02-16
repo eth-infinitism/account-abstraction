@@ -704,7 +704,7 @@ describe('EntryPoint', function () {
         await ethers.provider.send('evm_revert', [snap])
 
         // Second, sending a userOp with slightly below PENALTY_GAS_THRESHOLD (shouldn't penalize)
-        let callGasLimitWithUnusedGas = callGasLimit.add(PENALTY_GAS_THRESHOLD/10)
+        let callGasLimitWithUnusedGas = callGasLimit.add(PENALTY_GAS_THRESHOLD / 10)
         const op2 = await fillSignAndPack({
           sender: simpleAccount.address,
           callData: accountExec.data,
@@ -729,7 +729,7 @@ describe('EntryPoint', function () {
 
         // Third, sending a userOp with unused execution gas more than PENALTY_GAS_THRESHOLD
 
-        callGasLimitWithUnusedGas = callGasLimit.add(PENALTY_GAS_THRESHOLD*100)
+        callGasLimitWithUnusedGas = callGasLimit.add(PENALTY_GAS_THRESHOLD * 100)
         const op3 = await fillSignAndPack({
           sender: simpleAccount.address,
           callData: accountExec.data,
