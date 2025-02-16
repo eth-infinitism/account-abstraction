@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
-// based on: https://gist.github.com/frangio/e40305b9f99de290b73750dff5ebe50a
 pragma solidity ^0.8;
 
-import "../interfaces/PackedUserOperation.sol";
-import "../core/Helpers.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "../core/Helpers.sol";
 import "../core/BaseAccount.sol";
 
 /**
@@ -16,6 +14,12 @@ import "../core/BaseAccount.sol";
  * A minimal account to be used with EIP-7702 (for batching) and ERC-4337 (for gas sponsoring)
  */
 contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC721Holder {
+
+    struct Call {
+        address target;
+        uint256 value;
+        bytes data;
+    }
 
     // temporary address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
@@ -34,6 +38,14 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         return _checkSignature(userOpHash, userOp.signature) ? 0 : SIG_VALIDATION_FAILED;
     }
 
+    function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
+        return _checkSignature(hash, signature) ? this.isValidSignature.selector : bytes4(0);
+    }
+
+    function _checkSignature(bytes32 hash, bytes memory signature) internal view returns (bool) {
+        return ECDSA.recover(hash, signature) == address(this);
+    }
+
     function _requireFromSelfOrEntryPoint() internal view virtual {
         require(
             msg.sender == address(this) ||
@@ -42,11 +54,6 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         );
     }
 
-    struct Call {
-        address target;
-        uint256 value;
-        bytes data;
-    }
 
     function execute(Call[] calldata calls) external {
         _requireFromSelfOrEntryPoint();
@@ -70,15 +77,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
             id == type(IERC721Receiver).interfaceId;
     }
 
-    function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
-        return _checkSignature(hash, signature) ? this.isValidSignature.selector : bytes4(0);
-    }
-
-    function _checkSignature(bytes32 hash, bytes memory signature) internal view returns (bool) {
-        return ECDSA.recover(hash, signature) == address(this);
-    }
-
-    // accept incoming calls (with our without value), to mimic an EOA.
+    // accept incoming calls (with or without value), to mimic an EOA.
     fallback() external payable {
     }
 
