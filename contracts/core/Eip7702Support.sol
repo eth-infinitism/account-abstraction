@@ -6,7 +6,6 @@ import "../interfaces/PackedUserOperation.sol";
 import "../core/UserOperationLib.sol";
 
 library Eip7702Support {
-
     // EIP-7702 code prefix before delegate address.
     bytes3 internal constant EIP7702_PREFIX = 0xef0100;
 
@@ -22,15 +21,15 @@ library Eip7702Support {
             return 0;
         }
         address delegate = _getEip7702Delegate(userOp.getSender());
-        if (initCode.length <= 20)
+        if (initCode.length <= 20) {
             return keccak256(abi.encodePacked(delegate));
-        else
-            return keccak256(abi.encodePacked(delegate, initCode[20 :]));
+        } else {
+            return keccak256(abi.encodePacked(delegate, initCode[20:]));
+        }
     }
 
     // check if this initCode is EIP-7702: starts with INITCODE_EIP7702_MARKER.
     function _isEip7702InitCode(bytes calldata initCode) internal pure returns (bool) {
-
         if (initCode.length < 2) {
             return false;
         }
@@ -48,7 +47,6 @@ library Eip7702Support {
      * must only be used if _isEip7702InitCode(initCode) is true.
      */
     function _getEip7702Delegate(address sender) internal view returns (address) {
-
         bytes32 senderCode;
 
         assembly ("memory-safe") {

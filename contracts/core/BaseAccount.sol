@@ -44,7 +44,7 @@ abstract contract BaseAccount is IAccount {
     /**
      * execute a single call from the account.
      */
-    function execute(address target, uint256 value, bytes calldata data) virtual external {
+    function execute(address target, uint256 value, bytes calldata data) external virtual {
         _requireForExecute();
 
         bool ok = Exec.call(target, value, data, gasleft());
@@ -76,11 +76,12 @@ abstract contract BaseAccount is IAccount {
     }
 
     /// @inheritdoc IAccount
-    function validateUserOp(
-        PackedUserOperation calldata userOp,
-        bytes32 userOpHash,
-        uint256 missingAccountFunds
-    ) external virtual override returns (uint256 validationData) {
+    function validateUserOp(PackedUserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+        external
+        virtual
+        override
+        returns (uint256 validationData)
+    {
         _requireFromEntryPoint();
         validationData = _validateSignature(userOp, userOpHash);
         _validateNonce(userOp.nonce);
@@ -91,10 +92,7 @@ abstract contract BaseAccount is IAccount {
      * Ensure the request comes from the known entrypoint.
      */
     function _requireFromEntryPoint() internal view virtual {
-        require(
-            msg.sender == address(entryPoint()),
-            "account: not from EntryPoint"
-        );
+        require(msg.sender == address(entryPoint()), "account: not from EntryPoint");
     }
 
     function _requireForExecute() internal view virtual {
@@ -115,10 +113,10 @@ abstract contract BaseAccount is IAccount {
      *                          SIG_VALIDATION_FAILED value (1) for signature failure.
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function _validateSignature(
-        PackedUserOperation calldata userOp,
-        bytes32 userOpHash
-    ) internal virtual returns (uint256 validationData);
+    function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
+        internal
+        virtual
+        returns (uint256 validationData);
 
     /**
      * Validate the nonce of the UserOperation.
@@ -136,8 +134,7 @@ abstract contract BaseAccount is IAccount {
      *
      * solhint-disable-next-line no-empty-blocks
      */
-    function _validateNonce(uint256 nonce) internal view virtual {
-    }
+    function _validateNonce(uint256 nonce) internal view virtual {}
 
     /**
      * Sends to the entrypoint (msg.sender) the missing funds for this transaction.
@@ -150,9 +147,7 @@ abstract contract BaseAccount is IAccount {
      */
     function _payPrefund(uint256 missingAccountFunds) internal virtual {
         if (missingAccountFunds != 0) {
-            (bool success,) = payable(msg.sender).call{
-                    value: missingAccountFunds
-                }("");
+            (bool success,) = payable(msg.sender).call{value: missingAccountFunds}("");
             (success);
             //ignore failure (its EntryPoint's job to verify, not account.)
         }

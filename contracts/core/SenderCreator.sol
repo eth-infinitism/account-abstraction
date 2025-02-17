@@ -14,7 +14,7 @@ import "../utils/Exec.sol";
 contract SenderCreator is ISenderCreator {
     address public immutable entryPoint;
 
-    constructor(){
+    constructor() {
         entryPoint = msg.sender;
     }
 
@@ -26,36 +26,21 @@ contract SenderCreator is ISenderCreator {
      *                   followed by calldata.
      * @return sender  - The returned address of the created account, or zero address on failure.
      */
-    function createSender(
-        bytes calldata initCode
-    ) external returns (address sender) {
+    function createSender(bytes calldata initCode) external returns (address sender) {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
-        address factory = address(bytes20(initCode[0 : 20]));
+        address factory = address(bytes20(initCode[0:20]));
 
-        bytes memory initCallData = initCode[20 :];
+        bytes memory initCallData = initCode[20:];
         bool success;
         assembly ("memory-safe") {
-            success := call(
-                gas(),
-                factory,
-                0,
-                add(initCallData, 0x20),
-                mload(initCallData),
-                0,
-                32
-            )
-            if success {
-                sender := mload(0)
-            }
+            success := call(gas(), factory, 0, add(initCallData, 0x20), mload(initCallData), 0, 32)
+            if success { sender := mload(0) }
         }
     }
 
     // use initCallData to initialize an EIP-7702 account
     // caller (EntryPoint) already verified it is an EIP-7702 account.
-    function initEip7702Sender(
-        address sender,
-        bytes calldata initCallData
-    ) external {
+    function initEip7702Sender(address sender, bytes calldata initCallData) external {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
         bool success = Exec.call(sender, 0, initCallData, gasleft());
         if (!success) {
