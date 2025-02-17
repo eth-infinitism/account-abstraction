@@ -168,7 +168,7 @@ describe('EntryPoint EIP-7702 tests', function () {
           await geth.init()
           eoa = createAccountOwner(geth.provider)
           entryPoint = await deployEntryPoint(geth.provider)
-          delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy(entryPoint.address)
+          delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy()
           console.log('\tdelegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
           await geth.sendTx({ to: eoa.address, value: gethHex(parseEther('1')) })
         })

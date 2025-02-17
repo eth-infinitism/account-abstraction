@@ -1,45 +1,14 @@
 pragma solidity ^0.8.23;
 // SPDX-License-Identifier: MIT
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../core/BaseAccount.sol";
-import "../core/Eip7702Support.sol";
 
-contract TestEip7702DelegateAccount is BaseAccount {
+import  "../samples/Simple7702Account.sol";
 
-    IEntryPoint private immutable _entryPoint;
+contract TestEip7702DelegateAccount is Simple7702Account {
+
     bool public testInitCalled;
-
-    constructor(IEntryPoint anEntryPoint) {
-        _entryPoint = anEntryPoint;
-    }
 
     function testInit() public {
         testInitCalled = true;
-    }
-
-    function entryPoint() public view override virtual returns (IEntryPoint) {
-        return _entryPoint;
-    }
-
-    // Require the function call went through EntryPoint or owner
-    function _requireFromEntryPointOrOwner() internal view {
-        require(msg.sender == address(this) || msg.sender == address(entryPoint()), "account: not Owner or EntryPoint");
-    }
-
-     function _onlyOwner() internal view virtual {
-         require(msg.sender == address(this), "only owner");
-     }
-
-    /**
-     * execute a transaction (called directly from owner, or by entryPoint)
-     * @param dest destination address to call
-     * @param value the value to pass in this call
-     * @param func the calldata to pass in this call
-     */
-    function execute(address dest, uint256 value, bytes calldata func) virtual override external {
-        _requireFromEntryPointOrOwner();
-        (bool success,) = dest.call{value: value}(func);
-        require(success, "call failed");
     }
 
     function _validateSignature(
@@ -49,9 +18,6 @@ contract TestEip7702DelegateAccount is BaseAccount {
         if (userOp.initCode.length > 20) {
             require(testInitCalled, "testInit not called");
         }
-        if (ECDSA.recover(userOpHash, userOp.signature) == address(this)) {
-            return 0;
-        }
-        return 1;
+        return Simple7702Account._validateSignature(userOp, userOpHash);
     }
 }
