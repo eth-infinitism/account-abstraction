@@ -1,7 +1,7 @@
 pragma solidity ^0.8.23;
 // SPDX-License-Identifier: MIT
 
-import  "../samples/Simple7702Account.sol";
+import  "../accounts/Simple7702Account.sol";
 
 contract TestEip7702DelegateAccount is Simple7702Account {
 

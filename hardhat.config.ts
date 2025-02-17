@@ -55,7 +55,7 @@ const config: HardhatUserConfig = {
     overrides: {
       'contracts/core/EntryPoint.sol': optimizedCompilerSettings,
       'contracts/core/EntryPointSimulations.sol': optimizedCompilerSettings,
-      'contracts/samples/SimpleAccount.sol': optimizedCompilerSettings
+      'contracts/accounts/SimpleAccount.sol': optimizedCompilerSettings
     }
   },
   networks: {
