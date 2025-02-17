@@ -2,7 +2,6 @@ import '@nomiclabs/hardhat-waffle'
 import '@typechain/hardhat'
 import { HardhatUserConfig, task } from 'hardhat/config'
 import 'hardhat-deploy'
-import '@nomiclabs/hardhat-etherscan'
 
 import 'solidity-coverage'
 
@@ -62,18 +61,12 @@ const config: HardhatUserConfig = {
     dev: { url: 'http://localhost:8545' },
     // github action starts localgeth service, for gas calculations
     localgeth: { url: 'http://localgeth:8545' },
-    goerli: getNetwork('goerli'),
     sepolia: getNetwork('sepolia'),
     proxy: getNetwork1('http://localhost:8545')
   },
   mocha: {
     timeout: 10000
-  },
-  // @ts-ignore
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY
   }
-
 }
 
 // coverage chokes on the "compilers" settings
