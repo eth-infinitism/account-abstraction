@@ -908,14 +908,13 @@ describe('EntryPoint', function () {
           verificationGasLimit: 5e5
         }, accountOwner, entryPoint)
         // must succeed with enough verification gas
-        await simulateValidation(op0, entryPoint.address)
+        await entryPoint.handleOps([op0], createAddress())
 
         const op1 = await fillSignAndPack({
           sender: simpleAccount.address,
           verificationGasLimit: 10000
         }, accountOwner, entryPoint)
-        await expect(simulateValidation(op1, entryPoint.address))
-          .to.revertedWith('AA23 reverted')
+        await expect(entryPoint.handleOps([op1], createAddress())).to.revertedWith('AA23 reverted')
       })
     })
 
@@ -1037,11 +1036,12 @@ describe('EntryPoint', function () {
           verificationGasLimit: 76000
         }, accountOwner2, entryPoint)
 
-        await simulateValidation(op2, entryPoint.address)
+        // verify it passes
+        await entryPoint.callStatic.handleOps([op2], beneficiaryAddress)
 
         await fund(op1.sender)
         await fund(account2.address)
-        await entryPoint.handleOps([op1!, op2], beneficiaryAddress).catch((rethrow())).then(async r => r!.wait())
+        await entryPoint.handleOps([op1, op2], beneficiaryAddress).catch((rethrow())).then(async r => r!.wait())
         // console.log(ret.events!.map(e=>({ev:e.event, ...objdump(e.args!)})))
       })
       it('should execute', async () => {
