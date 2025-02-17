@@ -71,32 +71,8 @@ abstract contract BaseAccount is IAccount {
                 } else {
                     revert ExecuteError(i, Exec.getReturnData(0));
                 }
-
             }
         }
-    }
-
-    /**
-     * check current account deposit in the entryPoint
-     */
-    function getDeposit() public view returns (uint256) {
-        return entryPoint().balanceOf(address(this));
-    }
-
-    /**
-     * deposit more funds for this account in the entryPoint
-     */
-    function addDeposit() public payable {
-        entryPoint().depositTo{value: msg.value}(address(this));
-    }
-
-    /**
-     * withdraw value from the account's deposit
-     * @param withdrawAddress target to send to
-     * @param amount to withdraw
-     */
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
-        entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
     /// @inheritdoc IAccount
@@ -110,13 +86,6 @@ abstract contract BaseAccount is IAccount {
         _validateNonce(userOp.nonce);
         _payPrefund(missingAccountFunds);
     }
-
-    modifier onlyOwner() {
-        _onlyOwner();
-        _;
-    }
-
-    function _onlyOwner() internal view virtual;
 
     /**
      * Ensure the request comes from the known entrypoint.

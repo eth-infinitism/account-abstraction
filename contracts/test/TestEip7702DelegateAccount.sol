@@ -26,7 +26,7 @@ contract TestEip7702DelegateAccount is BaseAccount {
         require(msg.sender == address(this) || msg.sender == address(entryPoint()), "account: not Owner or EntryPoint");
     }
 
-     function _onlyOwner() internal view virtual override {
+     function _onlyOwner() internal view virtual {
          require(msg.sender == address(this), "only owner");
      }
 

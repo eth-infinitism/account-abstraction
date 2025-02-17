@@ -39,12 +39,12 @@ library Exec {
         }
     }
 
-    // get returned data from last call or calldelegate
+    // get returned data from last call or delegateCall
     // maxLen - maximum length of data to return, or zero, for the full length
     function getReturnData(uint256 maxLen) internal pure returns (bytes memory returnData) {
         assembly ("memory-safe") {
             let len := returndatasize()
-            if iszero(iszero(maxLen)) {
+            if gt(maxLen,0) {
                 if gt(len, maxLen) {
                     len := maxLen
                 }

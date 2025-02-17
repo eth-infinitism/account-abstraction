@@ -17,7 +17,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
 
     // temporary address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
-        return IEntryPoint(0x512DBdb452743fdaAD78af53fA5964A46631b359);
+        return IEntryPoint(0xc451a3f2c8cbD212747A939712E97DaE27789E2f);
     }
 
     /**
@@ -46,10 +46,6 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
             msg.sender == address(entryPoint()),
             "not from self or EntryPoint"
         );
-    }
-
-    function _onlyOwner() internal view virtual override {
-        require(msg.sender == address(this), "only owner");
     }
 
     function supportsInterface(bytes4 id) public override(ERC1155Holder, IERC165) pure returns (bool) {
