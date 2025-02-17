@@ -54,7 +54,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     // Penalty charged for either unused execution gas or postOp gas
     uint256 private constant PENALTY_PERCENT = 10;
     // Threshold below which no penalty would be charged
-    uint256 private constant PENALTY_GAS_THRESHOLD = 4e4;
+    uint256 private constant PENALTY_GAS_THRESHOLD = 40000;
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
