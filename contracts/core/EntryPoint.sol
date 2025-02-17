@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
+/* solhint-disable no-empty-blocks */
 
 import "../interfaces/IAccount.sol";
 import "../interfaces/IAccountExecute.sol";
@@ -666,7 +667,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                         try IPaymaster(paymaster).postOp{gas: mUserOp.paymasterPostOpGasLimit}(
                             mode, context, actualGasCost, gasPrice
                         ) {
-                            // solhint-disable-next-line no-empty-blocks
                         } catch {
                             bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);
                             revert PostOpReverted(reason);
