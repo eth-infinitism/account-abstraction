@@ -71,7 +71,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * @param beneficiary - The address to receive the fees.
      * @param amount      - Amount to transfer.
      */
-    function _compensate(address payable beneficiary, uint256 amount) internal {
+    function _compensate(address payable beneficiary, uint256 amount) internal virtual {
         require(beneficiary != address(0), "AA90 invalid beneficiary");
         (bool success, ) = beneficiary.call{value: amount}("");
         require(success, "AA91 failed send to beneficiary");
@@ -89,9 +89,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         PackedUserOperation calldata userOp,
         UserOpInfo memory opInfo
     )
-    internal
-    returns
-    (uint256 collected) {
+    internal virtual
+    returns (uint256 collected) {
         uint256 preGas = gasleft();
         bytes memory context = getMemoryBytesFromOffset(opInfo.contextOffset);
         bool success;
@@ -392,7 +391,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function _copyUserOpToMemory(
         PackedUserOperation calldata userOp,
         MemoryUserOp memory mUserOp
-    ) internal pure {
+    ) internal virtual pure {
         mUserOp.sender = userOp.sender;
         mUserOp.nonce = userOp.nonce;
         (mUserOp.verificationGasLimit, mUserOp.callGasLimit) = UserOperationLib.unpackUints(userOp.accountGasLimits);
@@ -417,7 +416,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      */
     function _getRequiredPrefund(
         MemoryUserOp memory mUserOp
-    ) internal pure returns (uint256 requiredPrefund) {
+    ) internal virtual pure returns (uint256 requiredPrefund) {
         unchecked {
             uint256 requiredGas = mUserOp.verificationGasLimit +
                 mUserOp.callGasLimit +
@@ -439,7 +438,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 opIndex,
         UserOpInfo memory opInfo,
         bytes calldata initCode
-    ) internal {
+    ) internal virtual {
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
             if ( Eip7702Support._isEip7702InitCode(initCode) ) {
@@ -491,7 +490,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         UserOpInfo memory opInfo,
         uint256 requiredPrefund
     )
-        internal
+        internal virtual
         returns (
             uint256 validationData
         )
@@ -523,7 +522,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     // call sender.validateUserOp()
     // handle wrong output size with FailedOp
     function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds, uint256 opIndex)
-    internal returns (uint256 validationData) {
+    internal virtual returns (uint256 validationData) {
         uint256 saveFreePtr = getFreePtr();
         bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
         uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
@@ -563,7 +562,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         PackedUserOperation calldata op,
         UserOpInfo memory opInfo,
         uint256 requiredPreFund
-    ) internal returns (bytes memory context, uint256 validationData) {
+    ) internal virtual returns (bytes memory context, uint256 validationData) {
         unchecked {
             uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -605,7 +604,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 validationData,
         uint256 paymasterValidationData,
         address expectedAggregator
-    ) internal view {
+    ) internal virtual view {
         (address aggregator, bool outOfTimeRange) = _getValidationData(
             validationData
         );
@@ -637,7 +636,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      */
     function _getValidationData(
         uint256 validationData
-    ) internal view returns (address aggregator, bool outOfTimeRange) {
+    ) internal virtual view returns (address aggregator, bool outOfTimeRange) {
         if (validationData == 0) {
             return (address(0), false);
         }
@@ -659,7 +658,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         PackedUserOperation calldata userOp,
         UserOpInfo memory outOpInfo
     )
-        internal
+        internal virtual
         returns (uint256 validationData, uint256 paymasterValidationData)
     {
         uint256 preGas = gasleft();
@@ -733,7 +732,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         UserOpInfo memory opInfo,
         bytes memory context,
         uint256 actualGas
-    ) private returns (uint256 actualGasCost) {
+    ) internal virtual returns (uint256 actualGasCost) {
         uint256 preGas = gasleft();
         unchecked {
             address refundAddress;
