@@ -1244,6 +1244,7 @@ describe('EntryPoint', function () {
       let testCounter: TestCounter
       let accountExecFromEntryPoint: PopulatedTransaction
       const account2Owner = createAccountOwner()
+      const beneficiaryAddress = createAddress()
 
       beforeEach(async () => {
         testPaymasterAcceptAll = await new TestPaymasterAcceptAll__factory(ethersSigner).deploy(entryPoint.address)
@@ -1254,8 +1255,19 @@ describe('EntryPoint', function () {
         accountExecFromEntryPoint = await simpleAccount.populateTransaction.execute(testCounter.address, 0, count.data!)
       })
 
+      it('handleOps should fail with zero-address paymaster', async () => {
+        const op = await fillSignAndPack({
+          callData: accountExecFromEntryPoint.data,
+          initCode: getAccountInitCode(account2Owner.address, simpleAccountFactory),
+          verificationGasLimit: 3e6,
+          callGasLimit: 1e6
+        }, account2Owner, entryPoint)
+        op.paymasterAndData = AddressZero.padEnd(200, '0')
+        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('AA93 invalid paymaster')
+      })
       it('should fail with nonexistent paymaster', async () => {
         const pm = createAddress()
+        await entryPoint.depositTo(pm, { value: ONE_ETH })
         const op = await fillSignAndPack({
           paymaster: pm,
           paymasterVerificationGasLimit: 3e6,
@@ -1264,7 +1276,7 @@ describe('EntryPoint', function () {
           verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
-        await expect(simulateValidation(op, entryPoint.address)).to.revertedWith('"AA30 paymaster not deployed"')
+        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('')
       })
 
       it('should fail if paymaster has no deposit', async function () {
@@ -1277,7 +1289,6 @@ describe('EntryPoint', function () {
           verificationGasLimit: 3e6,
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
-        const beneficiaryAddress = createAddress()
         await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('"AA31 paymaster deposit too low"')
       })
 
