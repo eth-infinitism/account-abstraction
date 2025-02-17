@@ -17,7 +17,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
 
     // temporary address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
-        return IEntryPoint(0x54C20334441843C0Daf6D69725a877bcA9077C40);
+        return IEntryPoint(0xaEAC6a7D7f313C0aEf6167Be6a1F2940C416a01e);
     }
 
     /**
