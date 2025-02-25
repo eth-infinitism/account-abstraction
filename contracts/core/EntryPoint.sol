@@ -200,7 +200,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * @param opIndexOffset - an offset for the index between 'ops' and 'opInfos' arrays, see the notice.
      * @param opslen - a length of the 'ops' array, read once for some minor gas savings.
      */
-    function iterateValidationPhase(
+    function _iterateValidationPhase(
         PackedUserOperation[] calldata ops,
         UserOpInfo[] memory opInfos,
         address expectedAggregator,
@@ -232,7 +232,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
         unchecked {
-            iterateValidationPhase(ops, opInfos, address(0), 0, opslen);
+            _iterateValidationPhase(ops, opInfos, address(0), 0, opslen);
 
             uint256 collected = 0;
             emit BeforeExecution();
@@ -283,7 +283,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             IAggregator aggregator = opa.aggregator;
 
             uint256 opslen = ops.length;
-            iterateValidationPhase(ops, opInfos, address(aggregator), opIndex, opslen);
+            _iterateValidationPhase(ops, opInfos, address(aggregator), opIndex, opslen);
             opIndex += opslen;
         }
 
