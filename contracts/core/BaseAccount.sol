@@ -62,11 +62,12 @@ abstract contract BaseAccount is IAccount {
     function executeBatch(Call[] calldata calls) virtual external {
         _requireForExecute();
 
-        for (uint256 i = 0; i < calls.length; i++) {
+        uint256 callsLength = calls.length;
+        for (uint256 i = 0; i < callsLength; i++) {
             Call calldata call = calls[i];
             bool ok = Exec.call(call.target, call.value, call.data, gasleft());
             if (!ok) {
-                if (calls.length == 1) {
+                if (callsLength == 1) {
                     Exec.revertWithReturnData();
                 } else {
                     revert ExecuteError(i, Exec.getReturnData(0));
