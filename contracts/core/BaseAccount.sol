@@ -59,7 +59,7 @@ abstract contract BaseAccount is IAccount {
      * If the batch reverts, and it contains more than a single call, then wrap the revert with ExecuteError,
      *  to mark the failing call index.
      */
-    function executeBatch(Call[] calldata calls) external {
+    function executeBatch(Call[] calldata calls) virtual external {
         _requireForExecute();
 
         for (uint256 i = 0; i < calls.length; i++) {
