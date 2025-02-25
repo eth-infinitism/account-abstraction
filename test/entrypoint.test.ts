@@ -1109,7 +1109,7 @@ describe('EntryPoint', function () {
           aggregator: address1,
           signature: sig
         }], beneficiaryAddress).catch(e => e.reason))
-          .to.match(/invalid aggregator/)
+          .to.match(/SignatureValidationFailed/)
         // (different error in coverage mode (because of different solidity settings)
       })
 
@@ -1263,7 +1263,7 @@ describe('EntryPoint', function () {
           callGasLimit: 1e6
         }, account2Owner, entryPoint)
         op.paymasterAndData = AddressZero.padEnd(200, '0')
-        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('AA93 invalid paymaster')
+        await expect(entryPoint.handleOps([op], beneficiaryAddress)).to.revertedWith('AA98 invalid paymaster')
       })
       it('should fail with nonexistent paymaster', async () => {
         const pm = createAddress()

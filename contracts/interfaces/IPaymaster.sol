@@ -49,7 +49,7 @@ interface IPaymaster {
      *                        opReverted  - User op reverted. The paymaster still has to pay for gas.
      *                        postOpReverted - never passed in a call to postOp().
      * @param context       - The context value returned by validatePaymasterUserOp
-     * @param actualGasCost - Actual gas used so far (without this postOp call).
+     * @param actualGasCost - Actual cost of gas used so far (without this postOp call).
      * @param actualUserOpFeePerGas - the gas price this UserOp pays. This value is based on the UserOp's maxFeePerGas
      *                        and maxPriorityFee (and basefee)
      *                        It is not the same as tx.gasprice, which is what the bundler pays.

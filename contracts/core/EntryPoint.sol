@@ -129,7 +129,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             if (innerRevertCode == INNER_OUT_OF_GAS) {
                 // handleOps was called with gas limit too low. abort entire bundle.
-                //can only be caused by bundler (leaving not enough gas for inner call)
+                // can only be caused by bundler (leaving not enough gas for inner call)
                 revert FailedOp(opIndex, "AA95 out of gas");
             } else if (innerRevertCode == INNER_REVERT_LOW_PREFUND) {
                 // innerCall reverted on prefund too low. treat entire prefund as "gas cost"
@@ -157,6 +157,14 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
+    /**
+     * Emit the UserOperationEvent for the given UserOperation.
+     *
+     * @param opInfo         - The details of the current UserOperation.
+     * @param success        - Whether the execution of the UserOperation has succeeded or not.
+     * @param actualGasCost  - The actual cost of the consumed gas charged from the sender or the paymaster.
+     * @param actualGas      - The actual amount of gas used.
+     */
     function emitUserOperationEvent(UserOpInfo memory opInfo, bool success, uint256 actualGasCost, uint256 actualGas) internal virtual {
         emit UserOperationEvent(
             opInfo.userOpHash,
@@ -169,6 +177,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         );
     }
 
+    /**
+     * Emit the UserOperationPrefundTooLow event for the given UserOperation.
+     *
+     * @param opInfo - The details of the current UserOperation.
+     */
     function emitPrefundTooLow(UserOpInfo memory opInfo) internal virtual {
         emit UserOperationPrefundTooLow(
             opInfo.userOpHash,
@@ -181,7 +194,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function handleOps(
         PackedUserOperation[] calldata ops,
         address payable beneficiary
-    ) public nonReentrant {
+    ) external nonReentrant {
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
 
@@ -227,7 +240,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             //address(1) is special marker of "signature error"
             require(
                 address(aggregator) != address(1),
-                FailedOp(totalOps + i, "AA96 invalid aggregator")
+                SignatureValidationFailed(address(aggregator))
             );
 
             if (address(aggregator) != address(0)) {
@@ -405,7 +418,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             );
             address paymaster;
             (paymaster, mUserOp.paymasterVerificationGasLimit, mUserOp.paymasterPostOpGasLimit) = UserOperationLib.unpackPaymasterStaticFields(paymasterAndData);
-            require(paymaster != address(0), "AA93 invalid paymaster");
+            require(paymaster != address(0), "AA98 invalid paymaster");
             mUserOp.paymaster = paymaster;
         }
     }
@@ -507,7 +520,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     ? 0
                     : requiredPrefund - bal;
             }
-            validationData = _callValidateUserOp(op, opInfo, missingAccountFunds, opIndex);
+            validationData = _callValidateUserOp(opIndex, op, opInfo, missingAccountFunds);
             if (paymaster == address(0)) {
                 if (!_decrementDeposit(sender, requiredPrefund)) {
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
@@ -518,22 +531,29 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     // call sender.validateUserOp()
     // handle wrong output size with FailedOp
-    function _callValidateUserOp(PackedUserOperation calldata op, UserOpInfo memory opInfo, uint256 missingAccountFunds, uint256 opIndex)
+    function _callValidateUserOp(
+        uint256 opIndex,
+        PackedUserOperation calldata op,
+        UserOpInfo memory opInfo,
+        uint256 missingAccountFunds
+    )
     internal virtual returns (uint256 validationData) {
-        uint256 saveFreePtr = getFreePtr();
-        bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
         uint256 gasLimit = opInfo.mUserOp.verificationGasLimit;
         address sender = opInfo.mUserOp.sender;
         bool success;
-        assembly ("memory-safe"){
-            success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
-            validationData := mload(0)
-            // any return data size other than 32 is considered failure
-            if iszero(eq(returndatasize(), 32)) {
-                success := 0
+        {
+            uint256 saveFreePtr = getFreePtr();
+            bytes memory callData = abi.encodeCall(IAccount.validateUserOp, (op, opInfo.userOpHash, missingAccountFunds));
+            assembly ("memory-safe"){
+                success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
+                validationData := mload(0)
+                // any return data size other than 32 is considered failure
+                if iszero(eq(returndatasize(), 32)) {
+                    success := 0
+                }
             }
+            restoreFreePtr(saveFreePtr);
         }
-        restoreFreePtr(saveFreePtr);
         if (!success) {
             if(sender.code.length == 0) {
                 revert FailedOp(opIndex, "AA20 account not deployed");
@@ -553,6 +573,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * @param op                                 - The user operation.
      * @param opInfo                             - The operation info.
      * @param requiredPreFund                    - The required prefund amount.
+     * @return context                           - The Paymaster-provided value to be passed to the 'postOp' function later
+     * @return validationData                    - The Paymaster's validationData.
      */
     function _validatePaymasterPrepayment(
         uint256 opIndex,
@@ -636,7 +658,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
         ValidationData memory data = _parseValidationData(validationData);
         // solhint-disable-next-line not-rely-on-time
-        outOfTimeRange = block.timestamp > data.validUntil || block.timestamp < data.validAfter;
+        outOfTimeRange = block.timestamp > data.validUntil || block.timestamp <= data.validAfter;
         aggregator = data.aggregator;
     }
 
@@ -644,8 +666,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * Validate account and paymaster (if defined) and
      * also make sure total validation doesn't exceed verificationGasLimit.
      * This method is called off-chain (simulateValidation()) and on-chain (from handleOps)
-     * @param opIndex - The index of this userOp into the "opInfos" array.
-     * @param userOp  - The userOp to validate.
+     * @param opIndex    - The index of this userOp into the "opInfos" array.
+     * @param userOp     - The packed calldata UserOperation structure to validate.
+     * @param outOpInfo  - The empty unpacked in-memory UserOperation structure that will be filled in here.
+     *
+     * @return validationData          - The account's validationData.
+     * @return paymasterValidationData - The paymaster's validationData.
      */
     function _validatePrepayment(
         uint256 opIndex,
@@ -680,9 +706,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             requiredPreFund
         );
 
-        if (!_validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce)) {
-            revert FailedOp(opIndex, "AA25 invalid account nonce");
-        }
+        require(
+            _validateAndUpdateNonce(mUserOp.sender, mUserOp.nonce),
+            FailedOp(opIndex, "AA25 invalid account nonce")
+        );
 
         unchecked {
             if (preGas - gasleft() > _getVerificationGasLimit(verificationGasLimit)) {
@@ -720,6 +747,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * @param opInfo    - UserOp fields and info collected during validation.
      * @param context   - The context returned in validatePaymasterUserOp.
      * @param actualGas - The gas used so far by this user operation.
+     *
+     * @return actualGasCost - the actual cost in eth this UserOperation paid for gas
      */
     function _postExecution(
         IPaymaster.PostOpMode mode,
@@ -835,15 +864,22 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
-    // safe free memory pointer.
+    /**
+     * save free memory pointer.
+     * save "free memory" pointer, so that it can be restored later using restoreFreePtr.
+     * This reduce unneeded memory expansion, and reduce memory expansion cost.
+     * NOTE: all dynamic allocations between saveFreePtr and restoreFreePtr MUST NOT be used after restoreFreePtr is called.
+     */
     function getFreePtr() internal pure returns (uint256 ptr) {
         assembly ("memory-safe") {
             ptr := mload(0x40)
         }
     }
 
-    // restore free memory pointer.
-    // no allocated memory since saveFreePtr was called is allowed to be accessed after this call.
+    /**
+     * restore free memory pointer.
+     * any allocated memory since saveFreePtr is cleared, and MUST NOT be accessed later.
+     */
     function restoreFreePtr(uint256 ptr) internal pure {
         assembly ("memory-safe") {
             mstore(0x40, ptr)
@@ -852,7 +888,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     function _getUnusedGasPenalty(uint256 gasUsed, uint256 gasLimit) internal pure returns (uint256) {
         unchecked {
-            if (gasLimit <= gasUsed || gasLimit - gasUsed <= PENALTY_GAS_THRESHOLD) {
+            if (gasLimit <= gasUsed + PENALTY_GAS_THRESHOLD) {
                 return 0;
             }
             uint256 unusedGas = gasLimit - gasUsed;
