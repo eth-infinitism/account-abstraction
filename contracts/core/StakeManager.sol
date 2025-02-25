@@ -56,20 +56,13 @@ abstract contract StakeManager is IStakeManager {
         return newAmount;
     }
 
-    /**
-     * Add to the deposit of the given account.
-     * @param account - The account to add to.
-     */
+    /// @inheritdoc IStakeManager
     function depositTo(address account) public virtual payable {
         uint256 newDeposit = _incrementDeposit(account, msg.value);
         emit Deposited(account, newDeposit);
     }
 
-    /**
-     * Add to the account's stake - amount and delay
-     * any pending unstake is first cancelled.
-     * @param unstakeDelaySec The new lock duration before the deposit can be withdrawn.
-     */
+    /// @inheritdoc IStakeManager
     function addStake(uint32 unstakeDelaySec) public payable {
         DepositInfo storage info = deposits[msg.sender];
         require(unstakeDelaySec > 0, "must specify unstake delay");
@@ -90,10 +83,7 @@ abstract contract StakeManager is IStakeManager {
         emit StakeLocked(msg.sender, stake, unstakeDelaySec);
     }
 
-    /**
-     * Attempt to unlock the stake.
-     * The value can be withdrawn (using withdrawStake) after the unstake delay.
-     */
+    /// @inheritdoc IStakeManager
     function unlockStake() external {
         DepositInfo storage info = deposits[msg.sender];
         require(info.unstakeDelaySec != 0, "not staked");
@@ -104,11 +94,7 @@ abstract contract StakeManager is IStakeManager {
         emit StakeUnlocked(msg.sender, withdrawTime);
     }
 
-    /**
-     * Withdraw from the (unlocked) stake.
-     * Must first call unlockStake and wait for the unstakeDelay to pass.
-     * @param withdrawAddress - The address to send withdrawn value.
-     */
+    /// @inheritdoc IStakeManager
     function withdrawStake(address payable withdrawAddress) external {
         DepositInfo storage info = deposits[msg.sender];
         uint256 stake = info.stake;
@@ -126,11 +112,7 @@ abstract contract StakeManager is IStakeManager {
         require(success, "failed to withdraw stake");
     }
 
-    /**
-     * Withdraw from the deposit.
-     * @param withdrawAddress - The address to send withdrawn value.
-     * @param withdrawAmount  - The amount to withdraw.
-     */
+    /// @inheritdoc IStakeManager
     function withdrawTo(
         address payable withdrawAddress,
         uint256 withdrawAmount
