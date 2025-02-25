@@ -198,17 +198,17 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * @param opInfos - an array of UserOp metadata being read and filled in during this function's execution
      * @param expectedAggregator - an address of the aggregator specified for a given UserOp if any, or address(0)
      * @param opIndexOffset - an offset for the index between 'ops' and 'opInfos' arrays, see the notice.
-     * @param opslen - a length of the 'ops' array, read once for some minor gas savings.
+     * @return opsLen - processed UserOps (length of "ops" array)
      */
     function _iterateValidationPhase(
         PackedUserOperation[] calldata ops,
         UserOpInfo[] memory opInfos,
         address expectedAggregator,
-        uint256 opIndexOffset,
-        uint256 opslen
-    ) internal {
+        uint256 opIndexOffset
+    ) internal returns(uint256 opsLen){
         unchecked {
-            for (uint256 i = 0; i < opslen; i++) {
+            opsLen = ops.length;
+            for (uint256 i = 0; i < opsLen; i++) {
                 UserOpInfo memory opInfo = opInfos[opIndexOffset + i];
                 (
                     uint256 validationData,
@@ -232,7 +232,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
         unchecked {
-            _iterateValidationPhase(ops, opInfos, address(0), 0, opslen);
+            _iterateValidationPhase(ops, opInfos, address(0), 0);
 
             uint256 collected = 0;
             emit BeforeExecution();
@@ -282,9 +282,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             PackedUserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
-            uint256 opslen = ops.length;
-            _iterateValidationPhase(ops, opInfos, address(aggregator), opIndex, opslen);
-            opIndex += opslen;
+            opIndex += _iterateValidationPhase(ops, opInfos, address(aggregator), opIndex);
         }
 
         emit BeforeExecution();
