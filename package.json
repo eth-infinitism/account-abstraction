@@ -55,7 +55,6 @@
     "@ethersproject/bytes": "^5.7.0",
     "@ethersproject/properties": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
-    "@nomiclabs/hardhat-etherscan": "^2.1.6",
     "@openzeppelin/contracts": "^5.1.0",
     "@typechain/hardhat": "^2.3.0",
     "@types/debug": "^4.1.12",
