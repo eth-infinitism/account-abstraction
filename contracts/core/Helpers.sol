@@ -36,7 +36,7 @@ struct ValidationData {
 }
 
 /**
- * Extract sigFailed, validAfter, validUntil.
+ * Extract aggregator/sigFailed, validAfter, validUntil.
  * Also convert zero validUntil to type(uint48).max.
  * @param validationData - The packed validation data.
  */
