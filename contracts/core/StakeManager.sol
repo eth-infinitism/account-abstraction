@@ -136,8 +136,9 @@ abstract contract StakeManager is IStakeManager {
         uint256 withdrawAmount
     ) external {
         DepositInfo storage info = deposits[msg.sender];
-        require(withdrawAmount <= info.deposit, "Withdraw amount too large");
-        info.deposit = info.deposit - withdrawAmount;
+        uint256 currentDeposit = info.deposit;
+        require(withdrawAmount <= currentDeposit, "Withdraw amount too large");
+        info.deposit = currentDeposit - withdrawAmount;
         emit Withdrawn(msg.sender, withdrawAddress, withdrawAmount);
         (bool success,) = withdrawAddress.call{value: withdrawAmount}("");
         require(success, "failed to withdraw");
