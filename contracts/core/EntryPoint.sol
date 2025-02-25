@@ -190,6 +190,40 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         );
     }
 
+    /**
+     * Iterate over calldata PackedUserOperation array and perform account and paymaster validation.
+     * @notice UserOpInfo is a global array of all UserOps while PackedUserOperation is grouped per aggregator.
+     *
+     * @param ops - an array of UserOps to be validated
+     * @param opInfos - an array of UserOp metadata being read and filled in during this function's execution
+     * @param expectedAggregator - an address of the aggregator specified for a given UserOp if any, or address(0)
+     * @param opIndexOffset - an offset for the index between 'ops' and 'opInfos' arrays, see the notice.
+     * @param opslen - a length of the 'ops' array, read once for some minor gas savings.
+     */
+    function iterateValidationPhase(
+        PackedUserOperation[] calldata ops,
+        UserOpInfo[] memory opInfos,
+        address expectedAggregator,
+        uint256 opIndexOffset,
+        uint256 opslen
+    ) internal {
+        unchecked {
+            for (uint256 i = 0; i < opslen; i++) {
+                UserOpInfo memory opInfo = opInfos[opIndexOffset + i];
+                (
+                    uint256 validationData,
+                    uint256 pmValidationData
+                ) = _validatePrepayment(opIndexOffset + i, ops[i], opInfo);
+                _validateAccountAndPaymasterValidationData(
+                    opIndexOffset + i,
+                    validationData,
+                    pmValidationData,
+                    expectedAggregator
+                );
+            }
+        }
+    }
+
     /// @inheritdoc IEntryPoint
     function handleOps(
         PackedUserOperation[] calldata ops,
@@ -197,21 +231,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     ) external nonReentrant {
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
-
         unchecked {
-            for (uint256 i = 0; i < opslen; i++) {
-                UserOpInfo memory opInfo = opInfos[i];
-                (
-                    uint256 validationData,
-                    uint256 pmValidationData
-                ) = _validatePrepayment(i, ops[i], opInfo);
-                _validateAccountAndPaymasterValidationData(
-                    i,
-                    validationData,
-                    pmValidationData,
-                    address(0)
-                );
-            }
+            iterateValidationPhase(ops, opInfos, address(0), 0, opslen);
 
             uint256 collected = 0;
             emit BeforeExecution();
@@ -262,20 +283,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             IAggregator aggregator = opa.aggregator;
 
             uint256 opslen = ops.length;
-            for (uint256 i = 0; i < opslen; i++) {
-                UserOpInfo memory opInfo = opInfos[opIndex];
-                (
-                    uint256 validationData,
-                    uint256 paymasterValidationData
-                ) = _validatePrepayment(opIndex, ops[i], opInfo);
-                _validateAccountAndPaymasterValidationData(
-                    i,
-                    validationData,
-                    paymasterValidationData,
-                    address(aggregator)
-                );
-                opIndex++;
-            }
+            iterateValidationPhase(ops, opInfos, address(aggregator), opIndex, opslen);
+            opIndex += opslen;
         }
 
         emit BeforeExecution();
