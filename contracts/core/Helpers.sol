@@ -77,7 +77,7 @@ function _packValidationData(
     uint48 validAfter
 ) pure returns (uint256) {
     return
-        (sigFailed ? 1 : 0) |
+        (sigFailed ?  SIG_VALIDATION_FAILED : SIG_VALIDATION_SUCCESS) |
         (uint256(validUntil) << 160) |
         (uint256(validAfter) << (160 + 48));
 }

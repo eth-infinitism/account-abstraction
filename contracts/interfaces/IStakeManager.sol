@@ -82,9 +82,9 @@ interface IStakeManager {
     /**
      * Add to the account's stake - amount and delay
      * any pending unstake is first cancelled.
-     * @param _unstakeDelaySec - The new lock duration before the deposit can be withdrawn.
+     * @param unstakeDelaySec - The new lock duration before the deposit can be withdrawn.
      */
-    function addStake(uint32 _unstakeDelaySec) external payable;
+    function addStake(uint32 unstakeDelaySec) external payable;
 
     /**
      * Attempt to unlock the stake.
