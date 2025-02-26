@@ -52,7 +52,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     uint256 private constant REVERT_REASON_MAX_LEN = 2048;
     // Penalty charged for either unused execution gas or postOp gas
-    uint256 private constant PENALTY_PERCENT = 10;
+    uint256 private constant UNUSED_GAS_PENALTY_PERCENT = 10;
     // Threshold below which no penalty would be charged
     uint256 private constant PENALTY_GAS_THRESHOLD = 40000;
 
@@ -898,7 +898,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                 return 0;
             }
             uint256 unusedGas = gasLimit - gasUsed;
-            uint256 unusedGasPenalty = (unusedGas * PENALTY_PERCENT) / 100;
+            uint256 unusedGasPenalty = (unusedGas * UNUSED_GAS_PENALTY_PERCENT) / 100;
             return unusedGasPenalty;
         }
     }
