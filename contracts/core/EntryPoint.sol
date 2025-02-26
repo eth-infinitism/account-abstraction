@@ -190,6 +190,40 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         );
     }
 
+    /**
+     * Iterate over calldata PackedUserOperation array and perform account and paymaster validation.
+     * @notice UserOpInfo is a global array of all UserOps while PackedUserOperation is grouped per aggregator.
+     *
+     * @param ops - an array of UserOps to be validated
+     * @param opInfos - an array of UserOp metadata being read and filled in during this function's execution
+     * @param expectedAggregator - an address of the aggregator specified for a given UserOp if any, or address(0)
+     * @param opIndexOffset - an offset for the index between 'ops' and 'opInfos' arrays, see the notice.
+     * @return opsLen - processed UserOps (length of "ops" array)
+     */
+    function _iterateValidationPhase(
+        PackedUserOperation[] calldata ops,
+        UserOpInfo[] memory opInfos,
+        address expectedAggregator,
+        uint256 opIndexOffset
+    ) internal returns(uint256 opsLen){
+        unchecked {
+            opsLen = ops.length;
+            for (uint256 i = 0; i < opsLen; i++) {
+                UserOpInfo memory opInfo = opInfos[opIndexOffset + i];
+                (
+                    uint256 validationData,
+                    uint256 pmValidationData
+                ) = _validatePrepayment(opIndexOffset + i, ops[i], opInfo);
+                _validateAccountAndPaymasterValidationData(
+                    opIndexOffset + i,
+                    validationData,
+                    pmValidationData,
+                    expectedAggregator
+                );
+            }
+        }
+    }
+
     /// @inheritdoc IEntryPoint
     function handleOps(
         PackedUserOperation[] calldata ops,
@@ -197,21 +231,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     ) external nonReentrant {
         uint256 opslen = ops.length;
         UserOpInfo[] memory opInfos = new UserOpInfo[](opslen);
-
         unchecked {
-            for (uint256 i = 0; i < opslen; i++) {
-                UserOpInfo memory opInfo = opInfos[i];
-                (
-                    uint256 validationData,
-                    uint256 pmValidationData
-                ) = _validatePrepayment(i, ops[i], opInfo);
-                _validateAccountAndPaymasterValidationData(
-                    i,
-                    validationData,
-                    pmValidationData,
-                    address(0)
-                );
-            }
+            _iterateValidationPhase(ops, opInfos, address(0), 0);
 
             uint256 collected = 0;
             emit BeforeExecution();
@@ -261,21 +282,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             PackedUserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
-            uint256 opslen = ops.length;
-            for (uint256 i = 0; i < opslen; i++) {
-                UserOpInfo memory opInfo = opInfos[opIndex];
-                (
-                    uint256 validationData,
-                    uint256 paymasterValidationData
-                ) = _validatePrepayment(opIndex, ops[i], opInfo);
-                _validateAccountAndPaymasterValidationData(
-                    i,
-                    validationData,
-                    paymasterValidationData,
-                    address(aggregator)
-                );
-                opIndex++;
-            }
+            opIndex += _iterateValidationPhase(ops, opInfos, address(aggregator), opIndex);
         }
 
         emit BeforeExecution();
@@ -522,12 +529,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             validationData = _callValidateUserOp(opIndex, op, opInfo, missingAccountFunds);
             if (paymaster == address(0)) {
-                DepositInfo storage senderInfo = deposits[sender];
-                uint256 deposit = senderInfo.deposit;
-                if (requiredPrefund > deposit) {
+                if (!_tryDecrementDeposit(sender, requiredPrefund)) {
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
                 }
-                senderInfo.deposit = deposit - requiredPrefund;
             }
         }
     }
@@ -589,12 +593,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address paymaster = mUserOp.paymaster;
-            DepositInfo storage paymasterInfo = deposits[paymaster];
-            uint256 deposit = paymasterInfo.deposit;
-            if (deposit < requiredPreFund) {
+            if (!_tryDecrementDeposit(paymaster, requiredPreFund)) {
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
-            paymasterInfo.deposit = deposit - requiredPreFund;
             uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
             try
                 IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
