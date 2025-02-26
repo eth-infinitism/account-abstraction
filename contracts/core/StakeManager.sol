@@ -59,7 +59,13 @@ abstract contract StakeManager is IStakeManager {
         }
     }
 
-    function _decrementDeposit(address account, uint256 amount) internal returns(bool) {
+    /**
+     * Try to dncrement the account's deposit.
+     * @param account - The account to increment.
+     * @param amount  - The amount to increment by.
+     * @return true if the decrement succeeded (that is, previous balance was at least that amount)
+     */
+    function _tryDecrementDeposit(address account, uint256 amount) internal returns(bool) {
         unchecked {
             DepositInfo storage info = deposits[account];
             if (info.deposit < amount) {

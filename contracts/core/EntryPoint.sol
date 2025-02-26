@@ -522,7 +522,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             validationData = _callValidateUserOp(opIndex, op, opInfo, missingAccountFunds);
             if (paymaster == address(0)) {
-                if (!_decrementDeposit(sender, requiredPrefund)) {
+                if (!_tryDecrementDeposit(sender, requiredPrefund)) {
                     revert FailedOp(opIndex, "AA21 didn't pay prefund");
                 }
             }
@@ -586,7 +586,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             uint256 preGas = gasleft();
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
             address paymaster = mUserOp.paymaster;
-            if (!_decrementDeposit(paymaster, requiredPreFund)) {
+            if (!_tryDecrementDeposit(paymaster, requiredPreFund)) {
                 revert FailedOp(opIndex, "AA31 paymaster deposit too low");
             }
             uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
