@@ -13,7 +13,7 @@ import "../interfaces/IStakeManager.sol";
  */
 abstract contract StakeManager is IStakeManager {
     /// maps paymaster to their deposits and stakes
-    mapping(address => DepositInfo) public deposits;
+    mapping(address => DepositInfo) private deposits;
 
     /// @inheritdoc IStakeManager
     function getDepositInfo(
@@ -43,6 +43,7 @@ abstract contract StakeManager is IStakeManager {
         depositTo(msg.sender);
     }
 
+
     /**
      * Increments an account's deposit.
      * @param account - The account to increment.
@@ -50,10 +51,30 @@ abstract contract StakeManager is IStakeManager {
      * @return the updated deposit of this account
      */
     function _incrementDeposit(address account, uint256 amount) internal returns (uint256) {
-        DepositInfo storage info = deposits[account];
-        uint256 newAmount = info.deposit + amount;
-        info.deposit = newAmount;
-        return newAmount;
+        unchecked {
+            DepositInfo storage info = deposits[account];
+            uint256 newAmount = info.deposit + amount;
+            info.deposit = newAmount;
+            return newAmount;
+        }
+    }
+
+    /**
+     * Try to dncrement the account's deposit.
+     * @param account - The account to increment.
+     * @param amount  - The amount to increment by.
+     * @return true if the decrement succeeded (that is, previous balance was at least that amount)
+     */
+    function _tryDecrementDeposit(address account, uint256 amount) internal returns(bool) {
+        unchecked {
+            DepositInfo storage info = deposits[account];
+            uint256 currentDeposit = info.deposit;
+            if (currentDeposit < amount) {
+                return false;
+            }
+            info.deposit = currentDeposit - amount;
+            return true;
+        }
     }
 
     /**
