@@ -68,10 +68,11 @@ abstract contract StakeManager is IStakeManager {
     function _tryDecrementDeposit(address account, uint256 amount) internal returns(bool) {
         unchecked {
             DepositInfo storage info = deposits[account];
-            if (info.deposit < amount) {
+            uint256 currentDeposit = info.deposit;
+            if (currentDeposit < amount) {
                 return false;
             }
-            info.deposit -= amount;
+            info.deposit = currentDeposit - amount;
             return true;
         }
     }
