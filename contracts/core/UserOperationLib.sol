@@ -82,7 +82,7 @@ library UserOperationLib {
     function unpackUints(
         bytes32 packed
     ) internal pure returns (uint256 high128, uint256 low128) {
-        return (uint128(bytes16(packed)), uint128(uint256(packed)));
+        return (unpackHigh128(packed), unpackLow128(packed));
     }
 
     //unpack just the high 128-bits from a packed value
