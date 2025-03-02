@@ -42,7 +42,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         return _senderCreator;
     }
 
-    //compensate for innerHandleOps' emit message and deposit refund.
     // allow some slack for future gas price changes.
     uint256 private constant INNER_GAS_OVERHEAD = 10000;
 
