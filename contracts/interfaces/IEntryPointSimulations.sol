@@ -16,6 +16,15 @@ interface IEntryPointSimulations is IEntryPoint {
     }
 
     /**
+     * Returned aggregated signature info:
+     * The aggregator returned by the account, and its current stake.
+     */
+    struct AggregatorStakeInfo {
+        address aggregator;
+        StakeInfo stakeInfo;
+    }
+
+    /**
      * Successful result from simulateValidation.
      * If the account returns a signature aggregator the "aggregatorInfo" struct is filled in as well.
      * @param returnInfo     Gas and time-range returned values
