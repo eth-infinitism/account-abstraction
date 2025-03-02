@@ -74,7 +74,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
             outOpInfo.prefund,
             validationData,
             paymasterValidationData,
-            getMemoryBytesFromOffset(outOpInfo.contextOffset)
+            _getMemoryBytesFromOffset(outOpInfo.contextOffset)
         );
 
         AggregatorStakeInfo memory aggregatorInfo; // = NOT_AGGREGATED;
