@@ -54,10 +54,21 @@ contract SenderCreator is ISenderCreator {
     // caller (EntryPoint) already verified it is an EIP-7702 account.
     function initEip7702Sender(
         address sender,
-        bytes calldata initCallData
+        bytes memory initCallData
     ) external {
         require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
-        bool success = Exec.call(sender, 0, initCallData, gasleft());
+        bool success;
+        assembly ("memory-safe") {
+            success := call(
+                gas(),
+                sender,
+                0,
+                add(initCallData, 0x20),
+                mload(initCallData),
+                0,
+                0
+            )
+        }
         if (!success) {
             bytes memory result = Exec.getReturnData(REVERT_REASON_MAX_LEN);
             revert IEntryPoint.FailedOpWithRevert(0, "AA13 EIP7702 sender init failed", result);
