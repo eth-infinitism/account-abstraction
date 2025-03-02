@@ -110,7 +110,7 @@ abstract contract BaseAccount is IAccount {
      * @return validationData - Signature and time-range of this operation.
      *                          <20-byte> aggregatorOrSigFail - 0 for valid signature, 1 to mark signature failure,
      *                                    otherwise, an address of an aggregator contract.
-     *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
+     *                          <6-byte> validUntil - Last timestamp this operation is valid at, or 0 for "indefinitely"
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          If the account doesn't use time-range, it is enough to return
      *                          SIG_VALIDATION_FAILED value (1) for signature failure.

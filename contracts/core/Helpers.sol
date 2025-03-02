@@ -27,7 +27,7 @@ uint256 constant SIG_VALIDATION_SUCCESS = 0;
  *                      otherwise - This is an address of a signature aggregator that must
  *                                  be used to validate the signature.
  * @param validAfter  - This UserOp is valid only after this timestamp.
- * @param validUntil - This UserOp is valid only up to this timestamp.
+ * @param validUntil - Last timestamp this operation is valid at, or 0 for "indefinitely".
  */
 struct ValidationData {
     address aggregator;
@@ -68,7 +68,7 @@ function _packValidationData(
 /**
  * Helper to pack the return value for validateUserOp, when not using an aggregator.
  * @param sigFailed  - True for signature failure, false for success.
- * @param validUntil - Last timestamp this UserOperation is valid (or zero for infinite).
+ * @param validUntil - Last timestamp this operation is valid at, or 0 for "indefinitely".
  * @param validAfter - First timestamp this UserOperation is valid.
  */
 function _packValidationData(

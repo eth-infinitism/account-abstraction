@@ -31,7 +31,7 @@ interface IPaymaster {
      *                          value of validateUserOperation.
      *                          <20-byte> sigAuthorizer - 0 for valid signature, 1 to mark signature failure,
      *                                                    other values are invalid for paymaster.
-     *                          <6-byte> validUntil - last timestamp this operation is valid. 0 for "indefinite"
+     *                          <6-byte> validUntil - Last timestamp this operation is valid at, or 0 for "indefinitely"
      *                          <6-byte> validAfter - first timestamp this operation is valid
      *                          Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
