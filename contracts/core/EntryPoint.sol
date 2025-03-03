@@ -462,7 +462,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             address sender = opInfo.mUserOp.sender;
             if ( Eip7702Support._isEip7702InitCode(initCode) ) {
                 if (initCode.length>20 ) {
-                    // Already validated it is an EIP-7702 delegate (and hence, already has code)
+                    // Already validated it is an EIP-7702 delegate (and hence, already has code) - see getUserOpHash()
                     // Note: Can be called multiple times as long as an appropriate initCode is supplied
                     senderCreator().initEip7702Sender{
                             gas: opInfo.mUserOp.verificationGasLimit

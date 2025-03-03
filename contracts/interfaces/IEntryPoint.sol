@@ -169,7 +169,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
 
     /**
      * Generate a request Id - unique identifier for this request.
-     * The request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid.
+     * The request ID is a hash over the content of the userOp (except the signature), entrypoint address, chainId and (optionally) 7702 delegate address
      * @param userOp - The user operation to generate the request ID for.
      * @return hash the hash of this UserOperation
      */
