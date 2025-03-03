@@ -248,7 +248,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function handleAggregatedOps(
         UserOpsPerAggregator[] calldata opsPerAggregator,
         address payable beneficiary
-    ) public nonReentrant {
+    ) external nonReentrant {
 
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
@@ -385,7 +385,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
-    function getPackedUserOpTypeHash() public pure returns (bytes32) {
+    function getPackedUserOpTypeHash() external pure returns (bytes32) {
         return UserOperationLib.PACKED_USEROP_TYPEHASH;
     }
 
@@ -489,7 +489,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     }
 
     /// @inheritdoc IEntryPoint
-    function getSenderAddress(bytes calldata initCode) public {
+    function getSenderAddress(bytes calldata initCode) external {
         address sender = senderCreator().createSender(initCode);
         revert SenderAddressResult(sender);
     }

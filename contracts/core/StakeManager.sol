@@ -18,7 +18,7 @@ abstract contract StakeManager is IStakeManager {
     /// @inheritdoc IStakeManager
     function getDepositInfo(
         address account
-    ) public view returns (DepositInfo memory info) {
+    ) external view returns (DepositInfo memory info) {
         return deposits[account];
     }
 
@@ -84,7 +84,7 @@ abstract contract StakeManager is IStakeManager {
     }
 
     /// @inheritdoc IStakeManager
-    function addStake(uint32 unstakeDelaySec) public payable {
+    function addStake(uint32 unstakeDelaySec) external payable {
         DepositInfo storage info = deposits[msg.sender];
         require(unstakeDelaySec > 0, "must specify unstake delay");
         require(

@@ -23,7 +23,7 @@ abstract contract NonceManager is INonceManager {
     // (mainly so that during construction nonce can be made non-zero,
     // to "absorb" the gas cost of first nonce increment to 1st transaction (construction),
     // not to 2nd transaction)
-    function incrementNonce(uint192 key) public override {
+    function incrementNonce(uint192 key) external override {
         nonceSequenceNumber[msg.sender][key]++;
     }
 
