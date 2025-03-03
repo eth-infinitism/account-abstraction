@@ -92,7 +92,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     );
 
     /**
-     * An event emitted by handleOps(), before starting the execution loop.
+     * An event emitted by handleOps() and handleAggregatedOps(), before starting the execution loop.
      * Any event emitted before this event, is part of the validation.
      */
     event BeforeExecution();
@@ -104,8 +104,8 @@ interface IEntryPoint is IStakeManager, INonceManager {
     event SignatureAggregatorChanged(address indexed aggregator);
 
     /**
-     * A custom revert error of handleOps, to identify the offending op.
-     * Should be caught in off-chain handleOps simulation and not happen on-chain.
+     * A custom revert error of handleOps andhandleAggregatedOps, to identify the offending op.
+     * Should be caught in off-chain handleOps/handleAggregatedOps simulation and not happen on-chain.
      * Useful for mitigating DoS attempts against batchers or for troubleshooting of factory/account/paymaster reverts.
      * NOTE: If simulateValidation passes successfully, there should be no reason for handleOps to fail on it.
      * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
@@ -116,7 +116,7 @@ interface IEntryPoint is IStakeManager, INonceManager {
     error FailedOp(uint256 opIndex, string reason);
 
     /**
-     * A custom revert error of handleOps, to report a revert by account or paymaster.
+     * A custom revert error of handleOps and handleAggregatedOps, to report a revert by account or paymaster.
      * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
      * @param reason  - Revert reason. see FailedOp(uint256,string), above
      * @param inner   - data from inner cought revert reason
