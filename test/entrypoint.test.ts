@@ -181,7 +181,7 @@ describe('EntryPoint', function () {
             withdrawTime: withdrawTime1
           })
         })
-        it('should fail to withdraw before unlock timeout', async () => {
+        it('should fail to withdraw before the unlock timeout', async () => {
           await expect(entryPoint.withdrawStake(AddressZero)).to.revertedWith('Stake withdrawal is not due')
         })
         it('should fail to unlock again', async () => {
