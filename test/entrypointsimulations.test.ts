@@ -231,7 +231,7 @@ describe('EntryPointSimulations', function () {
       await simulateValidation(op1, entryPoint.address)
     })
 
-    it('should not call initCode from entrypoint', async () => {
+    it('should not call initCode from the entrypoint', async () => {
       // a possible attack: call an account's execFromEntryPoint through initCode. This might lead to stolen funds.
       const { proxy: account } = await createAccount(ethersSigner, await accountOwner.getAddress(), entryPoint.address)
       const sender = createAddress()
@@ -312,13 +312,13 @@ describe('EntryPointSimulations', function () {
         }
       })
 
-      it('should revert with AA2x if verificationGasLimit is low', async function () {
+      it('should revert with AA2x if the verificationGasLimit is low', async function () {
         expect(await simulateValidation(packUserOp(await userOpWithGas(vgl - 1, pmVgl)), entryPoint.address)
           .catch(decodeRevertReason))
           .to.match(/AA26/)
       })
       if (withPaymaster === 'with') {
-        it('should revert with AA3x if paymasterVerificationGasLimit is low', async function () {
+        it('should revert with AA3x if the paymasterVerificationGasLimit is low', async function () {
           expect(await simulateValidation(packUserOp(await userOpWithGas(vgl, pmVgl - 1)), entryPoint.address)
             .catch(decodeRevertReason))
             .to.match(/AA36/)
