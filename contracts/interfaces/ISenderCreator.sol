@@ -9,6 +9,7 @@ interface ISenderCreator {
      */
     function createSender(bytes calldata initCode) external returns (address sender);
 
-    // call initCode to initialize an EIP-7702 account
+    // Call initCode to initialize an EIP-7702 account
+    // Note: Can be called multiple times as long as an appropriate initCode is supplied
     function initEip7702Sender(address sender, bytes calldata initCode) external;
 }
