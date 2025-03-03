@@ -794,6 +794,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                         }
                     }
                     // Calculating a penalty for unused postOp gas
+                    // note that if postOp is reverted, the maximum penalty (10% of postOpGasLimit) is charged.
                     uint256 postOpGasUsed = postOpPreGas - gasleft();
                     postOpUnusedGasPenalty = _getUnusedGasPenalty(postOpGasUsed, mUserOp.paymasterPostOpGasLimit);
                 }
