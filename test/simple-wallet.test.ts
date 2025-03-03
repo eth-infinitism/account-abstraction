@@ -93,7 +93,7 @@ describe('SimpleAccount', function () {
     let expectedPay: number
 
     const actualGasPrice = 1e9
-    // for testing directly validateUserOp, we initialize the account with EOA as entryPoint.
+    // for testing directly validateUserOp, we initialize the account with an EOA as the entryPoint.
     let entryPointEoa: string
 
     before(async () => {
