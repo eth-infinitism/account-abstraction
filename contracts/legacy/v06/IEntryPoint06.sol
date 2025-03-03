@@ -107,7 +107,7 @@ interface IEntryPoint is IStakeManager06, INonceManager06 {
      */
     error ExecutionResult(uint256 preOpGas, uint256 paid, uint48 validAfter, uint48 validUntil, bool targetSuccess, bytes targetResult);
 
-    //UserOps handled, per aggregator
+    // UserOps handled, per aggregator
     struct UserOpsPerAggregator {
         UserOperation06[] userOps;
 

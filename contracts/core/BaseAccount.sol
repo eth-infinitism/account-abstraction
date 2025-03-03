@@ -155,7 +155,7 @@ abstract contract BaseAccount is IAccount {
                     value: missingAccountFunds
                 }("");
             (success);
-            //ignore failure (its EntryPoint's job to verify, not account.)
+            // Ignore failure (its EntryPoint's job to verify, not account.)
         }
     }
 }

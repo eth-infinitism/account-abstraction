@@ -22,7 +22,7 @@ library UserOperationLib {
         PackedUserOperation calldata userOp
     ) internal pure returns (address) {
         address data;
-        //read sender from userOp, which is first userOp member (saves 800 gas...)
+        // Read sender from userOp, which is first userOp member (saves 800 gas...)
         assembly {
             data := calldataload(userOp)
         }
@@ -81,12 +81,12 @@ library UserOperationLib {
         return (unpackHigh128(packed), unpackLow128(packed));
     }
 
-    //unpack just the high 128-bits from a packed value
+    // Unpack just the high 128-bits from a packed value
     function unpackHigh128(bytes32 packed) internal pure returns (uint256) {
         return uint256(packed) >> 128;
     }
 
-    // unpack just the low 128-bits from a packed value
+    // Unpack just the low 128-bits from a packed value
     function unpackLow128(bytes32 packed) internal pure returns (uint256) {
         return uint128(uint256(packed));
     }

@@ -15,7 +15,7 @@ library Eip7702Support {
 
     using UserOperationLib for PackedUserOperation;
 
-    //get alternate InitCodeHash (just for UserOp hash) when using EIP-7702
+    // Get alternate InitCodeHash (just for UserOp hash) when using EIP-7702
     function _getEip7702InitCodeHashOverride(PackedUserOperation calldata userOp) internal view returns (bytes32) {
         bytes calldata initCode = userOp.initCode;
         if (!_isEip7702InitCode(initCode)) {
@@ -28,7 +28,7 @@ library Eip7702Support {
             return keccak256(abi.encodePacked(delegate, initCode[20 :]));
     }
 
-    // check if this initCode is EIP-7702: starts with INITCODE_EIP7702_MARKER.
+    // Check if this initCode is EIP-7702: starts with INITCODE_EIP7702_MARKER.
     function _isEip7702InitCode(bytes calldata initCode) internal pure returns (bool) {
 
         if (initCode.length < 2) {

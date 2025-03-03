@@ -257,7 +257,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             PackedUserOperation[] calldata ops = opa.userOps;
             IAggregator aggregator = opa.aggregator;
 
-            //address(1) is special marker of "signature error"
+            // address(1) is special marker of "signature error"
             require(
                 address(aggregator) != address(1),
                 SignatureValidationFailed(address(aggregator))
@@ -462,7 +462,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             address sender = opInfo.mUserOp.sender;
             if ( Eip7702Support._isEip7702InitCode(initCode) ) {
                 if (initCode.length>20 ) {
-                    //already validated it is an EIP-7702 delegate (and hence, already has code)
+                    // Already validated it is an EIP-7702 delegate (and hence, already has code)
                     senderCreator().initEip7702Sender(sender, initCode[20:]);
                 }
                 return;

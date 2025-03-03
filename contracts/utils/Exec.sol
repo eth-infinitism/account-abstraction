@@ -64,7 +64,7 @@ library Exec {
         }
     }
 
-    //propagate revert data from last call
+    // Propagate revert data from last call
     function revertWithReturnData() internal pure {
         revertWithData(getReturnData(0));
     }

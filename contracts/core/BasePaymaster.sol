@@ -25,7 +25,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable2Step {
         entryPoint = _entryPoint;
     }
 
-    //sanity check: make sure this EntryPoint was compiled against the same
+    // Sanity check: make sure this EntryPoint was compiled against the same
     // IEntryPoint of this paymaster
     function _validateEntryPointInterface(IEntryPoint _entryPoint) internal virtual {
         require(IERC165(address(_entryPoint)).supportsInterface(type(IEntryPoint).interfaceId), "IEntryPoint interface mismatch");
