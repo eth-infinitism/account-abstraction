@@ -190,12 +190,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         }
     }
 
-    //slightly stricter gas limit than the real EntryPoint
-    function _getVerificationGasLimit(uint256 verificationGasLimit) internal pure virtual override returns (uint256) {
-        return verificationGasLimit - 500;
-    }
-
-
     //copied from EIP712.sol
     bytes32 private constant TYPE_HASH =
     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");

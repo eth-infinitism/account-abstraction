@@ -609,7 +609,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             } catch {
                 revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
-            if (preGas - gasleft() > _getVerificationGasLimit(pmVerificationGasLimit)) {
+            if (preGas - gasleft() > pmVerificationGasLimit) {
                 revert FailedOp(opIndex, "AA36 over paymasterVerificationGasLimit");
             }
         }
@@ -719,7 +719,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         );
 
         unchecked {
-            if (preGas - gasleft() > _getVerificationGasLimit(verificationGasLimit)) {
+            if (preGas - gasleft() > verificationGasLimit) {
                 revert FailedOp(opIndex, "AA26 over verificationGasLimit");
             }
         }
@@ -738,12 +738,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             outOpInfo.contextOffset = getOffsetOfMemoryBytes(context);
             outOpInfo.preOpGas = preGas - gasleft() + userOp.preVerificationGas;
         }
-    }
-
-    // return verification gas limit.
-    // This method is overridden in EntryPointSimulations, for slightly stricter gas limits.
-    function _getVerificationGasLimit(uint256 verificationGasLimit) internal pure virtual returns (uint256) {
-        return verificationGasLimit;
     }
 
     /**
