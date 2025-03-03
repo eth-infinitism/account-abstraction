@@ -118,7 +118,7 @@ let sending = false
 // after that much time with no new TX, send whatever you can.
 const IDLE_TIME = 5000
 
-// when reaching this theshold, don't wait anymore and send a bundle
+// when reaching this threshold, don't wait anymore and send a bundle
 const BUNDLE_SIZE_IMMEDIATE = 3
 
 async function sendQueuedUserOps (queueSender: QueueSendUserOp, entryPoint: EntryPoint): Promise<void> {
