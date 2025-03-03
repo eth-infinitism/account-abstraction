@@ -5,7 +5,7 @@ pragma solidity >=0.7.5;
  * User Operation struct
  * @param sender                - The sender account of this request.
  * @param nonce                 - Unique value the sender uses to verify it is not a replay.
- * @param initCode              - If set, the account contract will be created by this constructor/
+ * @param initCode              - If set, the account contract will be created by this constructor
  * @param callData              - The method call to execute on this account.
  * @param accountGasLimits      - Packed gas limits for validateUserOp and gas limit passed to the callData method call.
  * @param preVerificationGas    - Gas not calculated by the handleOps method, but added to the gas paid.
