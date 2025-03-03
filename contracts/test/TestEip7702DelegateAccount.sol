@@ -1,5 +1,5 @@
 pragma solidity ^0.8.23;
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 
 import  "../accounts/Simple7702Account.sol";
 
