@@ -19,7 +19,7 @@ import {
   fund,
   getAccountAddress,
   getAccountInitCode,
-  getBalance, deployEntryPoint, decodeRevertReason, findSimulationUserOpWithMin, findUserOpWithMin
+  getBalance, deployEntryPoint, decodeRevertReason, findSimulationUserOpWithMin
 } from './testutils'
 
 import { fillAndSign, fillSignAndPack, packUserOp, simulateHandleOp, simulateValidation } from './UserOp'
