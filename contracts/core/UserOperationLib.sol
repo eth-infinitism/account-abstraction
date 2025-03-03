@@ -39,10 +39,6 @@ library UserOperationLib {
     ) internal view returns (uint256) {
         unchecked {
             (uint256 maxPriorityFeePerGas, uint256 maxFeePerGas) = unpackUints(userOp.gasFees);
-            if (maxFeePerGas == maxPriorityFeePerGas) {
-                //legacy mode (for networks that don't support basefee opcode)
-                return maxFeePerGas;
-            }
             return min(maxFeePerGas, maxPriorityFeePerGas + block.basefee);
         }
     }

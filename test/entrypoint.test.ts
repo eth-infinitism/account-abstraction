@@ -45,7 +45,6 @@ import { PackedUserOperation, UserOperation } from './UserOperation'
 import { PopulatedTransaction } from 'ethers/lib/ethers'
 import { ethers } from 'hardhat'
 import { arrayify, defaultAbiCoder, hexZeroPad, parseEther } from 'ethers/lib/utils'
-import { debugTransaction } from './debugTx'
 import { BytesLike } from '@ethersproject/bytes'
 import { toChecksumAddress } from 'ethereumjs-util'
 import { getERC165InterfaceID } from '../src/Utils'
@@ -784,28 +783,6 @@ describe('EntryPoint', function () {
 
         console.log(expectedGasPenalty, actualGasPenalty)
         expect(actualGasPenalty).to.be.closeTo(expectedGasPenalty, expectedGasPenalty * 0.01)
-      })
-
-      it('legacy mode (maxPriorityFee==maxFeePerGas) should not use "basefee" opcode', async function () {
-        const op = await fillSignAndPack({
-          sender: simpleAccount.address,
-          callData: accountExecFromEntryPoint.data,
-          maxPriorityFeePerGas: 10e9,
-          maxFeePerGas: 10e9,
-          verificationGasLimit: 1e6,
-          callGasLimit: 1e6
-        }, accountOwner, entryPoint)
-        const beneficiaryAddress = createAddress()
-
-        // (gasLimit, to prevent estimateGas to fail on missing maxFeePerGas, see above..)
-        const rcpt = await entryPoint.handleOps([op], beneficiaryAddress, {
-          maxFeePerGas: 1e9,
-          gasLimit: 1e7
-        }).then(async t => await t.wait())
-
-        const ops = await debugTransaction(rcpt.transactionHash).then(tx => tx.structLogs.map(op => op.op))
-        expect(ops).to.include('GAS')
-        expect(ops).to.not.include('BASEFEE')
       })
 
       it('if account has a deposit, it should use it to pay', async function () {
