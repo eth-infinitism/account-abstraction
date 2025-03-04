@@ -19,7 +19,7 @@ abstract contract NonceManager is INonceManager {
         return nonceSequenceNumber[sender][key] | (uint256(key) << 64);
     }
 
-    // allow an account to manually increment its own nonce.
+    /// @inheritdoc INonceManager
     function incrementNonce(uint192 key) external override {
         nonceSequenceNumber[msg.sender][key]++;
     }
