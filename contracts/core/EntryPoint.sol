@@ -250,6 +250,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         address payable beneficiary
     ) external nonReentrant {
 
+        unchecked {
         uint256 opasLen = opsPerAggregator.length;
         uint256 totalOps = 0;
         for (uint256 i = 0; i < opasLen; i++) {
@@ -302,6 +303,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         emit SignatureAggregatorChanged(address(0));
 
         _compensate(beneficiary, collected);
+        }
     }
 
     /**
