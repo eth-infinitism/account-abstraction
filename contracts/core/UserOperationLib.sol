@@ -23,7 +23,7 @@ library UserOperationLib {
     ) internal pure returns (address) {
         address data;
         // Read sender from userOp, which is first userOp member (saves 800 gas...)
-        assembly {
+        assembly ("memory-safe") {
             data := calldataload(userOp)
         }
         return address(uint160(data));

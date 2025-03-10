@@ -98,7 +98,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             bytes calldata callData = userOp.callData;
             bytes memory innerCall;
             bytes4 methodSig;
-            assembly {
+            assembly ("memory-safe") {
                 let len := callData.length
                 if gt(len, 3) {
                     methodSig := calldataload(callData.offset)
@@ -849,7 +849,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function _getOffsetOfMemoryBytes(
         bytes memory data
     ) internal pure returns (uint256 offset) {
-        assembly {
+        assembly ("memory-safe") {
             offset := data
         }
     }
