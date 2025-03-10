@@ -1,4 +1,4 @@
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 // SPDX-License-Identifier: GPL-3.0
 
 import  "../accounts/Simple7702Account.sol";

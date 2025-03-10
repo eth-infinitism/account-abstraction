@@ -1,4 +1,4 @@
-pragma solidity ^0.8;
+pragma solidity ^0.8.28;
 // SPDX-License-Identifier: MIT
 // solhint-disable no-inline-assembly
 

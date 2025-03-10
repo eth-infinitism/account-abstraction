@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 import "../interfaces/PackedUserOperation.sol";
 import "../core/Eip7702Support.sol";
