@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 /* solhint-disable avoid-low-level-calls */
 /* solhint-disable no-inline-assembly */
 
@@ -59,9 +59,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         // note: solidity "type(IEntryPoint).interfaceId" is without inherited methods but we want to check everything
         return interfaceId == (type(IEntryPoint).interfaceId ^ type(IStakeManager).interfaceId ^ type(INonceManager).interfaceId) ||
-            interfaceId == type(IEntryPoint).interfaceId ||
-            interfaceId == type(IStakeManager).interfaceId ||
-            interfaceId == type(INonceManager).interfaceId ||
+        interfaceId == type(IEntryPoint).interfaceId ||
+        interfaceId == type(IStakeManager).interfaceId ||
+        interfaceId == type(INonceManager).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 
@@ -72,7 +72,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      */
     function _compensate(address payable beneficiary, uint256 amount) internal virtual {
         require(beneficiary != address(0), "AA90 invalid beneficiary");
-        (bool success, ) = beneficiary.call{value: amount}("");
+        (bool success,) = beneficiary.call{value: amount}("");
         require(success, "AA91 failed send to beneficiary");
     }
 
@@ -121,7 +121,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             bytes32 innerRevertCode;
             assembly ("memory-safe") {
                 let len := returndatasize()
-                if eq(32,len) {
+                if eq(32, len) {
                     returndatacopy(0, 0, 32)
                     innerRevertCode := mload(0)
                 }
@@ -204,7 +204,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         UserOpInfo[] memory opInfos,
         address expectedAggregator,
         uint256 opIndexOffset
-    ) internal returns(uint256 opsLen){
+    ) internal returns (uint256 opsLen){
         unchecked {
             opsLen = ops.length;
             for (uint256 i = 0; i < opsLen; i++) {
@@ -251,57 +251,57 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     ) external nonReentrant {
 
         unchecked {
-        uint256 opasLen = opsPerAggregator.length;
-        uint256 totalOps = 0;
-        for (uint256 i = 0; i < opasLen; i++) {
-            UserOpsPerAggregator calldata opa = opsPerAggregator[i];
-            PackedUserOperation[] calldata ops = opa.userOps;
-            IAggregator aggregator = opa.aggregator;
+            uint256 opasLen = opsPerAggregator.length;
+            uint256 totalOps = 0;
+            for (uint256 i = 0; i < opasLen; i++) {
+                UserOpsPerAggregator calldata opa = opsPerAggregator[i];
+                PackedUserOperation[] calldata ops = opa.userOps;
+                IAggregator aggregator = opa.aggregator;
 
-            // address(1) is special marker of "signature error"
-            require(
-                address(aggregator) != address(1),
-                SignatureValidationFailed(address(aggregator))
-            );
+                // address(1) is special marker of "signature error"
+                require(
+                    address(aggregator) != address(1),
+                    SignatureValidationFailed(address(aggregator))
+                );
 
-            if (address(aggregator) != address(0)) {
-                // solhint-disable-next-line no-empty-blocks
-                try aggregator.validateSignatures(ops, opa.signature) {} catch {
-                    revert SignatureValidationFailed(address(aggregator));
+                if (address(aggregator) != address(0)) {
+                    // solhint-disable-next-line no-empty-blocks
+                    try aggregator.validateSignatures(ops, opa.signature) {} catch {
+                        revert SignatureValidationFailed(address(aggregator));
+                    }
+                }
+
+                totalOps += ops.length;
+            }
+
+            UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
+
+            uint256 opIndex = 0;
+            for (uint256 a = 0; a < opasLen; a++) {
+                UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+                PackedUserOperation[] calldata ops = opa.userOps;
+                IAggregator aggregator = opa.aggregator;
+
+                opIndex += _iterateValidationPhase(ops, opInfos, address(aggregator), opIndex);
+            }
+
+            emit BeforeExecution();
+
+            uint256 collected = 0;
+            opIndex = 0;
+            for (uint256 a = 0; a < opasLen; a++) {
+                UserOpsPerAggregator calldata opa = opsPerAggregator[a];
+                emit SignatureAggregatorChanged(address(opa.aggregator));
+                PackedUserOperation[] calldata ops = opa.userOps;
+                uint256 opslen = ops.length;
+
+                for (uint256 i = 0; i < opslen; i++) {
+                    collected += _executeUserOp(opIndex, ops[i], opInfos[opIndex]);
+                    opIndex++;
                 }
             }
 
-            totalOps += ops.length;
-        }
-
-        UserOpInfo[] memory opInfos = new UserOpInfo[](totalOps);
-
-        uint256 opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
-            UserOpsPerAggregator calldata opa = opsPerAggregator[a];
-            PackedUserOperation[] calldata ops = opa.userOps;
-            IAggregator aggregator = opa.aggregator;
-
-            opIndex += _iterateValidationPhase(ops, opInfos, address(aggregator), opIndex);
-        }
-
-        emit BeforeExecution();
-
-        uint256 collected = 0;
-        opIndex = 0;
-        for (uint256 a = 0; a < opasLen; a++) {
-            UserOpsPerAggregator calldata opa = opsPerAggregator[a];
-            emit SignatureAggregatorChanged(address(opa.aggregator));
-            PackedUserOperation[] calldata ops = opa.userOps;
-            uint256 opslen = ops.length;
-
-            for (uint256 i = 0; i < opslen; i++) {
-                collected += _executeUserOp(opIndex, ops[i], opInfos[opIndex]);
-                opIndex++;
-            }
-        }
-
-        _compensate(beneficiary, collected);
+            _compensate(beneficiary, collected);
         }
     }
 
@@ -349,7 +349,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
         uint256 callGasLimit = mUserOp.callGasLimit;
         unchecked {
-            // handleOps was called with gas limit too low. abort entire bundle.
+        // handleOps was called with gas limit too low. abort entire bundle.
             if (
                 gasleft() * 63 / 64 <
                 callGasLimit +
@@ -439,10 +439,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     ) internal virtual pure returns (uint256 requiredPrefund) {
         unchecked {
             uint256 requiredGas = mUserOp.verificationGasLimit +
-                mUserOp.callGasLimit +
-                mUserOp.paymasterVerificationGasLimit +
-                mUserOp.paymasterPostOpGasLimit +
-                mUserOp.preVerificationGas;
+                            mUserOp.callGasLimit +
+                            mUserOp.paymasterVerificationGasLimit +
+                            mUserOp.paymasterPostOpGasLimit +
+                            mUserOp.preVerificationGas;
 
             requiredPrefund = requiredGas * mUserOp.maxFeePerGas;
         }
@@ -461,8 +461,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     ) internal virtual {
         if (initCode.length != 0) {
             address sender = opInfo.mUserOp.sender;
-            if ( Eip7702Support._isEip7702InitCode(initCode) ) {
-                if (initCode.length>20 ) {
+            if (Eip7702Support._isEip7702InitCode(initCode)) {
+                if (initCode.length > 20) {
                     // Already validated it is an EIP-7702 delegate (and hence, already has code) - see getUserOpHash()
                     // Note: Can be called multiple times as long as an appropriate initCode is supplied
                     senderCreator().initEip7702Sender{
@@ -473,19 +473,19 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             if (sender.code.length != 0)
                 revert FailedOp(opIndex, "AA10 sender already constructed");
-            if (initCode.length < 20 ) {
+            if (initCode.length < 20) {
                 revert FailedOp(opIndex, "AA99 initCode too small");
             }
             address sender1 = senderCreator().createSender{
-                gas: opInfo.mUserOp.verificationGasLimit
-            }(initCode);
+                    gas: opInfo.mUserOp.verificationGasLimit
+                }(initCode);
             if (sender1 == address(0))
                 revert FailedOp(opIndex, "AA13 initCode failed or OOG");
             if (sender1 != sender)
                 revert FailedOp(opIndex, "AA14 initCode must return sender");
             if (sender1.code.length == 0)
                 revert FailedOp(opIndex, "AA15 initCode must create sender");
-            address factory = address(bytes20(initCode[0:20]));
+            address factory = address(bytes20(initCode[0 : 20]));
             emit AccountDeployed(
                 opInfo.userOpHash,
                 sender,
@@ -516,10 +516,10 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         UserOpInfo memory opInfo,
         uint256 requiredPrefund
     )
-        internal virtual
-        returns (
-            uint256 validationData
-        )
+    internal virtual
+    returns (
+        uint256 validationData
+    )
     {
         unchecked {
             MemoryUserOp memory mUserOp = opInfo.mUserOp;
@@ -560,7 +560,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             assembly ("memory-safe"){
                 success := call(gasLimit, sender, 0, add(callData, 0x20), mload(callData), 0, 32)
                 validationData := mload(0)
-                // any return data size other than 32 is considered failure
+            // any return data size other than 32 is considered failure
                 if iszero(eq(returndatasize(), 32)) {
                     success := 0
                 }
@@ -568,7 +568,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             _restoreFreePtr(saveFreePtr);
         }
         if (!success) {
-            if(sender.code.length == 0) {
+            if (sender.code.length == 0) {
                 revert FailedOp(opIndex, "AA20 account not deployed");
             } else {
                 revert FailedOpWithRevert(opIndex, "AA23 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
@@ -604,11 +604,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             uint256 pmVerificationGasLimit = mUserOp.paymasterVerificationGasLimit;
             try
-                IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
-                    op,
-                    opInfo.userOpHash,
-                    requiredPreFund
-                )
+            IPaymaster(paymaster).validatePaymasterUserOp{gas: pmVerificationGasLimit}(
+                op,
+                opInfo.userOpHash,
+                requiredPreFund
+            )
             returns (bytes memory _context, uint256 _validationData) {
                 context = _context;
                 validationData = _validationData;
@@ -691,8 +691,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         PackedUserOperation calldata userOp,
         UserOpInfo memory outOpInfo
     )
-        internal virtual
-        returns (uint256 validationData, uint256 paymasterValidationData)
+    internal virtual
+    returns (uint256 validationData, uint256 paymasterValidationData)
     {
         uint256 preGas = gasleft();
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
@@ -703,12 +703,12 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         // and multiplied without causing overflow.
         uint256 verificationGasLimit = mUserOp.verificationGasLimit;
         uint256 maxGasValues = mUserOp.preVerificationGas |
-            verificationGasLimit |
-            mUserOp.callGasLimit |
-            mUserOp.paymasterVerificationGasLimit |
-            mUserOp.paymasterPostOpGasLimit |
-            mUserOp.maxFeePerGas |
-            mUserOp.maxPriorityFeePerGas;
+                    verificationGasLimit |
+                        mUserOp.callGasLimit |
+                        mUserOp.paymasterVerificationGasLimit |
+                        mUserOp.paymasterPostOpGasLimit |
+                        mUserOp.maxFeePerGas |
+                        mUserOp.maxPriorityFeePerGas;
         require(maxGasValues <= type(uint120).max, FailedOp(opIndex, "AA94 gas values overflow"));
 
         uint256 requiredPreFund = _getRequiredPrefund(mUserOp);
@@ -770,7 +770,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             uint256 gasPrice = _getUserOpGasPrice(mUserOp);
 
             address paymaster = mUserOp.paymaster;
-            // Calculating a penalty for unused execution gas
+        // Calculating a penalty for unused execution gas
             {
                 uint256 executionGasUsed = actualGas - opInfo.preOpGas;
                 // this check is required for the gas used within EntryPoint and not covered by explicit gas limits
@@ -786,8 +786,8 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                     uint256 postOpPreGas = gasleft();
                     if (mode != IPaymaster.PostOpMode.postOpReverted) {
                         try IPaymaster(paymaster).postOp{
-                            gas: mUserOp.paymasterPostOpGasLimit
-                        }(mode, context, actualGasCost, gasPrice)
+                                gas: mUserOp.paymasterPostOpGasLimit
+                            }(mode, context, actualGasCost, gasPrice)
                         // solhint-disable-next-line no-empty-blocks
                         {} catch {
                             bytes memory reason = Exec.getReturnData(REVERT_REASON_MAX_LEN);

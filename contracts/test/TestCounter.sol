@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.23;
+pragma solidity ^0.8.28;
 
 // Sample "receiver" contract, for testing "exec" from account.
 contract TestCounter {
