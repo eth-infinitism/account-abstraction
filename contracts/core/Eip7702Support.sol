@@ -21,7 +21,7 @@ library Eip7702Support {
         if (!_isEip7702InitCode(initCode)) {
             return 0;
         }
-        address delegate = _getEip7702Delegate(userOp.getSender());
+        address delegate = _getEip7702Delegate(userOp.sender);
         if (initCode.length <= 20)
             return keccak256(abi.encodePacked(delegate));
         else
