@@ -23,7 +23,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         address createdObj = address(uint160(uint256(keccak256(abi.encodePacked(hex"d694", address(this), hex"01")))));
         _senderCreator = SenderCreator(createdObj);
 
-        initDomainSeparator();
+        _initDomainSeparator();
     }
 
     function senderCreator() public view virtual override(EntryPoint, IEntryPoint) returns (ISenderCreator) {
@@ -135,7 +135,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         initSenderCreator();
 
         try
-        this._validateSenderAndPaymaster(
+        this.validateSenderAndPaymaster(
             userOp.initCode,
             userOp.sender,
             userOp.paymasterAndData
@@ -149,13 +149,13 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     }
 
     /**
-     * Called only during simulation.
+     * Called only during simulation by the EntryPointSimulation contract itself and is not meant to be called by external contracts.
      * This function always reverts to prevent warm/cold storage differentiation in simulation vs execution.
      * @param initCode         - The smart account constructor code.
      * @param sender           - The sender address.
      * @param paymasterAndData - The paymaster address (followed by other params, ignored by this method)
      */
-    function _validateSenderAndPaymaster(
+    function validateSenderAndPaymaster(
         bytes calldata initCode,
         address sender,
         bytes calldata paymasterAndData
@@ -201,7 +201,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     }
 
     // Can't rely on "immutable" (constructor-initialized) variables" in simulation
-    function initDomainSeparator() internal {
+    function _initDomainSeparator() internal {
         __domainSeparatorV4 = __buildDomainSeparator();
     }
 
