@@ -474,6 +474,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             }
             if (sender.code.length != 0)
                 revert FailedOp(opIndex, "AA10 sender already constructed");
+            if (initCode.length < 20 ) {
+                revert FailedOp(opIndex, "AA99 initCode too small");
+            }
             address sender1 = senderCreator().createSender{
                 gas: opInfo.mUserOp.verificationGasLimit
             }(initCode);
