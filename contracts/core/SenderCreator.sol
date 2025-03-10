@@ -50,9 +50,7 @@ contract SenderCreator is ISenderCreator {
         }
     }
 
-    // Use initCallData to initialize an EIP-7702 account
-    // Caller (EntryPoint) already verified it is an EIP-7702 account.
-    // Note: Can be called multiple times as long as an appropriate initCode is supplied
+    /// @inheritdoc ISenderCreator
     function initEip7702Sender(
         address sender,
         bytes memory initCallData

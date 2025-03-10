@@ -432,7 +432,9 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
 
     /**
      * Get the required prefunded gas fee amount for an operation.
+     *
      * @param mUserOp - The user operation in memory.
+     * @return requiredPrefund - the required amount.
      */
     function _getRequiredPrefund(
         MemoryUserOp memory mUserOp
@@ -509,6 +511,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
      * @param op              - The user operation.
      * @param opInfo          - The operation info.
      * @param requiredPrefund - The required prefund amount.
+     * @return validationData - The account's validationData.
      */
     function _validateAccountPrepayment(
         uint256 opIndex,
@@ -542,8 +545,15 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
         }
     }
 
-    // call sender.validateUserOp()
-    // handle wrong output size with FailedOp
+    /**
+     * Make a call to the sender.validateUserOp() function.
+     * Handle wrong output size by reverting with a FailedOp error.
+     *
+     * @param opIndex - index of the UserOperation in the bundle.
+     * @param op - the packed UserOperation object.
+     * @param opInfo - the in-memory UserOperation information.
+     * @param missingAccountFunds - the amount of deposit the account has to make to cover the UserOperation gas.
+     */
     function _callValidateUserOp(
         uint256 opIndex,
         PackedUserOperation calldata op,

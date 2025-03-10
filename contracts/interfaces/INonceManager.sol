@@ -22,6 +22,8 @@ interface INonceManager {
      * as the EntryPoint will update the nonce regardless.
      * Possible use-case is call it with various keys to "initialize" their nonces to one, so that future
      * UserOperations will not pay extra for the first transaction with a given key.
+     *
+     * @param key - the "nonce key" to increment the "nonce sequence" for.
      */
     function incrementNonce(uint192 key) external;
 }

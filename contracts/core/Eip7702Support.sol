@@ -15,7 +15,12 @@ library Eip7702Support {
 
     using UserOperationLib for PackedUserOperation;
 
-    // Get alternate InitCodeHash (just for UserOp hash) when using EIP-7702
+    /**
+     * Get the alternative 'InitCodeHash' value for the UserOp hash calculation when using EIP-7702.
+     *
+     * @param userOp - the UserOperation to for the 'InitCodeHash' calculation.
+     * @return the 'InitCodeHash' value.
+     */
     function _getEip7702InitCodeHashOverride(PackedUserOperation calldata userOp) internal view returns (bytes32) {
         bytes calldata initCode = userOp.initCode;
         if (!_isEip7702InitCode(initCode)) {
@@ -28,7 +33,13 @@ library Eip7702Support {
             return keccak256(abi.encodePacked(delegate, initCode[20 :]));
     }
 
-    // Check if this initCode is EIP-7702: starts with INITCODE_EIP7702_MARKER.
+    /**
+     * Check if this 'initCode' is actually an EIP-7702 authorization.
+     * This is indicated by 'initCode' that starts with INITCODE_EIP7702_MARKER.
+     *
+     * @param initCode - the 'initCode' to check.
+     * @return true if the 'initCode' is EIP-7702 authorization, false otherwise.
+     */
     function _isEip7702InitCode(bytes calldata initCode) internal pure returns (bool) {
 
         if (initCode.length < 2) {
@@ -44,8 +55,11 @@ library Eip7702Support {
     }
 
     /**
-     * get the EIP-7702 delegate from contract code.
-     * must only be used if _isEip7702InitCode(initCode) is true.
+     * Get the EIP-7702 delegate from contract code.
+     * Must only be used if _isEip7702InitCode(initCode) is true.
+     *
+     * @param sender - the EIP-7702 'sender' account to get the delegated contract code address.
+     * @return the address of the EIP-7702 authorized contract.
      */
     function _getEip7702Delegate(address sender) internal view returns (address) {
 

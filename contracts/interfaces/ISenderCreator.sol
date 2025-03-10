@@ -9,7 +9,13 @@ interface ISenderCreator {
      */
     function createSender(bytes calldata initCode) external returns (address sender);
 
-    // Call initCode to initialize an EIP-7702 account
-    // Note: Can be called multiple times as long as an appropriate initCode is supplied
-    function initEip7702Sender(address sender, bytes calldata initCode) external;
+    /**
+     * Use initCallData to initialize an EIP-7702 account.
+     * The caller is the EntryPoint contract and it is already verified to be an EIP-7702 account.
+     * Note: Can be called multiple times as long as an appropriate initCode is supplied
+     *
+     * @param sender - the 'sender' EIP-7702 account to be initialized.
+     * @param initCallData - the call data to be passed to the sender account call.
+     */
+    function initEip7702Sender(address sender, bytes calldata initCallData) external;
 }

@@ -39,6 +39,7 @@ struct ValidationData {
  * Extract aggregator/sigFailed, validAfter, validUntil.
  * Also convert zero validUntil to type(uint48).max.
  * @param validationData - The packed validation data.
+ * @return data - The unpacked in-memory validation data.
  */
 function _parseValidationData(
     uint256 validationData
@@ -55,6 +56,7 @@ function _parseValidationData(
 /**
  * Helper to pack the return value for validateUserOp.
  * @param data - The ValidationData to pack.
+ * @return the packed validation data.
  */
 function _packValidationData(
     ValidationData memory data
@@ -70,6 +72,7 @@ function _packValidationData(
  * @param sigFailed  - True for signature failure, false for success.
  * @param validUntil - Last timestamp this operation is valid at, or 0 for "indefinitely".
  * @param validAfter - First timestamp this UserOperation is valid.
+ * @return the packed validation data.
  */
 function _packValidationData(
     bool sigFailed,
@@ -85,6 +88,9 @@ function _packValidationData(
 /**
  * keccak function over calldata.
  * @dev copy calldata into memory, do keccak and drop allocated memory. Strangely, this is more efficient than letting solidity do it.
+ *
+ * @param data - the calldata bytes array to perform keccak on.
+ * @return ret - the keccak hash of the 'data' array.
  */
     function calldataKeccak(bytes calldata data) pure returns (bytes32 ret) {
         assembly ("memory-safe") {
@@ -100,6 +106,7 @@ function _packValidationData(
  * The minimum of two numbers.
  * @param a - First number.
  * @param b - Second number.
+ * @return - the minimum value.
  */
     function min(uint256 a, uint256 b) pure returns (uint256) {
         return a < b ? a : b;
