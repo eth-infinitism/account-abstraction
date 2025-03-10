@@ -1163,8 +1163,7 @@ describe('EntryPoint', function () {
           `agg(${aggregator3.address})`,
           `userOp(${userOp_agg3.sender})`,
           `agg(${AddressZero})`,
-          `userOp(${userOp_noAgg.sender})`,
-          `agg(${AddressZero})`
+          `userOp(${userOp_noAgg.sender})`
         ])
       })
 

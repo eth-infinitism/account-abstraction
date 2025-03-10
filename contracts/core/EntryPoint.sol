@@ -300,7 +300,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
                 opIndex++;
             }
         }
-        emit SignatureAggregatorChanged(address(0));
 
         _compensate(beneficiary, collected);
         }
