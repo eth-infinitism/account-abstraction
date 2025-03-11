@@ -28,7 +28,7 @@ import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSi
 
 // Matched to domain name, version from EntryPoint.sol:
 const DOMAIN_NAME = 'ERC4337'
-const DOMAIN_VERSION = '0.8'
+const DOMAIN_VERSION = '1'
 
 // Matched to UserOperationLib.sol:
 const PACKED_USEROP_TYPEHASH = keccak256(Buffer.from('PackedUserOperation(address sender,uint256 nonce,bytes initCode,bytes callData,bytes32 accountGasLimits,uint256 preVerificationGas,bytes32 gasFees,bytes paymasterAndData)'))

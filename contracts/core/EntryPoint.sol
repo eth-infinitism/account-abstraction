@@ -33,7 +33,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
     SenderCreator private immutable _senderCreator = new SenderCreator();
 
     string constant internal DOMAIN_NAME = "ERC4337";
-    string constant public DOMAIN_VERSION = "0.8";
+    string constant internal DOMAIN_VERSION = "1";
 
     constructor() EIP712(DOMAIN_NAME, DOMAIN_VERSION)  {
     }
