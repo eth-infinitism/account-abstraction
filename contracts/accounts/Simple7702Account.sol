@@ -29,11 +29,11 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         bytes32 userOpHash
     ) internal virtual override returns (uint256 validationData) {
 
-        return _checkSignature(userOpHash, userOp.signature) ? 0 : SIG_VALIDATION_FAILED;
+        return _checkSignature(userOpHash, userOp.signature) ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
     }
 
     function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
-        return _checkSignature(hash, signature) ? this.isValidSignature.selector : bytes4(0);
+        return _checkSignature(hash, signature) ? this.isValidSignature.selector : 0xffffffff;
     }
 
     function _checkSignature(bytes32 hash, bytes memory signature) internal view returns (bool) {
