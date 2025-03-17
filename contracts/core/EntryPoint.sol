@@ -648,7 +648,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             // 32 bytes offset of context (always 64)
             // 32 bytes of validationData
             // 32 bytes of context length
-            // context data
+            // context data (rounded up, to 32 bytes boundary)
             // so entire buffer size is (at least) 96+content.length.
             //
             // we use freePtr, fetched before calling encodeCall, as return data pointer.
@@ -660,8 +660,11 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ReentrancyGuardT
             context := add(freePtr, 64)
             contextLength := mload(context)
         }
-        if (!success || contextOffset != 64 || contextLength > maxContextLength) {
-            revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+
+        unchecked {
+            if (!success || contextOffset != 64 || contextLength + 31 < maxContextLength) {
+                revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+            }
         }
         finalizeAllocation(freePtr, len);
     }
