@@ -75,12 +75,11 @@ Is it possible to work without this change?
 
 -  Subsequent UserOperation that try to modify the delegate (by including another `eip7702tuple`), require special handling to detect if the delegate was included. This is because bundlers are actually "incentivised" to cheat and remove the new delegate: the account pre-paid for it, so if the validation doesn't check the delegate change, then the bundler can "pocket" this value, regardless if the execution reverts.
 
--  We thought of several workarounds to validate the delegate, with a modification to the account code and signature check (e.g. here), but we believe it is error-prone, awkward, and doesn't provide a full solution.
+-  We thought of several workarounds to validate the delegate, with a modification to the account code and signature check (e.g. [here](https://gist.github.com/drortirosh/b65f726098bf122354d568647cb874c1#file-eip7702account-sol-L42)), but we believe it is error-prone, awkward, and doesn't provide a full solution.
 
 ## Modification to the P2P protocol
 
-For the UserOpertaion struct defined in p2p-interface we add a new `eip7702auth` field, 
-which is an array of the `{ chain,nonce,address,r,s,v }` tuple. The array has a size of either 0 or 1.
+For the UserOpertaion struct defined in [p2p-interface](https://github.com/eth-infinitism/bundler-spec/blob/main/p2p-specs/p2p-interface.md#userop) we add a new `eip7702auth` field, which is an array of the `{ chain,nonce,address,r,s,v }` tuple. The array has a size of either 0 or 1.
 
 ## Modifications required to the Bundler
 
