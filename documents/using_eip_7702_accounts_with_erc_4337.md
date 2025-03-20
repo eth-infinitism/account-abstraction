@@ -61,9 +61,9 @@ So for EIP-7702 accounts, we add the following logic to the EntryPoint:
 
 3.  For the purpose of creating the UserOpHash, replace the first 20 bytes of the `initCode` with the account's delegate. Note that the delegate itself doesn't appear in the UserOp or the transaction's callData, but it is included in the hash.
 
-4.  Since the userOpHash is calculated now over an ERC-712 structure, that structure should include the delegate, as part of the initCode, instead of the above `"0xEF0100"` marker.
+4.  Since the userOpHash is calculated now over an ERC-712 structure, that structure should include the delegate, as part of the `initCode`, instead of the above `"0xEF0100"` marker.
 
-5.  If the total length of the initCode exceeds 20 bytes (starting with the `"0xEF0100"` prefix, followed by all zeros), then use it to call the account itself. (that is, just like a factory, but calling the account itself)
+5.  If the total length of the `initCode` exceeds 20 bytes (starting with the `"0xEF0100"` prefix, followed by all zeros), then use it to call the account itself. (that is, just like a factory, but calling the account itself)
 
 Note that this change required `EXTCODECOPY` to return the full code (3-byte prefix+delegate address) of the account.
 
