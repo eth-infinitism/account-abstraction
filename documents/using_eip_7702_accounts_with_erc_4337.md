@@ -79,7 +79,8 @@ Is it possible to work without this change?
 
 ## Modification to the P2P protocol
 
-For the UserOpertaion struct defined in p2p-interface we add a new `eip7702auth` field, which is an array of the `{ chain,nonce,address,r,s,v }` tuple. The array has a size of either 0 or 1.
+For the UserOpertaion struct defined in p2p-interface we add a new `eip7702auth` field, 
+which is an array of the `{ chain,nonce,address,r,s,v }` tuple. The array has a size of either 0 or 1.
 
 ## Modifications required to the Bundler
 
