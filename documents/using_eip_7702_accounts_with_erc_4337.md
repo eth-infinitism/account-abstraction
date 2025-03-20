@@ -139,9 +139,10 @@ Eip-7702 account has code, but it is modifiable by the account itself.  As such,
 like storage of the account - much like the "proxyTarget" address used in a normal proxy.
 
 [AUTH-001]:  An EIP-7702 delegate can only be used as a "sender".
-  It cannot be used as another entity.
+It cannot be used as another entity.
+
 [AUTH-002]: A call to EIP-7702 delegate is only allowed to the "sender" address, and not to any
-other address
+other address.
 
 ## Rationale
 
