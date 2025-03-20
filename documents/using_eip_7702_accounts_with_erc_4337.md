@@ -2,7 +2,7 @@
 
 ## Introduction
 
-EIP-7702 opens a new way for ethereum users to use their account. It allows accounts to act like contracts, and execute on-chain code.This document describes how such accounts can leverage the ERC-4337 infrastructure, and use paymasters to pay for their transaction.
+EIP-7702 opens a new way for ethereum users to use their account. It allows accounts to act like contracts, and execute on-chain code. This document describes how such accounts can leverage the ERC-4337 infrastructure, and use paymasters to pay for their transaction.
 This document describes:
 
 -  The needed modification to the RPC calls
