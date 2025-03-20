@@ -86,7 +86,7 @@ For the UserOpertaion struct defined in [p2p-interface](https://github.com/eth-i
 When receiving a UserOperation (either for eth_sendUserOperation, or for eth_estimateUserOperation), the bundler should check the eip-7702 signature, and drop the `eip7702auth` entry if it doesn't match the sender's address (it MAY still process the userop itself, without the `eip7702auth` entry, but it would probably fail).
 
 If the same sender already exists in the list of pending UserOps, and contains a delegate, it MUST have the same delegate.
-Before doing the "validation simulation call", the bundler should also check the current account's nonce, and drop the authList item if the nonce was changed. When performing the tracing, the bundler should use stateOverride, to "inject" the delegate, E.g adding `{ "stateOverrides": { userOp.sender: "0xef0100"+ userOp.eip7702auth.address } }` 
+Before doing the "validation simulation call", the bundler should also check the current account's nonce, and drop the authList item if the nonce was changed. When performing the tracing, the bundler should use `stateOverride`, to "inject" the delegate, E.g adding `{ "stateOverrides": { userOp.sender: "0xef0100"+ userOp.eip7702auth.address } }` 
 When creating the bundle (a "handleOps" call), the bundler should collect all authList items to the created transaction.
 
 ## Added validation rule for ERC-7562
