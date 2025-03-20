@@ -12,11 +12,9 @@ This document describes:
 
 ## Motivation
 
-By itself EIP-7702 lets an account to have a code in its account, and thus let it run an arbitrary set of actions, instead of only one.It also allows separating the execution and gas payment. However, it requires an infrastructure of services that agree to pay for such transactions.
-ERC-4337 is such a framework, with a thriving ecosystem of bundlers, paymasters and
-accounts.
-EIP-7702 accounts are natural fit to use this framework, with minimal adaptations to the
-bundlers - and no modifications to paymaster contracts.
+By itself EIP-7702 lets an account to have a code in its account, and thus let it run an arbitrary set of actions, instead of only one. It also allows separating the execution and gas payment. However, it requires an infrastructure of services that agree to pay for such transactions.
+ERC-4337 is such a framework, with a thriving ecosystem of bundlers, paymasters and accounts.
+EIP-7702 accounts are natural fit to use this framework, with minimal adaptations to the bundlers - and no modifications to paymaster contracts.
 
 ## Required modification to the RPC
 
