@@ -96,20 +96,20 @@ address) of the account.
 
 Is it possible to work without this change?
 
-●  Accounts are not "required" to use the above method: they can use UserOperations as
+-  Accounts are not "required" to use the above method: they can use UserOperations as
 they are today.
 
-●  The first UserOperation can simply work (obviously, it depends on the eip7702tuple it
+-  The first UserOperation can simply work (obviously, it depends on the eip7702tuple it
 includes, because validateUserOp can't succeed unless the account is deployed)
 It does require initialization through the validateUserOp
 
-●  Subsequent UserOperation that try to modify the delegate (by including another
+-  Subsequent UserOperation that try to modify the delegate (by including another
 eip7702tuple), require special handling to detect if the delegate was included.
 This is because bundlers are actually "incentivised" to cheat and remove the new
 delegate: the account pre-paid for it, so if the validation doesn't check the delegate
 change, then the bundler can "pocket" this value, regardless if the execution reverts.
 
-●  We thought of several workarounds to validate the delegate, with a modification to the
+-  We thought of several workarounds to validate the delegate, with a modification to the
 account code and signature check (e.g. here), but we believe it is error-prone, awkward,
 and doesn't provide a full solution.
 
