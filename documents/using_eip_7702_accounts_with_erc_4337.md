@@ -133,7 +133,7 @@ E.g adding { "stateOverrides": { userOp.sender: "0xef0100"+ userOp.eip7702auth.a
 When creating the bundle (a "handleOps" call), the bundler should collect all authList items to
 the created transaction.
 
-Added validation rule for ERC-7562
+## Added validation rule for ERC-7562
 
 Eip-7702 account has code, but it is modifiable by the account itself.  As such, it is treated just
 like storage of the account - much like the "proxyTarget" address used in a normal proxy.
@@ -143,7 +143,7 @@ like storage of the account - much like the "proxyTarget" address used in a norm
 [AUTH-002]: A call to EIP-7702 delegate is only allowed to the "sender" address, and not to any
 other address
 
-Rationale
+## Rationale
 
 The validation rules on storage prevent modification of storage that will affect a large number of
 UserOperations.
