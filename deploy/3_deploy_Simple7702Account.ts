@@ -2,7 +2,7 @@ import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { ethers } from 'hardhat'
 
-const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+const deploySimple7702Account: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const provider = ethers.provider
   const from = await provider.getSigner().getAddress()
 
@@ -16,4 +16,4 @@ const deployEntryPoint: DeployFunction = async function (hre: HardhatRuntimeEnvi
     })
 }
 
-export default deployEntryPoint
+export default deploySimple7702Account
