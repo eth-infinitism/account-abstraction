@@ -1,4 +1,4 @@
-import { ethers } from 'hardhat'
+import { ethers, providers } from 'ethers'
 
 export interface DebugLog {
   pc: number
@@ -17,7 +17,8 @@ export interface DebugTransactionResult {
 }
 
 export async function debugTransaction (txHash: string, disableMemory = true, disableStorage = true): Promise<DebugTransactionResult> {
-  const debugTx = async (hash: string): Promise<DebugTransactionResult> => await ethers.provider.send('debug_traceTransaction', [hash, {
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  const debugTx = async (hash: string): Promise<DebugTransactionResult> => await provider.send('debug_traceTransaction', [hash, {
     disableMemory,
     disableStorage
   }])

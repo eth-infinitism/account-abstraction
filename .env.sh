@@ -1,0 +1,2 @@
+export PRIVATE_KEY="5dcf6e449973d2fd235fb31480f8ce83d400c325232ebec8092f41e578effc24"
+export RPC_URL="https://testnet-lifeaiv1-c648f.avax-test.network/ext/bc/62fkxYTWbGBfXoHNXcGJbq2dTXba2uoCFySzdHy87iovJj2F4/rpc?token=25e957a027b09bb006da7e9fc981100ce25f333cd998a76eb36a842fcb5ba63a"

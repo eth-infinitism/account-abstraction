@@ -1,4 +1,4 @@
-import { ethers } from 'hardhat'
+import { ethers, providers } from 'ethers'
 import {
   arrayify,
   hexConcat, hexDataSlice,
@@ -51,11 +51,13 @@ export async function fund (contractOrAddress: string | Contract, amountEth = '1
   } else {
     address = contractOrAddress.address
   }
-  await ethers.provider.getSigner().sendTransaction({ to: address, value: parseEther(amountEth) })
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  await provider.getSigner().sendTransaction({ to: address, value: parseEther(amountEth) })
 }
 
 export async function getBalance (address: string): Promise<number> {
-  const balance = await ethers.provider.getBalance(address)
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  const balance = await provider.getBalance(address)
   return parseInt(balance.toString())
 }
 
@@ -69,7 +71,8 @@ let counter = 0
 // create non-random account, so gas calculations are deterministic
 export function createAccountOwner (): Wallet {
   const privateKey = keccak256(Buffer.from(arrayify(BigNumber.from(++counter))))
-  return new ethers.Wallet(privateKey, ethers.provider)
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  return new ethers.Wallet(privateKey, provider)
   // return new ethers.Wallet('0x'.padEnd(66, privkeyBase), ethers.provider);
 }
 
@@ -89,7 +92,8 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
   const { actualGasCost, actualGasUsed } = logs[0].args
   console.log('\t== actual gasUsed (from tx receipt)=', actualGas.toString())
   console.log('\t== calculated gasUsed (paid to beneficiary)=', actualGasUsed)
-  const tx = await ethers.provider.getTransaction(rcpt.transactionHash)
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  const tx = await provider.getTransaction(rcpt.transactionHash)
   console.log('\t== gasDiff', actualGas.toNumber() - actualGasUsed.toNumber() - callDataCost(tx.data))
   if (beneficiaryAddress != null) {
     expect(await getBalance(beneficiaryAddress)).to.eq(actualGasCost.toNumber())
@@ -273,14 +277,15 @@ export async function checkForBannedOps (txHash: string, checkPaymaster: boolean
   }
 }
 
-export async function deployEntryPoint (provider = ethers.provider): Promise<EntryPoint> {
+export async function deployEntryPoint (provider = new providers.JsonRpcProvider(process.env.RPC_URL)): Promise<EntryPoint> {
   const create2factory = new Create2Factory(provider)
   const addr = await create2factory.deploy(EntryPoint__factory.bytecode, process.env.SALT, process.env.COVERAGE != null ? 20e6 : 8e6)
   return EntryPoint__factory.connect(addr, provider.getSigner())
 }
 
 export async function isDeployed (addr: string): Promise<boolean> {
-  const code = await ethers.provider.getCode(addr)
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  const code = await provider.getCode(addr)
   return code.length > 2
 }
 
@@ -388,10 +393,11 @@ export async function findMin (testFunc: (index: number) => Promise<boolean>, mi
  * @param entryPoint entrypoint for "fillAndSign" of userops
  */
 export async function findUserOpWithMin (f: (n: number) => Promise<UserOperation>, expectExec: boolean, entryPoint: EntryPoint, min: number, max: number, delta = 2): Promise<number> {
-  const beneficiary = ethers.provider.getSigner().getAddress()
+  const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+  const beneficiary = provider.getSigner().getAddress()
   return await findMin(
     async n => {
-      const snapshot = await ethers.provider.send('evm_snapshot', [])
+      const snapshot = await provider.send('evm_snapshot', [])
       try {
         const userOp = await f(n)
         // console.log('== userop=', userOp)
@@ -416,7 +422,7 @@ export async function findUserOpWithMin (f: (n: number) => Promise<UserOperation
         // console.log('min', n, 'ex=', decodeRevertReason(e as Error))
         return false
       } finally {
-        await ethers.provider.send('evm_revert', [snapshot])
+        await provider.send('evm_revert', [snapshot])
       }
     }, min, max, delta
   )

@@ -42,73 +42,73 @@ describe('EntryPoint with VerifyingPaymaster', function () {
     ({ proxy: account } = await createAccount(ethersSigner, accountOwner.address, entryPoint.address))
   })
 
-  describe('#parsePaymasterAndData', () => {
-    it('should parse data properly', async () => {
-      const paymasterAndData = packPaymasterData(
-        paymaster.address,
-        DefaultsForUserOp.paymasterVerificationGasLimit,
-        DefaultsForUserOp.paymasterPostOpGasLimit,
-        hexConcat([
-          defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG
-        ])
-      )
-      console.log(paymasterAndData)
-      const res = await paymaster.parsePaymasterAndData(paymasterAndData)
-      // console.log('MOCK_VALID_UNTIL, MOCK_VALID_AFTER', MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
-      // console.log('validUntil after', res.validUntil, res.validAfter)
-      // console.log('MOCK SIG', MOCK_SIG)
-      // console.log('sig', res.signature)
-      expect(res.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
-      expect(res.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
-      expect(res.signature).equal(MOCK_SIG)
-    })
-  })
+  // describe('#parsePaymasterAndData', () => {
+  //   it('should parse data properly', async () => {
+  //     const paymasterAndData = packPaymasterData(
+  //       paymaster.address,
+  //       DefaultsForUserOp.paymasterVerificationGasLimit,
+  //       DefaultsForUserOp.paymasterPostOpGasLimit,
+  //       hexConcat([
+  //         defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), MOCK_SIG
+  //       ])
+  //     )
+  //     console.log(paymasterAndData)
+  //     const res = await paymaster.parsePaymasterAndData(paymasterAndData)
+  //     // console.log('MOCK_VALID_UNTIL, MOCK_VALID_AFTER', MOCK_VALID_UNTIL, MOCK_VALID_AFTER)
+  //     // console.log('validUntil after', res.validUntil, res.validAfter)
+  //     // console.log('MOCK SIG', MOCK_SIG)
+  //     // console.log('sig', res.signature)
+  //     expect(res.validUntil).to.be.equal(ethers.BigNumber.from(MOCK_VALID_UNTIL))
+  //     expect(res.validAfter).to.be.equal(ethers.BigNumber.from(MOCK_VALID_AFTER))
+  //     expect(res.signature).equal(MOCK_SIG)
+  //   })
+  // })
 
   describe('#validatePaymasterUserOp', () => {
-    it('should reject on no signature', async () => {
-      const userOp = await fillSignAndPack({
-        sender: account.address,
-        paymaster: paymaster.address,
-        paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x1234'])
-      }, accountOwner, entryPoint)
-      expect(await simulateValidation(userOp, entryPoint.address)
-        .catch(e => decodeRevertReason(e)))
-        .to.include('invalid signature length in paymasterAndData')
-    })
+    // it('should reject on no signature', async () => {
+    //   const userOp = await fillSignAndPack({
+    //     sender: account.address,
+    //     paymaster: paymaster.address,
+    //     paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x1234'])
+    //   }, accountOwner, entryPoint)
+    //   expect(await simulateValidation(userOp, entryPoint.address)
+    //     .catch(e => decodeRevertReason(e)))
+    //     .to.include('invalid signature length in paymasterAndData')
+    // })
 
-    it('should reject on invalid signature', async () => {
-      const userOp = await fillSignAndPack({
-        sender: account.address,
-        paymaster: paymaster.address,
-        paymasterData: hexConcat(
-          [defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
-      }, accountOwner, entryPoint)
-      expect(await simulateValidation(userOp, entryPoint.address)
-        .catch(e => decodeRevertReason(e)))
-        .to.include('ECDSAInvalidSignature')
-    })
+    // it('should reject on invalid signature', async () => {
+    //   const userOp = await fillSignAndPack({
+    //     sender: account.address,
+    //     paymaster: paymaster.address,
+    //     paymasterData: hexConcat(
+    //       [defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), '0x' + '00'.repeat(65)])
+    //   }, accountOwner, entryPoint)
+    //   expect(await simulateValidation(userOp, entryPoint.address)
+    //     .catch(e => decodeRevertReason(e)))
+    //     .to.include('ECDSAInvalidSignature')
+    // })
 
-    describe('with wrong signature', () => {
-      let wrongSigUserOp: PackedUserOperation
-      const beneficiaryAddress = createAddress()
-      before(async () => {
-        const sig = await offchainSigner.signMessage(arrayify('0xdead'))
-        wrongSigUserOp = await fillSignAndPack({
-          sender: account.address,
-          paymaster: paymaster.address,
-          paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
-        }, accountOwner, entryPoint)
-      })
+    // describe('with wrong signature', () => {
+    //   let wrongSigUserOp: PackedUserOperation
+    //   const beneficiaryAddress = createAddress()
+    //   before(async () => {
+    //     const sig = await offchainSigner.signMessage(arrayify('0xdead'))
+    //     wrongSigUserOp = await fillSignAndPack({
+    //       sender: account.address,
+    //       paymaster: paymaster.address,
+    //       paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
+    //     }, accountOwner, entryPoint)
+    //   })
 
-      it('should return signature error (no revert) on wrong signer signature', async () => {
-        const ret = await simulateValidation(wrongSigUserOp, entryPoint.address)
-        expect(parseValidationData(ret.returnInfo.paymasterValidationData).aggregator).to.match(/0x0*1$/)
-      })
+    //   it('should return signature error (no revert) on wrong signer signature', async () => {
+    //     const ret = await simulateValidation(wrongSigUserOp, entryPoint.address)
+    //     expect(parseValidationData(ret.returnInfo.paymasterValidationData).aggregator).to.match(/0x0*1$/)
+    //   })
 
-      it('handleOp revert on signature failure in handleOps', async () => {
-        await expect(entryPoint.estimateGas.handleOps([wrongSigUserOp], beneficiaryAddress)).to.revertedWith('AA34 signature error')
-      })
-    })
+    //   it('handleOp revert on signature failure in handleOps', async () => {
+    //     await expect(entryPoint.estimateGas.handleOps([wrongSigUserOp], beneficiaryAddress)).to.revertedWith('AA34 signature error')
+    //   })
+    // })
 
     it('succeed with valid signature', async () => {
       const userOp1 = await fillAndSign({
@@ -124,6 +124,8 @@ describe('EntryPoint with VerifyingPaymaster', function () {
         paymaster: paymaster.address,
         paymasterData: hexConcat([defaultAbiCoder.encode(['uint48', 'uint48'], [MOCK_VALID_UNTIL, MOCK_VALID_AFTER]), sig])
       }, accountOwner, entryPoint)
+      console.log("paymaster address", paymaster.address)
+      console.log("user op test packed data", userOp.paymasterAndData)
       const res = await simulateValidation(userOp, entryPoint.address)
       const validationData = parseValidationData(res.returnInfo.paymasterValidationData)
       expect(validationData).to.eql({

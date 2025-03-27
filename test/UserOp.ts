@@ -22,7 +22,7 @@ import { Create2Factory } from '../src/Create2Factory'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
 
 import EntryPointSimulationsJson from '../artifacts/contracts/core/EntryPointSimulations.sol/EntryPointSimulations.json'
-import { ethers } from 'hardhat'
+import { ethers, providers } from 'ethers'
 import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSimulations'
 
 export function packUserOp (userOp: UserOperation): PackedUserOperation {
@@ -93,12 +93,20 @@ export const DefaultsForUserOp: UserOperation = {
 
 export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: string, chainId: number): UserOperation {
   const message = getUserOpHash(op, entryPoint, chainId)
-  const msg1 = Buffer.concat([
-    Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
-    Buffer.from(arrayify(message))
+  
+  // const msg1 = Buffer.concat([
+  //   Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
+  //   Buffer.from(arrayify(message))
+  // ])
+  const msg1 = new Uint8Array([
+    ...Buffer.from('\x19Ethereum Signed Message:\n32', 'ascii'),
+    ...arrayify(message)
   ])
 
-  const sig = ecsign(keccak256_buffer(msg1), Buffer.from(arrayify(signer.privateKey)))
+  const sig = ecsign(keccak256_buffer(Buffer.from(msg1)), Buffer.from(arrayify(signer.privateKey)))
+
+
+  // const sig = ecsign(keccak256_buffer(msg1), Buffer.from(arrayify(signer.privateKey)))
   // that's equivalent of:  await signer.signMessage(message);
   // (but without "async"
   const signedMessage1 = toRpcSig(sig.v, sig.r, sig.s)
@@ -261,7 +269,8 @@ export async function simulateValidation (
     }
   }
   try {
-    const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
+    const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+    const simulationResult = await provider.send('eth_call', [tx, 'latest', stateOverride])
     const res = entryPointSimulations.decodeFunctionResult('simulateValidation', simulationResult)
     // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
     return res[0]
@@ -296,7 +305,8 @@ export async function simulateHandleOp (
     }
   }
   try {
-    const simulationResult = await ethers.provider.send('eth_call', [tx, 'latest', stateOverride])
+    const provider = new providers.JsonRpcProvider(process.env.RPC_URL)
+    const simulationResult = await provider.send('eth_call', [tx, 'latest', stateOverride])
     const res = entryPointSimulations.decodeFunctionResult('simulateHandleOp', simulationResult)
     // note: here collapsing the returned "tuple of one" into a single value - will break for returning actual tuples
     return res[0]
