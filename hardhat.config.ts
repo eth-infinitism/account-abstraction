@@ -74,8 +74,10 @@ const config: HardhatUserConfig = {
 
     mainnet: getChainConfig(process.env.ETHEREUM_RPC),
     base: getChainConfig(process.env.BASE_RPC),
+    avalanche: getChainConfig(process.env.AVALANCHE_RPC),
     sepolia: getChainConfig(process.env.SEPOLIA_RPC),
     baseSepolia: getChainConfig(process.env.BASE_SEPOLIA_RPC),
+    avalancheFuji: getChainConfig(process.env.AVALANCHE_FUJI_RPC),
   },
   mocha: {
     timeout: 10000,
@@ -85,8 +87,10 @@ const config: HardhatUserConfig = {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY || "",
       base: process.env.BASESCAN_API_KEY || "",
+      avalanche: process.env.SNOWTRACE_API_KEY || "",
       sepolia: process.env.ETHERSCAN_API_KEY || "",
       baseSepolia: process.env.BASESCAN_API_KEY || "",
+      avalancheFujiTestnet: process.env.SNOWTRACE_API_KEY || "",
     },
   },
   sourcify: {
