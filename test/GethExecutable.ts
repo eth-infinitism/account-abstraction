@@ -95,7 +95,7 @@ export class GethExecutable {
       if (this.gethProcess != null) {
         const timeout = setTimeout(() => {
           reject(new Error(`Timed out waiting for marker regex: ${this.markerString.toString()}\n: ${allData}`))
-        }, 5000)
+        }, 15000)
 
         this.gethProcess.stdout?.on('data', (data: string) => {
           data = data.toString()

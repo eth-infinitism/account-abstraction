@@ -1,4 +1,3 @@
-
 # Description
 
 This repository contains the tools and resources for working with [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) Account Abstraction smart contracts. This includes the code for the singleton `EntryPoint` contract that is deployed by our team on most EVM-compatible networks.
@@ -45,6 +44,7 @@ Account abstraction allows users to interact with Ethereum using smart contract 
 git clone https://github.com/eth-infinitism/account-abstraction.git
 cd account-abstraction
 yarn install
+yarn install --registry=https://registry.npmmirror.com
 ````
 ### Compilation:
 

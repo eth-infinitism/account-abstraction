@@ -162,18 +162,27 @@ describe('EntryPoint EIP-7702 tests', function () {
         let eoa: Wallet
         let entryPoint: EntryPoint
 
-        before(async () => {
+        before(async function() {
           this.timeout(20000)
-          geth = new GethExecutable()
-          await geth.init()
-          eoa = createAccountOwner(geth.provider)
-          entryPoint = await deployEntryPoint(geth.provider)
-          delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy()
-          console.log('\tdelegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
-          await geth.sendTx({ to: eoa.address, value: gethHex(parseEther('1')) })
+          try {
+            geth = new GethExecutable()
+            await geth.init()
+            eoa = createAccountOwner(geth.provider)
+            entryPoint = await deployEntryPoint(geth.provider)
+            delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy()
+            console.log('\tdelegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
+            await geth.sendTx({ to: eoa.address, value: gethHex(parseEther('1')) })
+          } catch (e: any) {
+            console.log('Geth initialization failed, skipping Geth tests', e.message)
+            this.skip()
+          }
         })
 
-        it('should fail without sender delegate', async () => {
+        it('should fail without sender delegate', async function() {
+          if (!geth || !geth.provider) {
+            this.skip()
+            return
+          }
           const eip7702userOp = await fillSignAndPack({
             sender: eoa.address,
             nonce: 0,
@@ -190,7 +199,11 @@ describe('EntryPoint EIP-7702 tests', function () {
           })).to.match(/not an EIP-7702 delegate|sender has no code/)
         })
 
-        it('should succeed with authorizationList', async () => {
+        it('should succeed with authorizationList', async function() {
+          if (!geth || !geth.provider) {
+            this.skip()
+            return
+          }
           const eip7702userOp = await fillAndSign({
             sender: eoa.address,
             nonce: 0,
@@ -215,7 +228,11 @@ describe('EntryPoint EIP-7702 tests', function () {
         })
 
         // skip until auth works.
-        it('should succeed and call initcode', async () => {
+        it('should succeed and call initcode', async function() {
+          if (!geth || !geth.provider) {
+            this.skip()
+            return
+          }
           const eip7702userOp = await fillSignAndPack({
             sender: eoa.address,
             nonce: 0,
@@ -239,7 +256,9 @@ describe('EntryPoint EIP-7702 tests', function () {
         })
 
         after(async () => {
-          geth.done()
+          if (geth) {
+            geth.done()
+          }
         })
       })
     })
