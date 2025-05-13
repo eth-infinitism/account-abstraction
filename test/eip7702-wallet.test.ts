@@ -17,7 +17,7 @@ describe('Simple7702Account.sol', function () {
   let entryPoint: EntryPoint
 
   let eip7702delegate: Simple7702Account
-  let geth: GethExecutable
+  let geth: GethExecutable | undefined
 
   before(async function () {
     this.timeout(20000)
@@ -37,15 +37,15 @@ describe('Simple7702Account.sol', function () {
   })
 
   after(() => {
-    if (geth) {
+    if (geth !== undefined) {
       geth.done()
     }
   })
 
   describe('sanity: normal 7702 batching', () => {
     let eoa: Wallet
-    before(async function() {
-      if (!geth || !geth.provider) {
+    before(async function () {
+      if (geth === undefined || geth.provider === undefined) {
         this.skip()
         return
       }
@@ -68,8 +68,8 @@ describe('Simple7702Account.sol', function () {
       expect(await geth.provider.getCode(eoa.address)).to.equal(hexConcat(['0xef0100', eip7702delegate.address]))
     })
 
-    it('should fail call from another account', async function() {
-      if (!geth || !geth.provider) {
+    it('should fail call from another account', async function () {
+      if (geth === undefined || geth.provider === undefined) {
         this.skip()
         return
       }
@@ -77,8 +77,8 @@ describe('Simple7702Account.sol', function () {
       await expect(wallet1.executeBatch([])).to.revertedWith('not from self or EntryPoint')
     })
 
-    it('should succeed sending a batch', async function() {
-      if (!geth || !geth.provider) {
+    it('should succeed sending a batch', async function () {
+      if (geth === undefined || geth.provider === undefined) {
         this.skip()
         return
       }
@@ -99,8 +99,8 @@ describe('Simple7702Account.sol', function () {
     })
   })
 
-  it('should be able to use EntryPoint without paymaster', async function() {
-    if (!geth || !geth.provider) {
+  it('should be able to use EntryPoint without paymaster', async function () {
+    if (geth === undefined || geth.provider === undefined) {
       this.skip()
       return
     }
@@ -133,8 +133,8 @@ describe('Simple7702Account.sol', function () {
     await geth.sendTx(tx)
   })
 
-  it('should use EntryPoint with paymaster', async function() {
-    if (!geth || !geth.provider) {
+  it('should use EntryPoint with paymaster', async function () {
+    if (geth === undefined || geth.provider === undefined) {
       this.skip()
       return
     }
