@@ -15,6 +15,13 @@ import "../core/BaseAccount.sol";
  */
 contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC721Holder {
 
+    bool public paused;
+
+    function pause(bool _paused) public {
+        require(msg.sender == address(this), "Only signer");
+        paused = _paused;
+    }
+
     // address of entryPoint v0.8
     function entryPoint() public pure override returns (IEntryPoint) {
         return IEntryPoint(0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108);
@@ -43,7 +50,8 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
     function _requireForExecute() internal view virtual override {
         require(
             msg.sender == address(this) ||
-            msg.sender == address(entryPoint()),
+            msg.sender == address(entryPoint()) ||
+            !paused,
             "not from self or EntryPoint"
         );
     }
