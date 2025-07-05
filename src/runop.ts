@@ -99,9 +99,8 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider/src.ts/inde
   console.log('2nd run:', await evInfo(rcpt2))
 
   async function evInfo (rcpt: TransactionReceipt): Promise<any> {
-    // TODO: checking only latest block...
     const block = rcpt.blockNumber
-    const ev = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), block)
+    const ev = await entryPoint.queryFilter(entryPoint.filters.UserOperationEvent(), block, block)
     // if (ev.length === 0) return {}
     return ev.map(event => {
       const { nonce, actualGasUsed } = event.args
