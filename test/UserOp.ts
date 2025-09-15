@@ -1,11 +1,15 @@
 import {
   arrayify,
-  defaultAbiCoder, hexConcat, hexDataLength,
-  hexDataSlice, hexlify,
+  defaultAbiCoder,
+  hexConcat,
+  hexDataLength,
+  hexDataSlice,
+  hexlify,
+  hexZeroPad,
   keccak256
 } from 'ethers/lib/utils'
 import { BigNumber, Contract, Signer, Wallet } from 'ethers'
-import { TypedDataSigner, TypedDataDomain, TypedDataField } from '@ethersproject/abstract-signer'
+import { TypedDataDomain, TypedDataField, TypedDataSigner } from '@ethersproject/abstract-signer'
 import {
   AddressZero,
   callDataCost,
@@ -15,9 +19,7 @@ import {
   rethrow
 } from './testutils'
 import { ecsign, toRpcSig } from 'ethereumjs-util'
-import {
-  EntryPoint, EntryPointSimulations__factory
-} from '../typechain'
+import { EntryPoint, EntryPointSimulations__factory } from '../typechain'
 import { PackedUserOperation, UserOperation } from './UserOperation'
 import { Create2Factory } from '../src/Create2Factory'
 import { TransactionRequest } from '@ethersproject/abstract-provider'
@@ -25,6 +27,7 @@ import { TransactionRequest } from '@ethersproject/abstract-provider'
 import EntryPointSimulationsJson from '../artifacts/contracts/core/EntryPointSimulations.sol/EntryPointSimulations.json'
 import { ethers } from 'hardhat'
 import { IEntryPointSimulations } from '../typechain/contracts/core/EntryPointSimulations'
+import { BytesLike } from '@ethersproject/bytes'
 
 // Matched to domain name, version from EntryPoint.sol:
 const DOMAIN_NAME = 'ERC4337'
@@ -35,25 +38,81 @@ const PACKED_USEROP_TYPEHASH = keccak256(Buffer.from('PackedUserOperation(addres
 
 export const INITCODE_EIP7702_MARKER = '0x7702'
 
-export function packUserOp (userOp: UserOperation): PackedUserOperation {
+export const PAYMASTER_SIG_MAGIC = '0x22e325a297439656' // keccak("PaymasterSignature")[:8]
+
+export function packUserOp (userOp: UserOperation, forSigning: boolean = false): PackedUserOperation {
   const accountGasLimits = packAccountGasLimits(userOp.verificationGasLimit, userOp.callGasLimit)
   const gasFees = packAccountGasLimits(userOp.maxPriorityFeePerGas, userOp.maxFeePerGas)
   let paymasterAndData = '0x'
-  if (userOp.paymaster?.length >= 20 && userOp.paymaster !== AddressZero) {
-    paymasterAndData = packPaymasterData(userOp.paymaster as string, userOp.paymasterVerificationGasLimit, userOp.paymasterPostOpGasLimit, userOp.paymasterData as string)
+  if (userOp.paymaster != null && userOp.paymaster?.length >= 20 && userOp.paymaster !== AddressZero) {
+    paymasterAndData = packPaymasterData(
+      userOp.paymaster,
+      userOp.paymasterVerificationGasLimit!,
+      userOp.paymasterPostOpGasLimit!,
+      userOp.paymasterData,
+      userOp.paymasterSignature,
+      forSigning
+    )
+  }
+  let initCode = '0x'
+  if (userOp.factory != null) {
+    initCode = hexConcat([userOp.factory, userOp.factoryData ?? '0x'])
+  } else if (userOp.isEip7702 ?? false) {
+    initCode = INITCODE_EIP7702_MARKER
+    if (userOp.factoryData != null && userOp.factoryData !== '0x') {
+      const initCodeMarker = INITCODE_EIP7702_MARKER + '0'.repeat(42 - INITCODE_EIP7702_MARKER.length)
+      initCode = hexConcat([initCodeMarker, userOp.factoryData ?? '0x'])
+    }
   }
   return {
     sender: userOp.sender,
     nonce: userOp.nonce,
     callData: userOp.callData,
     accountGasLimits,
-    initCode: userOp.initCode,
+    initCode,
     preVerificationGas: userOp.preVerificationGas,
     gasFees,
     paymasterAndData,
     signature: userOp.signature
   }
 }
+
+// encode a paymaster signature, to append to the paymasterData field.
+export function encodePaymasterSignature (pmSig: BytesLike | undefined, forSigning: boolean = false): string {
+  if (pmSig == null) {
+    return '0x'
+  }
+  if (forSigning) {
+    return PAYMASTER_SIG_MAGIC
+  }
+  return hexConcat([pmSig, hexZeroPad('0x' + hexDataLength(pmSig).toString(16), 2), PAYMASTER_SIG_MAGIC])
+}
+
+// decode paymaster signature length from paymasterData
+// return nonzero if there is a paymaster signature
+function getPaymasterSignatureLength (paymasterAndData: BytesLike): number {
+  const paymasterDataLength = hexDataLength(paymasterAndData)
+  const suffixLength = hexDataLength(PAYMASTER_SIG_MAGIC)
+  if (paymasterDataLength > suffixLength &&
+    hexDataSlice(paymasterAndData, paymasterDataLength - suffixLength).toLowerCase() === PAYMASTER_SIG_MAGIC) {
+    return BigNumber.from(hexDataSlice(paymasterAndData, paymasterDataLength - 10, paymasterDataLength - 8)).toNumber()
+  } else {
+    return 0
+  }
+}
+
+function keccakPaymasterAndData (paymasterAndData: string): string {
+  const pmdLen = hexDataLength(paymasterAndData)
+  const pmSigLength = getPaymasterSignatureLength(paymasterAndData)
+  if (pmSigLength !== 0) {
+    const dataToHash = hexDataSlice(paymasterAndData, 0, pmdLen - pmSigLength - 10)
+    // if there is a paymasterSignature, remove it before hashing, but still append the SIGNATURE_SUFFIX
+    return keccak256(hexConcat([dataToHash, PAYMASTER_SIG_MAGIC]))
+  } else {
+    return keccak256(paymasterAndData)
+  }
+}
+
 export function encodeUserOp (userOp: UserOperation, forSignature = true): string {
   const packedUserOp = packUserOp(userOp)
   if (forSignature) {
@@ -65,7 +124,7 @@ export function encodeUserOp (userOp: UserOperation, forSignature = true): strin
       [PACKED_USEROP_TYPEHASH,
         packedUserOp.sender, packedUserOp.nonce, keccak256(packedUserOp.initCode), keccak256(packedUserOp.callData),
         packedUserOp.accountGasLimits, packedUserOp.preVerificationGas, packedUserOp.gasFees,
-        keccak256(packedUserOp.paymasterAndData)])
+        keccakPaymasterAndData(hexlify(packedUserOp.paymasterAndData))])
   } else {
     // for the purpose of calculating gas cost encode also signature (and no keccak of bytes)
     return defaultAbiCoder.encode(
@@ -89,23 +148,12 @@ export function getUserOpHash (op: UserOperation, entryPoint: string, chainId: n
   ]))
 }
 
-export function isEip7702UserOp (op: UserOperation): boolean {
-  return op.initCode != null && hexlify(op.initCode).startsWith(INITCODE_EIP7702_MARKER)
-}
-
 export function updateUserOpForEip7702Hash (op: UserOperation, delegate: string): UserOperation {
-  if (!isEip7702UserOp(op)) {
+  if (!(op.isEip7702 ?? false)) {
     throw new Error('initCode should start with INITCODE_EIP7702_MARKER')
   }
-  let initCode = hexlify(op.initCode)
-  if (hexDataLength(initCode) < 20) {
-    initCode = delegate
-  } else {
-    // replace address in initCode with delegate
-    initCode = hexConcat([delegate, hexDataSlice(initCode, 20)])
-  }
   return {
-    ...op, initCode
+    ...op, factory: delegate
   }
 }
 
@@ -119,7 +167,6 @@ export function getUserOpHashWithEip7702 (op: UserOperation, entryPoint: string,
 export const DefaultsForUserOp: UserOperation = {
   sender: AddressZero,
   nonce: 0,
-  initCode: '0x',
   callData: '0x',
   callGasLimit: 0,
   verificationGasLimit: 150000, // default verification gas. will add create2 cost (3200+200*length) if initCode exists
@@ -135,7 +182,7 @@ export const DefaultsForUserOp: UserOperation = {
 
 export function signUserOp (op: UserOperation, signer: Wallet, entryPoint: string, chainId: number, eip7702delegate?: string): UserOperation {
   let message
-  if (isEip7702UserOp(op)) {
+  if (op.isEip7702 ?? false) {
     if (eip7702delegate == null) {
       throw new Error('Must have eip7702delegate to sign')
     }
@@ -189,59 +236,68 @@ export interface FillUserOpOptions {
 // sender - only in case of construction: fill sender from initCode.
 // callGasLimit: VERY crude estimation (by estimating call to account, and add rough entryPoint overhead
 // verificationGasLimit: hard-code default at 100k. should add "create2" cost
-export async function fillUserOp (op: Partial<UserOperation>, entryPoint?: EntryPoint, options?: FillUserOpOptions): Promise<UserOperation> {
+export async function fillUserOp (
+  op: Partial<UserOperation>,
+  entryPoint?: EntryPoint, options?: FillUserOpOptions): Promise<UserOperation> {
   const getNonceFunction = options?.getNonceFunction ?? 'getNonce'
-  const op1 = { ...op }
+  const op1: Partial<UserOperation> = { ...op }
   const provider = entryPoint?.provider
-  if (op1.initCode != null) {
-    if (isEip7702UserOp(op1 as UserOperation)) {
-      if (provider == null) {
-        throw new Error('must have provider to check eip7702 delegate')
+  if (provider == null) {
+    throw new Error('no entrypoint or provider not set - unable to fillUserOp')
+  }
+  let hasDeployedCode = false
+  if (op1.isEip7702 ?? false) {
+    const code = await provider.getCode(op1.sender!)
+    if (code.length === 2) {
+      if (options?.eip7702delegate == null) {
+        throw new Error('must have eip7702delegate')
       }
-      const code = await provider.getCode(op1.sender!)
-      if (code.length === 2) {
-        if (options?.eip7702delegate == null) {
-          throw new Error('must have eip7702delegate')
-        }
-      } else if (code.length !== 23 * 2 + 2) {
-        throw new Error('sender is not an eip7702 delegate')
-      }
-      if (op1.nonce == null) {
-        op1.nonce = await provider.getTransactionCount(op1.sender!)
-      }
-    } else {
-      const initAddr = hexDataSlice(op1.initCode!, 0, 20)
-      const initCallData = hexDataSlice(op1.initCode!, 20)
-      if (op1.nonce == null) op1.nonce = 0
-      if (op1.sender == null) {
-        // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
-        if (initAddr.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
-          const ctr = hexDataSlice(initCallData, 32)
-          const salt = hexDataSlice(initCallData, 0, 32)
-          op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
-        } else {
-          // console.log('\t== not our deployer. our=', Create2Factory.contractAddress, 'got', initAddr)
-          if (provider == null) throw new Error('no entrypoint/provider')
-          op1.sender = await entryPoint!.callStatic.getSenderAddress(op1.initCode!).catch(e => e.errorArgs.sender)
-        }
-      }
-      if (op1.verificationGasLimit == null) {
-        if (provider == null) throw new Error('no entrypoint/provider')
-        const senderCreator = await entryPoint?.senderCreator()
-        const initEstimate = await provider.estimateGas({
-          from: senderCreator,
-          to: initAddr,
-          data: initCallData,
-          gasLimit: 10e6
-        })
-        op1.verificationGasLimit = BigNumber.from(DefaultsForUserOp.verificationGasLimit).add(initEstimate)
+    } else if (code.length !== 23 * 2 + 2) {
+      throw new Error('sender is not an eip7702 delegate')
+    }
+    hasDeployedCode = true
+    op1.factoryData = op1.factoryData ?? '0x'
+    op1.factory = INITCODE_EIP7702_MARKER
+    if (op1.factoryData != null && op1.factoryData !== '0x') {
+      op1.factory = INITCODE_EIP7702_MARKER + '0'.repeat(42 - INITCODE_EIP7702_MARKER.length)
+    }
+  } else if (op1.factory != null) {
+    if (op1.sender == null) {
+      // hack: if the init contract is our known deployer, then we know what the address would be, without a view call
+      if (op1.factory.toLowerCase() === Create2Factory.contractAddress.toLowerCase()) {
+        const ctr = hexDataSlice(op1.factoryData!, 32)
+        const salt = hexDataSlice(op1.factoryData!, 0, 32)
+        op1.sender = Create2Factory.getDeployedAddress(ctr, salt)
+      } else {
+        op1.sender = await entryPoint!.callStatic.getSenderAddress(hexConcat([op1.factory, op1.factoryData!])).catch(e => e.errorArgs.sender)
       }
     }
+    const code = await provider.getCode(op1.sender!)
+    if (code.length !== 2) {
+      hasDeployedCode = true
+    }
+    if (op1.verificationGasLimit == null) {
+      const senderCreator = await entryPoint?.senderCreator()
+      const initEstimate = await provider.estimateGas({
+        from: senderCreator,
+        to: op1.factory,
+        data: op1.factoryData,
+        gasLimit: 10e6
+      })
+      op1.verificationGasLimit = BigNumber.from(DefaultsForUserOp.verificationGasLimit).add(initEstimate)
+    }
+  } else {
+    hasDeployedCode = true
   }
   if (op1.nonce == null) {
-    if (provider == null) throw new Error('must have entryPoint to autofill nonce')
-    const c = new Contract(op.sender!, [`function ${getNonceFunction}() view returns(uint256)`], provider)
-    op1.nonce = await c[getNonceFunction]().catch(rethrow())
+    if (hasDeployedCode) {
+      if (provider == null) throw new Error('must have entryPoint to autofill nonce')
+      if (op.sender == null) throw new Error('must have sender to autofill nonce')
+      const c = new Contract(op.sender!, [`function ${getNonceFunction}() view returns(uint256)`], provider)
+      op1.nonce = await c[getNonceFunction]().catch(rethrow())
+    } else {
+      op1.nonce = 0
+    }
   }
   if (op1.callGasLimit == null && op.callData != null) {
     if (provider == null) throw new Error('must have entryPoint for callGasLimit estimate')
@@ -323,6 +379,24 @@ export function getErc4337TypedDataTypes (): { [type: string]: TypedDataField[] 
   }
 }
 
+export function updatePaymasterDataForSigning (paymasterData: BytesLike | undefined): string {
+  if (paymasterData == null) {
+    return '0x'
+  }
+  const pmSigLen = getPaymasterSignatureLength(paymasterData)
+  if (pmSigLen === 0) {
+    return hexlify(paymasterData)
+  }
+
+  // remove signature and length from paymasterData
+  const paymasterDataLength = hexDataLength(paymasterData)
+
+  return hexConcat([
+    hexDataSlice(paymasterData, 0, paymasterDataLength - pmSigLen - 10),
+    PAYMASTER_SIG_MAGIC
+  ])
+}
+
 /**
  * call eth_signTypedData_v4 to sign the UserOp
  * @param op
@@ -339,7 +413,7 @@ export async function asyncSignUserOp (op: UserOperation, signer: Wallet | Signe
   const typedSigner: TypedDataSigner = signer as any
 
   let userOpToSign = op
-  if (isEip7702UserOp(userOpToSign)) {
+  if (userOpToSign.isEip7702 ?? false) {
     if (eip7702delegate == null) {
       const senderCode = await provider!.getCode(userOpToSign.sender)
       if (!senderCode.startsWith('0xef0100')) {
@@ -353,7 +427,12 @@ export async function asyncSignUserOp (op: UserOperation, signer: Wallet | Signe
     userOpToSign = updateUserOpForEip7702Hash(userOpToSign, eip7702delegate)
   }
 
-  const packedUserOp = packUserOp(userOpToSign)
+  userOpToSign = {
+    ...userOpToSign,
+    paymasterData: updatePaymasterDataForSigning(userOpToSign.paymasterData)
+  }
+
+  const packedUserOp = packUserOp(userOpToSign, true)
 
   return await typedSigner._signTypedData(getErc4337TypedDataDomain(entryPoint!.address, chainId), getErc4337TypedDataTypes(), packedUserOp) // .catch(e => e.toString())
 }

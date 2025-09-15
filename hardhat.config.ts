@@ -3,11 +3,9 @@ import '@typechain/hardhat'
 import { HardhatUserConfig, task } from 'hardhat/config'
 import 'hardhat-deploy'
 
-import 'solidity-coverage'
-
 import * as fs from 'fs'
 
-const SALT = '0x0a59dbff790c23c976a548690c27297883cc66b4c67024f9117b0238995e35e9'
+const SALT = '0xf62e359b3876ea3aed0db458ca0d376745a17f194044ffb6da0fd0d9ffe0dc58'
 process.env.SALT = process.env.SALT ?? SALT
 
 task('deploy', 'Deploy contracts')
@@ -67,12 +65,6 @@ const config: HardhatUserConfig = {
   mocha: {
     timeout: 10000
   }
-}
-
-// coverage chokes on the "compilers" settings
-if (process.env.COVERAGE != null) {
-  // @ts-ignore
-  config.solidity = config.solidity.compilers[0]
 }
 
 export default config

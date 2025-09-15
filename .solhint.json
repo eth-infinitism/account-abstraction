@@ -1,12 +1,19 @@
 {
   "extends": "solhint:recommended",
   "rules": {
-  "compiler-version": ["error",">=0.7.5"],
-    "func-visibility": ["off",{"ignoreConstructors":true}],
-    "custom-errors": ["off"],
+    "compiler-version": ["error", ">=0.8.28"],
     "explicit-types": ["warn", "explicit"],
-    "no-global-import": ["off"],
+    "function-max-lines": "off",
+    "gas-increment-by-one": "off",
+    "gas-indexed-events": "off",
+    "gas-strict-inequalities": "off",
     "immutable-vars-naming": ["off"],
-    "mark-callable-contracts": ["off"]
+    "no-global-import": "off",
+    "use-natspec": "off",
+    "func-visibility": [
+      "off", {
+        "ignoreConstructors": true
+      }
+    ]
   }
 }

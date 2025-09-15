@@ -1,25 +1,27 @@
+import { BigNumberish, BytesLike } from 'ethers'
 import * as typ from './solidityTypes'
 
 export interface UserOperation {
-
-  sender: typ.address
-  nonce: typ.uint256
-  initCode: typ.bytes
-  callData: typ.bytes
-  callGasLimit: typ.uint128
-  verificationGasLimit: typ.uint128
-  preVerificationGas: typ.uint256
-  maxFeePerGas: typ.uint256
-  maxPriorityFeePerGas: typ.uint256
-  paymaster: typ.address
-  paymasterVerificationGasLimit: typ.uint128
-  paymasterPostOpGasLimit: typ.uint128
-  paymasterData: typ.bytes
-  signature: typ.bytes
+  isEip7702?: boolean
+  sender: string
+  nonce: BigNumberish
+  factory?: string
+  factoryData?: BytesLike
+  callData: BytesLike
+  callGasLimit: BigNumberish
+  verificationGasLimit: BigNumberish
+  preVerificationGas: BigNumberish
+  maxFeePerGas: BigNumberish
+  maxPriorityFeePerGas: BigNumberish
+  paymaster?: string
+  paymasterVerificationGasLimit?: BigNumberish
+  paymasterPostOpGasLimit?: BigNumberish
+  paymasterData?: BytesLike
+  paymasterSignature?: BytesLike
+  signature: BytesLike
 }
 
 export interface PackedUserOperation {
-
   sender: typ.address
   nonce: typ.uint256
   initCode: typ.bytes

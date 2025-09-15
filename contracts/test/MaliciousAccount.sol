@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
 
+/* solhint-disable gas-custom-errors */
+
 import "../interfaces/IAccount.sol";
 import "../interfaces/IEntryPoint.sol";
 import "../core/UserOperationLib.sol";

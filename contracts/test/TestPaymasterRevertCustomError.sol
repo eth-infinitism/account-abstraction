@@ -19,7 +19,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
     RevertType private revertType;
 
     // solhint-disable no-empty-blocks
-    constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint)
+    constructor(IEntryPoint _entryPoint) BasePaymaster(_entryPoint, msg.sender)
     {}
 
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256)
@@ -35,6 +35,7 @@ contract TestPaymasterRevertCustomError is BasePaymaster {
 
     function _postOp(PostOpMode, bytes calldata, uint256, uint256) internal view override {
         if (revertType == RevertType.customError){
+            // solhint-disable-next-line gas-small-strings
             revert CustomError("this is a long revert reason string we are looking for");
         }
         else if (revertType == RevertType.entryPointError){

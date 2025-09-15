@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
+import "./UserOperationLib.sol";
 
 /* solhint-disable no-inline-assembly */
 
+using UserOperationLib for bytes;
 
  /*
   * For simulation purposes, validateUserOp (and validatePaymasterUserOp)
@@ -92,14 +94,59 @@ function _packValidationData(
  * @param data - the calldata bytes array to perform keccak on.
  * @return ret - the keccak hash of the 'data' array.
  */
-    function calldataKeccak(bytes calldata data) pure returns (bytes32 ret) {
-        assembly ("memory-safe") {
-            let mem := mload(0x40)
-            let len := data.length
-            calldatacopy(mem, data.offset, len)
-            ret := keccak256(mem, len)
+function calldataKeccak(bytes calldata data) pure returns (bytes32 ret) {
+    assembly ("memory-safe") {
+        let mem := mload(0x40)
+        let len := data.length
+        calldatacopy(mem, data.offset, len)
+        ret := keccak256(mem, len)
+    }
+}
+
+/**
+ * @notice Computes the Keccak-256 hash of a slice of calldata, followed by an 8-byte suffix.
+ * This function copies the first `len` bytes from the given calldata array `data` into memory.
+ * The assembly code is equivalent to:
+ *      keccak256(abi.encodePacked(data[0:len], suffix))
+ * But more efficient, and doesn't leave the copied data in memory.
+ *
+ * @param data   Calldata byte array to read from.
+ * @param len    Number of bytes to copy from `data` starting at its offset.
+ * @param suffix 8-byte value appended to the data bytes before hashing.
+ *
+ * @return ret The hash of (data[0:len] || suffix).
+ */
+function calldataKeccakWithSuffix(bytes calldata data, uint256 len, bytes8 suffix) pure returns (bytes32 ret) {
+    assembly ("memory-safe") {
+        let mem := mload(0x40)
+        calldatacopy(mem, data.offset, len)
+        mstore(add(mem, len), suffix)
+        len := add(len, 8)
+        ret := keccak256(mem, len)
+    }
+}
+
+/**
+ * Keccak function over paymaster data.
+ * If data ends with `PAYMASTER_SIG_MAGIC`, then
+ * read the previous 2 bytes as pmSignatureLength,
+ * and ignore this suffix from the hash.
+ * This means that the trailing pmSignatureLength+10 bytes are not covered by the UserOpHash, and thus are not signed.
+ * @dev copy calldata into memory, do keccak and drop allocated memory. Strangely, this is more efficient than letting solidity do it.
+ *
+ * @param data - the calldata bytes array to perform keccak on.
+ * @return ret - the keccak hash of the 'data' array.
+ */
+function paymasterDataKeccak(bytes calldata data) pure returns (bytes32 ret) {
+    uint256 pmSignatureLength = data.getPaymasterSignatureLength();
+    if (pmSignatureLength > 0) {
+        unchecked {
+            //keccak everything up to the paymasterSignature, but still append the sig magic.
+            return calldataKeccakWithSuffix(data, data.length - (pmSignatureLength + UserOperationLib.PAYMASTER_SUFFIX_LEN), UserOperationLib.PAYMASTER_SIG_MAGIC);
         }
     }
+    return calldataKeccak(data);
+}
 
 
 /**

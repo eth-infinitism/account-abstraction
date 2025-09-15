@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
+
 /* solhint-disable avoid-low-level-calls */
+/* solhint-disable gas-calldata-parameters */
 /* solhint-disable no-inline-assembly */
 
 import "../interfaces/ISenderCreator.sol";
@@ -12,6 +14,8 @@ import "../utils/Exec.sol";
  * which is explicitly not the entryPoint itself.
  */
 contract SenderCreator is ISenderCreator {
+    error NotFromEntryPoint(address msgSender, address entity, address entryPoint);
+
     address public immutable entryPoint;
 
     constructor(){
@@ -29,7 +33,7 @@ contract SenderCreator is ISenderCreator {
     function createSender(
         bytes calldata initCode
     ) external returns (address sender) {
-        require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
+        require(msg.sender == entryPoint, NotFromEntryPoint(msg.sender, address(this), entryPoint));
         address factory = address(bytes20(initCode[0 : 20]));
 
         bytes memory initCallData = initCode[20 :];
@@ -55,7 +59,7 @@ contract SenderCreator is ISenderCreator {
         address sender,
         bytes memory initCallData
     ) external {
-        require(msg.sender == entryPoint, "AA97 should call from EntryPoint");
+        require(msg.sender == entryPoint, NotFromEntryPoint(msg.sender, address(this), entryPoint));
         bool success;
         assembly ("memory-safe") {
             success := call(

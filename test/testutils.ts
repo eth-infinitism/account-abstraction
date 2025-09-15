@@ -2,7 +2,6 @@ import { ethers } from 'hardhat'
 import { toHex } from 'hardhat/internal/util/bigint'
 import {
   arrayify,
-  hexConcat,
   hexDataSlice,
   hexlify,
   hexZeroPad,
@@ -15,19 +14,22 @@ import {
   EntryPoint,
   EntryPoint__factory,
   IERC20,
+  Simple7702Account__factory,
   SimpleAccount,
+  SimpleAccountFactory,
   SimpleAccountFactory__factory,
   SimpleAccount__factory,
-  SimpleAccountFactory,
-  TestAggregatedAccountFactory, TestPaymasterRevertCustomError__factory, TestERC20__factory
+  TestAggregatedAccountFactory,
+  TestERC20__factory,
+  TestPaymasterRevertCustomError__factory
 } from '../typechain'
-import { BytesLike, Hexable } from '@ethersproject/bytes'
+import { BytesLike } from '@ethersproject/bytes'
 import { JsonRpcProvider, Provider } from '@ethersproject/providers'
 import { expect } from 'chai'
 import { Create2Factory } from '../src/Create2Factory'
 import { debugTransaction } from './debugTx'
 import { UserOperation } from './UserOperation'
-import { packUserOp, simulateValidation } from './UserOp'
+import { encodePaymasterSignature, packUserOp, simulateValidation } from './UserOp'
 import Debug from 'debug'
 import { toChecksumAddress } from 'ethereumjs-util'
 
@@ -105,20 +107,14 @@ export async function calcGasUsage (rcpt: ContractReceipt, entryPoint: EntryPoin
 }
 
 // helper function to create the initCode to deploy the account, using our account factory.
-export function getAccountInitCode (owner: string, factory: SimpleAccountFactory, salt = 0): BytesLike {
-  return hexConcat([
-    factory.address,
-    factory.interface.encodeFunctionData('createAccount', [owner, salt])
-  ])
+export function getAccountFactoryData (owner: string, factory: SimpleAccountFactory, salt = 0): BytesLike {
+  return factory.interface.encodeFunctionData('createAccount', [owner, salt])
 }
 
-export async function getAggregatedAccountInitCode (entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
+export async function getAggregatedAccountFactoryData (entryPoint: string, factory: TestAggregatedAccountFactory, salt = 0): Promise<BytesLike> {
   // the test aggregated account doesn't check the owner...
   const owner = AddressZero
-  return hexConcat([
-    factory.address,
-    factory.interface.encodeFunctionData('createAccount', [owner, salt])
-  ])
+  return factory.interface.encodeFunctionData('createAccount', [owner, salt])
 }
 
 // given the parameters as AccountDeployer, return the resulting "counterfactual address" that it would create.
@@ -171,6 +167,7 @@ const decodeRevertReasonContracts = new Interface([
   ...EntryPoint__factory.createInterface().fragments,
   ...TestPaymasterRevertCustomError__factory.createInterface().fragments,
   ...TestERC20__factory.createInterface().fragments, // for OZ errors,
+  ...Simple7702Account__factory.createInterface().fragments,
   'error ECDSAInvalidSignature()'
 ]) // .filter(f => f.type === 'error'))
 
@@ -199,7 +196,7 @@ export function decodeRevertReason (data: string | Error, nullIfNoMatch = true):
     // treat any error "bytes" argument as possible error to decode (e.g. FailedOpWithRevert, PostOpReverted)
     const args = err.args.map((arg: any, index) => {
       switch (err.errorFragment.inputs[index].type) {
-        case 'bytes' : return decodeRevertReason(arg)
+        case 'bytes' : return decodeRevertReason(arg, false)
         case 'string': return `"${(arg as string)}"`
         default: return arg
       }
@@ -325,10 +322,20 @@ export function packAccountGasLimits (verificationGasLimit: BigNumberish, callGa
   ])
 }
 
-export function packPaymasterData (paymaster: string, paymasterVerificationGasLimit: BytesLike | Hexable | number | bigint, postOpGasLimit: BytesLike | Hexable | number | bigint, paymasterData: string): string {
+export function packPaymasterData (
+  paymaster: string,
+  paymasterVerificationGasLimit: BigNumberish,
+  postOpGasLimit: BigNumberish,
+  paymasterData: BytesLike | undefined,
+  paymasterSignature: BytesLike | undefined,
+  forSigning: boolean
+): string {
   return ethers.utils.hexConcat([
-    paymaster, hexZeroPad(hexlify(paymasterVerificationGasLimit, { hexPad: 'left' }), 16),
-    hexZeroPad(hexlify(postOpGasLimit, { hexPad: 'left' }), 16), paymasterData
+    paymaster,
+    hexZeroPad(hexlify(paymasterVerificationGasLimit, { hexPad: 'left' }), 16),
+    hexZeroPad(hexlify(postOpGasLimit, { hexPad: 'left' }), 16),
+    paymasterData ?? '0x',
+    encodePaymasterSignature(paymasterSignature, forSigning)
   ])
 }
 

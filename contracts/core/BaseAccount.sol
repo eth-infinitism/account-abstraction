@@ -25,6 +25,7 @@ abstract contract BaseAccount is IAccount {
     }
 
     error ExecuteError(uint256 index, bytes error);
+    error NotFromEntryPoint(address msgSender, address entity, address entryPoint);
 
     /**
      * Return the account nonce.
@@ -94,7 +95,11 @@ abstract contract BaseAccount is IAccount {
     function _requireFromEntryPoint() internal view virtual {
         require(
             msg.sender == address(entryPoint()),
-            "account: not from EntryPoint"
+            NotFromEntryPoint(
+                msg.sender,
+                address(this),
+                address(entryPoint())
+            )
         );
     }
 

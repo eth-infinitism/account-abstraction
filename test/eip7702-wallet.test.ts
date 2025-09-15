@@ -1,12 +1,13 @@
 import { expect } from 'chai'
 
 import { Simple7702Account, Simple7702Account__factory, EntryPoint, TestPaymasterAcceptAll__factory } from '../typechain'
-import { createAccountOwner, createAddress, deployEntryPoint } from './testutils'
-import { fillAndSign, INITCODE_EIP7702_MARKER, packUserOp } from './UserOp'
+import { createAccountOwner, createAddress, decodeRevertReason, deployEntryPoint } from './testutils'
+import { fillAndSign, packUserOp } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { signEip7702Authorization } from './eip7702helpers'
 import { GethExecutable } from './GethExecutable'
 import { Wallet } from 'ethers'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 describe('Simple7702Account.sol', function () {
   // can't deploy coverage "entrypoint" on geth (contract too large)
@@ -25,7 +26,7 @@ describe('Simple7702Account.sol', function () {
 
     entryPoint = await deployEntryPoint(geth.provider)
 
-    eip7702delegate = await new Simple7702Account__factory(geth.provider.getSigner()).deploy()
+    eip7702delegate = await new Simple7702Account__factory(geth.provider.getSigner()).deploy(entryPoint.address)
     expect(await eip7702delegate.entryPoint()).to.equal(entryPoint.address, 'fix entryPoint in Simple7702Account.sol')
     console.log('set eip7702delegate=', eip7702delegate.address)
   })
@@ -58,7 +59,16 @@ describe('Simple7702Account.sol', function () {
 
     it('should fail call from another account', async () => {
       const wallet1 = Simple7702Account__factory.connect(eoa.address, geth.provider.getSigner())
-      await expect(wallet1.executeBatch([])).to.revertedWith('not from self or EntryPoint')
+      try {
+        await wallet1.executeBatch([])
+        expect.fail('Expected transaction to revert')
+      } catch (error: any) {
+        const errorData = error?.error?.error?.data
+        expect(errorData).to.not.be.undefined
+        const errorDecoded = decodeRevertReason(errorData)
+        const senderAddress = await geth.provider.getSigner().getAddress()
+        expect(errorDecoded).to.equal(`NotFromEntryPoint(${toChecksumAddress(senderAddress)},${toChecksumAddress(wallet1.address)},${toChecksumAddress(entryPoint.address)})`)
+      }
     })
 
     it('should succeed sending a batch', async () => {
@@ -86,7 +96,7 @@ describe('Simple7702Account.sol', function () {
     const callData = eip7702delegate.interface.encodeFunctionData('execute', [addr1, 1, '0x'])
     const userop = await fillAndSign({
       sender: eoa.address,
-      initCode: INITCODE_EIP7702_MARKER,
+      isEip7702: true,
       nonce: 0,
       callData
     }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
@@ -118,7 +128,7 @@ describe('Simple7702Account.sol', function () {
     const userop = await fillAndSign({
       sender: eoa.address,
       paymaster: paymaster.address,
-      initCode: INITCODE_EIP7702_MARKER,
+      isEip7702: true,
       nonce: 0,
       callData
     }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })

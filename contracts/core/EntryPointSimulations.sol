@@ -14,6 +14,9 @@ import "../interfaces/IEntryPointSimulations.sol";
  */
 contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
+    error NotImplemented();
+    error PaymasterNotDeployed(address paymaster);
+
     SenderCreator private _senderCreator;
 
     bytes32 private __domainSeparatorV4;
@@ -30,14 +33,6 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
         // return the same senderCreator as real EntryPoint.
         // this call is slightly (100) more expensive than EntryPoint's access to immutable member
         return _senderCreator;
-    }
-
-    /**
-     * simulation contract should not be deployed, and specifically, accounts should not trust
-     * it as entrypoint, since the simulation functions don't check the signatures
-     */
-    constructor() {
-        require(block.number < 1000, "should not be deployed");
     }
 
     /// @inheritdoc IEntryPointSimulations
@@ -162,16 +157,17 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     ) external view {
         if (initCode.length == 0 && sender.code.length == 0) {
             // it would revert anyway. but give a meaningful message
-            revert("AA20 account not deployed");
+            revert FailedOp(0, "AA20 account not deployed");
         }
         if (paymasterAndData.length >= 20) {
             address paymaster = address(bytes20(paymasterAndData[0 : 20]));
             if (paymaster.code.length == 0) {
                 // It would revert anyway. but give a meaningful message.
-                revert("AA30 paymaster not deployed");
+                revert PaymasterNotDeployed(paymaster);
             }
         }
         // always revert
+        // solhint-disable-next-line gas-custom-errors
         revert("");
     }
 
@@ -192,6 +188,7 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
 
     // Copied from EIP712.sol
     bytes32 private constant TYPE_HASH =
+    // solhint-disable-next-line gas-small-strings
     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
     function __buildDomainSeparator() private view returns (bytes32) {
@@ -212,4 +209,12 @@ contract EntryPointSimulations is EntryPoint, IEntryPointSimulations {
     function supportsInterface(bytes4) public view virtual override returns (bool) {
         return false;
     }
+
+    function handleAggregatedOps(
+        UserOpsPerAggregator[] calldata,
+        address payable
+    ) external pure override(EntryPoint, IEntryPoint) {
+        revert NotImplemented();
+    }
+
 }

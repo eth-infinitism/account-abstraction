@@ -6,10 +6,14 @@ const deploySimple7702Account: DeployFunction = async function (hre: HardhatRunt
   const provider = ethers.provider
   const from = await provider.getSigner().getAddress()
 
+  // Get the deployed EntryPoint address
+  const entryPointDeployment = await hre.deployments.get('EntryPoint')
+  const entryPointAddress = entryPointDeployment.address
+
   await hre.deployments.deploy(
     'Simple7702Account', {
       from,
-      args: [],
+      args: [entryPointAddress],
       gasLimit: 6e6,
       deterministicDeployment: true,
       log: true

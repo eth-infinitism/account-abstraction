@@ -52,8 +52,10 @@ describe('SimpleAccount', function () {
   })
   it('other account should not be able to call transfer', async () => {
     const { proxy: account } = await createAccount(ethers.provider.getSigner(), accounts[0], entryPoint.address)
-    await expect(account.connect(ethers.provider.getSigner(1)).execute(accounts[2], ONE_ETH, '0x'))
-      .to.be.revertedWith('account: not Owner or EntryPoint')
+    const ethersSigner = ethers.provider.getSigner(1)
+    const ethersSignerAddress = await ethersSigner.getAddress()
+    await expect(account.connect(ethersSigner).execute(accounts[2], ONE_ETH, '0x'))
+      .to.be.revertedWith(`NotOwnerOrEntryPoint("${ethersSignerAddress}", "${account.address}", "${entryPoint.address}", "${accounts[0]}")`)
   })
 
   it('should pack in js the same as solidity', async () => {
@@ -145,11 +147,12 @@ describe('SimpleAccount', function () {
     it('should reject calls coming from any address that is not SenderCreator', async () => {
       const ownerAddr = createAddress()
       let deployer = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
+      const ethersSignerAddress = await ethersSigner.getAddress()
+      const senderCreator = await entryPoint.senderCreator()
       await expect(deployer.createAccount(ownerAddr, 1234))
-        .to.be.revertedWith('only callable from SenderCreator')
+        .to.be.revertedWith(`NotSenderCreator("${ethersSignerAddress}", "${deployer.address}", "${senderCreator}")`)
 
       // switch deployer contract to an impersonating signer
-      const senderCreator = await entryPoint.senderCreator()
       await (ethersSigner.provider as JsonRpcProvider).send('hardhat_setBalance', [senderCreator, toHex(100e18)])
       const senderCreatorSigner = await ethers.getImpersonatedSigner(senderCreator)
       deployer = deployer.connect(senderCreatorSigner)

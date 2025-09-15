@@ -16,10 +16,13 @@ import {
   createAccount,
   createAccountOwner,
   createAddress,
+  decodeRevertReason,
+  deployEntryPoint,
+  findSimulationUserOpWithMin,
   fund,
   getAccountAddress,
-  getAccountInitCode,
-  getBalance, deployEntryPoint, decodeRevertReason, findSimulationUserOpWithMin
+  getAccountFactoryData,
+  getBalance
 } from './testutils'
 
 import { fillAndSign, fillSignAndPack, packUserOp, simulateHandleOp, simulateValidation } from './UserOp'
@@ -68,6 +71,7 @@ describe('EntryPointSimulations', function () {
       expect(diff).to.be.within(0, max,
         `${message} cost ${simCost.toNumber()} should be (up to ${max}) above ep cost ${epCost.toNumber()}`)
     }
+
     it('deposit on simulation must be >= real entrypoint', async () => {
       costInRange(
         await epSimulation.estimateGas.depositTo(addr, { value: 1 }),
@@ -149,7 +153,10 @@ describe('EntryPointSimulations', function () {
     })
 
     it('should revert on oog if not enough verificationGas', async () => {
-      const op = await fillSignAndPack({ sender: account.address, verificationGasLimit: 1000 }, accountOwner, entryPoint)
+      const op = await fillSignAndPack({
+        sender: account.address,
+        verificationGasLimit: 1000
+      }, accountOwner, entryPoint)
       await expect(simulateValidation(op, entryPoint.address)).to
         .revertedWith('AA23 reverted')
     })
@@ -190,7 +197,8 @@ describe('EntryPointSimulations', function () {
 
     it('should fail creation for wrong sender', async () => {
       const op1 = await fillSignAndPack({
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory),
+        factory: simpleAccountFactory.address,
+        factoryData: getAccountFactoryData(accountOwner1.address, simpleAccountFactory),
         sender: '0x'.padEnd(42, '1'),
         verificationGasLimit: 30e6
       }, accountOwner1, entryPoint)
@@ -199,10 +207,11 @@ describe('EntryPointSimulations', function () {
     })
 
     it('should report failure on insufficient verificationGas (OOG) for creation', async () => {
-      const initCode = getAccountInitCode(accountOwner1.address, simpleAccountFactory)
-      const sender = await entryPoint.callStatic.getSenderAddress(initCode).catch(e => e.errorArgs.sender)
+      const initCode = getAccountFactoryData(accountOwner1.address, simpleAccountFactory)
+      const sender = await entryPoint.callStatic.getSenderAddress(hexConcat([simpleAccountFactory.address, initCode])).catch(e => e.errorArgs.sender)
       const op0 = await fillSignAndPack({
-        initCode,
+        factory: simpleAccountFactory.address,
+        factoryData: initCode,
         sender,
         verificationGasLimit: 5e5,
         maxFeePerGas: 0
@@ -211,7 +220,8 @@ describe('EntryPointSimulations', function () {
       await simulateValidation(op0, entryPoint.address, { gas: '0xF4240' })
 
       const op1 = await fillSignAndPack({
-        initCode,
+        factory: simpleAccountFactory.address,
+        factoryData: initCode,
         sender,
         verificationGasLimit: 1e5,
         maxFeePerGas: 0
@@ -224,7 +234,8 @@ describe('EntryPointSimulations', function () {
       const sender = await getAccountAddress(accountOwner1.address, simpleAccountFactory)
       const op1 = await fillSignAndPack({
         sender,
-        initCode: getAccountInitCode(accountOwner1.address, simpleAccountFactory)
+        factory: simpleAccountFactory.address,
+        factoryData: getAccountFactoryData(accountOwner1.address, simpleAccountFactory)
       }, accountOwner1, entryPoint)
       await fund(op1.sender)
 
@@ -237,10 +248,8 @@ describe('EntryPointSimulations', function () {
       const sender = createAddress()
       const op1 = await fillSignAndPack({
         verificationGasLimit: 150000, // providing default value as gas estimation will fail
-        initCode: hexConcat([
-          account.address,
-          account.interface.encodeFunctionData('execute', [sender, 0, '0x'])
-        ]),
+        factory: account.address,
+        factoryData: account.interface.encodeFunctionData('execute', [sender, 0, '0x']),
         sender
       }, accountOwner, entryPoint)
       const error = await simulateValidation(op1, entryPoint.address).catch(e => e)
@@ -311,10 +320,7 @@ describe('EntryPointSimulations', function () {
     it('should simulate creation', async () => {
       const accountOwner1 = createAccountOwner()
       const factory = await new SimpleAccountFactory__factory(ethersSigner).deploy(entryPoint.address)
-      const initCode = hexConcat([
-        factory.address,
-        factory.interface.encodeFunctionData('createAccount', [accountOwner1.address, 0])
-      ])
+      const factoryData = factory.interface.encodeFunctionData('createAccount', [accountOwner1.address, 0])
 
       const sender = await factory.getAddress(accountOwner1.address, 0)
 
@@ -328,7 +334,8 @@ describe('EntryPointSimulations', function () {
       // deliberately broken signature. simulate should work with it too.
       const userOp = await fillSignAndPack({
         sender,
-        initCode,
+        factory: factory.address,
+        factoryData,
         callData,
         callGasLimit: 1e5 // fillAndSign can't estimate calls during creation
       }, accountOwner1, entryPoint)

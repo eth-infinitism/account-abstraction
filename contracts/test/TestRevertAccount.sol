@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
+
 /* solhint-disable no-inline-assembly */
 
 import "../accounts/SimpleAccount.sol";
+
 contract TestRevertAccount is IAccount {
     IEntryPoint private ep;
     constructor(IEntryPoint _ep) payable {

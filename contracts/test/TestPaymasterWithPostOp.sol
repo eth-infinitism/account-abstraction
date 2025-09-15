@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
 
-import "./TestPaymasterAcceptAll.sol";
 /* solhint-disable no-empty-blocks */
+
+import "./TestPaymasterAcceptAll.sol";
 
 /**
  * test paymaster, that pays for everything, without any check.

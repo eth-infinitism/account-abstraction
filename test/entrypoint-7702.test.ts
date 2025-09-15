@@ -1,6 +1,9 @@
 import './aa.init'
+
+import * as chai from 'chai'
+import chaiAsPromised from 'chai-as-promised'
 import { Wallet } from 'ethers'
-import { expect } from 'chai'
+import { toChecksumAddress } from 'ethereumjs-util'
 import {
   EntryPoint,
   TestEip7702DelegateAccount,
@@ -28,7 +31,20 @@ import { ethers } from 'hardhat'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
 import { before } from 'mocha'
 import { GethExecutable } from './GethExecutable'
-import { getEip7702AuthorizationSigner, gethHex, signEip7702Authorization } from './eip7702helpers'
+import {
+  getEip7702AuthorizationSigner,
+  gethHex,
+  signEip7702Authorization,
+  signEip7702RawTransaction
+} from './eip7702helpers'
+import { UserOperation } from './UserOperation'
+
+async function sleep (number: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, number))
+}
+
+chai.use(chaiAsPromised)
+const expect = chai.expect
 
 describe('EntryPoint EIP-7702 tests', function () {
   const ethersSigner = ethers.provider.getSigner()
@@ -113,41 +129,34 @@ describe('EntryPoint EIP-7702 tests', function () {
 
     describe('#getUserOpHashWith7702', () => {
       it('#getUserOpHashWith7702 just delegate', async () => {
-        const hash = getUserOpHash({ ...userop, initCode: mockDelegate }, entryPoint.address, chainId)
+        const hash = getUserOpHash({ ...userop, factory: mockDelegate }, entryPoint.address, chainId)
         expect(getUserOpHashWithEip7702({
           ...userop,
-          initCode: INITCODE_EIP7702_MARKER
+          isEip7702: true
         }, entryPoint.address, chainId, mockDelegate)).to.eql(hash)
       })
       it('#getUserOpHashWith7702 with initcode', async () => {
-        const hash = getUserOpHash({ ...userop, initCode: mockDelegate + 'b1ab1a' }, entryPoint.address, chainId)
+        const hash = getUserOpHash({ ...userop, factory: mockDelegate, factoryData: '0xb1ab1a' }, entryPoint.address, chainId)
         expect(getUserOpHashWithEip7702({
           ...userop,
-          initCode: INITCODE_EIP7702_MARKER.padEnd(42, '0') + 'b1ab1a'
+          isEip7702: true,
+          factoryData: '0xb1ab1a'
         }, entryPoint.address, chainId, mockDelegate)).to.eql(hash)
       })
     })
 
     describe('entryPoint getUserOpHash', () => {
       it('should return the same hash as calculated locally', async () => {
-        const op1 = { ...userop, initCode: INITCODE_EIP7702_MARKER }
+        const op1: UserOperation = { ...userop, isEip7702: true }
         expect(await callGetUserOpHashWithCode(entryPoint, op1, deployedDelegateCode)).to.eql(
           getUserOpHashWithEip7702(op1, entryPoint.address, chainId, mockDelegate))
       })
 
       it('should fail getUserOpHash marked for eip-7702, without a delegate', async () => {
-        const op1 = { ...userop, initCode: INITCODE_EIP7702_MARKER }
-        await expect(callGetUserOpHashWithCode(entryPoint, op1, '0x' + '00'.repeat(23)).catch(e => { throw e.error ?? e.message })).to.revertedWith('not an EIP-7702 delegate')
-      })
-
-      it('should allow initCode with INITCODE_EIP7702_MARKER tailed with zeros only, ', async () => {
-        const op_zero_tail = { ...userop, initCode: INITCODE_EIP7702_MARKER + '00'.repeat(10) }
-        expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
-          getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, mockDelegate))
-
-        op_zero_tail.initCode = INITCODE_EIP7702_MARKER + '00'.repeat(30)
-        expect(await callGetUserOpHashWithCode(entryPoint, op_zero_tail, deployedDelegateCode)).to.eql(
-          getUserOpHashWithEip7702(op_zero_tail, entryPoint.address, chainId, mockDelegate))
+        const op1: UserOperation = { ...userop, isEip7702: true }
+        await expect(callGetUserOpHashWithCode(entryPoint, op1, '0x' + '00'.repeat(23)).catch(e => {
+          throw new Error(decodeRevertReason(e.data)!)
+        })).to.be.rejectedWith(`Eip7702SenderNotDelegate(${toChecksumAddress(op1.sender)})`)
       })
 
       describe('test with geth', () => {
@@ -160,6 +169,7 @@ describe('EntryPoint EIP-7702 tests', function () {
         let delegate: TestEip7702DelegateAccount
         const beneficiary = createAddress()
         let eoa: Wallet
+        let bundler: Wallet
         let entryPoint: EntryPoint
 
         before(async () => {
@@ -167,17 +177,19 @@ describe('EntryPoint EIP-7702 tests', function () {
           geth = new GethExecutable()
           await geth.init()
           eoa = createAccountOwner(geth.provider)
+          bundler = createAccountOwner(geth.provider)
           entryPoint = await deployEntryPoint(geth.provider)
-          delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy()
+          delegate = await new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).deploy(entryPoint.address)
           console.log('\tdelegate addr=', delegate.address, 'len=', await geth.provider.getCode(delegate.address).then(code => code.length))
           await geth.sendTx({ to: eoa.address, value: gethHex(parseEther('1')) })
+          await geth.sendTx({ to: bundler.address, value: gethHex(parseEther('1')) })
         })
 
         it('should fail without sender delegate', async () => {
           const eip7702userOp = await fillSignAndPack({
             sender: eoa.address,
             nonce: 0,
-            initCode: INITCODE_EIP7702_MARKER // not init function, just delegate
+            isEip7702: true
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
           const handleOpCall = {
             to: entryPoint.address,
@@ -185,16 +197,16 @@ describe('EntryPoint EIP-7702 tests', function () {
             gasLimit: 1000000
             // authorizationList: [eip7702tuple]
           }
-          expect(await geth.call(handleOpCall).catch(e => {
-            return e.error
-          })).to.match(/not an EIP-7702 delegate|sender has no code/)
+          await expect(geth.call(handleOpCall).catch(e => {
+            throw new Error(decodeRevertReason(e.error.data)!)
+          })).to.rejectedWith(`Eip7702SenderWithoutCode(${toChecksumAddress(eoa.address)})`)
         })
 
         it('should succeed with authorizationList', async () => {
           const eip7702userOp = await fillAndSign({
             sender: eoa.address,
             nonce: 0,
-            initCode: INITCODE_EIP7702_MARKER // not init function, just delegate
+            isEip7702: true
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
           const eip7702tuple = await signEip7702Authorization(eoa, {
             address: delegate.address,
@@ -214,12 +226,12 @@ describe('EntryPoint EIP-7702 tests', function () {
           })
         })
 
-        // skip until auth works.
         it('should succeed and call initcode', async () => {
           const eip7702userOp = await fillSignAndPack({
             sender: eoa.address,
             nonce: 0,
-            initCode: hexConcat([INITCODE_EIP7702_MARKER + '0'.repeat(42 - INITCODE_EIP7702_MARKER.length), delegate.interface.encodeFunctionData('testInit')])
+            isEip7702: true,
+            factoryData: delegate.interface.encodeFunctionData('testInit')
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
 
           const eip7702tuple = await signEip7702Authorization(eoa, {
@@ -236,6 +248,39 @@ describe('EntryPoint EIP-7702 tests', function () {
           await geth.call(handleOpCall).catch(e => {
             throw Error(decodeRevertReason(e)!)
           })
+          // note: we are now sending the actual tx from the EOA, so the authorization nonce has to be incremented first
+          // handleOpCall.authorizationList[0] = await signEip7702Authorization(eoa, {
+          //   address: delegate.address,
+          //   nonce: await geth.provider.getTransactionCount(eoa.address) + 1,
+          //   chainId: await geth.provider.getNetwork().then(net => net.chainId)
+          // })
+          const rawTx = await signEip7702RawTransaction(bundler, handleOpCall)
+          const txHash = await geth.provider.send('eth_sendRawTransaction', [rawTx])
+          await sleep(100)
+          const receipt = await geth.provider.getTransactionReceipt(txHash)
+
+          // Check if EIP-7702 authorization was applied correctly
+          const eoaCode = await geth.provider.getCode(eoa.address)
+          const eoaAsDelegate = new TestEip7702DelegateAccount__factory(geth.provider.getSigner()).attach(eoa.address)
+          expect(eoaCode).to.equal(`0xef0100${delegate.address.toLowerCase().slice(2)}`, 'EOA code should contain the delegate address')
+          expect(receipt.status).to.equal(1, 'handleOps failed')
+          expect(await eoaAsDelegate.testInitCalled()).to.be.true
+
+          // cannot use 'expectEvent' because the transaction needs to be mined first for the receipt checks
+          const initEvent = receipt.logs
+            .map(log => {
+              try {
+                return entryPoint.interface.parseLog(log)
+              } catch {
+                return null
+              }
+            })
+            .filter(event => event !== null)
+            .find(event => event?.name === 'EIP7702AccountInitialized')
+
+          expect(initEvent).to.exist
+          expect(initEvent?.args[1]).to.equal(eoa.address)
+          expect(initEvent?.args[2]).to.equal(delegate.address)
         })
 
         after(async () => {

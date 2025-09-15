@@ -110,11 +110,8 @@ export class GasChecker {
   }
 
   // generate the account "creation code"
-  accountInitCode (factory: SimpleAccountFactory, salt: BigNumberish): string {
-    return hexConcat([
-      factory.address,
-      factory.interface.encodeFunctionData('createAccount', [this.accountOwner.address, salt])
-    ])
+  accountFactoryData (factory: SimpleAccountFactory, salt: BigNumberish): string {
+    return factory.interface.encodeFunctionData('createAccount', [this.accountOwner.address, salt])
   }
 
   createdAccounts = new Set<string>()
@@ -133,14 +130,12 @@ export class GasChecker {
         defaultAbiCoder.encode(['address'], [this.entryPoint().address])
       ]), 0, 2885201)
     debug('factaddr', factoryAddress)
-    const fact = SimpleAccountFactory__factory.connect(factoryAddress, globalSigner)
+    const factory = SimpleAccountFactory__factory.connect(factoryAddress, globalSigner)
     // create accounts
     const creationOps: PackedUserOperation[] = []
     for (const n of range(count)) {
       const salt = n
-      // const initCode = this.accountInitCode(fact, salt)
-
-      const addr = await fact.getAddress(this.accountOwner.address, salt)
+      const addr = await factory.getAddress(this.accountOwner.address, salt)
 
       if (!this.createdAccounts.has(addr)) {
         const codeSize = await provider.getCode(addr).then(code => code.length)
@@ -149,14 +144,15 @@ export class GasChecker {
           // not attempt to fill from blockchain.
           const op = signUserOp(await fillUserOp({
             sender: addr,
-            initCode: this.accountInitCode(fact, salt),
+            factory: factory.address,
+            factoryData: this.accountFactoryData(factory, salt),
             nonce: 0,
             callGasLimit: 30000,
             verificationGasLimit: 1000000,
             // paymasterAndData: paymaster,
             preVerificationGas: 1,
             maxFeePerGas: 0
-          }), this.accountOwner, this.entryPoint().address, await provider.getNetwork().then(net => net.chainId))
+          }, this.entryPoint()), this.accountOwner, this.entryPoint().address, await provider.getNetwork().then(net => net.chainId))
           creationOps.push(packUserOp(op))
         }
         this.createdAccounts.add(addr)

@@ -7,6 +7,9 @@ import "../core/UserOperationLib.sol";
 
 library Eip7702Support {
 
+    error Eip7702SenderWithoutCode(address sender);
+    error Eip7702SenderNotDelegate(address sender);
+
     // EIP-7702 code prefix before delegate address.
     bytes3 internal constant EIP7702_PREFIX = 0xef0100;
 
@@ -73,8 +76,8 @@ library Eip7702Support {
         // followed by the delegate address
         if (bytes3(senderCode) != EIP7702_PREFIX) {
             // instead of just "not an EIP-7702 delegate", if some info.
-            require(sender.code.length > 0, "sender has no code");
-            revert("not an EIP-7702 delegate");
+            require(sender.code.length > 0, Eip7702SenderWithoutCode(sender));
+            revert Eip7702SenderNotDelegate(sender);
         }
         return address(bytes20(senderCode << 24));
     }

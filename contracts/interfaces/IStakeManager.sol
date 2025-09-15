@@ -7,6 +7,15 @@ pragma solidity ^0.8.28;
  * Stake is value locked for at least "unstakeDelay" by the staked entity.
  */
 interface IStakeManager {
+    error InvalidUnstakeDelay(uint256 newUnstakeDelaySec, uint256 currentUnstakeDelaySec);
+    error InvalidStake(uint256 msgValue, uint256 currentStake);
+    error NotStaked(uint256 currentStake, uint256 unstakeDelaySec, bool staked);
+    error InsufficientDeposit(uint256 currentDeposit, uint256 withdrawAmount);
+    error StakeNotUnlocked(uint256 withdrawTime, uint256 blockTimestamp);
+    error WithdrawalNotDue(uint256 withdrawTime, uint256 blockTimestamp);
+    error StakeWithdrawalFailed(address account, address withdrawAddress, uint256 amount, bytes revertReason);
+    error DepositWithdrawalFailed(address account, address withdrawAddress, uint256 amount, bytes revertReason);
+
     event Deposited(address indexed account, uint256 totalDeposit);
 
     event Withdrawn(

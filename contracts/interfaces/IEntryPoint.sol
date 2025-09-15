@@ -52,6 +52,29 @@ interface IEntryPoint is IStakeManager, INonceManager {
     );
 
     /**
+     * Account "sender" already exists and the 'initCode' was ignored.
+     * @param userOpHash    - The current userOp. UserOperationEvent will follow.
+     * @param sender        - The account that was supposed to be deployed.
+     * @param unusedFactory - The factory contract that was not used but was specified in the 'initCode'.
+     */
+    event IgnoredInitCode(
+        bytes32 indexed userOpHash,
+        address indexed sender,
+        address unusedFactory
+    );
+
+    /**
+     * Account "sender" is an EIP-7702 account that was initialized during this UserOperation.
+     * @param userOpHash    - The current userOp. UserOperationEvent will follow.
+     * @param sender        - The account that was supposed to be deployed.
+     */
+    event EIP7702AccountInitialized(
+        bytes32 indexed userOpHash,
+        address indexed sender,
+        address indexed delegate
+    );
+
+    /**
      * An event emitted if the UserOperation "callData" reverted with non-zero length.
      * @param userOpHash   - The request unique identifier.
      * @param sender       - The sender of this request.
@@ -115,6 +138,12 @@ interface IEntryPoint is IStakeManager, INonceManager {
      */
     error FailedOp(uint256 opIndex, string reason);
 
+    error InvalidBeneficiary(address beneficiary);
+    error FailedSendToBeneficiary(address beneficiary, uint256 amount, bytes revertData);
+    error InternalFunction();
+    error InvalidPaymasterData(uint256 paymasterAndDataLength);
+    error InvalidPaymaster(address paymaster);
+
     /**
      * A custom revert error of handleOps and handleAggregatedOps, to report a revert by account or paymaster.
      * @param opIndex - Index into the array of ops to the failed one (in simulateValidation, this is always zero).
@@ -176,6 +205,12 @@ interface IEntryPoint is IStakeManager, INonceManager {
     function getUserOpHash(
         PackedUserOperation calldata userOp
     ) external view returns (bytes32);
+
+    /**
+     * Allows the AA-aware contracts to query the hash of the currently running UserOperation.
+     * @return hash - the hash of the currently running UserOperation, or 0 if none.
+     */
+    function getCurrentUserOpHash() external view returns (bytes32);
 
     /**
      * Gas and return values during simulation.

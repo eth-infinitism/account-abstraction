@@ -5,7 +5,7 @@ import { Deferrable, resolveProperties } from '@ethersproject/properties'
 import { BaseProvider, Provider, TransactionRequest } from '@ethersproject/providers'
 import { BigNumber, Bytes, ethers, Event, Signer } from 'ethers'
 import { clearInterval } from 'timers'
-import { decodeRevertReason, getAccountAddress, getAccountInitCode } from '../test/testutils'
+import { decodeRevertReason, getAccountAddress, getAccountFactoryData } from '../test/testutils'
 import { fillAndSign, getUserOpHash, packUserOp } from '../test/UserOp'
 import { PackedUserOperation, UserOperation } from '../test/UserOperation'
 import {
@@ -33,7 +33,8 @@ export function rpcUserOpSender (provider: ethers.providers.JsonRpcProvider, ent
     if (debug) {
       console.log('sending eth_sendUserOperation', {
         ...userOp,
-        initCode: (userOp.initCode ?? '').length,
+        facotry: (userOp.factory ?? '').length,
+        facotryData: (userOp.factoryData ?? '').length,
         callData: (userOp.callData ?? '').length
       }, entryPointAddress)
     }
@@ -169,7 +170,8 @@ export function localUserOpSender (entryPointAddress: string, signer: Signer, be
     if (debug) {
       console.log('sending', {
         ...userOp,
-        initCode: userOp.initCode.length <= 2 ? userOp.initCode : `<len=${userOp.initCode.length}>`
+        factory: userOp.factory,
+        factoryData: (userOp.factoryData != null && userOp.factoryData.length <= 2) ? userOp.factoryData : `<len=${userOp.factoryData?.length}>`
       })
     }
     const gasLimit = BigNumber.from(userOp.preVerificationGas).add(userOp.verificationGasLimit).add(userOp.callGasLimit)
@@ -373,9 +375,11 @@ export class AASigner extends Signer {
     const tx: TransactionRequest = await resolveProperties(transaction)
     await this.syncAccount()
 
-    let initCode: BytesLike | undefined
+    let factory: string | undefined
+    let factoryData: BytesLike | undefined
     if (this._isPhantom) {
-      initCode = getAccountInitCode(await this.signer.getAddress(), this.accountFactory)
+      factory = this.accountFactory.address
+      factoryData = getAccountFactoryData(await this.signer.getAddress(), this.accountFactory)
     }
     const execFromEntryPoint = await this._account!.populateTransaction.execute(tx.to!, tx.value ?? 0, tx.data!)
 
@@ -388,8 +392,9 @@ export class AASigner extends Signer {
     }
     const userOp = await fillAndSign({
       sender: this._account!.address,
-      initCode,
-      nonce: initCode == null ? tx.nonce : this.index,
+      factory,
+      factoryData,
+      nonce: factoryData == null ? tx.nonce : this.index,
       callData: execFromEntryPoint.data!,
       callGasLimit: tx.gasLimit,
       maxPriorityFeePerGas,

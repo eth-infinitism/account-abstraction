@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.28;
 
+/* solhint-disable gas-custom-errors */
+/* solhint-disable gas-small-strings */
 /* solhint-disable reason-string */
 
 import "../interfaces/IAggregator.sol";
