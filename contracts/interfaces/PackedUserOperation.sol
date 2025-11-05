@@ -22,7 +22,8 @@ pragma solidity ^0.8.28;
  * - nonce = uint192(key) || uint64(sequence); EntryPoint tracks sequential values of `sequence` separately for each `key` value.
  * - initCode:
  *     * non-7702: `initCode = factory(20) || factoryCalldata`; the factory must return `sender` and deploy code.
- *     * 7702: `0x7702` (magic prefix), optionally padded to 20 bytes and followed by `initizlizationCode`. This optional payload is executed on `sender` to finalise delegate setup.
+ *     * The `initCode` will be ignored if the `sender` is already deployed.
+ *     * 7702: `0x7702` (magic prefix), optionally padded to 20 bytes and followed by the actual `initializationCode` data. This optional payload is executed on `sender` to finalise delegate setup.
  * - callData: executed verbatim; if it starts with `IAccountExecute.executeUserOp.selector` (0x8dd7712f), EntryPoint wraps and forwards `(userOp, userOpHash)`.
  * - accountGasLimits =`uint128(verificationGasLimit) || uint128(callGasLimit)`
  * - gasFees = `uint128(maxPriorityFeePerGas) || uint128(maxFeePerGas)`

@@ -108,7 +108,7 @@ function calldataKeccak(bytes calldata data) pure returns (bytes32 ret) {
  * This function copies the first `len` bytes from the given calldata array `data` into memory.
  * The assembly code is equivalent to:
  *      keccak256(abi.encodePacked(data[0:len], suffix))
- * But more efficient, and doesn't leave the copied data in memory.
+ * But more efficient, and doesn't move the free memory pointer, allowing the memory to be reused later.
  *
  * @param data   Calldata byte array to read from.
  * @param len    Number of bytes to copy from `data` starting at its offset.

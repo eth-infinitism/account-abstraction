@@ -22,6 +22,8 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 /**
+ * Always verify the EntryPoint addresses across multiple trusted sources.
+ * Visit https://docs.erc4337.io/ for instructions and official documentation.
  * Account-Abstraction (EIP-4337) singleton EntryPoint v0.9 implementation.
  * Only one instance required on each chain.
  * @custom:security-contact https://bounty.ethereum.org
@@ -210,6 +212,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ERC165, EIP712 {
      */
     function _compensate(address payable beneficiary, uint256 amount) internal virtual {
         require(beneficiary != address(0), InvalidBeneficiary(beneficiary));
+        currentUserOpHash = bytes32(0);
         (bool success, bytes memory ret) = beneficiary.call{value: amount}("");
         require(success, FailedSendToBeneficiary(beneficiary, amount, ret));
     }
@@ -681,7 +684,6 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ERC165, EIP712 {
         bool success;
         uint256 contextLength;
         uint256 contextOffset;
-        uint256 maxContextLength;
         uint256 len;
         assembly ("memory-safe") {
             success := call(paymasterVerificationGasLimit, paymaster, 0, add(validatePaymasterCall, 0x20), mload(validatePaymasterCall), 0, 0)
@@ -699,14 +701,18 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ERC165, EIP712 {
             returndatacopy(freePtr, 0, len)
             validationData := mload(add(freePtr, 32))
             contextOffset := mload(freePtr)
-            maxContextLength := sub(len, 96)
             context := add(freePtr, 64)
             contextLength := mload(context)
         }
 
         unchecked {
-            if (!success || contextOffset != 64 || contextLength + 31 < maxContextLength) {
+            if (!success) {
                 revert FailedOpWithRevert(opIndex, "AA33 reverted", Exec.getReturnData(REVERT_REASON_MAX_LEN));
+            }
+            // for a given 'contextLength', calculate the only valid 'returndatasize' value
+            uint256 expectedReturnDataSize = 96 + ((contextLength + 31) / 32) * 32;
+            if (contextOffset != 64 || len != expectedReturnDataSize) {
+                revert FailedOpWithRevert(opIndex, "AA35 malformed paymaster data", Exec.getReturnData(REVERT_REASON_MAX_LEN));
             }
         }
         finalizeAllocation(freePtr, len);
@@ -769,7 +775,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ERC165, EIP712 {
         }
         ValidationData memory data = _parseValidationData(validationData);
         // using top bit of 'validAfter' and 'validUntil' to indicate block-range instead of time-range
-        if (data.validAfter > VALIDITY_BLOCK_RANGE_FLAG && data.validUntil > VALIDITY_BLOCK_RANGE_FLAG) {
+        if (data.validAfter >= VALIDITY_BLOCK_RANGE_FLAG && data.validUntil >= VALIDITY_BLOCK_RANGE_FLAG) {
             uint48 validAfterBlock = data.validAfter & VALIDITY_BLOCK_RANGE_MASK;
             uint48 validUntilBlock = data.validUntil & VALIDITY_BLOCK_RANGE_MASK;
             outOfValidityRange = block.number > validUntilBlock || block.number <= validAfterBlock;
@@ -805,7 +811,7 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ERC165, EIP712 {
         MemoryUserOp memory mUserOp = outOpInfo.mUserOp;
         _copyUserOpToMemory(userOp, mUserOp);
 
-        // getUserOpHash uses temporary allocations, no required after it returns
+        // 'getUserOpHash' uses temporary memory allocation and all data allocated inside can be reused after it returns
         uint256 freePtr = _getFreePtr();
         outOpInfo.userOpHash = getUserOpHash(userOp);
         _restoreFreePtr(freePtr);

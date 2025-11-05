@@ -1,5 +1,6 @@
-pragma solidity ^0.8.28;
 // SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
 // solhint-disable no-inline-assembly
 
 import "../interfaces/PackedUserOperation.sol";
@@ -75,7 +76,6 @@ library Eip7702Support {
         // To be a valid EIP-7702 delegate, the first 3 bytes are EIP7702_PREFIX
         // followed by the delegate address
         if (bytes3(senderCode) != EIP7702_PREFIX) {
-            // instead of just "not an EIP-7702 delegate", if some info.
             require(sender.code.length > 0, Eip7702SenderWithoutCode(sender));
             revert Eip7702SenderNotDelegate(sender);
         }

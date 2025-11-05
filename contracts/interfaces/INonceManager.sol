@@ -17,7 +17,7 @@ interface INonceManager {
 
     /**
      * Manually increment the nonce of the sender.
-     * This method is exposed just for completeness..
+     * This method is exposed just for completeness.
      * Account does NOT need to call it, neither during validation, nor elsewhere,
      * as the EntryPoint will update the nonce regardless.
      * Possible use-case is call it with various keys to "initialize" their nonces to one, so that future

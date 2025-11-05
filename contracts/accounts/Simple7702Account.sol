@@ -37,7 +37,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         return _checkSignature(userOpHash, userOp.signature) ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
     }
 
-    function isValidSignature(bytes32 hash, bytes memory signature) public view returns (bytes4 magicValue) {
+    function isValidSignature(bytes32 hash, bytes memory signature) public virtual view returns (bytes4 magicValue) {
         return _checkSignature(hash, signature) ? this.isValidSignature.selector : bytes4(0xffffffff);
     }
 
@@ -57,7 +57,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         );
     }
 
-    function supportsInterface(bytes4 id) public override(ERC1155Holder, IERC165) pure returns (bool) {
+    function supportsInterface(bytes4 id) public virtual override(ERC1155Holder, IERC165) pure returns (bool) {
         return
             id == type(IERC165).interfaceId ||
             id == type(IAccount).interfaceId ||

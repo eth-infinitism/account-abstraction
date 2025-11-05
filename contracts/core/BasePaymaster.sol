@@ -107,7 +107,7 @@ abstract contract BasePaymaster is IPaymaster, Stakeable {
      * Add a deposit for this paymaster, used for paying for transaction fees.
      */
     function deposit() public payable {
-        _entryPoint.depositTo{value: msg.value}(address(this));
+        entryPoint().depositTo{value: msg.value}(address(this));
     }
 
     /**
@@ -119,13 +119,13 @@ abstract contract BasePaymaster is IPaymaster, Stakeable {
         address payable withdrawAddress,
         uint256 amount
     ) public onlyOwner {
-        _entryPoint.withdrawTo(withdrawAddress, amount);
+        entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
     /**
      * Return current paymaster's deposit on the entryPoint.
      */
-    function getDeposit() public view returns (uint256) {
+    function getDeposit() public virtual view returns (uint256) {
         return _entryPoint.balanceOf(address(this));
     }
 
@@ -133,7 +133,7 @@ abstract contract BasePaymaster is IPaymaster, Stakeable {
      * Validate the call is made from a valid entrypoint
      */
     function _requireFromEntryPoint() internal virtual {
-        require(msg.sender == address(_entryPoint),
+        require(msg.sender == address(entryPoint()),
             NotFromEntryPoint(
                 msg.sender,
                 address(this),

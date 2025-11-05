@@ -15,7 +15,7 @@ abstract contract NonceManager is INonceManager {
 
     /// @inheritdoc INonceManager
     function getNonce(address sender, uint192 key)
-    public view override returns (uint256 nonce) {
+    public virtual view override returns (uint256 nonce) {
         return nonceSequenceNumber[sender][key] | (uint256(key) << 64);
     }
 
