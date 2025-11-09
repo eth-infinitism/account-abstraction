@@ -15,7 +15,7 @@ contract TestExecAccountFactory {
         accountImplementation = new TestExecAccount(_entryPoint);
     }
 
-    function createAccount(address owner, uint256 salt) public returns (address ret) {
+    function createAccount(address owner, uint256 salt) public virtual returns (address ret) {
         address addr = getAddress(owner, salt);
         uint256 codeSize = addr.code.length;
         if (codeSize > 0) {

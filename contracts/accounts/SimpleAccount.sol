@@ -71,7 +71,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
 
     function _initialize(address anOwner) internal virtual {
         owner = anOwner;
-        emit SimpleAccountInitialized(_entryPoint, owner);
+        emit SimpleAccountInitialized(entryPoint(), owner);
     }
 
     // Require the function call went through EntryPoint or owner
@@ -99,7 +99,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
     /**
      * check current account deposit in the entryPoint
      */
-    function getDeposit() public view returns (uint256) {
+    function getDeposit() public virtual view returns (uint256) {
         return entryPoint().balanceOf(address(this));
     }
 
@@ -115,7 +115,7 @@ contract SimpleAccount is BaseAccount, TokenCallbackHandler, UUPSUpgradeable, In
      * @param withdrawAddress target to send to
      * @param amount to withdraw
      */
-    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public onlyOwner {
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public virtual onlyOwner {
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
 
