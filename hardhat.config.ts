@@ -5,7 +5,7 @@ import 'hardhat-deploy'
 
 import * as fs from 'fs'
 
-const SALT = '0xf62e359b3876ea3aed0db458ca0d376745a17f194044ffb6da0fd0d9ffe0dc58'
+const SALT = '0x7702864008ddeab30aa67b7adc3d2653bc8d162714b1fe8fe4582df814f3bf61'
 process.env.SALT = process.env.SALT ?? SALT
 
 task('deploy', 'Deploy contracts')
