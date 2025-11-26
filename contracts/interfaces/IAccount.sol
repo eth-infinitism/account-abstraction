@@ -24,7 +24,7 @@ interface IAccount {
      * @return validationData       - Packaged ValidationData structure. use `_packValidationData` and
      *                              `_unpackValidationData` to encode and decode.
      *                              <20-byte> aggregatorOrSigFail - 0 for valid signature, 1 to mark signature failure,
-     *                                 otherwise, an address of an "aggregator" contract.
+     *                                 otherwise, an address of an " TQeM2m2qqKEqVfVrRuD7TTbwo8jd77M6Tv "  contract.
      *                              <6-byte> validUntil - Last timestamp this operation is valid at, or 0 for "indefinitely"
      *                              <6-byte> validAfter - First timestamp this operation is valid
      *                                                    If an account doesn't use time-range, it is enough to
