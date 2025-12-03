@@ -33,8 +33,8 @@ export function rpcUserOpSender (provider: ethers.providers.JsonRpcProvider, ent
     if (debug) {
       console.log('sending eth_sendUserOperation', {
         ...userOp,
-        facotry: (userOp.factory ?? '').length,
-        facotryData: (userOp.factoryData ?? '').length,
+        factory: (userOp.factory ?? '').length,
+        factoryData: (userOp.factoryData ?? '').length,
         callData: (userOp.callData ?? '').length
       }, entryPointAddress)
     }
