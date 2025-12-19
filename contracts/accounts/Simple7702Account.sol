@@ -33,7 +33,6 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
         PackedUserOperation calldata userOp,
         bytes32 userOpHash
     ) internal virtual override returns (uint256 validationData) {
-
         return _checkSignature(userOpHash, userOp.signature) ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
     }
 
@@ -42,7 +41,7 @@ contract Simple7702Account is BaseAccount, IERC165, IERC1271, ERC1155Holder, ERC
     }
 
     function _checkSignature(bytes32 hash, bytes memory signature) internal view returns (bool) {
-        return ECDSA.recover(hash, signature) == address(this);
+        return signature.length == 65 && ECDSA.recover(hash, signature) == address(this);
     }
 
     function _requireForExecute() internal view virtual override {
