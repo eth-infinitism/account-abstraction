@@ -130,6 +130,17 @@ contract MyAccount is BaseAccount {
 }
 ```
 
+# Cross-Chain Extension
+
+This repository serves as the foundation for **WeissChannels**, a protocol enabling single-signature, atomic cross-chain execution via ERC-4337. WeissChannels allows users to sign once and execute operations across multiple L2s simultaneously, secured by optimistic dispute resolution on Ethereum L1.
+
+Key capabilities:
+- Single Merkle-root signature authorizes operations on multiple chains
+- Permissionless liquidity providers front gas and assets on destination chains
+- No custodial intermediaries - users retain control throughout
+
+See the [eil-contracts repository](https://github.com/eth-infinitism/eil-contracts) for the implementation and [WeissChannels whitepaper](https://github.com/eth-infinitism/eil-contracts/tree/main/docs/whitepaper) for the full protocol specification.
+
 # Resources
 
 - [Homepage](https://www.erc4337.io/)
