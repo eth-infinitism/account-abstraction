@@ -17,6 +17,10 @@ contract TestHelpers {
         return _packValidationData(sigFailed, validUntil, validAfter);
     }
 
+    function packValidationDataBlockRange(bool sigFailed, uint48 validUntilBlock, uint48 validAfterBlock) public pure returns (uint256) {
+        return _packValidationDataBlockRange(sigFailed, validUntilBlock, validAfterBlock);
+    }
+
     function getPaymasterSignatureLength(
         bytes calldata paymasterAndData
     ) public pure returns (uint256 paymasterSignatureLength) {

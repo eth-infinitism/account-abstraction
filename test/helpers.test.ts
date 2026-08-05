@@ -47,4 +47,25 @@ describe('#ValidationData helpers', function () {
     expect(hexlify(await helpers.packValidationDataStruct({ aggregator: addr, validUntil: 234, validAfter: 567 })))
       .to.eql(hexlify(packValidationData({ aggregator: addr, validUntil: 234, validAfter: 567 })))
   })
+
+  it('#packValidationDataBlockRange', async () => {
+    const FLAG = '0x800000000000'
+    const MASK = 0x7fffffffffff
+    const extract = (packed: any, shift: number) =>
+      ethers.BigNumber.from(packed).shr(shift).and(0xffffffffffff).toHexString()
+
+    // both bounds must carry the flag, even when a bound is 0 ("no bound") —
+    // an unflagged bound silently degrades the whole range to timestamp semantics
+    const packed = await helpers.packValidationDataBlockRange(false, 1000, 0)
+    expect(extract(packed, 160)).to.eql(ethers.BigNumber.from(FLAG).or(1000).toHexString())
+    expect(extract(packed, 208)).to.eql(FLAG)
+
+    // sigFailed flag is preserved
+    const packedFailed = await helpers.packValidationDataBlockRange(true, 1000, 0)
+    expect(ethers.BigNumber.from(packedFailed).and(1)).to.eql(1)
+
+    // 0 deadline maps to an open-ended block range, mirroring the timestamp convention
+    const packedOpen = await helpers.packValidationDataBlockRange(false, 0, 5)
+    expect(extract(packedOpen, 160)).to.eql(ethers.BigNumber.from(FLAG).or(MASK).toHexString())
+  })
 })
