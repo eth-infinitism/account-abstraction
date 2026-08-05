@@ -87,6 +87,39 @@ function _packValidationData(
         (uint256(validAfter) << (160 + 48));
 }
 
+/*
+ * The top bit of validAfter/validUntil marks the range as block numbers instead of
+ * timestamps. The EntryPoint applies block-range semantics only when BOTH bounds carry
+ * the flag.
+ */
+uint48 constant VALIDITY_BLOCK_RANGE_FLAG = 0x800000000000;
+uint48 constant VALIDITY_BLOCK_RANGE_MASK = 0x7fffffffffff;
+
+/**
+ * Helper to pack the return value for validateUserOp, using a block-number validity
+ * range instead of a timestamp range.
+ * Both bounds are always flagged: packing a flagged validUntil with an unflagged
+ * validAfter (e.g. 0 for "no start bound") silently falls back to timestamp semantics,
+ * turning a block deadline into validity for millions of years.
+ * @param sigFailed  - True for signature failure, false for success.
+ * @param validUntilBlock - Last block this operation is valid at, or 0 for "indefinitely".
+ * @param validAfterBlock - First block this UserOperation is valid at, or 0 for "no bound".
+ * @return the packed validation data.
+ */
+function _packValidationDataBlockRange(
+    bool sigFailed,
+    uint48 validUntilBlock,
+    uint48 validAfterBlock
+) pure returns (uint256) {
+    if (validUntilBlock == 0) {
+        validUntilBlock = VALIDITY_BLOCK_RANGE_MASK;
+    }
+    return
+        (sigFailed ?  SIG_VALIDATION_FAILED : SIG_VALIDATION_SUCCESS) |
+        (uint256(validUntilBlock | VALIDITY_BLOCK_RANGE_FLAG) << 160) |
+        (uint256(validAfterBlock | VALIDITY_BLOCK_RANGE_FLAG) << (160 + 48));
+}
+
 /**
  * keccak function over calldata.
  * @dev copy calldata into memory, do keccak and drop allocated memory. Strangely, this is more efficient than letting solidity do it.
