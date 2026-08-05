@@ -4,7 +4,7 @@ import { Simple7702Account, Simple7702Account__factory, EntryPoint, TestPaymaste
 import { createAccountOwner, createAddress, decodeRevertReason, deployEntryPoint } from './testutils'
 import { fillAndSign, packUserOp } from './UserOp'
 import { hexConcat, parseEther } from 'ethers/lib/utils'
-import { signEip7702Authorization } from './eip7702helpers'
+import { signEip7702Authorization, signEip7702RawTransaction } from './eip7702helpers'
 import { GethExecutable } from './GethExecutable'
 import { Wallet } from 'ethers'
 import { toChecksumAddress } from 'ethereumjs-util'
@@ -117,6 +117,55 @@ describe('Simple7702Account.sol', function () {
       data: handleOps
     }
     await geth.sendTx(tx)
+  })
+
+  it('should accept handleOps from an EIP-7702-delegated bundler EOA', async () => {
+    const addr1 = createAddress()
+    const eoa = createAccountOwner(geth.provider)
+    const bundler = createAccountOwner(geth.provider)
+
+    // the bundler permanently delegates its own EOA — its code.length is now nonzero
+    const bundlerAuth = await signEip7702Authorization(bundler, {
+      chainId: 0,
+      nonce: 0,
+      address: eip7702delegate.address
+    })
+    const delegateRawTx = await signEip7702RawTransaction(bundler, {
+      to: bundler.address,
+      value: 0,
+      authorizationList: [bundlerAuth]
+    })
+    const delegateTxHash = await geth.provider.send('eth_sendRawTransaction', [delegateRawTx])
+    await geth.provider.waitForTransaction(delegateTxHash)
+    expect(await geth.provider.getCode(bundler.address)).to.equal(hexConcat(['0xef0100', eip7702delegate.address]))
+
+    const callData = eip7702delegate.interface.encodeFunctionData('execute', [addr1, 1, '0x'])
+    const userop = await fillAndSign({
+      sender: eoa.address,
+      isEip7702: true,
+      nonce: 0,
+      callData
+    }, eoa, entryPoint, { eip7702delegate: eip7702delegate.address })
+
+    await geth.sendTx({ to: eoa.address, value: parseEther('1') })
+    const senderAuth = await signEip7702Authorization(eoa, { chainId: 0, nonce: 0, address: eip7702delegate.address })
+    await geth.sendTx({
+      to: entryPoint.address,
+      data: '0x',
+      gas: 1000000,
+      authorizationList: [senderAuth]
+    })
+
+    const beneficiary = createAddress()
+    const handleOps = entryPoint.interface.encodeFunctionData('handleOps', [[packUserOp(userop)], beneficiary])
+    // a 7702-delegated bundler is tx.origin == msg.sender but has nonzero code length;
+    // before the nonReentrant fix this reverted with Reentrancy()
+    await bundler.connect(geth.provider).sendTransaction({
+      to: entryPoint.address,
+      data: handleOps,
+      gasLimit: 3000000
+    }).then(async tx => tx.wait())
+    expect(await geth.provider.getBalance(addr1)).to.equal(1)
   })
 
   it('should use EntryPoint with paymaster', async () => {

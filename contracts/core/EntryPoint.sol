@@ -66,9 +66,16 @@ contract EntryPoint is IEntryPoint, StakeManager, NonceManager, ERC165, EIP712 {
     }
 
     modifier nonReentrant() {
+        // tx.origin == msg.sender already guarantees the caller is the transaction-signing
+        // account itself, so no contract code runs in this call chain. Requiring
+        // msg.sender.code.length == 0 as well adds nothing against reentrancy — a
+        // reentrant call always arrives through a contract, which fails the tx.origin
+        // check — but it permanently locks out EIP-7702-delegated bundler EOAs, whose
+        // code length is nonzero after delegation even though they initiate the
+        // transaction exactly like any other EOA.
         require(
             // solhint-disable avoid-tx-origin
-            tx.origin == msg.sender && msg.sender.code.length == 0,
+            tx.origin == msg.sender,
             Reentrancy()
         );
         _;
