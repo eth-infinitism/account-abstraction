@@ -2,6 +2,7 @@
   "name": "accountabstraction",
   "version": "0.9.0",
   "description": "ERC-4337 Account Abstraction Implementation",
+  "packageManager": "yarn@4.18.0",
   "scripts": {
     "clean": "rm -rf cache artifacts typechain typechain-types",
     "compile": "./scripts/hh-wrapper compile",

@@ -1,5 +1,14 @@
 node_modules
 
+# Yarn Berry (nodeLinker: node-modules) local-only state
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
 #Hardhat files
 cache
 artifacts
