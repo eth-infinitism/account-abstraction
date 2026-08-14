@@ -25,6 +25,7 @@ jobs:
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: corepack enable
       - run: yarn install
       - run: yarn compile
       - run: yarn tsc
@@ -45,6 +46,7 @@ jobs:
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: corepack enable
       - run: yarn install
       - run: yarn compile
       - run: yarn ci-gas-calc
@@ -62,6 +64,7 @@ jobs:
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      - run: corepack enable
       - run: yarn install
       - run: yarn depcheck
       - run: yarn lint
