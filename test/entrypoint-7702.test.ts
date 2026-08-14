@@ -231,6 +231,7 @@ describe('EntryPoint EIP-7702 tests', function () {
             sender: eoa.address,
             nonce: 0,
             isEip7702: true,
+            verificationGasLimit: 300000,
             factoryData: delegate.interface.encodeFunctionData('testInit')
           }, eoa, entryPoint, { eip7702delegate: delegate.address })
 
